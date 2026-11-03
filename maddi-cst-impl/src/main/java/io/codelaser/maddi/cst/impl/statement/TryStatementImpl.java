@@ -119,7 +119,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
 
         @Override
         public CatchClause rewire(InfoMapView infoMap) {
-            return new CatchClauseImpl(comments, source,
+            return new CatchClauseImpl(rewireComments(infoMap), rewireSource(infoMap),
                     annotations.stream().map(ae -> (AnnotationExpression) ae.rewire(infoMap)).toList(),
                     exceptionTypes.stream().map(et -> et.rewire(infoMap)).toList(),
                     isFinal, (LocalVariable) catchVariable.rewire(infoMap), block.rewire(infoMap));
@@ -466,7 +466,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new TryStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+        return new TryStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
                 resources.stream().map(s -> s.rewire(infoMap)).toList(),
                 block.rewire(infoMap),
                 catchClauses.stream().map(cc -> cc.rewire(infoMap)).toList(),

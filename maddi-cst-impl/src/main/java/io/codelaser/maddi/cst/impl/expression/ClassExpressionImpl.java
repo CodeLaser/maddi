@@ -136,7 +136,7 @@ public class ClassExpressionImpl extends ConstantExpressionImpl<ParameterizedTyp
      */
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new ClassExpressionImpl(rewireComments(infoMap), source(), parameterizedType.rewire(infoMap),
+        return new ClassExpressionImpl(rewireComments(infoMap), rewireSource(infoMap), parameterizedType.rewire(infoMap),
                 classType.rewire(infoMap));
     }
 

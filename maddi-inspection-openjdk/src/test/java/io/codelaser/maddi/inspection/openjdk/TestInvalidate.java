@@ -257,11 +257,12 @@ public class TestInvalidate {
         TypeInfo helper2 = pr2.findType(HELPER_FQN);
         assertSame(helper1, helper2, "Helper is unchanged: a partial re-scan keeps it");
 
-        // User is rewired, not re-scanned: a new object on the SAME compilation unit
+        // User is rewired, not re-scanned: a new object in a COPY of its compilation unit, same fingerprint
         TypeInfo user2 = pr2.findType(USER_FQN);
         assertNotSame(user1, user2, "User depends on Base: it must be rewired onto the new object");
-        assertSame(user1.compilationUnit(), user2.compilationUnit(),
-                "rewired, not re-parsed: rewirePhase0 reuses the compilation unit (hence its fingerprint)");
+        assertSame(user1.compilationUnit().fingerPrintOrNull(), user2.compilationUnit().fingerPrintOrNull(),
+                "rewired, not re-parsed: rewirePhase0 copies the compilation unit with its fingerprint");
+        assertSame(user2, user2.compilationUnit().types().getFirst(), "the copy's unit holds the copy");
 
         // the whole point of REWIRE: the copy must reach the NEW Base, not the object it replaced
         assertSame(base1, typeOfUseParameter(user1), "sanity: the original User referenced the original Base");
@@ -373,7 +374,7 @@ public class TestInvalidate {
         assertSame(base1, pr2.findType(BASE_FQN), "main is untouched: kept as is");
         TypeInfo user2 = pr2.findType(USER_FQN);
         assertNotSame(user1, user2);
-        assertSame(user1.compilationUnit(), user2.compilationUnit());
+        assertSame(user1.compilationUnit().fingerPrintOrNull(), user2.compilationUnit().fingerPrintOrNull());
     }
 
     @DisplayName("the registry points at the rewired object, not the stale one")

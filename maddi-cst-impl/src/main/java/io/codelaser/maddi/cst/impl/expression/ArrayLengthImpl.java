@@ -165,6 +165,6 @@ public class ArrayLengthImpl extends ExpressionImpl implements ArrayLength {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new ArrayLengthImpl(comments(), source(), intPt, scope.rewire(infoMap));
+        return new ArrayLengthImpl(rewireComments(infoMap), rewireSource(infoMap), intPt, scope.rewire(infoMap));
     }
 }

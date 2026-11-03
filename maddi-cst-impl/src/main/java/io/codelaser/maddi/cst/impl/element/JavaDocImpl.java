@@ -128,7 +128,8 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
                 default -> resolvedReference.rewire(infoMap);
             };
             List<TypeInfo> rewiredParams = referencedParameterTypes.stream().map(infoMap::typeInfo).toList();
-            return new TagImpl(tagIdentifier, content, rewired, source, sourceOfReference, blockTag, rewiredParams);
+            return new TagImpl(tagIdentifier, content, rewired, source == null ? null : source.rewire(infoMap),
+                    sourceOfReference == null ? null : sourceOfReference.rewire(infoMap), blockTag, rewiredParams);
         }
 
         @Override
@@ -223,7 +224,8 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
 
     @Override
     public JavaDoc rewire(InfoMapView infoMap) {
-        return new JavaDocImpl(source(), super.comment(), tags.stream().map(t -> t.rewire(infoMap)).toList());
+        return new JavaDocImpl(source() == null ? null : source().rewire(infoMap), super.comment(),
+                tags.stream().map(t -> t.rewire(infoMap)).toList());
     }
 
     @Override

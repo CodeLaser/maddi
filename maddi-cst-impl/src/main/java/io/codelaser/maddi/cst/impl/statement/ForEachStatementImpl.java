@@ -202,7 +202,7 @@ public class ForEachStatementImpl extends StatementImpl implements ForEachStatem
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new ForEachStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+        return new ForEachStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
                 (LocalVariableCreation) initializer.rewire(infoMap), expression.rewire(infoMap), block.rewire(infoMap));
     }
 }

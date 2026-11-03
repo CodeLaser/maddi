@@ -126,6 +126,6 @@ public class EmptyStatementImpl extends StatementImpl implements EmptyStatement 
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new EmptyStatementImpl(comments(), source(), rewireAnnotations(infoMap), label());
+        return new EmptyStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label());
     }
 }

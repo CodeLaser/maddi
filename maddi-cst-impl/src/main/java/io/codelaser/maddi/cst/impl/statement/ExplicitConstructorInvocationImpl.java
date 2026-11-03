@@ -216,7 +216,7 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new ExplicitConstructorInvocationImpl(comments(), source(), rewireAnnotations(infoMap), label(), isSuper,
+        return new ExplicitConstructorInvocationImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(), isSuper,
                 infoMap.methodInfo(methodInfo), synthetic,
                 parameterExpressions.stream().map(e -> e.rewire(infoMap)).toList());
     }

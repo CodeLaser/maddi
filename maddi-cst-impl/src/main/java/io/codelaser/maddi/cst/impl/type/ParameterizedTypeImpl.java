@@ -1019,6 +1019,12 @@ public class ParameterizedTypeImpl implements ParameterizedType {
 
     @Override
     public ParameterizedType rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters) {
+        // once per instance and rewire: DetailedSources finds a type's source under this very instance (InfoMapView#rewired)
+        return infoMap.rewired(this, () -> rewireUncached(infoMap, rewiredTypeParameters));
+    }
+
+    private ParameterizedType rewireUncached(InfoMapView infoMap,
+                                             Map<TypeParameter, TypeParameter> rewiredTypeParameters) {
         /*
          ⚠ EVERY PART, not only the type and its parameters. This used to build the copy from type, parameters, arrays
          and wildcard alone, so a rewired type lost its type-use annotations ('Statement.@NotNull StatementType'

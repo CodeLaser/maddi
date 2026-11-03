@@ -454,7 +454,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
     @Override
     public Expression rewire(InfoMapView infoMap) {
         List<Expression> rewiredParams = parameterExpressions.stream().map(e -> e.rewire(infoMap)).toList();
-        return new MethodCallImpl(comments(), source(), object.rewire(infoMap), objectIsImplicit,
+        return new MethodCallImpl(rewireComments(infoMap), rewireSource(infoMap), object.rewire(infoMap), objectIsImplicit,
                 infoMap.methodInfo(methodInfo), rewiredParams, concreteReturnType.rewire(infoMap),
                 typeArguments.stream().map(pt -> pt.rewire(infoMap)).toList(),
                 modificationTimes,

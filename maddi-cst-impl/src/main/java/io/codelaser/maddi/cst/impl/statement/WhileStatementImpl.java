@@ -170,7 +170,7 @@ public class WhileStatementImpl extends StatementImpl implements WhileStatement 
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new WhileStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+        return new WhileStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
                 expression.rewire(infoMap), block.rewire(infoMap));
     }
 }

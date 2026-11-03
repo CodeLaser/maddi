@@ -172,6 +172,6 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new TypeExpressionImpl(comments(), source(), parameterizedType.rewire(infoMap), diamond);
+        return new TypeExpressionImpl(rewireComments(infoMap), rewireSource(infoMap), parameterizedType.rewire(infoMap), diamond);
     }
 }

@@ -138,8 +138,9 @@ public class ThisImpl extends VariableImpl implements This {
 
     @Override
     public Variable rewire(InfoMapView infoMap) {
-        return new ThisImpl(parameterizedType().rewire(infoMap),
+        // once per instance and rewire: DetailedSources and a method's body find the same copy (InfoMapView#rewired)
+        return infoMap.rewired(this, () -> new ThisImpl(parameterizedType().rewire(infoMap),
                 explicitlyWriteType == null ? null : infoMap.typeInfo(explicitlyWriteType),
-                writeSuper);
+                writeSuper));
     }
 }

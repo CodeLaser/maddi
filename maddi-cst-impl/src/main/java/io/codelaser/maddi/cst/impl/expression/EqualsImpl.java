@@ -63,7 +63,7 @@ public class EqualsImpl extends BinaryOperatorImpl implements Equals {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new EqualsImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
+        return new EqualsImpl(rewireComments(infoMap), rewireSource(infoMap), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
                 parameterizedType);
     }
 }

@@ -265,7 +265,7 @@ public class BinaryOperatorImpl extends ExpressionImpl implements BinaryOperator
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new BinaryOperatorImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap),
+        return new BinaryOperatorImpl(rewireComments(infoMap), rewireSource(infoMap), operator, precedence, lhs.rewire(infoMap),
                 rhs.rewire(infoMap), parameterizedType);
     }
 }

@@ -66,7 +66,7 @@ public class ProductImpl extends BinaryOperatorImpl implements Product {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new ProductImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
+        return new ProductImpl(rewireComments(infoMap), rewireSource(infoMap), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
                 parameterizedType);
     }
 }

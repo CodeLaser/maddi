@@ -146,7 +146,11 @@ public class TestPartialReparse {
 
         TypeInfo user2 = pr2.findType("a.User");
         assertNotSame(user1, user2, "User refers to Base: rewired");
-        assertSame(user1.compilationUnit(), user2.compilationUnit(), "rewired, not re-parsed");
+        // rewired, not re-parsed: a copy of the unit (its types are the copies), with the fingerprint it was read with
+        assertNotSame(user1.compilationUnit(), user2.compilationUnit(), "a rewired type lives in a copy of its unit");
+        assertSame(user1.compilationUnit().fingerPrintOrNull(), user2.compilationUnit().fingerPrintOrNull(),
+                "rewired, not re-parsed");
+        assertSame(user2, user2.compilationUnit().types().getFirst(), "the copy's unit holds the copy");
 
         assertEquals(5, pr2.primaryTypes().size());
         assertNoStaleReferences(pr2);
@@ -279,6 +283,11 @@ public class TestPartialReparse {
         }
         TypeInfo doc = pr.findType("c.Doc");
         assertNotNull(doc.javaDoc(), "a rewired type keeps its javadoc");
+        // looked up by the rewired instances, as a refactoring does (DetailedSources is identity-keyed)
+        var otherField = doc.getFieldByName("other", true);
+        assertNotNull(otherField.source().detailedSources().detail(otherField.type()), "where the field's type is");
+        var typeUse = doc.findUniqueMethod("typeUse", 1);
+        assertNotNull(typeUse.source().detailedSources().detail(typeUse.returnType()), "where the return type is");
         assertEquals(1, doc.findUniqueMethod("run", 0).comments().stream()
                 .filter(c -> c.comment().contains("a method comment")).count(), "once, after three rewires");
     }
@@ -401,6 +410,39 @@ public class TestPartialReparse {
             assertNoStaleReferences(pr);
             assertPrintsAsCold(inspector, pr, set);
         }
+    }
+
+    /*
+     A generation the re-parses have moved past must be collectable. On fernflower the heap kept every one of them
+     (a rewire built 472 types per re-parse and the live TypeInfoImpl count rose by about as many each time).
+     */
+    @DisplayName("a replaced generation is not kept alive by the ones after it")
+    @Test
+    public void testOldGenerationsAreCollectable() throws IOException, InterruptedException {
+        Path cSrc = root.resolve("c-src");
+        write(cSrc, "c/Marker.java", MARKER);
+        write(cSrc, "c/Doc.java", DOC);
+        write(cSrc, "c/Other.java", OTHER);
+        SourceSet set = new SourceSetImpl.Builder().setName("main")
+                .setSourceDirectories(List.of(cSrc)).setUri(cSrc.toUri()).build();
+        JavaInspector inspector = inspector(set);
+        parse(inspector);
+        write(cSrc, "c/Other.java", "// round 1\n" + OTHER);
+        ParseResult pr1 = reparse(inspector, Map.of("c.Other", INVALID, "c.Doc", REWIRE));
+        java.lang.ref.WeakReference<TypeInfo> doc1 = new java.lang.ref.WeakReference<>(pr1.findType("c.Doc"));
+        java.lang.ref.WeakReference<TypeInfo> other1 = new java.lang.ref.WeakReference<>(pr1.findType("c.Other"));
+        pr1 = null;
+        for (int round = 2; round <= 4; round++) {
+            write(cSrc, "c/Other.java", "// round " + round + "\n" + OTHER);
+            ParseResult prr = reparse(inspector, Map.of("c.Other", INVALID, "c.Doc", REWIRE));
+            assertNoStaleReferences(prr);
+        }
+        for (int i = 0; i < 5 && (doc1.get() != null || other1.get() != null); i++) {
+            System.gc();
+            Thread.sleep(50);
+        }
+        assertNull(other1.get(), "the re-parsed Other of round 1 is still reachable");
+        assertNull(doc1.get(), "the rewired Doc of round 1 is still reachable");
     }
 
     // ---- three source sets: main <- mid <- top

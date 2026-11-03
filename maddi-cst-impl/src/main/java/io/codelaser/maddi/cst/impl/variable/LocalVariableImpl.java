@@ -164,7 +164,8 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
 
     @Override
     public Variable rewire(InfoMapView infoMap) {
-        return new LocalVariableImpl(name, parameterizedType().rewire(infoMap), assignmentExpression == null ? null
-                : assignmentExpression.rewire(infoMap), declarationId);
+        // once per instance and rewire: DetailedSources and a method's body find the same copy (InfoMapView#rewired)
+        return infoMap.rewired(this, () -> new LocalVariableImpl(name, parameterizedType().rewire(infoMap), assignmentExpression == null ? null
+                : assignmentExpression.rewire(infoMap), declarationId));
     }
 }

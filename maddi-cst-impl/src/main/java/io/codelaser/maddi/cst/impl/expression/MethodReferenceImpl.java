@@ -245,7 +245,7 @@ public class MethodReferenceImpl extends ExpressionImpl implements MethodReferen
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new MethodReferenceImpl(comments(), source(), parameterizedType.rewire(infoMap),
+        return new MethodReferenceImpl(rewireComments(infoMap), rewireSource(infoMap), parameterizedType.rewire(infoMap),
                 infoMap.methodInfo(methodInfo), scope.rewire(infoMap),
                 concreteParameterTypes.stream().map(pt -> pt.rewire(infoMap)).toList(),
                 concreteReturnType.rewire(infoMap));

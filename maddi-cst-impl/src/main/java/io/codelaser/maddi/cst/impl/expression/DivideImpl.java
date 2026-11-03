@@ -54,7 +54,7 @@ public class DivideImpl extends BinaryOperatorImpl implements Divide {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new DivideImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
+        return new DivideImpl(rewireComments(infoMap), rewireSource(infoMap), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
                 parameterizedType);
     }
 }

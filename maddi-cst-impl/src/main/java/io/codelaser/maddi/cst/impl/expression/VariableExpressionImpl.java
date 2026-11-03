@@ -212,6 +212,6 @@ public class VariableExpressionImpl extends ExpressionImpl implements VariableEx
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new VariableExpressionImpl(comments(), source(), variable.rewire(infoMap), suffix);
+        return new VariableExpressionImpl(rewireComments(infoMap), rewireSource(infoMap), variable.rewire(infoMap), suffix);
     }
 }

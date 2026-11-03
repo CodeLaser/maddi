@@ -24,6 +24,7 @@ import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.graph.G;
@@ -162,6 +163,28 @@ public final class ReparseOracle {
         return where.isEmpty() ? "" : " in " + String.join("; ", where);
     }
 
+    /*
+     The type every resolved javadoc tag reaches, in the javadoc and in each JavaDoc among the comments (a declaration
+     holds it both ways). TypeInfo.typesReferenced does not walk the comments.
+     */
+    private static void javaDocTargets(io.codelaser.maddi.cst.api.element.JavaDoc javaDoc,
+                                       List<io.codelaser.maddi.cst.api.element.Comment> comments,
+                                       java.util.function.Consumer<TypeInfo> consumer) {
+        List<io.codelaser.maddi.cst.api.element.JavaDoc> all = new ArrayList<>();
+        if (javaDoc != null) all.add(javaDoc);
+        for (io.codelaser.maddi.cst.api.element.Comment comment : comments) {
+            if (comment instanceof io.codelaser.maddi.cst.api.element.JavaDoc jd) all.add(jd);
+        }
+        for (io.codelaser.maddi.cst.api.element.JavaDoc jd : all) {
+            for (io.codelaser.maddi.cst.api.element.JavaDoc.Tag tag : jd.tags()) {
+                Object target = tag.resolvedReference();
+                if (target instanceof TypeInfo ti) consumer.accept(ti);
+                else if (target instanceof MethodInfo mi) consumer.accept(mi.typeInfo());
+                else if (target instanceof FieldInfo fi) consumer.accept(fi.owner());
+            }
+        }
+    }
+
     public static List<String> staleReferences(ParseResult parseResult) {
         List<String> stale = new ArrayList<>();
         Set<String> ours = parseResult.primaryTypes().stream().map(TypeInfo::fullyQualifiedName)
@@ -180,6 +203,11 @@ public final class ReparseOracle {
                     "a type reference" + whereReferenced(primaryType, tr.typeInfo())));
             primaryType.recursiveSubTypeStream().forEach(type -> {
                 String t = type.fullyQualifiedName();
+                javaDocTargets(type.javaDoc(), type.comments(), r -> check.accept(r, "javadoc of " + t));
+                type.constructorAndMethodStream().forEach(mi -> javaDocTargets(mi.javaDoc(), mi.comments(),
+                        r -> check.accept(r, "javadoc of " + mi.fullyQualifiedName())));
+                type.fields().forEach(fi -> javaDocTargets(fi.javaDoc(), fi.comments(),
+                        r -> check.accept(r, "javadoc of " + fi.fullyQualifiedName())));
                 if (type.parentClass() != null) check.accept(type.parentClass().typeInfo(), "parent of " + t);
                 type.interfacesImplemented().forEach(pt -> check.accept(pt.typeInfo(), "interface of " + t));
                 type.constructorAndMethodStream().forEach(mi -> {
@@ -218,7 +246,7 @@ public final class ReparseOracle {
 
     /**
      * Per type, method, field and parameter: how many comments it has, its annotations, the type-use annotations
-     * of its type, and its javadoc with the target of every resolved tag. Printing hides most of this: the Java
+     * of its type, where that type is written (its detailed source), and its javadoc with the target of every resolved tag. Printing hides most of this: the Java
      * printer prints a type's comments, not its {@code javaDoc()} (the Kotlin printer reads the latter), and
      * prints an annotation once however often a list holds it.
      */
@@ -227,16 +255,17 @@ public final class ReparseOracle {
         for (TypeInfo primaryType : parseResult.primaryTypes()) {
             primaryType.recursiveSubTypeStream().forEach(type -> {
                 map.put("T " + type.fullyQualifiedName(), declaration(type.comments(), type.annotations(),
-                        type.javaDoc(), null));
+                        type.javaDoc(), null, null));
                 type.constructorAndMethodStream().forEach(mi -> {
                     map.put("M " + mi.fullyQualifiedName(), declaration(mi.comments(), mi.annotations(),
-                            mi.javaDoc(), mi.returnType()));
+                            mi.javaDoc(), mi.returnType(), mi.source()));
                     mi.parameters().forEach(pi -> map.put("P " + mi.fullyQualifiedName() + "#" + pi.index(),
-                            declaration(pi.comments(), pi.annotations(), null, pi.parameterizedType())));
+                            declaration(pi.comments(), pi.annotations(), null, pi.parameterizedType(),
+                                    pi.source())));
                 });
                 for (FieldInfo fieldInfo : type.fields()) {
                     map.put("F " + fieldInfo.fullyQualifiedName(), declaration(fieldInfo.comments(),
-                            fieldInfo.annotations(), fieldInfo.javaDoc(), fieldInfo.type()));
+                            fieldInfo.annotations(), fieldInfo.javaDoc(), fieldInfo.type(), fieldInfo.source()));
                 }
             });
         }
@@ -246,13 +275,23 @@ public final class ReparseOracle {
     private static String declaration(List<io.codelaser.maddi.cst.api.element.Comment> comments,
                                       List<io.codelaser.maddi.cst.api.expression.AnnotationExpression> annotations,
                                       io.codelaser.maddi.cst.api.element.JavaDoc javaDoc,
-                                      io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+                                      io.codelaser.maddi.cst.api.type.ParameterizedType type,
+                                      io.codelaser.maddi.cst.api.element.Source source) {
         StringBuilder sb = new StringBuilder();
         sb.append(comments.size()).append(" comment(s); annotations ")
                 .append(annotations.stream().map(a -> a.typeInfo().fullyQualifiedName()).toList());
         if (type != null && !type.annotations().isEmpty()) {
             sb.append("; type-use ").append(type.annotations().stream().map(a -> a.typeInfo().fullyQualifiedName())
                     .toList());
+        }
+        /*
+         Where the declared type is written, looked up as a refactoring does: by the type instance the declaration
+         holds. DetailedSources is identity-keyed, so a rewire that copies the type but keeps the old source answers
+         nothing here (InfoMapView#rewired).
+         */
+        if (type != null && source != null && source.detailedSources() != null) {
+            io.codelaser.maddi.cst.api.element.Source typeSource = source.detailedSources().detail(type);
+            sb.append("; type at ").append(typeSource == null ? "-" : typeSource.compact2());
         }
         if (javaDoc == null) {
             sb.append("; no javadoc");

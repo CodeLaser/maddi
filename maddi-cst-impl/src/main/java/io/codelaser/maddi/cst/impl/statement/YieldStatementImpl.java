@@ -159,6 +159,6 @@ public class YieldStatementImpl extends StatementImpl implements YieldStatement 
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new YieldStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(), expression.rewire(infoMap));
+        return new YieldStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(), expression.rewire(infoMap));
     }
 }

@@ -349,7 +349,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new SwitchStatementOldStyleImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+        return new SwitchStatementOldStyleImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
                 selector.rewire(infoMap), block.rewire(infoMap),
                 switchLabels.stream().map(sl -> sl.rewire(infoMap)).toList());
     }

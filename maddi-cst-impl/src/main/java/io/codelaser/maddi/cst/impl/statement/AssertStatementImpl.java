@@ -171,7 +171,7 @@ public class AssertStatementImpl extends StatementImpl implements AssertStatemen
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new AssertStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+        return new AssertStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
                 expression.rewire(infoMap), message.rewire(infoMap));
     }
 }

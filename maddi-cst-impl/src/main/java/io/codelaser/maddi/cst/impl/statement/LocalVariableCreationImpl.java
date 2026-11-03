@@ -312,7 +312,7 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new LocalVariableCreationImpl(rewireComments(infoMap), source(), rewireAnnotations(infoMap), label(),
+        return new LocalVariableCreationImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
                 (LocalVariable) localVariable.rewire(infoMap),
                 otherLocalVariables.stream().map(lv -> (LocalVariable) lv.rewire(infoMap)).toList(),
                 modifiers);

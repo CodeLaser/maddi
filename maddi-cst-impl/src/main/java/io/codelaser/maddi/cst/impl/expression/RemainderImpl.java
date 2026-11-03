@@ -55,7 +55,7 @@ public class RemainderImpl extends BinaryOperatorImpl implements Remainder {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new RemainderImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
+        return new RemainderImpl(rewireComments(infoMap), rewireSource(infoMap), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
                 parameterizedType);
     }
 }

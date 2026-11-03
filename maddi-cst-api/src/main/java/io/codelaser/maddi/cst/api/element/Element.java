@@ -76,6 +76,12 @@ public interface Element {
      */
     Element rewire(@Independent(hc = true) InfoMapView infoMap);
 
+    /** This element's source for its rewired copy; see {@link Source#rewire}. */
+    default Source rewireSource(InfoMapView infoMap) {
+        Source source = source();
+        return source == null ? null : source.rewire(infoMap);
+    }
+
     default List<Comment> rewireComments(InfoMapView infoMap) {
         return comments().stream().map(c -> c.rewire(infoMap)).toList();
     }

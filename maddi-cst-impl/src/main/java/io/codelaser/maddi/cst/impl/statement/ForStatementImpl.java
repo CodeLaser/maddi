@@ -240,7 +240,7 @@ public class ForStatementImpl extends StatementImpl implements ForStatement {
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new ForStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+        return new ForStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
                 initializers.stream().map(i -> i.rewire(infoMap)).toList(),
                 expression.rewire(infoMap),
                 updaters.stream().map(u -> u.rewire(infoMap)).toList(),

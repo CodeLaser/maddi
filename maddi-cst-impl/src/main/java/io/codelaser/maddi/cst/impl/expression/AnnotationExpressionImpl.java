@@ -290,7 +290,9 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new AnnotationExpressionImpl(comments(), source(), infoMap.typeInfo(typeInfo),
-                keyValuePairs.stream().map(kv -> kv.rewire(infoMap)).toList());
+        // once per instance and rewire: an annotation is a DetailedSources key too (InfoMapView#rewired)
+        return infoMap.rewired(this, () -> new AnnotationExpressionImpl(rewireComments(infoMap),
+                rewireSource(infoMap), infoMap.typeInfo(typeInfo),
+                keyValuePairs.stream().map(kv -> kv.rewire(infoMap)).toList()));
     }
 }

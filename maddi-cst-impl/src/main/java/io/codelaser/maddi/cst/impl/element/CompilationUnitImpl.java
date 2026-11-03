@@ -212,10 +212,26 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
 
     @Override
     public Element rewire(InfoMapView infoMap) {
-        CompilationUnitImpl copy = new CompilationUnitImpl(sourceSet, uri, comments,
-                source, importStatements, packageName, fingerPrint.getOrDefaultNull(), trailingComments);
+        CompilationUnitImpl copy = rewireWithoutTypes(infoMap);
         copy.setTypes(types().stream().map(infoMap::typeInfo).toList());
         return copy;
+    }
+
+    /**
+     * The copy a rewired primary type is built in, before the copies of its types exist: phase 0 of the rewire
+     * creates them one by one, and a unit may hold several. The rewire fills in the types once phase 0 is done
+     * ({@link #rewireTypes}).
+     */
+    public CompilationUnitImpl rewireWithoutTypes(InfoMapView infoMap) {
+        CompilationUnitImpl copy = new CompilationUnitImpl(sourceSet, uri, rewireComments(infoMap),
+                rewireSource(infoMap), importStatements, packageName, fingerPrint.getOrDefaultNull(), trailingComments);
+        if (moduleInfo.isSet()) copy.setModuleInfo(moduleInfo.get());
+        return copy;
+    }
+
+    /** See {@link #rewireWithoutTypes}: the original's types, mapped; a type not being rewired maps onto itself. */
+    public void rewireTypes(CompilationUnit original, InfoMapView infoMap) {
+        if (!types.isSet()) setTypes(original.types().stream().map(infoMap::typeInfo).toList());
     }
 
     public static class Builder extends ElementImpl.Builder<CompilationUnit.Builder> implements CompilationUnit.Builder {

@@ -130,7 +130,7 @@ public class SumImpl extends BinaryOperatorImpl implements Sum {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new SumImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
+        return new SumImpl(rewireComments(infoMap), rewireSource(infoMap), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
                 parameterizedType);
     }
 }

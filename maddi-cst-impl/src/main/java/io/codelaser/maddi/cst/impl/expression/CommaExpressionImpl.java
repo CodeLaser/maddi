@@ -168,7 +168,7 @@ public class CommaExpressionImpl extends ExpressionImpl implements CommaExpressi
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new CommaExpressionImpl(comments(), source(),
+        return new CommaExpressionImpl(rewireComments(infoMap), rewireSource(infoMap),
                 expressions.stream().map(e -> e.rewire(infoMap)).toList());
     }
 }

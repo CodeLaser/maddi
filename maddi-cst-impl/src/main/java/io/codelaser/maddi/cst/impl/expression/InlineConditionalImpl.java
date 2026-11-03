@@ -231,7 +231,7 @@ public class InlineConditionalImpl extends ExpressionImpl implements InlineCondi
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new InlineConditionalImpl(comments(), source(), condition.rewire(infoMap), ifTrue.rewire(infoMap),
+        return new InlineConditionalImpl(rewireComments(infoMap), rewireSource(infoMap), condition.rewire(infoMap), ifTrue.rewire(infoMap),
                 ifFalse.rewire(infoMap), commonType.rewire(infoMap));
     }
 }

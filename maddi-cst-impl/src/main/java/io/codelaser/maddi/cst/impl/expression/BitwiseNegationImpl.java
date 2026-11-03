@@ -52,6 +52,6 @@ public class BitwiseNegationImpl extends UnaryOperatorImpl implements BitwiseNeg
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new BitwiseNegationImpl(comments(), source(), operator, precedence, expression.rewire(infoMap));
+        return new BitwiseNegationImpl(rewireComments(infoMap), rewireSource(infoMap), operator, precedence, expression.rewire(infoMap));
     }
 }

@@ -306,6 +306,6 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
         assert rewired != null : "No single abstract method on the rewired type of the lambda " + methodInfo
                                  + " at " + source() + ", enclosed by " + methodInfo.typeInfo().enclosingMethod()
                                  + "; the type before rewiring had " + methodInfo.typeInfo().singleAbstractMethod();
-        return new LambdaImpl(comments(), source(), rewired, outputVariants);
+        return new LambdaImpl(rewireComments(infoMap), rewireSource(infoMap), rewired, outputVariants);
     }
 }

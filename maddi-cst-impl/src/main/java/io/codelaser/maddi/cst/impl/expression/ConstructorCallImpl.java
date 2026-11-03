@@ -464,7 +464,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
     @Override
     public Expression rewire(InfoMapView infoMap) {
         List<Expression> rewiredArgs = parameterExpressions.stream().map(e -> e.rewire(infoMap)).toList();
-        return new ConstructorCallImpl(comments(), source(),
+        return new ConstructorCallImpl(rewireComments(infoMap), rewireSource(infoMap),
                 constructor == null ? null : infoMap.methodInfo(constructor),
                 concreteReturnType.rewire(infoMap), diamond,
                 object == null ? null : object.rewire(infoMap),

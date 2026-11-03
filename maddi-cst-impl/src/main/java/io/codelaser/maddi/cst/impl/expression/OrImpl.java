@@ -216,7 +216,7 @@ public class OrImpl extends ExpressionImpl implements Or {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new OrImpl(comments(), source(), booleanPt,
+        return new OrImpl(rewireComments(infoMap), rewireSource(infoMap), booleanPt,
                 expressions.stream().map(e -> e.rewire(infoMap)).toList());
     }
 }

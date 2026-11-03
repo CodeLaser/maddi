@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -784,7 +785,17 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         assert infoMap.typeInfoNullIfAbsent(this) == null;
         TypeInfo typeInfo;
         if (compilationUnitOrEnclosingType.isLeft()) {
-            typeInfo = new TypeInfoImpl(compilationUnit(), simpleName);
+            /*
+             ⛔ IN A COPY OF THE UNIT, NOT THE ORIGINAL. The copy used to share the original's compilation unit, whose
+             types() are the originals: for a re-scanned type that is copied (it reaches a rewired one), that original
+             still carried what the scan had resolved against the previous generation (its javadoc's {@link}s), so
+             every generation kept the one before it alive. One copy per unit (InfoMapView#rewired); InfoMapImpl
+             fills in its types after phase 0.
+             */
+            CompilationUnit original = compilationUnit();
+            CompilationUnit unit = original instanceof CompilationUnitImpl cui
+                    ? infoMap.rewired(original, () -> cui.rewireWithoutTypes(infoMap)) : original;
+            typeInfo = new TypeInfoImpl(unit, simpleName);
         } else {
             TypeInfo rewiredEnclosing = infoMap.typeInfo(newEnclosingType);
             /*
@@ -820,11 +831,12 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
             List<AnnotationExpression> rewiredAnnotations = tp.annotations().stream()
                     .map(ae -> (AnnotationExpression) ae.rewire(infoMap)).toList();
             TypeParameter newTp = new TypeParameterImpl(tp.getIndex(), tp.simpleName(), Either.left(typeInfo));
+            infoMap.registerRewired(tp, newTp); // a type naming 'T' finds this one (InfoMapView#rewired)
             typeInfo.builder().addOrSetTypeParameter(newTp);
             newTp.builder()
-                    .addComments(tp.comments())
+                    .addComments(tp.rewireComments(infoMap))
                     .addAnnotations(rewiredAnnotations)
-                    .setSource(tp.source())
+                    .setSource(tp.rewireSource(infoMap))
                     .setTypeBounds(tp.typeBounds().stream().map(tb -> tb.rewire(infoMap)).toList())
                     .commit();
         });
@@ -849,7 +861,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         TypeInfo.Builder builder = typeInfo.builder();
         // comments and annotations: in phase 3, rewired, once every member they may name exists
         builder.setTypeNature(typeNature())
-                .setSource(source())
+                .setSource(rewireSource(infoMap))
                 .setSynthetic(isSynthetic())
                 .setParentClass(parentClass() == null ? null : parentClass().rewire(infoMap))
                 .setAccess(access());
@@ -903,7 +915,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
             // comments and annotations: FieldInfoImpl.rewirePhase3 adds them, rewired. Adding them here as well
             // doubled both lists on every rewire, the unrewired copies pointing at the previous generation
             rewiredField.builder().setSynthetic(fieldInfo.isSynthetic())
-                    .setSource(fieldInfo.source())
+                    .setSource(fieldInfo.source()) // replaced by the rewired one in FieldInfoImpl.rewirePhase3
                     .setAccess(fieldInfo.access());
             fieldInfo.modifiers().forEach(rewiredField.builder()::addFieldModifier);
             infoMap.put(rewiredField);
@@ -920,11 +932,12 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
             List<AnnotationExpression> rewiredAnnotations = tp.annotations().stream()
                     .map(ae -> (AnnotationExpression) ae.rewire(infoMap)).toList();
             TypeParameter newTp = new TypeParameterImpl(tp.getIndex(), tp.simpleName(), Either.right(rewiredMethod));
+            infoMap.registerRewired(tp, newTp); // a type naming 'T' finds this one (InfoMapView#rewired)
             builder.addTypeParameter(newTp);
             newTp.builder()
-                    .addComments(tp.comments())
+                    .addComments(tp.rewireComments(infoMap))
                     .addAnnotations(rewiredAnnotations)
-                    .setSource(tp.source())
+                    .setSource(tp.rewireSource(infoMap))
                     .setTypeBounds(tp.typeBounds().stream().map(tb -> tb.rewire(infoMap)).toList())
                     .commit();
         });
@@ -936,7 +949,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         // re-parses (docs/design/incremental-and-overlay.md, the rewire driver).
         builder.addComments(methodInfo.comments().stream().map(c -> c.rewire(infoMap)).toList())
                 .setJavaDoc(methodInfo.javaDoc() == null ? null : (JavaDoc) methodInfo.javaDoc().rewire(infoMap))
-                .setSource(methodInfo.source())
+                .setSource(methodInfo.rewireSource(infoMap))
                 .addAnnotations(methodInfo.annotations().stream()
                         .map(a -> (AnnotationExpression) a.rewire(infoMap)).toList())
                 .setReturnType(methodInfo.returnType().rewire(infoMap))
@@ -952,7 +965,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
                     .addParameter(pi.name(), pi.parameterizedType().rewire(infoMap));
             rewiredPi.builder()
                     .addComments(pi.comments().stream().map(c -> c.rewire(infoMap)).toList())
-                    .setSource(pi.source())
+                    .setSource(pi.rewireSource(infoMap))
                     .addAnnotations(pi.annotations().stream()
                             .map(a -> (AnnotationExpression) a.rewire(infoMap)).toList())
                     .setIsFinal(pi.isFinal())
