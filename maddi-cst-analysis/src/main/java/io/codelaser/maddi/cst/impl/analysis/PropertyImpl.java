@@ -196,14 +196,17 @@ public class PropertyImpl implements Property {
             ValueImpl.GetSetValueImpl.EMPTY, true);
     public static final Property GET_SET_EQUIVALENT = new PropertyImpl("getSetEquivalent",
             ValueImpl.GetSetEquivalentImpl.EMPTY);
+    // INTRINSIC: prep writes it (MethodAnalyzer.registerImplementation) and repeats it on every run, for kept and
+    // carried types too; the analyzer only reads it. Classed cross-type-derived, the clear-before-recompute of a seeded
+    // analysis removed it from a kept abstract method the worklist pulled in, and nothing wrote it back.
     public static final Property IMPLEMENTATIONS = new PropertyImpl("implementations",
-            ValueImpl.SetOfMethodInfoImpl.EMPTY);
+            ValueImpl.SetOfMethodInfoImpl.EMPTY, AnalysisTier.INTRINSIC);
     /** the analyzed-source implementations of an EXTERNAL abstract method (Comparable.compareTo,
      *  Object.equals): the dispatch closure the eventual analyzer consults when a jar contract claims
      *  non-modifying but the codebase's own overrides honestly modify pre-mark. Kept apart from
      *  {@link #IMPLEMENTATIONS} so the abstract batches never write onto jar methods. */
     public static final Property EXTERNAL_IMPLEMENTATIONS = new PropertyImpl("externalImplementations",
-            ValueImpl.SetOfMethodInfoImpl.EMPTY);
+            ValueImpl.SetOfMethodInfoImpl.EMPTY, AnalysisTier.INTRINSIC); // as IMPLEMENTATIONS
 
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
