@@ -62,10 +62,11 @@ direction of arrow: I need you to exist first (I, from -> you, to)
  */
 public class ComputeCallGraph {
     private final Set<TypeInfo> primaryTypes;
-    private final Set<MethodInfo> recursive = new HashSet<>();
+    // not final: go(CallGraphContributions) points both at one primary type's own, then at the union
+    private Set<MethodInfo> recursive = new HashSet<>();
     // ⛔ mergeWeights, NOT Long::sum: the weight is six packed counters, and a carry out of one is a different KIND
     // of edge rather than a bigger count. See the lane layout above.
-    private final G.Builder<Info> builder = new ImmutableGraph.Builder<>(ComputeCallGraph::mergeWeights);
+    private G.Builder<Info> builder = new ImmutableGraph.Builder<>(ComputeCallGraph::mergeWeights);
     private final Predicate<TypeInfo> externalsToAccept;
     private final Collection<ModuleInfo> moduleInfos;
 
@@ -257,6 +258,40 @@ public class ComputeCallGraph {
 
     public ComputeCallGraph go() {
         primaryTypes.forEach(this::go);
+        moduleInfos.forEach(this::go);
+        graph = builder.build();
+        return this;
+    }
+
+    /**
+     * As {@link #go()}, reusing the contribution of every primary type that {@code contributions} holds from an
+     * earlier run and that still holds; the others are computed and stored. The result is the graph {@link #go()}
+     * builds, vertex and edge order included: each type's walk adds only edges from its own members, so the union, in
+     * the same order of the primary types, is the same map. With by-name sinks declared, or no contributions, this is
+     * {@link #go()}.
+     */
+    public ComputeCallGraph go(CallGraphContributions contributions) {
+        if (contributions == null || !byNameSinks.isEmpty()) return go();
+        contributions.prepare(primaryTypes, externalsToAccept);
+        G.Builder<Info> union = builder;
+        Set<MethodInfo> allRecursive = recursive;
+        try {
+            for (TypeInfo primaryType : primaryTypes) {
+                CallGraphContributions.Contribution c = contributions.get(primaryType);
+                if (c == null) {
+                    builder = new ImmutableGraph.Builder<>(ComputeCallGraph::mergeWeights);
+                    recursive = new HashSet<>();
+                    go(primaryType);
+                    c = contributions.put(primaryType, builder, recursive);
+                }
+                // the edges' from-vertices are disjoint between types, so addAll's plain sum never meets a collision
+                union.addAll(c.builder());
+                allRecursive.addAll(c.recursive());
+            }
+        } finally {
+            builder = union;
+            recursive = allRecursive;
+        }
         moduleInfos.forEach(this::go);
         graph = builder.build();
         return this;

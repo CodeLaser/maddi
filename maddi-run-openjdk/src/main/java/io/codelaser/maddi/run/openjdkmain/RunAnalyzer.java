@@ -273,10 +273,15 @@ public class RunAnalyzer implements Runnable {
                 // maddi.rewire.iterations (default 200), maddi.rewire.oracleEvery (default 0, never)
                 int iterations = Integer.getInteger("maddi.rewire.iterations", 200);
                 int oracleEvery = Integer.getInteger("maddi.rewire.oracleEvery", 0);
+                // the warm inspector's preps keep their per-type call graph from one re-parse to the next; the
+                // oracle's cold inspector walks its own in full
+                io.codelaser.maddi.callgraph.CallGraphContributions contributions =
+                        new io.codelaser.maddi.callgraph.CallGraphContributions();
                 java.util.function.BiFunction<JavaInspector, ParseResult, io.codelaser.maddi.graph.G<Info>> prepFn =
                         (inspector, pr) -> engine().prep(new PrepRequest(inspector.runtime(),
                                 Set.copyOf(pr.primaryTypes()), pr.sourceSetToModuleInfoMap().values(),
-                                externalsToAccept, parseOptions.parallel(), true)).callGraph().graph();
+                                externalsToAccept, parseOptions.parallel(), true,
+                                inspector == javaInspector ? contributions : null)).callGraph().graph();
                 java.util.function.Supplier<JavaInspector> coldInspector = () -> {
                     JavaInspector cold = new JavaInspectorImpl(true, false);
                     cold.setJdkInternals(configuration.generalConfiguration().jdkInternals());

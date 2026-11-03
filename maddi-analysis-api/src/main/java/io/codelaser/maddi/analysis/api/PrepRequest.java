@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.analysis.api;
 
+import io.codelaser.maddi.callgraph.CallGraphContributions;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
@@ -26,12 +27,26 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * @param faultTolerant null: the prep analyzer's own default options; otherwise its fault-tolerance switch.
+ * @param faultTolerant          null: the prep analyzer's own default options; otherwise its fault-tolerance switch.
+ * @param callGraphContributions null: the call graph is walked in full. Otherwise the per-type call graph of an
+ *                               earlier prep of the same inspector, reused where it still holds and updated
+ *                               ({@link CallGraphContributions}); pass the same {@code externalsToAccept} object
+ *                               each time, another one clears it.
  */
 public record PrepRequest(Runtime runtime,
                           Set<TypeInfo> primaryTypes,
                           Collection<ModuleInfo> moduleInfos,
                           Predicate<TypeInfo> externalsToAccept,
                           boolean parallel,
-                          Boolean faultTolerant) {
+                          Boolean faultTolerant,
+                          CallGraphContributions callGraphContributions) {
+
+    public PrepRequest(Runtime runtime,
+                       Set<TypeInfo> primaryTypes,
+                       Collection<ModuleInfo> moduleInfos,
+                       Predicate<TypeInfo> externalsToAccept,
+                       boolean parallel,
+                       Boolean faultTolerant) {
+        this(runtime, primaryTypes, moduleInfos, externalsToAccept, parallel, faultTolerant, null);
+    }
 }

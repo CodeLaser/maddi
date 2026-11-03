@@ -290,11 +290,30 @@ The list for a prep-only incremental step, in order:
    `INVALID` ∪ `REWIRE` types and keeps the rest. `PrimaryTypeUseGraph` is a projection and follows.
    `setRecursiveMethods` and `ComputePartOfConstructionFinalField` stay global on the merged graph until item 1
    says they matter.
+   *Done (2026-11-03):* `CallGraphContributions` keeps each primary type's builder and recursive methods, keyed by
+   the type object; `ComputeCallGraph.go(contributions)` walks only the types it does not hold and unions the rest in
+   the same order, so the graph equals a full walk, vertex and edge order included (`TestCallGraphContributions`).
+   A contribution is dropped when its type leaves the universe, when it points into a source type that is no longer
+   the same object (counted as `stale`: an invalidation that kept a referrer of a replaced type), and all are
+   dropped when the universe gains a type or the external predicate changes. By-name sinks keep the full walk.
+   `PrepRequest.callGraphContributions` carries it; the rewire driver keeps one for its warm inspector. On
+   fernflower the walk follows the re-parse: 1 type for an edit with an empty cone, 202 of 227 for the usual
+   193-type cone, never a stale one; the oracle finds no differences. `PrimaryTypeUseGraph` still projects the
+   whole graph.
 6. **`PrepRequest` takes a subset and an existing graph.** Today `AnalysisEngine.prep` preps `primaryTypes` and
    builds the graph from them; a prep-only incremental caller needs "prep these, merge into that". The precedent
    for prepping one type over a kept universe is `TestPrepOnePrimaryTypeAtATime`.
+   *Subsumed (2026-11-03) by items 4 and 5, without a subset argument:* the caller passes the whole universe; prep
+   skips every type that arrived prepped (kept, or rewired with its data carried), and the call graph reuses the
+   contributions of the kept types (`PrepRequest.callGraphContributions`). A subset would be a second path to the
+   same result, and the call graph needs the universe anyway for its `accept`. `PrepAnalyzer.typesPrepped()` and
+   `typesCarried()` say what happened (`TestPrepAfterPartialReparse`); on fernflower every edit preps 1 primary type
+   and 226 arrive prepped. What remains of prep's time after a large cone is the call-graph walk of the rewired
+   types, about 20 of 44 ms; rewiring their contributions instead of walking them is the next step if it matters.
 7. **Skip the analysis order** for a prep-only consumer (`doPrepWorkForModificationAnalysis=false` exists;
    `Prepwork.make` passes `true`).
+   *Already so (2026-11-03):* the flag and `Prepwork.make` are gone; `AnalysisEngine.prep` returns the call graph
+   and every caller that wants an order computes it itself (`ComputeAnalysisOrder`), which the rewire driver does not.
 
 ## 7. The order: prep first, then the analysis
 
