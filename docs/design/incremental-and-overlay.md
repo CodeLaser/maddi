@@ -271,13 +271,12 @@ The list for a prep-only incremental step, in order:
    the other `INTRINSIC` properties instead of being re-prepped. The one cross-type input, the callee's
    `GET_SET_FIELD`, is parse-time and already carried, so the carry is sound unless a callee changed its getter or
    setter status, which the `INVALID` set names.
-   *Measured (2026-11-03, fernflower, the driver's `-Dmaddi.rewire.leakCheck`):* the parse layer now lets every
-   generation go (all 472 types a rewire builds are collected four re-parses later), but the heap still grows about
-   45 MB per re-parse. What keeps the old generations is prep data: a rewired method's `VARIABLE_DATA` holds a
-   `FieldReference` to the field of a type from an EARLIER generation (`StructContext.instanceOf` →
-   `ClassNameConstants.JAVA_LANG_OBJECT`). So prep, as it runs today on a rewired type, can still resolve a field
-   through a stale object. The carry has to fix that, and the leak check is its test: no generation older than the
-   previous one reachable.
+   *Measured (2026-11-03, fernflower, the driver's `-Dmaddi.rewire.leakCheck` and `-Dmaddi.rewire.histogram`):*
+   over 40 re-parses the live type objects stay at generation 0 (the driver keeps it) plus the live and the previous
+   generation, and prep's `VariableInfo` count is flat; the heap after GC holds at 300–470 MB. What had kept every
+   generation was parse-side: the class scanner's identity-keyed setup claim (`InfoByFqn.replaceType`) and the
+   rewired type's shared compilation unit. Prep on the rewired objects records only live fields
+   (`TestPrepAfterPartialReparse`), so the carry starts from a clean base.
 5. **A per-type call graph.** `ComputeCallGraph` already has a one-type constructor; keep each primary type's
    vertices and edges as its own contribution and union them, so an edit replaces the contributions of the
    `INVALID` ∪ `REWIRE` types and keeps the rest. `PrimaryTypeUseGraph` is a projection and follows.
