@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.impl.statement.BlockImpl;
@@ -36,6 +37,8 @@ As a consequence, it doesn't really matter which object is used as the key.
 public class InfoMapImpl implements InfoMap {
     private final Map<TypeInfo, Map<Info, Info>> setOfPrimaryTypesToRewire;
     private final Set<TypeInfo> toRewire;
+    // see InfoMapView#rewired: one copy per original object, so that identity-keyed DetailedSources find it
+    private final java.util.IdentityHashMap<Object, Object> rewiredObjects = new java.util.IdentityHashMap<>();
 
     public InfoMapImpl(Set<TypeInfo> setOfPrimaryTypesToRewire) {
         this(setOfPrimaryTypesToRewire, Set.of());
@@ -115,6 +118,22 @@ public class InfoMapImpl implements InfoMap {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T rewired(T original, java.util.function.Supplier<T> rewire) {
+        Object done = rewiredObjects.get(original);
+        if (done != null) return (T) done;
+        T result = rewire.get();
+        // the computation may have registered this very object on the way (a type parameter does, before its bounds)
+        Object registered = rewiredObjects.putIfAbsent(original, result);
+        return registered == null ? result : (T) registered;
+    }
+
+    @Override
+    public void registerRewired(Object original, Object rewired) {
+        rewiredObjects.put(original, rewired);
+    }
+
     @Override
     public TypeInfo typeInfo(TypeInfo typeInfo) {
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(typeInfo.primaryType());
@@ -139,6 +158,13 @@ public class InfoMapImpl implements InfoMap {
         for (TypeInfo primaryType : toRewire) {
             primaryType.rewirePhase0(this, null);
         }
+        // every copy exists now: the units the copies were built in (see TypeInfoImpl.rewirePhase0) get their types
+        for (TypeInfo primaryType : toRewire) {
+            if (typeInfo(primaryType).compilationUnit() instanceof CompilationUnitImpl unit
+                && unit != primaryType.compilationUnit()) {
+                unit.rewireTypes(primaryType.compilationUnit(), this);
+            }
+        }
         for (TypeInfo primaryType : toRewire) {
             primaryType.rewirePhase1(this);
         }
@@ -148,6 +174,9 @@ public class InfoMapImpl implements InfoMap {
         for (TypeInfo primaryType : toRewire) {
             primaryType.rewirePhase3(this);
         }
+        // the copies are made; kept, the memo would hold this generation's originals for as long as the map lives
+        // (the inspector keeps the last one for its lookups)
+        rewiredObjects.clear();
         return toRewire.stream()
                 .map(primaryType -> (TypeInfo) setOfPrimaryTypesToRewire.get(primaryType).get(primaryType))
                 .collect(Collectors.toUnmodifiableSet());
@@ -210,7 +239,7 @@ public class InfoMapImpl implements InfoMap {
                 .addAnnotations(methodInfo.annotations().stream()
                         .map(a -> (AnnotationExpression) a.rewire(this)).toList())
                 .addComments(methodInfo.comments().stream().map(c -> c.rewire(this)).toList())
-                .setSource(methodInfo.source())
+                .setSource(methodInfo.rewireSource(this))
                 .setReturnType(methodInfo.returnType().rewire(this))
                 .addMethodModifier(MethodModifierEnum.PUBLIC)
                 .setMethodBody(new BlockImpl.Builder().build())
@@ -223,7 +252,7 @@ public class InfoMapImpl implements InfoMap {
                     .addAnnotations(methodInfo.annotations().stream()
                             .map(a -> (AnnotationExpression) a.rewire(this)).toList())
                     .addComments(pii.comments().stream().map(c -> c.rewire(this)).toList())
-                    .setSource(pii.source());
+                    .setSource(pii.rewireSource(this));
         }
         mi.builder().commitParameters().commit();
         // and we don't store it either

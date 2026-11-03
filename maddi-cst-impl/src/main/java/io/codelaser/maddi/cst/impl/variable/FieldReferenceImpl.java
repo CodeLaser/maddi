@@ -281,6 +281,19 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
 
     @Override
     public Variable rewire(InfoMapView infoMap) {
+        // once per instance and rewire: DetailedSources and a method's body find the same copy (InfoMapView#rewired)
+        return infoMap.rewired(this, () -> rewireUncached(infoMap));
+    }
+
+    private Variable rewireUncached(InfoMapView infoMap) {
+        // ⚠ a default scope (a plain 'v', not 'this.v') stays default: the constructor materialises it, and handing it
+        // that materialised 'this' back made every rewired copy an explicit 'this.v', with another fully qualified
+        // name. Nothing printed differently, but the copy was not the type that had been parsed, and its analysis
+        // encoded differently from a fresh parse's (docs/design/incremental-and-overlay.md, TestPartialReparse)
+        if (isDefaultScope) {
+            return new FieldReferenceImpl(infoMap.fieldInfo(fieldInfo), null, null,
+                    parameterizedType().rewire(infoMap));
+        }
         return new FieldReferenceImpl(infoMap.fieldInfo(fieldInfo), scope.rewire(infoMap),
                 scopeVariable == null ? null : scopeVariable.rewire(infoMap),
                 parameterizedType().rewire(infoMap));

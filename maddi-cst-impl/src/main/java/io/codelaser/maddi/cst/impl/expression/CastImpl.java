@@ -172,6 +172,6 @@ public class CastImpl extends ExpressionImpl implements Cast {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new CastImpl(comments(), source(), parameterizedType.rewire(infoMap), expression.rewire(infoMap));
+        return new CastImpl(rewireComments(infoMap), rewireSource(infoMap), parameterizedType.rewire(infoMap), expression.rewire(infoMap));
     }
 }

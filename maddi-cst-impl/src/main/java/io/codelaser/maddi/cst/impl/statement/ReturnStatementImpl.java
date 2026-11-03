@@ -213,7 +213,7 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new ReturnStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
-                expression.rewire(infoMap), exitLevels, goToLabel);
+        return withRewiredAnalysis(new ReturnStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+                expression.rewire(infoMap), exitLevels, goToLabel), infoMap);
     }
 }

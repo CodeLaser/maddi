@@ -243,6 +243,14 @@ public interface DetailedSources {
     DetailedSources merge(DetailedSources other);
 
     /**
+     * A copy keyed by the rewired objects: an {@code Info} through the map, a type, type parameter, variable or other
+     * element through {@link io.codelaser.maddi.cst.api.info.InfoMapView#rewired}, so that the key is the very
+     * instance the rewired element holds. Names, markers and positions are kept. A key the map cannot place is dropped
+     * rather than kept: kept, it would answer no lookup and hold on to the previous generation.
+     */
+    DetailedSources rewire(io.codelaser.maddi.cst.api.info.InfoMapView infoMap);
+
+    /**
      * Returns the object associated with {@code object} via a put-with-association call,
      * e.g. the array-stripped version of a parameterised type. Returns {@code null} if none.
      */

@@ -220,7 +220,7 @@ public class SwitchExpressionImpl extends ExpressionImpl implements SwitchExpres
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new SwitchExpressionImpl(comments(), source(), selector.rewire(infoMap),
+        return new SwitchExpressionImpl(rewireComments(infoMap), rewireSource(infoMap), selector.rewire(infoMap),
                 entries.stream().map(e ->(SwitchEntry) e.rewire(infoMap)).toList(), parameterizedType.rewire(infoMap));
     }
 }

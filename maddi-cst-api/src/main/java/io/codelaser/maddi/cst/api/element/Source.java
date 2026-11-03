@@ -77,6 +77,17 @@ public interface Source extends Comparable<Source> {
     /** Returns a copy of this source with a different end column. */
     Source withEndPos(int endPos);
 
+    /**
+     * This source for a rewired element: its detailed sources keyed by the rewired objects (see
+     * {@link DetailedSources#rewire}). Itself when it has no detailed sources.
+     */
+    default Source rewire(io.codelaser.maddi.cst.api.info.InfoMapView infoMap) {
+        DetailedSources detailedSources = detailedSources();
+        if (detailedSources == null) return this;
+        DetailedSources rewired = detailedSources.rewire(infoMap);
+        return rewired == detailedSources ? this : withDetailedSources(rewired);
+    }
+
     /** Returns a copy of this source with the given detailed sources replacing any existing ones. */
     Source withDetailedSources(DetailedSources detailedSources);
 

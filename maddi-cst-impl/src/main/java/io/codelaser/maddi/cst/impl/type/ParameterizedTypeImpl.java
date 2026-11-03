@@ -1019,11 +1019,28 @@ public class ParameterizedTypeImpl implements ParameterizedType {
 
     @Override
     public ParameterizedType rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters) {
+        // once per instance and rewire: DetailedSources finds a type's source under this very instance (InfoMapView#rewired)
+        return infoMap.rewired(this, () -> rewireUncached(infoMap, rewiredTypeParameters));
+    }
+
+    private ParameterizedType rewireUncached(InfoMapView infoMap,
+                                             Map<TypeParameter, TypeParameter> rewiredTypeParameters) {
+        /*
+         ⚠ EVERY PART, not only the type and its parameters. This used to build the copy from type, parameters, arrays
+         and wildcard alone, so a rewired type lost its type-use annotations ('Statement.@NotNull StatementType'
+         became 'Statement.StatementType'), its nullable state and an annotated array component -- found by the
+         rewire driver's oracle on fernflower (docs/design/incremental-and-overlay.md).
+         */
+        List<AnnotationExpression> rewiredAnnotations = annotations.isEmpty() ? annotations : annotations.stream()
+                .map(ae -> (AnnotationExpression) ae.rewire(infoMap)).toList();
+        ParameterizedType rewiredComponent = component == null ? null
+                : component.rewire(infoMap, rewiredTypeParameters);
         if (typeInfo != null) {
             TypeInfo rewired = infoMap.typeInfo(typeInfo);
             List<ParameterizedType> rewiredParameters = parameters.stream()
                     .map(pt -> pt.rewire(infoMap, rewiredTypeParameters)).toList();
-            return new ParameterizedTypeImpl(rewired, null, rewiredParameters, arrays, wildcard);
+            return new ParameterizedTypeImpl(rewired, null, rewiredParameters, arrays, wildcard, nullable,
+                    rewiredAnnotations, rewiredComponent);
         }
         if (typeParameter != null) {
             assert parameters.isEmpty();
@@ -1037,7 +1054,8 @@ public class ParameterizedTypeImpl implements ParameterizedType {
              */
             TypeParameter rewiredTp = Objects.requireNonNullElseGet(rewiredTypeParameters.get(typeParameter),
                     () -> typeParameter.rewire(infoMap, rewiredTypeParameters));
-            return new ParameterizedTypeImpl(null, rewiredTp, List.of(), arrays, wildcard);
+            return new ParameterizedTypeImpl(null, rewiredTp, List.of(), arrays, wildcard, nullable,
+                    rewiredAnnotations, rewiredComponent);
         }
         return this;
     }

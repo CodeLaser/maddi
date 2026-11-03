@@ -167,6 +167,6 @@ public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedEx
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new EnclosedExpressionImpl(comments(), source(), inner.rewire(infoMap));
+        return new EnclosedExpressionImpl(rewireComments(infoMap), rewireSource(infoMap), inner.rewire(infoMap));
     }
 }

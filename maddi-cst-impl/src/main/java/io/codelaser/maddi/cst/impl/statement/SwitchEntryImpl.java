@@ -216,7 +216,7 @@ public class SwitchEntryImpl implements SwitchEntry {
 
     @Override
     public SwitchEntry rewire(InfoMapView infoMap) {
-        return new SwitchEntryImpl(comments, source,
+        return new SwitchEntryImpl(rewireComments(infoMap), rewireSource(infoMap),
                 conditions.stream().map(e -> e.rewire(infoMap)).toList(),
                 patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),
                 otherPatterns.stream().map(o -> (RecordPattern) o.rewire(infoMap)).toList(),

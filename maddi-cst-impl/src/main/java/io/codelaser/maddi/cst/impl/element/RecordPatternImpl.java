@@ -166,12 +166,17 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
 
     @Override
     public Element rewire(InfoMapView infoMap) {
+        // once per instance and rewire: a pattern is a DetailedSources key too (InfoMapView#rewired)
+        return infoMap.rewired(this, () -> rewireUncached(infoMap));
+    }
+
+    private Element rewireUncached(InfoMapView infoMap) {
         if (localVariable != null) {
-            return new RecordPatternImpl(comments, source, false,
+            return new RecordPatternImpl(rewireComments(infoMap), rewireSource(infoMap), false,
                     (LocalVariable) localVariable.rewire(infoMap), null, null);
         }
         if (recordType != null) {
-            return new RecordPatternImpl(rewireComments(infoMap), source, false, null,
+            return new RecordPatternImpl(rewireComments(infoMap), rewireSource(infoMap), false, null,
                     recordType.rewire(infoMap),
                     patterns.stream().map(rp -> (RecordPattern) rp.rewire(infoMap)).toList());
         }

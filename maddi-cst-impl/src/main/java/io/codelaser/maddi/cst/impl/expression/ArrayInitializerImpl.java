@@ -184,6 +184,6 @@ public class ArrayInitializerImpl extends ExpressionImpl implements ArrayInitial
     @Override
     public Expression rewire(InfoMapView infoMap) {
         List<Expression> rewiredExpressions = expressions.stream().map(e -> e.rewire(infoMap)).toList();
-        return new ArrayInitializerImpl(comments(), source(), rewiredExpressions, commonType.rewire(infoMap));
+        return new ArrayInitializerImpl(rewireComments(infoMap), rewireSource(infoMap), rewiredExpressions, commonType.rewire(infoMap));
     }
 }

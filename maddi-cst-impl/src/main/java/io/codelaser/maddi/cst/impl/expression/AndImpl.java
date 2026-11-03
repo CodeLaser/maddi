@@ -216,7 +216,7 @@ public class AndImpl extends ExpressionImpl implements And {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new AndImpl(comments(), source(), booleanPt,
+        return new AndImpl(rewireComments(infoMap), rewireSource(infoMap), booleanPt,
                 expressions.stream().map(e -> e.rewire(infoMap)).toList());
     }
 }

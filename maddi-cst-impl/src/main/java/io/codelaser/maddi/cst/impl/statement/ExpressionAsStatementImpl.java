@@ -155,7 +155,7 @@ public class ExpressionAsStatementImpl extends StatementImpl implements Expressi
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new ExpressionAsStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
-                expression.rewire(infoMap));
+        return withRewiredAnalysis(new ExpressionAsStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+                expression.rewire(infoMap)), infoMap);
     }
 }

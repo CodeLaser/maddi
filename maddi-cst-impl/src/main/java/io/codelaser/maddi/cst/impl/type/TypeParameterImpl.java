@@ -123,6 +123,12 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
 
     @Override
     public TypeParameter rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> done) {
+        TypeParameter inProgress = done.get(this);
+        if (inProgress != null) return inProgress;
+        return infoMap.rewired(this, () -> rewireUncached(infoMap, done));
+    }
+
+    private TypeParameter rewireUncached(InfoMapView infoMap, Map<TypeParameter, TypeParameter> done) {
         Either<TypeInfo, MethodInfo> rewiredOwner = owner.isLeft()
                 ? Either.left(infoMap.typeInfo(owner.getLeft()))
                 : Either.right(infoMap.methodInfo(owner.getRight()));
@@ -130,9 +136,10 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
                 .map(ae -> (AnnotationExpression) ae.rewire(infoMap)).toList();
         TypeParameter rewired = new TypeParameterImpl(index, name, rewiredOwner);
         done.put(this, rewired);
+        infoMap.registerRewired(this, rewired); // before the bounds, which may name this parameter again
         List<ParameterizedType> rewiredTypeBounds = typeBounds().stream()
                 .map(pt -> pt.rewire(infoMap, done)).toList();
-        rewired.builder().setSource(source()).addAnnotations(rewiredAnnotations).setTypeBounds(rewiredTypeBounds).commit();
+        rewired.builder().setSource(rewireSource(infoMap)).addAnnotations(rewiredAnnotations).setTypeBounds(rewiredTypeBounds).commit();
         return rewired;
     }
 

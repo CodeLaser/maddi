@@ -191,6 +191,6 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new UnaryOperatorImpl(comments(), source(), operator, expression.rewire(infoMap), precedence);
+        return new UnaryOperatorImpl(rewireComments(infoMap), rewireSource(infoMap), operator, expression.rewire(infoMap), precedence);
     }
 }

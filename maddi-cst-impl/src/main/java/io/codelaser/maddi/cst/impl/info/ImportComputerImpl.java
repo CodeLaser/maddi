@@ -235,7 +235,7 @@ public class ImportComputerImpl implements ImportComputer {
         // the order of typesReferenced does not matter; the other type is then printed fully qualified.
         typesReferenced.stream()
                 .filter(ti -> ti.isPrimaryType() && myPackage.equals(ti.packageName())
-                              && ti.compilationUnit() != compilationUnit)
+                              && !sameFile(ti.compilationUnit(), compilationUnit))
                 .map(TypeInfo::simpleName)
                 .forEach(qualification::reserveSimpleNameAgainstImport);
         typesReferenced.forEach(ti -> {
@@ -249,7 +249,7 @@ public class ImportComputerImpl implements ImportComputer {
             // importing it anyway rewrites perfectly good output ('Front.Helpers' -> 'import a.b.Front.Helpers'
             // plus a bare 'Helpers'). A caller that pastes verbatim text the computer cannot read, as the
             // isolators do, adds such a type explicitly and does get the import.
-            boolean sameUnit = ti.primaryType().compilationUnit() == compilationUnit;
+            boolean sameUnit = sameFile(ti.primaryType().compilationUnit(), compilationUnit);
             boolean inherited = inheritedIntoScope(compilationUnit, ti);
             // ⛔ NOT IMPORTED, SO PRINTED BY ITS SIMPLE NAME -- inside the types that inherit it. Left alone, the
             // printer renders an unimported nested type down its declaring chain, 'Base.Handle', and that resolves
@@ -324,5 +324,13 @@ public class ImportComputerImpl implements ImportComputer {
     private static boolean allowInImport(TypeInfo typeInfo) {
         return !"java.lang".equals(typeInfo.packageName())
                && !typeInfo.isPrimitiveExcludingVoid() && !typeInfo.isVoid();
+    }
+
+    /*
+     The same source file, not necessarily the same object: a rewired primary type lives in a COPY of its unit
+     (TypeInfoImpl.rewirePhase0), while a type of the same file that was not rewired keeps the original.
+     */
+    private static boolean sameFile(CompilationUnit a, CompilationUnit b) {
+        return a == b || a != null && b != null && a.uri() != null && a.equals(b);
     }
 }

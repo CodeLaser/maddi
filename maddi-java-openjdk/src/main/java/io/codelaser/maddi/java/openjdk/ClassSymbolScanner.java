@@ -901,8 +901,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
      */
     private static final boolean CLASS_FILE_TYPE_USE_OFF = System.getenv("NOCLASSFILETYPEUSE") != null;
 
-    private ParameterizedType typeUse(ParameterizedType converted, Type type) {
-        if (CLASS_FILE_TYPE_USE_OFF || converted == null || type == null) return converted;
+    /*
+     ⛔ CLASS FILES ONLY, as loadAnnotations. For a symbol this task entered from SOURCE, javac's attribution has put
+     an annotation applicable to both a declaration and a type ('@NotNull String id' with JetBrains' @NotNull) into
+     the type's metadata as well, and the source scan keeps such an annotation on the declaration alone
+     (ScanCompilationUnit.typeOnlyModifierAnnotations). So the member's type depended on which path built it first:
+     a type some earlier unit referred to printed '@NotNull public final @NotNull String id', its first-scanned
+     neighbour did not. The rewire driver's oracle found it on fernflower, where a per-file re-parse scans a file
+     before anything refers to it (TestPartialReparse.testTypeUseAnnotationFromClassFile).
+     */
+    private ParameterizedType typeUse(ParameterizedType converted, Type type, Symbol member) {
+        if (CLASS_FILE_TYPE_USE_OFF || converted == null || type == null || isSourceSymbol(member)) return converted;
         List<Attribute.TypeCompound> mirrors = type.getAnnotationMirrors();
         if (mirrors == null || mirrors.isEmpty()) return converted;
         List<AnnotationExpression> annotations = new ArrayList<>(converted.annotations());
@@ -1279,7 +1288,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // the access before them, so a method abandoned between the two answers access() and not returnType().
         if (methodInfo.returnType() == null) {
             builder.setReturnType(methodInfo.isConstructor() ? runtime.parameterizedTypeReturnTypeOfConstructor()
-                    : typeUse(convert(ms.getReturnType()), ms.getReturnType()));
+                    : typeUse(convert(ms.getReturnType()), ms.getReturnType(), ms));
         }
         if (methodInfo.source() == null) builder.setSource(runtime.noSource());
         if (methodInfo.methodBody() == null) builder.setMethodBody(runtime.emptyBlock());
@@ -1332,7 +1341,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return inBuilder;
         }
         LOGGER.debug("Adding field {} to {}", name, typeInfo);
-        ParameterizedType type = typeUse(convert(vs.type), vs.type);
+        ParameterizedType type = typeUse(convert(vs.type), vs.type, vs);
         boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
         FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
         // we might overwrite them, or not...
@@ -1570,7 +1579,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // 862 null-returnType ones, the same defect one field along (2026-08-25).
         // ⛔ FINISHING A HALF-BUILT MEMBER MEANS EVERY FIELD THE FULL PATH SETS, NOT THE FIELD THAT FAILED LAST TIME.
         builder.setReturnType(isConstructor ? runtime.parameterizedTypeReturnTypeOfConstructor()
-                : typeUse(convert(ms.getReturnType()), ms.getReturnType()));
+                : typeUse(convert(ms.getReturnType()), ms.getReturnType(), ms));
         builder.addAnnotations(loadAnnotations(ms));
         if (synthetic || isCompilerGeneratedEnumMethod(typeInfo, ms)
             || isCompilerGeneratedRecordMember(typeInfo, ms)) {
@@ -1581,7 +1590,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
         if (ms.params != null) {
             // resolve all parameter types up front, so the index can be keyed on the full (erased) signature
-            List<ParameterizedType> paramTypes = ms.params.stream().map(p -> typeUse(convert(p.type), p.type))
+            List<ParameterizedType> paramTypes = ms.params.stream().map(p -> typeUse(convert(p.type), p.type, ms))
                     .collect(Collectors.toList());
             List<String> realNames = lookupParameterNames(typeInfo, name, paramTypes);
             // VARARGS is a method-level flag (ACC_VARARGS); it applies to the method's last parameter, which is
@@ -1705,7 +1714,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             TypeInfo owner = convert(cs.type).typeInfo();
             String name = vs.getSimpleName().toString();
             boolean isStatic = vs.isStatic();
-            ParameterizedType type = typeUse(convert(vs.type), vs.type);
+            ParameterizedType type = typeUse(convert(vs.type), vs.type, vs);
             FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
             // we might overwrite them, or not...
             fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());

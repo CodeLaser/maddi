@@ -18,11 +18,18 @@
 package io.codelaser.maddi.cst.impl.element;
 
 import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -261,6 +268,94 @@ public class DetailedSourcesImpl implements DetailedSources {
         }
         return new DetailedSourcesImpl(copy, copyAssociation,
                 mergeReferences(references, ((DetailedSourcesImpl) other).references));
+    }
+
+    @Override
+    public DetailedSources rewire(InfoMapView infoMap) {
+        boolean changed = false;
+        IdentityHashMap<Object, Object> map = new IdentityHashMap<>(identityHashMap.size());
+        for (Map.Entry<Object, Object> entry : identityHashMap.entrySet()) {
+            Object key = rewireKey(entry.getKey(), infoMap);
+            Object value = rewireValue(entry.getValue(), infoMap);
+            changed |= key != entry.getKey() || value != entry.getValue();
+            if (key != null) map.putIfAbsent(key, value);
+        }
+        IdentityHashMap<Object, Object> rewiredAssociation = null;
+        if (association != null) {
+            rewiredAssociation = new IdentityHashMap<>(association.size());
+            for (Map.Entry<Object, Object> entry : association.entrySet()) {
+                Object key = rewireKey(entry.getKey(), infoMap);
+                Object value = rewireAssociated(entry.getValue(), infoMap);
+                changed |= key != entry.getKey() || value != entry.getValue();
+                if (key != null && value != null) rewiredAssociation.putIfAbsent(key, value);
+            }
+        }
+        IdentityHashMap<Object, List<Source>> rewiredReferences = null;
+        if (references != null) {
+            rewiredReferences = new IdentityHashMap<>(references.size());
+            for (Map.Entry<Object, List<Source>> entry : references.entrySet()) {
+                Object key = rewireKey(entry.getKey(), infoMap);
+                changed |= key != entry.getKey();
+                if (key != null) rewiredReferences.putIfAbsent(key, entry.getValue());
+            }
+        }
+        return changed ? new DetailedSourcesImpl(map, rewiredAssociation, rewiredReferences) : this;
+    }
+
+    /*
+     The rewired counterpart of a key, or null when the map cannot place it. Names, marker objects, enum constants and
+     positions name nothing that is rewired, and are kept.
+     */
+    private static Object rewireKey(Object key, InfoMapView infoMap) {
+        try {
+            return switch (key) {
+                case TypeInfo typeInfo -> infoMap.typeInfo(typeInfo);
+                case MethodInfo methodInfo -> infoMap.methodInfo(methodInfo);
+                case FieldInfo fieldInfo -> infoMap.fieldInfo(fieldInfo);
+                case ParameterInfo parameterInfo -> infoMap.parameterInfo(parameterInfo);
+                case ParameterizedType pt -> pt.rewire(infoMap);
+                case TypeParameter tp -> tp.rewire(infoMap);
+                case Variable variable -> variable.rewire(infoMap);
+                case Source source -> source;
+                case Element element -> infoMap.rewired(element, () -> element.rewire(infoMap));
+                default -> key;
+            };
+        } catch (RuntimeException re) {
+            return null;
+        }
+    }
+
+    private static Object rewireValue(Object value, InfoMapView infoMap) {
+        if (value instanceof Source source) return source.rewire(infoMap);
+        if (value instanceof List<?> list) {
+            boolean changed = false;
+            List<Object> copy = new ArrayList<>(list.size());
+            for (Object o : list) {
+                Object r = o instanceof Source source ? source.rewire(infoMap) : o;
+                changed |= r != o;
+                copy.add(r);
+            }
+            return changed ? List.copyOf(copy) : value;
+        }
+        return value;
+    }
+
+    // putWithArrayToWithoutArray: a type; putTypeQualification: a list of (type, source)
+    private static Object rewireAssociated(Object value, InfoMapView infoMap) {
+        if (value instanceof ParameterizedType) return rewireKey(value, infoMap);
+        if (value instanceof List<?> list && !list.isEmpty() && list.getFirst() instanceof DetailedSources.Builder.TypeInfoSource) {
+            List<DetailedSources.Builder.TypeInfoSource> copy = new ArrayList<>(list.size());
+            for (Object o : list) {
+                DetailedSources.Builder.TypeInfoSource tis = (DetailedSources.Builder.TypeInfoSource) o;
+                Object typeInfo = rewireKey(tis.typeInfo(), infoMap);
+                if (typeInfo != null) {
+                    copy.add(new DetailedSources.Builder.TypeInfoSource((TypeInfo) typeInfo,
+                            tis.source() == null ? null : tis.source().rewire(infoMap)));
+                }
+            }
+            return List.copyOf(copy);
+        }
+        return value;
     }
 
     @Override

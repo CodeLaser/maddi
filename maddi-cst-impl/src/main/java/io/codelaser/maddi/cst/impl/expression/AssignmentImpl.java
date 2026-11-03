@@ -283,7 +283,7 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new AssignmentImpl(comments(), source(), (VariableExpression) target.rewire(infoMap),
+        return new AssignmentImpl(rewireComments(infoMap), rewireSource(infoMap), (VariableExpression) target.rewire(infoMap),
                 value.rewire(infoMap), assignmentOperator, assignmentOperatorIsPlus, binaryOperator,
                 prefixPrimitiveOperator);
     }

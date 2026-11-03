@@ -75,4 +75,23 @@ public interface InfoMapView {
      * Throws if not registered.
      */
     ParameterInfo parameterInfo(ParameterInfo parameterInfo);
+
+    /**
+     * The copy this rewire made of {@code original}, made once: the first call runs {@code rewire} and every later
+     * call for the same object (by identity) returns that same copy.
+     * <p>
+     * ⛔ WHY IDENTITY MATTERS. {@link io.codelaser.maddi.cst.api.element.DetailedSources} is keyed by object identity:
+     * the source of a field's TYPE is found under the field's {@code ParameterizedType} instance. A rewire that copies
+     * the field's type and, separately, the field's source has to arrive at the same new instance twice, or every
+     * such lookup misses on the rewired type, and the old keys keep the previous generation reachable (found by the
+     * rewire driver on fernflower; docs/design/incremental-and-overlay.md).
+     */
+    <T> T rewired(T original, java.util.function.Supplier<T> rewire);
+
+    /**
+     * Records {@code rewired} as the copy of {@code original}, for a copy made outside {@link #rewired} (a type's
+     * type parameters are built by the rewire phases), or made under construction (a type parameter is entered
+     * before its bounds are rewired, so that a self-referential bound terminates).
+     */
+    void registerRewired(Object original, Object rewired);
 }

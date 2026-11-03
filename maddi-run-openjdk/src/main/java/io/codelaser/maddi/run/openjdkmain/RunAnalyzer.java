@@ -269,8 +269,34 @@ public class RunAnalyzer implements Runnable {
             }
             if (rewireTests) {
                 LOGGER.info("Start rewire tests");
-                new RunRewireTests(inputConfiguration, javaInspector, summary.parseResult(), ccg.graph())
-                        .go();
+                // a measurement step, so its knobs are system properties rather than options of the CLI:
+                // maddi.rewire.iterations (default 200), maddi.rewire.oracleEvery (default 0, never)
+                int iterations = Integer.getInteger("maddi.rewire.iterations", 200);
+                int oracleEvery = Integer.getInteger("maddi.rewire.oracleEvery", 0);
+                java.util.function.BiFunction<JavaInspector, ParseResult, io.codelaser.maddi.graph.G<Info>> prepFn =
+                        (inspector, pr) -> engine().prep(new PrepRequest(inspector.runtime(),
+                                Set.copyOf(pr.primaryTypes()), pr.sourceSetToModuleInfoMap().values(),
+                                externalsToAccept, parseOptions.parallel(), true)).callGraph().graph();
+                java.util.function.Supplier<JavaInspector> coldInspector = () -> {
+                    JavaInspector cold = new JavaInspectorImpl(true, false);
+                    cold.setJdkInternals(configuration.generalConfiguration().jdkInternals());
+                    try {
+                        cold.initialize(inputConfiguration);
+                    } catch (java.io.IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                    cold.preload("java.base::java.util");
+                    return cold;
+                };
+                RunRewireTests.Result rewireResult = new RunRewireTests(inputConfiguration, javaInspector,
+                        summary.parseResult(), ccg.graph(), new RunRewireTests.Options(iterations, oracleEvery,
+                        parseOptions, prepFn, coldInspector)).go();
+                if (!rewireResult.oracleDifferences().isEmpty()) {
+                    // the incremental path produced something a cold parse does not: that is a defect, not a finding
+                    LOGGER.error("Rewire tests: {} oracle difference(s) in {} check(s)",
+                            rewireResult.oracleDifferences().size(), rewireResult.oracleChecks());
+                    exitValue = Main.EXIT_INTERNAL_EXCEPTION;
+                }
                 if (printMemory) {
                     printMemUse();
                 }

@@ -239,8 +239,9 @@ public class TestJavaInspector6MultiProject {
         // rewired: a new object, but NOT re-parsed -- rewirePhase0 reuses the compilation unit
         TypeInfo typeInfoImpl2 = pr2.findType(TYPE_INFO_IMPL);
         assertNotSame(typeInfoImpl1, typeInfoImpl2, "cst-impl depends on cst-api: it must be rewired");
-        assertSame(typeInfoImpl1.compilationUnit(), typeInfoImpl2.compilationUnit(),
-                "rewired, not re-scanned: same compilation unit");
+        assertSame(typeInfoImpl1.compilationUnit().fingerPrintOrNull(),
+                typeInfoImpl2.compilationUnit().fingerPrintOrNull(),
+                "rewired, not re-scanned: a copy of the compilation unit, with its fingerprint");
 
         // and the point of it all: the rewired type reaches the RE-PARSED cst-api, not the objects it replaced
         TypeInfo typeInfoApi2 = pr2.findType(TYPE_INFO);

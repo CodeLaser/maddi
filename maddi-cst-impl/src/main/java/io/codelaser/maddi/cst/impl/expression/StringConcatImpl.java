@@ -51,7 +51,7 @@ public class StringConcatImpl extends BinaryOperatorImpl implements StringConcat
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new StringConcatImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap),
+        return new StringConcatImpl(rewireComments(infoMap), rewireSource(infoMap), operator, precedence, lhs.rewire(infoMap),
                 rhs.rewire(infoMap), parameterizedType);
     }
 }

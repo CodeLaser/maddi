@@ -22,6 +22,8 @@ import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -117,10 +119,17 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
         @Override
         public Tag rewire(InfoMapView infoMap) {
             if (resolvedReference == null && referencedParameterTypes.isEmpty()) return this;
-            Element rewired = resolvedReference == null ? null : resolvedReference.rewire(infoMap);
-            List<TypeInfo> rewiredParams = referencedParameterTypes.stream()
-                    .map(t -> (TypeInfo) t.rewire(infoMap)).toList();
-            return new TagImpl(tagIdentifier, content, rewired, source, sourceOfReference, blockTag, rewiredParams);
+            // an Info goes through the map: TypeInfo.rewire and its siblings refuse, by design
+            Element rewired = switch (resolvedReference) {
+                case null -> null;
+                case TypeInfo typeInfo -> infoMap.typeInfo(typeInfo);
+                case MethodInfo methodInfo -> infoMap.methodInfo(methodInfo);
+                case FieldInfo fieldInfo -> infoMap.fieldInfo(fieldInfo);
+                default -> resolvedReference.rewire(infoMap);
+            };
+            List<TypeInfo> rewiredParams = referencedParameterTypes.stream().map(infoMap::typeInfo).toList();
+            return new TagImpl(tagIdentifier, content, rewired, source == null ? null : source.rewire(infoMap),
+                    sourceOfReference == null ? null : sourceOfReference.rewire(infoMap), blockTag, rewiredParams);
         }
 
         @Override
@@ -215,7 +224,8 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
 
     @Override
     public JavaDoc rewire(InfoMapView infoMap) {
-        return new JavaDocImpl(source(), super.comment(), tags.stream().map(t -> t.rewire(infoMap)).toList());
+        return new JavaDocImpl(source() == null ? null : source().rewire(infoMap), super.comment(),
+                tags.stream().map(t -> t.rewire(infoMap)).toList());
     }
 
     @Override

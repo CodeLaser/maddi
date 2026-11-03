@@ -222,10 +222,11 @@ public class DependentVariableImpl extends VariableImpl implements DependentVari
 
     @Override
     public Variable rewire(InfoMapView infoMap) {
-        return new DependentVariableImpl(arrayExpression.rewire(infoMap),
+        // once per instance and rewire: DetailedSources and a method's body find the same copy (InfoMapView#rewired)
+        return infoMap.rewired(this, () -> new DependentVariableImpl(arrayExpression.rewire(infoMap),
                 arrayVariable == null ? null : arrayVariable.rewire(infoMap),
                 indexExpression.rewire(infoMap),
                 indexVariable == null ? null : indexVariable.rewire(infoMap),
-                parameterizedType().rewire(infoMap));
+                parameterizedType().rewire(infoMap)));
     }
 }

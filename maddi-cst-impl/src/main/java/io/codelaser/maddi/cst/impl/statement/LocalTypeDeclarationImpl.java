@@ -91,8 +91,8 @@ public class LocalTypeDeclarationImpl extends StatementImpl implements LocalType
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new LocalTypeDeclarationImpl(comments(), source(), rewireAnnotations(infoMap), label(),
-                infoMap.typeInfoRecurseAllPhases(typeInfo));
+        return withRewiredAnalysis(new LocalTypeDeclarationImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+                infoMap.typeInfoRecurseAllPhases(typeInfo)), infoMap);
     }
 
     @Override

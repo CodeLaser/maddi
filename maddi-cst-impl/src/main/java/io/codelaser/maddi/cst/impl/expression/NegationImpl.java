@@ -92,6 +92,6 @@ public class NegationImpl extends UnaryOperatorImpl implements Negation {
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new NegationImpl(comments(), source(), operator, precedence, expression.rewire(infoMap));
+        return new NegationImpl(rewireComments(infoMap), rewireSource(infoMap), operator, precedence, expression.rewire(infoMap));
     }
 }

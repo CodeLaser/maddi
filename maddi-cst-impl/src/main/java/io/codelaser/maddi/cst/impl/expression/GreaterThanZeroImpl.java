@@ -246,6 +246,6 @@ public class GreaterThanZeroImpl extends ExpressionImpl implements GreaterThanZe
 
     @Override
     public Expression rewire(InfoMapView infoMap) {
-        return new GreaterThanZeroImpl(comments(), source(), booleanPt, expression.rewire(infoMap), allowEquals);
+        return new GreaterThanZeroImpl(rewireComments(infoMap), rewireSource(infoMap), booleanPt, expression.rewire(infoMap), allowEquals);
     }
 }

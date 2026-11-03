@@ -231,7 +231,7 @@ public class IfElseStatementImpl extends StatementImpl implements IfElseStatemen
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new IfElseStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
-                expression.rewire(infoMap), block.rewire(infoMap), elseBlock.rewire(infoMap));
+        return withRewiredAnalysis(new IfElseStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+                expression.rewire(infoMap), block.rewire(infoMap), elseBlock.rewire(infoMap)), infoMap);
     }
 }
