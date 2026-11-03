@@ -218,7 +218,63 @@ What the reparse has to do differently, whichever of the three is chosen:
 The in-house CongoCC inspector is per file by construction and already rewires per type (`rewiring.md`), but it
 is not the front end to build on (`JavaInspector`'s own comment).
 
-## 6. Proposed order
+## 6. The prep-only path: refactorings that never link
+
+Several refactoring operations in the refactor engine (outside maddi) need the parse, prepwork and the call graph
+but not the link and modification analysis. For them the 9/10 that `analysis-rewiring.md` set aside is not there
+to save, and the whole-set reparse plus the whole-project prep *is* the cost. What they pay per edit today, after
+the refactor service's incremental reparse (`PrepworkResource.incrementalReparse`, opt-in, off by default):
+
+| step | scope today | why |
+|---|---|---|
+| javac + CST | the whole source set of every changed type | §5 |
+| prep per type (`VARIABLE_DATA`, get/set, hidden content) | the rescanned set ∪ the `REWIRE` cone | kept types are skipped by the `PREPPED` marker; rebuilt and rewired types are new objects with no intrinsic data |
+| `ComputeCallGraph` | the whole project | built from scratch by an `ImmutableGraph.Builder` over every primary type |
+| `setRecursiveMethods`, `ComputePartOfConstructionFinalField` | the whole graph | global by nature (cycles, reachability) |
+| `ComputeAnalysisOrder` | the whole graph | `Prepwork.make` always computes it; a prep-only consumer does not need it |
+
+There is no single list for this. What exists, in four places:
+
+- `rewiring.md` §"Parked mid-flight" and "Resumed": the **intrinsic carry**, items 1–4 (`VariableDataImpl` /
+  `VariableInfoImpl.rewire` with its two traps, `Statement.rewireAnalysis`, the `VARIABLE_DATA` opt-in, tests).
+  Parked on 2026-07-18 because the analysis tier was the bigger prize; the "still to do" line stands.
+- `rewiring.md` §"Plan: call-graph-granular rewiring": per-type rescan, steps (a)–(c). Deferred the same day. §5
+  above shows the javac side is nearer than that plan assumed.
+- `refactor-base/docs/PLAN-modification-analysis-resource-tier2.md` (2026-07-22): stages 2a–2e. Stage 2a, the
+  reparse with carry and a dirty frontier, is built as `incrementalReparse`; the header still says "design only".
+- `refactor-base/docs/ANALYSIS-INCREMENTAL-REPARSE.md` (2026-10-22, "not ready"): eleven gaps against a cold
+  reload, with the order to fix them (1, 2, 5, 9; then 3, 4; then a switch-on/switch-off harness). Gap 8 is this
+  section's subject: "`Prepwork.make` runs over the whole parse result".
+
+No GitHub issue in maddi or maddi-mod covers prepwork rewiring or a partial prep, and the prepwork code carries no
+TODO beyond the `rewire` methods that throw.
+
+The list for a prep-only incremental step, in order:
+
+1. **Measure before choosing.** Split a cold reparse of a real project (the audit's 71 s, `ANALYSIS-INCREMENTAL-REPARSE.md`)
+   into javac, CST, prep per type, call graph, recursive methods, part-of-construction and order. The `ASPROF`
+   hook of `../status/performance-2026-10-22.md` does this. Nothing below is worth doing before its share is known.
+2. **The service-side gaps** (`ANALYSIS-INCREMENTAL-REPARSE.md` 1, 2, 5, 9, then 3, 4), since nothing is switched
+   on until they are closed, and the Kotlin inspector's lack of a reload keeps the audit on the cold path regardless.
+3. **Per-type rescan** (§5), the parse half. Shape (a) first: parse and enter the set, attribute and build the
+   `INVALID` units, resolve siblings to the kept objects. The open point is item 3 of §5, re-attribution after a
+   signature change.
+4. **The intrinsic carry** (`rewiring.md` items 1–4), the prep half: a `REWIRE` type keeps its `VARIABLE_DATA` and
+   the other `INTRINSIC` properties instead of being re-prepped. The one cross-type input, the callee's
+   `GET_SET_FIELD`, is parse-time and already carried, so the carry is sound unless a callee changed its getter or
+   setter status, which the `INVALID` set names.
+5. **A per-type call graph.** `ComputeCallGraph` already has a one-type constructor; keep each primary type's
+   vertices and edges as its own contribution and union them, so an edit replaces the contributions of the
+   `INVALID` ∪ `REWIRE` types and keeps the rest. `PrimaryTypeUseGraph` is a projection and follows.
+   `setRecursiveMethods` and `ComputePartOfConstructionFinalField` stay global on the merged graph until item 1
+   says they matter.
+6. **`PrepRequest` takes a subset and an existing graph.** Today `AnalysisEngine.prep` preps `primaryTypes` and
+   builds the graph from them; a prep-only incremental caller needs "prep these, merge into that". The precedent
+   for prepping one type over a kept universe is `TestPrepOnePrimaryTypeAtATime`.
+7. **Skip the analysis order** for a prep-only consumer (`doPrepWorkForModificationAnalysis=false` exists;
+   `Prepwork.make` passes `true`).
+
+## 7. Proposed order
 
 1. Clear the seed's stale values in `incrementalSeed`, and add a test of the `INCREMENTAL` path.
 2. Expose the seed and the carry through `AnalysisEngine`.
