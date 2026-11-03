@@ -44,7 +44,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  */
 public class TestCompileLogCli {
 
-    private static final String COMPILE_LOG = "src/test/resources/javac/mvnTimefold-solver.txt.gz";
+    // the log lives with its parser, in maddi-run-config (moved there in d237c87c5)
+    private static final String COMPILE_LOG = "../maddi-run-config/src/test/resources/javac/mvnTimefold-solver.txt.gz";
     // a module NOT part of the java.se closure that ParseJavacList always adds, so its presence in the derived
     // classpath proves --extra-jmod actually took effect (as opposed to, say, java.sql, which java.se pulls in)
     private static final String EXTRA_JMOD = "jdk.compiler";
