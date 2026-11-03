@@ -114,14 +114,26 @@ public class RunRewireTests {
 
     /** One re-parse: what it touched and what each step took. */
     private record Stats(int iteration, boolean restore, int changed, int cone, int rewiredTypes, int primaryTypes,
-                         long reloadMs, long reparseMs, long prepMs, long callGraphMs) {
+                         long reloadMs, long reparseMs, long prepMs, long callGraphMs, int vertices, long edges,
+                         long heapMb) {
         @Override
         public String toString() {
             return String.format("iteration %d%s: %d changed, %d in the REWIRE cone, %d type(s) built by the rewire, of"
                                  + " %d primary types; reload %d ms, re-parse %d ms, prep %d ms (call graph alone %d"
-                                 + " ms)", iteration, restore ? " (restore)" : "", changed, cone, rewiredTypes,
-                    primaryTypes, reloadMs, reparseMs, prepMs, callGraphMs);
+                                 + " ms); call graph %d vertices, %d edges; heap after GC %d MB", iteration,
+                    restore ? " (restore)" : "", changed, cone, rewiredTypes, primaryTypes, reloadMs, reparseMs,
+                    prepMs, callGraphMs, vertices, edges, heapMb);
         }
+    }
+
+    /*
+     Heap in use after a collection: a run whose re-parses keep what they replaced shows it growing step by step. The
+     collection is outside every timed step.
+     */
+    private static long heapAfterGcMb() {
+        System.gc();
+        java.lang.Runtime rt = java.lang.Runtime.getRuntime();
+        return (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
     }
 
     public Result go() {
@@ -206,7 +218,8 @@ public class RunRewireTests {
         InfoMapView view = javaInspector.lastRewireInfoMap();
         Stats s = new Stats(iteration, restore, rr.sourceHasChanged().size(), dependentPrimaryTypes.size(),
                 view == null ? 0 : view.rewiredTypes().size(), parseResult1.primaryTypes().size(),
-                ms(t1 - t0), ms(t2 - t1), ms(t3 - t2), ms(t4 - t3));
+                ms(t1 - t0), ms(t2 - t1), ms(t3 - t2), ms(t4 - t3), graph.vertices().size(), graph.edgeStream().count(),
+                heapAfterGcMb());
         stats.add(s);
         LOGGER.info("REWIRE STATS {}", s);
         lastGraph = graph;
@@ -241,8 +254,9 @@ public class RunRewireTests {
         if (differences.isEmpty()) {
             LOGGER.info("REWIRE ORACLE iteration {}: as a cold parse ({} ms)", iteration, ms(System.nanoTime() - t0));
         } else {
-            LOGGER.error("REWIRE ORACLE iteration {}: {} difference(s) with a cold parse; first: {}", iteration,
-                    differences.size(), differences.getFirst());
+            LOGGER.error("REWIRE ORACLE iteration {}: {} difference(s) with a cold parse", iteration,
+                    differences.size());
+            differences.stream().limit(50).forEach(d -> LOGGER.error("REWIRE ORACLE DIFFERENCE {}", d));
             differences.forEach(d -> oracleDifferences.add("iteration " + iteration + ": " + d));
         }
     }
