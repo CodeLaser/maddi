@@ -168,26 +168,21 @@ public class RunRewireTests {
         if (!LEAK_CHECK || view == null) return;
         int n = stats.size();
         if (watched.isEmpty() && n == 2 && !view.rewiredTypes().isEmpty()) {
-            // one per source set: the sets are re-parsed differently (a set that resolves another through class files)
-            Map<String, TypeInfo> perSet = new java.util.TreeMap<>();
-            view.rewiredTypes().stream().filter(TypeInfo::isPrimaryType)
-                    .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
-                    .forEach(t -> perSet.putIfAbsent(String.valueOf(t.compilationUnit().sourceSet()), t));
-            perSet.forEach((set, t) -> {
-                watched.add(new java.lang.ref.WeakReference<>(t));
-                LOGGER.info("REWIRE LEAK watching {} of {}, built at re-parse {}", t, set, n);
-            });
+            // every type the rewire built: whether a generation survives is a count, and one survivor's chain is enough
+            view.rewiredTypes().forEach(t -> watched.add(new java.lang.ref.WeakReference<>(t)));
+            LOGGER.info("REWIRE LEAK watching the {} type(s) built at re-parse {}", watched.size(), n);
             watchedAt = n;
         } else if (!watched.isEmpty() && n == watchedAt + 4) {
             for (int i = 0; i < 3; i++) System.gc();
-            for (java.lang.ref.WeakReference<TypeInfo> ref : watched) {
-                TypeInfo still = ref.get();
-                if (still == null) {
-                    LOGGER.info("REWIRE LEAK a type built at re-parse {} was collected", watchedAt);
-                } else {
-                    LOGGER.info("REWIRE LEAK {} built at re-parse {} is still reachable; from the driver:{}", still,
-                            watchedAt, LeakPath.path(this, still));
-                }
+            List<TypeInfo> alive = watched.stream().map(java.lang.ref.WeakReference::get).filter(Objects::nonNull)
+                    .toList();
+            LOGGER.info("REWIRE LEAK of the {} type(s) built at re-parse {}, {} are still reachable", watched.size(),
+                    watchedAt, alive.size());
+            if (!alive.isEmpty()) {
+                TypeInfo one = alive.stream().filter(TypeInfo::isPrimaryType).findFirst().orElse(alive.getFirst());
+                LOGGER.info("REWIRE LEAK {} (source set {}), from the driver:{}", one,
+                        one.compilationUnit() == null ? null : one.compilationUnit().sourceSet(),
+                        LeakPath.path(this, one));
             }
         }
     }
