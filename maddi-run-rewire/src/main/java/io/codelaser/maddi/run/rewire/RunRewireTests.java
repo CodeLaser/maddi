@@ -187,14 +187,16 @@ public class RunRewireTests {
             LOGGER.info("REWIRE LEAK {} type object(s) reachable from the driver, {} name(s) with more than one: {}",
                     all.size(), doubled.size(), doubled.stream().limit(20)
                             .map(e -> e.getKey() + " x" + e.getValue().size()).toList());
-            for (Map.Entry<String, List<TypeInfo>> e : doubled.stream().limit(3).toList()) {
-                // neither the live one nor generation 0, which the driver keeps on purpose (parseResult, list)
+            for (Map.Entry<String, List<TypeInfo>> e : doubled.stream().limit(1).toList()) {
+                // every instance of one name: which is live, which is generation 0, and how each is reached
                 TypeInfo live = lastParseResult.findType(e.getKey());
                 TypeInfo first = parseResult.findType(e.getKey());
-                e.getValue().stream().filter(t -> t != live && t != first).findFirst().ifPresent(old -> LOGGER.info(
-                        "REWIRE LEAK an older {} (source set {}), from the driver:{}", old,
-                        old.compilationUnit() == null ? null : old.compilationUnit().sourceSet(),
-                        LeakPath.path(this, old)));
+                for (TypeInfo t : e.getValue()) {
+                    String role = t == live ? "live" : t == first ? "generation 0" : "other";
+                    LOGGER.info("REWIRE LEAK instance {} of {} ({}; in the last parse result's primary types: {}), "
+                                + "from the driver:{}", System.identityHashCode(t), e.getKey(), role,
+                            lastParseResult.primaryTypes().stream().anyMatch(pt -> pt == t), LeakPath.path(this, t));
+                }
             }
             if (!alive.isEmpty()) {
                 TypeInfo one = alive.stream().filter(TypeInfo::isPrimaryType).findFirst().orElse(alive.getFirst());
