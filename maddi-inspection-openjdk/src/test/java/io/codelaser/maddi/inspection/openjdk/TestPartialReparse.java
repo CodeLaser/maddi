@@ -428,7 +428,9 @@ public class TestPartialReparse {
         SourceSet set = new SourceSetImpl.Builder().setName("main")
                 .setSourceDirectories(List.of(cSrc)).setUri(cSrc.toUri()).build();
         JavaInspector inspector = inspector(set);
-        parse(inspector);
+        // the cold parse's Doc too: it is rewired in round 1, and nothing may keep the original (the scanner's setup
+        // claim did, InfoByFqn.replaceType)
+        java.lang.ref.WeakReference<TypeInfo> doc0 = new java.lang.ref.WeakReference<>(parse(inspector).findType("c.Doc"));
         write(cSrc, "c/Other.java", "// round 1\n" + OTHER);
         ParseResult pr1 = reparse(inspector, Map.of("c.Other", INVALID, "c.Doc", REWIRE));
         java.lang.ref.WeakReference<TypeInfo> doc1 = new java.lang.ref.WeakReference<>(pr1.findType("c.Doc"));
@@ -439,12 +441,13 @@ public class TestPartialReparse {
             ParseResult prr = reparse(inspector, Map.of("c.Other", INVALID, "c.Doc", REWIRE));
             assertNoStaleReferences(prr);
         }
-        for (int i = 0; i < 5 && (doc1.get() != null || other1.get() != null); i++) {
+        for (int i = 0; i < 5 && (doc0.get() != null || doc1.get() != null || other1.get() != null); i++) {
             System.gc();
             Thread.sleep(50);
         }
         assertNull(other1.get(), "the re-parsed Other of round 1 is still reachable");
         assertNull(doc1.get(), "the rewired Doc of round 1 is still reachable");
+        assertNull(doc0.get(), "the Doc of the cold parse is still reachable");
     }
 
     // ---- three source sets: main <- mid <- top

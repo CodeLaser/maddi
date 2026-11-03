@@ -140,6 +140,16 @@ public class InfoByFqn {
             SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
             multiTypeByFqn.put(fqn, multi.stream().map(m -> sameSourceSet(m, sourceSet) ? typeInfo : m).toList());
         }
+        /*
+         ⛔ AND THE SETUP CLAIM MOVES WITH IT. The claim is identity-keyed: the original kept it for the inspector's
+         lifetime, the copy never had it. Every rewired generation stayed reachable from this set (fernflower, the
+         rewire driver's leak check: InstructionImpact x6 after five re-parses), and nothing stood between the copy
+         and a class-file load setting up its hierarchy a second time. Equality is fqn + source set (the BASIC RULE),
+         so the original is the entry equal to the copy but not the copy.
+         */
+        if (classScannerSetupDone.removeIf(t -> t != typeInfo && t.equals(typeInfo))) {
+            classScannerSetupDone.add(typeInfo);
+        }
     }
 
     private static boolean sameSourceSet(TypeInfo typeInfo, SourceSet sourceSet) {
