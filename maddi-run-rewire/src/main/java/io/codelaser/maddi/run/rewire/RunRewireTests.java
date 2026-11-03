@@ -298,9 +298,9 @@ public class RunRewireTests {
         stats.add(s);
         LOGGER.info("REWIRE STATS {}", s);
         logHistogram(iteration, restore);
-        leakCheck(iteration, view);
         lastGraph = graph;
         lastParseResult = parseResult1;
+        leakCheck(iteration, view); // after: it tells the live types by lastParseResult
         return graph;
     }
 
