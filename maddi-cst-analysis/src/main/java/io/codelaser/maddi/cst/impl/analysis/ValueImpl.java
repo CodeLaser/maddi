@@ -1237,6 +1237,13 @@ public abstract class ValueImpl implements Value {
     }
 
     public record SetOfInfoImpl(Set<? extends Info> infoSet) implements SetOfInfo {
+        // sorted: a set's own order follows hash codes and insertion, which two equal sets need not share (the rewire
+        // driver's oracle compares the descriptions of a warm and a cold prep)
+        @Override
+        public String toString() {
+            return "SetOfInfoImpl[infoSet=[" + infoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", ")) + "]]";
+        }
+
         public static SetOfInfo EMPTY = new SetOfInfoImpl(Set.of());
 
         @Override
@@ -1373,6 +1380,13 @@ public abstract class ValueImpl implements Value {
 
 
     public record SetOfTypeInfoImpl(Set<TypeInfo> typeInfoSet) implements SetOfTypeInfo {
+        // sorted: a set's own order follows hash codes and insertion, which two equal sets need not share (the rewire
+        // driver's oracle compares the descriptions of a warm and a cold prep)
+        @Override
+        public String toString() {
+            return "SetOfTypeInfoImpl[typeInfoSet=[" + typeInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", ")) + "]]";
+        }
+
         public static final SetOfTypeInfo EMPTY = new SetOfTypeInfoImpl(Set.of());
 
         @Override
