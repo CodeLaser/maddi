@@ -189,6 +189,10 @@ public class RunRewireTests {
                             .map(e -> e.getKey() + " x" + e.getValue().size()).toList());
             for (Map.Entry<String, List<TypeInfo>> e : doubled.stream().limit(1).toList()) {
                 // every instance of one name: which is live, which is generation 0, and how each is reached
+                String simple = e.getKey().substring(e.getKey().lastIndexOf('.') + 1) + ".java";
+                javaInspector.sourceFiles().stream().filter(sf -> sf.uri().toString().endsWith("/" + simple))
+                        .forEach(sf -> LOGGER.info("REWIRE LEAK source file {} of {} (set object {})", sf.uri(),
+                                sf.sourceSet(), System.identityHashCode(sf.sourceSet())));
                 TypeInfo live = lastParseResult.findType(e.getKey());
                 TypeInfo first = parseResult.findType(e.getKey());
                 for (TypeInfo t : e.getValue()) {
