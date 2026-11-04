@@ -243,6 +243,45 @@ public class RunRewireTests {
         }
     }
 
+    /*
+     -Dmaddi.rewire.leakFields=A,B: at re-parse A, hold weak references to the analysis-made fields the driver reaches
+     (the link engine's virtual fields and translations: owned by a type, not among its fields()); at re-parse B, after
+     re-analyses that replaced them, print how many are still reachable and how a few of them are reached. An analysis
+     that clears an element and computes it again should leave the old ones to the collector.
+     */
+    private static final String LEAK_FIELDS = System.getProperty("maddi.rewire.leakFields");
+    private final List<java.lang.ref.WeakReference<io.codelaser.maddi.cst.api.info.FieldInfo>> watchedFields =
+            new ArrayList<>();
+
+    private void leakFields() {
+        if (LEAK_FIELDS == null) return;
+        String[] ab = LEAK_FIELDS.split(",");
+        int a = Integer.parseInt(ab[0].strip());
+        int b = Integer.parseInt(ab[1].strip());
+        int n = stats.size();
+        if (n == a) {
+            List<io.codelaser.maddi.cst.api.info.FieldInfo> all = LeakPath.reachable(this,
+                    io.codelaser.maddi.cst.api.info.FieldInfo.class, 40_000_000);
+            List<io.codelaser.maddi.cst.api.info.FieldInfo> made = all.stream()
+                    .filter(f -> f.owner() != null && f.owner().fields().stream().noneMatch(g -> g == f)).toList();
+            int step = Math.max(1, made.size() / 50_000);
+            for (int i = 0; i < made.size(); i += step) watchedFields.add(new java.lang.ref.WeakReference<>(made.get(i)));
+            LOGGER.info("REWIRE LEAKFIELDS at re-parse {}: {} field(s) reachable, {} analysis-made, watching {}", n,
+                    all.size(), made.size(), watchedFields.size());
+        } else if (n == b && !watchedFields.isEmpty()) {
+            for (int i = 0; i < 3; i++) System.gc();
+            List<io.codelaser.maddi.cst.api.info.FieldInfo> alive = watchedFields.stream()
+                    .map(java.lang.ref.WeakReference::get).filter(Objects::nonNull).toList();
+            LOGGER.info("REWIRE LEAKFIELDS at re-parse {}: of the {} watched since re-parse {}, {} still reachable", n,
+                    watchedFields.size(), a, alive.size());
+            for (int i = 0; i < Math.min(5, alive.size()); i++) {
+                io.codelaser.maddi.cst.api.info.FieldInfo f = alive.get(i * alive.size() / Math.min(5, alive.size()));
+                LOGGER.info("REWIRE LEAKFIELDS {} of {}, from the driver:{}", f.name(), f.owner(),
+                        LeakPath.path(this, f));
+            }
+        }
+    }
+
     public Result go() {
         Random random = new Random(SEED);
         List<TypeInfo> list = parseResult.primaryTypes().stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
@@ -363,6 +402,7 @@ public class RunRewireTests {
         lastGraph = graph;
         lastParseResult = parseResult1;
         leakCheck(iteration, view); // after: it tells the live types by lastParseResult
+        leakFields();
         return graph;
     }
 
