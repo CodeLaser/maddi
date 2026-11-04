@@ -33,7 +33,12 @@ dependencies {
         api("org.jgrapht:jgrapht-core:1.5.2")
         api("org.jgrapht:jgrapht-io:1.5.2")
 
+        // engine and launcher too, not only through junit-jupiter-api's BOM: a build that reads Maven local first
+        // (the siblings pinned, -PmaddiFromSource=false) can meet a junit-jupiter-api there with a pom and no Gradle
+        // .module, and so without the BOM, leaving the two versionless. JUnit 6 versions all three together.
         api("org.junit.jupiter:junit-jupiter-api:6.0.3")
+        api("org.junit.jupiter:junit-jupiter-engine:6.0.3")
+        api("org.junit.platform:junit-platform-launcher:6.0.3")
 
         api("org.slf4j:slf4j-api:2.0.17")
         api("ch.qos.logback:logback-classic:1.5.32")
