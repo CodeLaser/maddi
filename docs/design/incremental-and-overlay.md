@@ -123,6 +123,15 @@ Mechanisms are not the gap. Plumbing and three decisions are.
    The maddi daemon stays cold and gets the overlay (§4, option A), which a stateless daemon does well. Left open:
    the IDE plugins' partial re-analysis, which keeps paying a cold run per build until the daemon is made stateful
    on a proven chain, or the IDEs talk to the refactor service.
+   *Revised 2026-11-04:* the maddi daemon keeps its state after all, behind a switch (`-Dmaddi.daemon.warm=true`,
+   maddi-dist `WarmAnalysisService`), for the IDE plugins and the maddi MCP server. A request with the same
+   configuration reloads, re-parses the changed types and rewires their dependents, preps with the kept call-graph
+   contributions, and runs a seeded analysis over both; nothing changed returns the last result. The result's outcome
+   is `INCREMENTAL` (best available, never certified: §3 item 3). Anything else is a cold run: another configuration,
+   Kotlin sources, a partial parse, a file added or removed, an exception. A seeded run's messages are about its
+   scope, which `ModificationOutcome.scope()` names, except the contract check's, which covers the whole order; the
+   daemon keeps the earlier findings outside the scope. The seed is the whole `REWIRE` cone, as in the rewire driver,
+   since the rewired copies carry no analysis values: that carry is what makes it faster than a cold run.
 3. **The terminal passes** (*open*). An incremental run returns before MODREACH, the eventual contraction and
    certification. Options: run them whole-program on every step (MODREACH is a one-shot reachability and may be
    cheap enough; the contraction is not); scope them to the dirty closure; or declare the incremental result
