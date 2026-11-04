@@ -77,6 +77,16 @@ public class EvalNegation {
     private final java.util.concurrent.ConcurrentHashMap<Expression, Expression> negationCache =
             new java.util.concurrent.ConcurrentHashMap<>();
 
+    /*
+     A re-parse that replaces types makes every cached expression a generation old: one entry reaches its types, and
+     through them their analysis, so the cache kept each replaced generation alive (fernflower, rewire driver: about
+     360 MB per full re-analysis); and a hit, equal by name, handed the new generation an expression on the old
+     types. The per-thread memo below lives for one operation and needs nothing.
+     */
+    public void forgetMemos() {
+        negationCache.clear();
+    }
+
     private boolean mentionsLocalVariable(Expression v) {
         return v.variables(runtime.descendModeYes()).anyMatch(x -> x instanceof LocalVariable);
     }

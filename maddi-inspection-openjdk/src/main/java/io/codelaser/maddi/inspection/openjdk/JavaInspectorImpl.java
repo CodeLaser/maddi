@@ -756,6 +756,8 @@ public class JavaInspectorImpl implements JavaInspector {
                          List<SourceSet> linearization,
                          Invalidated invalidated) {
         this.lastRewireInfoMap = null; // reset: a parse with no rewiring exposes no map
+        // the evaluator's memos hold expressions of the generation this re-parse replaces (Eval.forgetMemos)
+        runtime.forgetMemos();
         // snapshot: a RESCAN re-records sourceFiles for its own set as it goes
         Map<SourceSet, List<TypeInfo>> typesBySourceSet = typesBySourceSet();
         Set<TypeInfo> toRewire = new LinkedHashSet<>();

@@ -81,6 +81,14 @@ public interface Eval {
 
     Expression negate(Expression expression);
 
+    /**
+     * Drop every memo that outlives one computation, such as the negation cache. Its keys and values are expressions
+     * of the types parsed so far: when a re-parse replaces types, a memo would keep each replaced generation alive
+     * and, since expressions compare by name, hand the new generation an expression built on the old one's types.
+     */
+    default void forgetMemos() {
+    }
+
     Expression remainder(Expression lhs, Expression rhs);
 
     Expression equals(Expression lhs, Expression rhs);

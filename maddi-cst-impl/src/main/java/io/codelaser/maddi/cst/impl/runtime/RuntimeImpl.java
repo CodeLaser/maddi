@@ -144,6 +144,11 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
     }
 
     @Override
+    public void forgetMemos() {
+        eval.forgetMemos();
+    }
+
+    @Override
     public Expression remainder(Expression lhs, Expression rhs) {
         return eval.remainder(lhs, rhs);
     }

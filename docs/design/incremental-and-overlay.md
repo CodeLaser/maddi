@@ -142,6 +142,15 @@ Mechanisms are not the gap. Plumbing and three decisions are.
    A carried link can name a field the link engine made (a virtual field, a superclass field seen on a subtype);
    the rewire copies it by identity onto the rewired owner (`InfoMapImpl.fieldInfo`). The terminal passes are
    still not run on a seeded analysis.
+   *Heap (2026-11-04, fernflower, 7 edits and their restores, the driver's `-Dmaddi.rewire.leakFields`):* the heap
+   after GC grew about 360 MB with every fall-back and stayed flat otherwise. The evaluator's negation cache, which
+   lives as long as the runtime, kept each fully analysed generation through its keys (an `instanceof` test type
+   reaches a type and its analysis); a hit, equal by name, also handed the new generation an expression on the old
+   types. A re-parse now clears it (`Eval.forgetMemos`), and the heap holds at 1.15–1.34 GB through four
+   fall-backs in a row, where it had reached 2.3 GB. What remains: the fall-backs themselves. On fernflower a
+   comment-only edit falls back in about half the edits, the seed re-analysed alone not reproducing its cold
+   values: a value the terminal passes write is absent (`fluentMethod`), or a field's independence comes out
+   weaker (`ArrayExprent.hardType`).
 4. **Per-type rescan within a source set** is cheaper than the July decision assumed (§5: javac does not force
    the whole set, and the plumbing is mostly there), but it still comes after 1–3: the analysis carry absorbs a
    coarse rescan, and for every run but the IDE's the parse is not where the time goes.

@@ -129,6 +129,11 @@ public class EvalImpl implements Eval {
     }
 
     @Override
+    public void forgetMemos() {
+        evalNegation.forgetMemos();
+    }
+
+    @Override
     public Expression remainder(Expression lhs, Expression rhs) {
         return evalRemainder.remainder(lhs, rhs);
     }
