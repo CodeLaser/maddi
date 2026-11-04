@@ -767,8 +767,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     .filter(o -> !o.isStatic() && !o.isSynthetic() && o != m && o.overrides().contains(m))
                     .findFirst().orElse(null);
             if (own == null || own.typeInfo().typeNature().isRecord() && CstQueries.isRecordAccessor(own)) continue;
-            String returnType = CSharpTypeName.of(CstSupertypes.substituteDroppingWildcards(m.returnType(), map), q);
-            if (returnType.equals(CSharpTypeName.of(own.returnType(), q))) continue;
+            ParameterizedType declared = CstSupertypes.substituteDroppingWildcards(m.returnType(), map);
+            String plain = CSharpTypeName.of(declared, q);
+            if (plain.equals(CSharpTypeName.of(own.returnType(), q))) continue;
+            // the interface's member is declared with the analysis's verdict, ISwitchOnCandidate? Recognize(..): the
+            // bridge implements it with the same one (CS8603, CS8766); not a type parameter's, as the lambda adapter
+            String returnType = m.returnType().isTypeParameter() ? plain
+                    : CSharpTypeName.withNullable(declared, plain, CSharpContext.program().facts().nullable(m));
             List<String> names = own.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
             StringBuilder sb = new StringBuilder(returnType).append(' ').append(CSharpTypeName.of(implemented, q))
                     .append('.').append(CSharpNames.method(m)).append('(');
