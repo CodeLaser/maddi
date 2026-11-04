@@ -1,12 +1,6 @@
 package io.codelaser.maddi.java.openjdk.sourcecode;
 
-import io.codelaser.maddi.cst.api.element.Comment;
-import io.codelaser.maddi.cst.api.element.DetailedSources;
-import io.codelaser.maddi.cst.api.element.Source;
-import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
-import io.codelaser.maddi.java.openjdk.SourceCodeScan;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -14,7 +8,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.java.openjdk.SourceCodeScan;
 
 public class TestSourceCodeScan {
 

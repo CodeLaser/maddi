@@ -17,6 +17,18 @@
 
 package io.codelaser.maddi.parser.java;
 
+import java.net.URI;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+import org.parsers.java.Node;
+import org.parsers.java.ast.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
 import io.codelaser.maddi.cst.api.element.ImportStatement;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -26,17 +38,6 @@ import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.support.Either;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.net.URI;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 /*
 First round, we only prepare a type map.
@@ -81,7 +82,7 @@ public class ScanCompilationUnit extends CommonParse {
         String packageName;
         Source s1 = source(cu);
         Source source;
-        List<io.codelaser.maddi.cst.api.element.Comment> comments;
+        List<Comment> comments;
         if (packageDeclaration == null) {
             source = s1;
             packageName = "";

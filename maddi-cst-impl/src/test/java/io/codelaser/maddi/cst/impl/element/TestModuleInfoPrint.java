@@ -17,17 +17,18 @@
 
 package io.codelaser.maddi.cst.impl.element;
 
-import io.codelaser.maddi.cst.api.element.ModuleInfo;
-import io.codelaser.maddi.cst.api.output.Qualification;
-import io.codelaser.maddi.cst.impl.output.QualificationImpl;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.List;
+import java.util.function.Consumer;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.output.QualificationImpl;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 
 /**
  * Every module directive used to answer {@code print(Qualification)} with {@code null}, so the only way to produce
@@ -48,7 +49,7 @@ public class TestModuleInfoPrint {
 
     private static final Runtime RUNTIME = new RuntimeImpl();
 
-    private static ModuleInfo build(java.util.function.Consumer<ModuleInfo.Builder> directives) {
+    private static ModuleInfo build(Consumer<ModuleInfo.Builder> directives) {
         ModuleInfo.Builder builder = RUNTIME.newModuleInfoBuilder().setName("m.example");
         directives.accept(builder);
         return builder.build();

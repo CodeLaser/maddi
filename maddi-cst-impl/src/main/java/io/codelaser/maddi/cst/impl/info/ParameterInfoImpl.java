@@ -17,7 +17,13 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.*;
@@ -29,6 +35,7 @@ import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
@@ -37,12 +44,6 @@ import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
 import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
 import io.codelaser.maddi.support.EventuallyFinal;
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class ParameterInfoImpl implements ParameterInfo {
     private final int index;
@@ -252,8 +253,8 @@ public class ParameterInfoImpl implements ParameterInfo {
 
     @Override
     public PropertyValueMap analysis() {
-        if (io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
-            io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.record(this);
+        if (ConsumptionEdgeRecorder.ENABLED) {
+            ConsumptionEdgeRecorder.record(this);
         }
         return analysis;
     }

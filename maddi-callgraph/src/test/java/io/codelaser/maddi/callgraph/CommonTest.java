@@ -17,6 +17,22 @@
 
 package io.codelaser.maddi.callgraph;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.sourceSetOf;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.slf4j.LoggerFactory;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import io.codelaser.maddi.cst.api.element.SourceSet;
@@ -27,23 +43,7 @@ import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.support.SetOnce;
-import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.slf4j.LoggerFactory;
-
 import io.codelaser.maddi.support.SetOnceMap;
-
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.List;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
-import static io.codelaser.maddi.inspection.resource.SourceSetImpl.sourceSetOf;
 
 public class CommonTest {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(CommonTest.class);

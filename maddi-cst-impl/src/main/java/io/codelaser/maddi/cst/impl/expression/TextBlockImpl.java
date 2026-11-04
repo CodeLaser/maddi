@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -27,8 +29,6 @@ import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.List;
 
 public class TextBlockImpl extends StringConstantImpl implements TextBlock {
     private final TextBlockFormatting textBlockFormatting;

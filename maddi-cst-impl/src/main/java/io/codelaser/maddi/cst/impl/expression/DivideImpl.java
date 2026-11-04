@@ -17,18 +17,17 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Divide;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Precedence;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
 
 public class DivideImpl extends BinaryOperatorImpl implements Divide {
 

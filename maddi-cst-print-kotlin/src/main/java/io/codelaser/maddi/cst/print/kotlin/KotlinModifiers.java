@@ -17,13 +17,15 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.Optional;
+import java.util.Set;
+
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.Access;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.element.Keyword;
 import io.codelaser.maddi.cst.impl.output.KeywordImpl;
-
-import java.util.Optional;
 
 /** Maps CST access/modifiers to Kotlin keywords (public and final are the Kotlin defaults, hence omitted). */
 public class KotlinModifiers {
@@ -69,7 +71,7 @@ public class KotlinModifiers {
         return visibility(methodInfo.access(), owner, methodInfo);
     }
 
-    private static final java.util.Set<String> SERIALIZATION_HOOKS = java.util.Set.of("readObject", "writeObject",
+    private static final Set<String> SERIALIZATION_HOOKS = Set.of("readObject", "writeObject",
             "readObjectNoData", "readResolve", "writeReplace");
 
     private static boolean serializationHook(MethodInfo methodInfo) {
@@ -86,7 +88,7 @@ public class KotlinModifiers {
     }
 
     /** As {@link #visibility(Access, TypeInfo)}, reporting a protected {@code subject} that prints as public. */
-    public static Optional<Keyword> visibility(Access access, TypeInfo owner, io.codelaser.maddi.cst.api.element.Element subject) {
+    public static Optional<Keyword> visibility(Access access, TypeInfo owner, Element subject) {
         reportProtected(access, subject);
         if (access != null && access.isPrivate() && !owner.isPrimaryType() && !KotlinTypePrinter.fromKotlinSource(owner)) {
             return Optional.of(KotlinKeyword.INTERNAL);
@@ -94,7 +96,7 @@ public class KotlinModifiers {
         return visibility(access);
     }
 
-    private static void reportProtected(Access access, io.codelaser.maddi.cst.api.element.Element subject) {
+    private static void reportProtected(Access access, Element subject) {
         if (subject != null && access != null && access.isProtected() && KotlinContext.translatingJava()) {
             KotlinContext.message(KotlinPrintCode.PROTECTED_AS_PUBLIC, subject, KotlinContext.describe(subject));
         }

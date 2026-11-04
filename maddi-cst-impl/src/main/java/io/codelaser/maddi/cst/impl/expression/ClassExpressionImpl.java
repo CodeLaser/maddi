@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -34,11 +39,6 @@ import io.codelaser.maddi.cst.impl.output.KeywordImpl;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.type.DiamondEnum;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class ClassExpressionImpl extends ConstantExpressionImpl<ParameterizedType> implements ClassExpression {
     public final ParameterizedType parameterizedType; // String.class -> String

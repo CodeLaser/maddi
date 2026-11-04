@@ -17,15 +17,15 @@
 
 package io.codelaser.maddi.inspection.impl.parser;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.inspection.api.parser.VariableContext;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 public class VariableContextImpl implements VariableContext {
     private final VariableContext parentContext;

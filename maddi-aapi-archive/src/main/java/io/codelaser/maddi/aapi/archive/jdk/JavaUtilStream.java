@@ -16,14 +16,14 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import io.codelaser.maddi.annotation.*;
-import io.codelaser.maddi.annotation.rare.Finalizer;
-import io.codelaser.maddi.annotation.type.UtilityClass;
-
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.*;
 import java.util.stream.*;
+
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.rare.Finalizer;
+import io.codelaser.maddi.annotation.type.UtilityClass;
 
 public class JavaUtilStream {
     public static final String PACKAGE_NAME = "java.util.stream";
@@ -61,8 +61,8 @@ public class JavaUtilStream {
         Function<A, R> finisher();
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static <T, R> java.util.stream.Collector<T, R, R> of(@NotNull java.util.function.Supplier<R> p0, @NotNull java.util.function.BiConsumer<R, T> p1, @NotNull java.util.function.BinaryOperator<R> p2, @NotNull java.util.stream.Collector.Characteristics... p3) { return null; }
-        static <T, A, R> java.util.stream.Collector<T, A, R> of(@NotNull java.util.function.Supplier<A> p0, @NotNull java.util.function.BiConsumer<A, T> p1, @NotNull java.util.function.BinaryOperator<A> p2, @NotNull java.util.function.Function<A, R> p3, @NotNull java.util.stream.Collector.Characteristics... p4) { return null; }
+        static <T, R> Collector<T, R, R> of(@NotNull Supplier<R> p0, @NotNull BiConsumer<R, T> p1, @NotNull BinaryOperator<R> p2, @NotNull Collector.Characteristics... p3) { return null; }
+        static <T, A, R> Collector<T, A, R> of(@NotNull Supplier<A> p0, @NotNull BiConsumer<A, T> p1, @NotNull BinaryOperator<A> p2, @NotNull Function<A, R> p3, @NotNull Collector.Characteristics... p4) { return null; }
     }
 
     //public final class Collectors
@@ -806,19 +806,19 @@ public class JavaUtilStream {
         static <T> Stream<T> concat(@NotNull Stream<? extends T> a, @NotNull Stream<? extends T> b) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        <R> java.util.stream.Stream<R> gather(@NotNull java.util.stream.Gatherer<? super T, ?, R> p0) { return null; }
+        <R> Stream<R> gather(@NotNull Gatherer<? super T, ?, R> p0) { return null; }
     }
 
     //public java.util.stream.StreamSupport (shadow created for its nullability, generated)
     class StreamSupport$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static java.util.stream.DoubleStream doubleStream(@NotNull java.util.Spliterator.OfDouble p0, boolean p1) { return null; }
-        static java.util.stream.DoubleStream doubleStream(@NotNull java.util.function.Supplier<? extends java.util.Spliterator.OfDouble> p0, int p1, boolean p2) { return null; }
-        static java.util.stream.IntStream intStream(@NotNull java.util.Spliterator.OfInt p0, boolean p1) { return null; }
-        static java.util.stream.IntStream intStream(@NotNull java.util.function.Supplier<? extends java.util.Spliterator.OfInt> p0, int p1, boolean p2) { return null; }
-        static java.util.stream.LongStream longStream(@NotNull java.util.Spliterator.OfLong p0, boolean p1) { return null; }
-        static java.util.stream.LongStream longStream(@NotNull java.util.function.Supplier<? extends java.util.Spliterator.OfLong> p0, int p1, boolean p2) { return null; }
-        static <T> java.util.stream.Stream<T> stream(@NotNull java.util.Spliterator<T> p0, boolean p1) { return null; }
-        static <T> java.util.stream.Stream<T> stream(@NotNull java.util.function.Supplier<? extends java.util.Spliterator<T>> p0, int p1, boolean p2) { return null; }
+        static DoubleStream doubleStream(@NotNull Spliterator.OfDouble p0, boolean p1) { return null; }
+        static DoubleStream doubleStream(@NotNull Supplier<? extends Spliterator.OfDouble> p0, int p1, boolean p2) { return null; }
+        static IntStream intStream(@NotNull Spliterator.OfInt p0, boolean p1) { return null; }
+        static IntStream intStream(@NotNull Supplier<? extends Spliterator.OfInt> p0, int p1, boolean p2) { return null; }
+        static LongStream longStream(@NotNull Spliterator.OfLong p0, boolean p1) { return null; }
+        static LongStream longStream(@NotNull Supplier<? extends Spliterator.OfLong> p0, int p1, boolean p2) { return null; }
+        static <T> Stream<T> stream(@NotNull Spliterator<T> p0, boolean p1) { return null; }
+        static <T> Stream<T> stream(@NotNull Supplier<? extends Spliterator<T>> p0, int p1, boolean p2) { return null; }
     }
 }

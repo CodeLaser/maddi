@@ -17,11 +17,14 @@
 
 package io.codelaser.maddi.cst.impl.variable;
 
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Visitor;
 import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -32,10 +35,6 @@ import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.QualifiedNameImpl;
-
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class LocalVariableImpl extends VariableImpl implements LocalVariable {
     public static final String UNNAMED = ":";

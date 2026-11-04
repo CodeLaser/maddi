@@ -17,16 +17,15 @@
 
 package io.codelaser.maddi.parser.java;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.SwitchStatementNewStyle;
-import io.codelaser.maddi.cst.api.statement.SwitchStatementOldStyle;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestParseSwitchNewStyle extends CommonTestParse {
 

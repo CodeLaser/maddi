@@ -17,15 +17,16 @@
 
 package io.codelaser.maddi.java.openjdk.print;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.impl.output.QualificationImpl;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * CodeLaser/maddi#114. In a unit whose own type is {@code s.Try}, the import computer reserves {@code Try} and

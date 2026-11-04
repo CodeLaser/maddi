@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.inspection.api.parser;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.ImportStatement;
@@ -25,8 +27,6 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.List;
 
 /*
 NOT to be used by byte code inspection: exclusive to parser system!

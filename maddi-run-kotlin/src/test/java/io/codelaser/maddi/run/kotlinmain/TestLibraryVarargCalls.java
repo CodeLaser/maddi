@@ -16,21 +16,23 @@
  */
 package io.codelaser.maddi.run.kotlinmain;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * A LIBRARY function with a vararg parameter, called omitting a defaulted argument or passing one after the vararg,
@@ -83,7 +85,7 @@ public class TestLibraryVarargCalls {
     }
 
     private static String jar(String classPath, String pattern) {
-        return Stream.of(classPath.split(java.io.File.pathSeparator))
+        return Stream.of(classPath.split(File.pathSeparator))
                 .filter(p -> Path.of(p).getFileName().toString().matches(pattern)).findFirst().orElseThrow();
     }
 }

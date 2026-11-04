@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.java.openjdk.expression;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 public class TestArray extends CommonTest {
     @Language("java")

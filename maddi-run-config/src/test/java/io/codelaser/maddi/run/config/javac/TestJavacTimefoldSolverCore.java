@@ -1,17 +1,19 @@
 package io.codelaser.maddi.run.config.javac;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.codelaser.maddi.run.config.util.JsonStreaming;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
 
 public class TestJavacTimefoldSolverCore {
     @Test

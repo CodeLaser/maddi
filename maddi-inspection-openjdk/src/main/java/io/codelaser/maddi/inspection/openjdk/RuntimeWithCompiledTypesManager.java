@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.*;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -30,11 +35,6 @@ import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.*;
 
 // at the moment, a literal copy of integration/RuntimeWithCompiledTypesManager
 public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
@@ -69,7 +69,7 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
     }
 
     @Override
-    public java.util.List<TypeInfo> loadedCopies(String fullyQualifiedName) {
+    public List<TypeInfo> loadedCopies(String fullyQualifiedName) {
         return compiledTypesManager.typesIfLoaded(fullyQualifiedName);
     }
 

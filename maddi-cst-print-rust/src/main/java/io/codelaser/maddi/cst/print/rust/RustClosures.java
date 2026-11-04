@@ -18,6 +18,10 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -34,10 +38,6 @@ import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 /**
  * A JDK function returning a value is a {@code dyn Fn}: called through {@code &}, its closure only reads what it

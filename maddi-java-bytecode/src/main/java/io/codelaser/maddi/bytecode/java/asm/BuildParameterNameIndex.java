@@ -17,18 +17,19 @@
 
 package io.codelaser.maddi.bytecode.java.asm;
 
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Predicate;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
 import io.codelaser.maddi.inspection.api.resource.Resources;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.function.Predicate;
 
 /**
  * Offline driver that builds a {@link ParameterNameIndex} for a module/jar: it enumerates the primary types in

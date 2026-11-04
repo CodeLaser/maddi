@@ -17,11 +17,21 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ConstantExpression;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.EmptyExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -34,17 +44,11 @@ import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Passing;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Receiver;
 import io.codelaser.maddi.cst.print.rust.RustTypes.Form;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A Java type as Rust items: a class is a {@code struct} with an inherent {@code impl}, plus an {@code impl Trait for}
@@ -527,7 +531,7 @@ final class RustTypePrinter {
 
     /** A source interface the method implements, directly or through an interface it extends. */
     static TypeInfo implementedTrait(MethodInfo m) {
-        Set<TypeInfo> traits = new java.util.HashSet<>();
+        Set<TypeInfo> traits = new HashSet<>();
         superInterfaces(m.typeInfo(), traits);
         for (MethodInfo o : m.overrides()) {
             TypeInfo t = o.typeInfo();
@@ -585,8 +589,8 @@ final class RustTypePrinter {
         for (MethodInfo m : f.owner().methods()) {
             if (!m.isStaticInitializer() || m.methodBody() == null) continue;
             m.methodBody().visit(e -> {
-                if (e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-                    && ve.variable() instanceof io.codelaser.maddi.cst.api.variable.FieldReference fr
+                if (e instanceof VariableExpression ve
+                    && ve.variable() instanceof FieldReference fr
                     && fr.fieldInfo() == f) {
                     touched[0] = true;
                 }
@@ -619,7 +623,7 @@ final class RustTypePrinter {
         if (!empty) return null;
         String owned = RustTypes.owned(f.type(), context, f);
         String base = owned.replaceFirst("<.*$", "");
-        return java.util.Set.of("String", "Vec", "VecDeque", "BTreeMap", "BTreeSet").contains(base) ? base + "::new()"
+        return Set.of("String", "Vec", "VecDeque", "BTreeMap", "BTreeSet").contains(base) ? base + "::new()"
                 : null;
     }
 
@@ -857,14 +861,14 @@ final class RustTypePrinter {
         return null;
     }
 
-    private static boolean readsThis(io.codelaser.maddi.cst.api.element.Element element) {
+    private static boolean readsThis(Element element) {
         boolean[] found = {false};
         element.visit(e -> {
-            if (e instanceof VariableExpression ve && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.This
+            if (e instanceof VariableExpression ve && (ve.variable() instanceof This
                 || ve.variable() instanceof FieldReference fr && !fr.fieldInfo().isStatic() && fr.scopeIsThis())) {
                 found[0] = true;
             }
-            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && !mc.methodInfo().isStatic()
+            if (e instanceof MethodCall mc && !mc.methodInfo().isStatic()
                 && mc.objectIsImplicit()) {
                 found[0] = true;
             }

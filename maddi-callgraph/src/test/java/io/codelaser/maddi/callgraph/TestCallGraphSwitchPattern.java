@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.callgraph;
 
-import io.codelaser.maddi.cst.api.info.Info;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.graph.G;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.graph.G;
 
 /**
  * A type named ONLY by a switch type pattern is a compile dependency like any other, in both switch forms.

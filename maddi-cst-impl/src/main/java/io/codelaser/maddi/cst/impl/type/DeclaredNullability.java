@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -27,10 +32,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
-
-import java.util.List;
-import java.util.Set;
-import java.util.function.Function;
 
 /**
  * What the SOURCE says about nullability: the null annotations written on a declaration and on the type arguments
@@ -138,7 +139,7 @@ public final class DeclaredNullability {
             return component.withComponentType(inner).withNullable(state != null ? state : implicit(component, marked));
         }
         ParameterizedType withArguments = arguments(component, marked);
-        java.util.ArrayList<AnnotationExpression> all = new java.util.ArrayList<>(component.annotations());
+        ArrayList<AnnotationExpression> all = new ArrayList<>(component.annotations());
         all.addAll(extra);
         NullableState state = explicit(all);
         if (state == null && contentNonNull) state = NullableState.NONNULL;

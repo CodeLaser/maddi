@@ -17,17 +17,16 @@
 
 package io.codelaser.maddi.inspection.api.parser;
 
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.type.Diamond;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.support.Either;
-
-import java.util.List;
-import java.util.Set;
 
 public interface MethodResolution {
     record Count(int parameters, boolean isVoid) {

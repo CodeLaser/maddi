@@ -1,38 +1,70 @@
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.lang.module.ModuleDescriptor;
+import java.lang.module.ModuleFinder;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.*;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+import java.util.zip.GZIPInputStream;
+
+import javax.tools.*;
+
+import org.jetbrains.annotations.NotNull;
+import org.parsers.java.JavaParser;
+import org.parsers.java.Node;
+import org.parsers.java.ast.ModularCompilationUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.sun.source.util.JavacTask;
+
+import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
-import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
-import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
-import io.codelaser.maddi.parser.java.ParseHelperImpl;
-import io.codelaser.maddi.parser.java.ParseModuleInfo;
-import org.parsers.java.JavaParser;
-import org.parsers.java.Node;
-import org.parsers.java.ast.ModularCompilationUnit;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
+import io.codelaser.maddi.graph.op.Linearize;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
 import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
+import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
+import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
 import io.codelaser.maddi.inspection.resource.ResolveModuleDirectives;
 import io.codelaser.maddi.inspection.resource.SummaryImpl;
@@ -42,34 +74,8 @@ import io.codelaser.maddi.java.openjdk.MaddiDiagnosticCollector;
 import io.codelaser.maddi.java.openjdk.ScanCompilationUnits;
 import io.codelaser.maddi.java.openjdk.SourceSetInterleave;
 import io.codelaser.maddi.java.openjdk.UnresolvedSymbolException;
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.ImmutableGraph;
-import io.codelaser.maddi.graph.op.Linearize;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.tools.*;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.lang.module.ModuleDescriptor;
-import java.lang.module.ModuleFinder;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-import java.util.zip.GZIPInputStream;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+import io.codelaser.maddi.parser.java.ParseHelperImpl;
+import io.codelaser.maddi.parser.java.ParseModuleInfo;
 
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
@@ -80,7 +86,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private final Map<SourceFile, List<TypeInfo>> sourceFiles = new HashMap<>();
     private CompiledTypesManager compiledTypesManager;
     private InputConfiguration inputConfiguration; // kept for tests
-    private io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
+    private InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
     // what reloadSources found added and removed since the last parse, for the next re-parse (see reparse)
     private final Set<SourceFile> addedSinceParse = new LinkedHashSet<>();
     private final Set<TypeInfo> removedSinceParse = new LinkedHashSet<>();
@@ -130,7 +136,7 @@ public class JavaInspectorImpl implements JavaInspector {
     // that is actually asking.
     private boolean strictSourceSetLoading;
     // census for the strict-mode audit; see recordFallBack. Concurrent: getOrLoad runs on parallel analyzer threads.
-    private final Set<String> fallBackResolutions = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<String> fallBackResolutions = ConcurrentHashMap.newKeySet();
 
     /**
      * How to stand up a {@link #loaderUnits} equivalent to the scan task that generation destroyed: the same source
@@ -181,7 +187,7 @@ public class JavaInspectorImpl implements JavaInspector {
      */
     public JavaInspectorImpl setEvalOptions(EvalOptions evalOptions) {
         if (runtime != null) throw new IllegalStateException("setEvalOptions after initialize has no effect");
-        this.evalOptions = java.util.Objects.requireNonNull(evalOptions);
+        this.evalOptions = Objects.requireNonNull(evalOptions);
         return this;
     }
 
@@ -1921,8 +1927,8 @@ public class JavaInspectorImpl implements JavaInspector {
         reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(), problem.toString(),
                 Summary.ClassOutputProblem.Kind.MISSING_OR_STALE, parsed.size(), missing.stream().sorted().toList(),
                 stale.stream().sorted().toList(),
-                newestClassFile == 0L ? null : java.time.Instant.ofEpochMilli(newestClassFile),
-                stale.isEmpty() ? null : java.time.Instant.ofEpochMilli(oldestStaleSource));
+                newestClassFile == 0L ? null : Instant.ofEpochMilli(newestClassFile),
+                stale.isEmpty() ? null : Instant.ofEpochMilli(oldestStaleSource));
     }
 
     private static List<String> fullyQualifiedNames(List<TypeInfo> types) {
@@ -1932,7 +1938,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private void reportClassOutputProblem(Summary summary, SourceSet sourceSet, SourceSet dependency, URI uri,
                                           String problem, Summary.ClassOutputProblem.Kind kind, int parsedTypes,
                                           List<String> missing, List<String> stale,
-                                          java.time.Instant newestClassFile, java.time.Instant oldestStaleSource) {
+                                          Instant newestClassFile, Instant oldestStaleSource) {
         String detail = "Source set '" + sourceSet.name() + "' resolves its references into '" + dependency.name()
                         + "' through class files, and " + problem
                         + ". Those references will not resolve, and the compilation units holding them are dropped."
@@ -2287,7 +2293,7 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
+    public InfoMapView lastRewireInfoMap() {
         return lastRewireInfoMap;
     }
 

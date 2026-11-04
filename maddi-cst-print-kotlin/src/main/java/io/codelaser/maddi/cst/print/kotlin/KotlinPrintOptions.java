@@ -16,10 +16,10 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.Objects;
+
 import io.codelaser.maddi.cst.impl.analysis.ModificationFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
-
-import java.util.Objects;
 
 /**
  * How Java is printed as Kotlin, beyond the formatter's options.

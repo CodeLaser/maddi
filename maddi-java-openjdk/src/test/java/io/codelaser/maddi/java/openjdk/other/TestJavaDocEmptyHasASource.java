@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.cst.api.element.JavaDoc;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * #31: javac positions a doc comment by its body, so an empty {@code /** *&#47;} had no position and the JavaDoc

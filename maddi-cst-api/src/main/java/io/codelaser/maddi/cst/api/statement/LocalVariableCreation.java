@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
-import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.cst.api.element.Source;
-import io.codelaser.maddi.cst.api.variable.LocalVariable;
-
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
 
 /**
  * A local variable declaration statement, for example {@code int i = 0;} or {@code final var a = b, c = d;}.

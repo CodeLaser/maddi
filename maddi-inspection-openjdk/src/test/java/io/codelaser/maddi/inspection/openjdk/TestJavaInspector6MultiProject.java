@@ -1,20 +1,6 @@
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.ModuleInfo;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.opentest4j.AssertionFailedError;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.net.URI;
@@ -25,7 +11,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.info.TypeInfoImpl;
+import io.codelaser.maddi.cst.io.CodecImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnce;
+import io.codelaser.maddi.util.GetSetNames;
 
 public class TestJavaInspector6MultiProject {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestJavaInspector6MultiProject.class);
@@ -75,7 +83,7 @@ public class TestJavaInspector6MultiProject {
         maddiAnnotation = new SourceSetImpl.Builder()
                 .setName("maddi-annotation")
                 .setSourceDirectories(List.of(maddiAnnotationSrc))
-                .setUri(artifactOf(io.codelaser.maddi.annotation.Container.class))
+                .setUri(artifactOf(Container.class))
                 .setLibrary(true)
                 .setModule(true)
                 .build();
@@ -84,7 +92,7 @@ public class TestJavaInspector6MultiProject {
         maddiSupport = new SourceSetImpl.Builder()
                 .setName("maddi-support")
                 .setSourceDirectories(List.of(maddiSupportSrc))
-                .setUri(artifactOf(io.codelaser.maddi.support.SetOnce.class))
+                .setUri(artifactOf(SetOnce.class))
                 .setLibrary(true)
                 .setModule(true)
                 .setDependencies(List.of(maddiAnnotation))
@@ -94,7 +102,7 @@ public class TestJavaInspector6MultiProject {
         maddiUtil = new SourceSetImpl.Builder()
                 .setName("maddi-util")
                 .setSourceDirectories(List.of(maddUtilSrc))
-                .setUri(artifactOf(io.codelaser.maddi.util.GetSetNames.class))
+                .setUri(artifactOf(GetSetNames.class))
                 .setLibrary(true)
                 .setModule(true)
                 .setDependencies(List.of(maddiAnnotation, maddiSupport, orgSlf4jApi))
@@ -112,7 +120,7 @@ public class TestJavaInspector6MultiProject {
         cstApi = new SourceSetImpl.Builder()
                 .setName("maddi-cst-api")
                 .setSourceDirectories(List.of(cstApiPath))
-                .setUri(artifactOf(io.codelaser.maddi.cst.api.element.Element.class))
+                .setUri(artifactOf(Element.class))
                 .setLibrary(true)
                 .setModule(true)
                 .setDependencies(List.of(maddiAnnotation, maddiSupport, annotations))
@@ -130,7 +138,7 @@ public class TestJavaInspector6MultiProject {
         cstAnalysis = new SourceSetImpl.Builder()
                 .setName("maddi-cst-analysis")
                 .setSourceDirectories(List.of(cstAnalysisPath))
-                .setUri(artifactOf(io.codelaser.maddi.cst.impl.analysis.ValueImpl.class))
+                .setUri(artifactOf(ValueImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, maddiAnnotation, maddiSupport, orgSlf4jApi))
                 .build();
@@ -139,7 +147,7 @@ public class TestJavaInspector6MultiProject {
         cstImpl = new SourceSetImpl.Builder()
                 .setName("maddi-cst-impl")
                 .setSourceDirectories(List.of(cstImplPath))
-                .setUri(artifactOf(io.codelaser.maddi.cst.impl.info.TypeInfoImpl.class))
+                .setUri(artifactOf(TypeInfoImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, cstAnalysis, maddiAnnotation, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
                 .build();
@@ -159,7 +167,7 @@ public class TestJavaInspector6MultiProject {
         cstIo = new SourceSetImpl.Builder()
                 .setName("maddi-cst-io")
                 .setSourceDirectories(List.of(cstIoPath))
-                .setUri(artifactOf(io.codelaser.maddi.cst.io.CodecImpl.class))
+                .setUri(artifactOf(CodecImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, cstAnalysis, maddiAnnotation, maddiSupport, orgSlf4jApi, annotations))
                 .build();

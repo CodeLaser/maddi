@@ -17,18 +17,20 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.impl.type.WildcardEnum;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Map;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.type.WildcardEnum;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * ⛔⛔ <b>PRINTING AN INTERSECTION TYPE THAT CARRIES A PLAIN {@code EXTENDS} WILDCARD RAISED AN
@@ -80,7 +82,7 @@ public class TestIntersectionBoundPrinting extends CommonTest {
         Map<String, TypeInfo> types = scan(false, "a.b.A", TYPES, "a.b.B", B, "a.b.Pair", PAIR);
         ParameterizedType a = runtime.newParameterizedType(types.get("a.b.A"), 0);
         ParameterizedType b = runtime.newParameterizedType(types.get("a.b.B"), 0);
-        ParameterizedType intersection = runtime.newIntersectionType(null, java.util.List.of(a, b));
+        ParameterizedType intersection = runtime.newIntersectionType(null, List.of(a, b));
         assertTrue(intersection.isIntersectionType(), "fixture must be an intersection: " + intersection);
         return intersection;
     }

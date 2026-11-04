@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.api.info;
 
+import java.util.List;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * Represents a single parameter in a method or constructor declaration.

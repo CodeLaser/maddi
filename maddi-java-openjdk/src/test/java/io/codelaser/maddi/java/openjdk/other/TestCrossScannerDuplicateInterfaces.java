@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * Regression (originally surfaced by {@code TestCloneBench}): the class scanner's per-type "setup block" (parent,

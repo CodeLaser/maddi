@@ -17,6 +17,24 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.analysis.api.AnalysisEngine;
 import io.codelaser.maddi.analysis.api.AnalysisEngines;
 import io.codelaser.maddi.analysis.api.AnalysisProblem;
@@ -24,39 +42,23 @@ import io.codelaser.maddi.analysis.api.ModificationOptions;
 import io.codelaser.maddi.analysis.api.ModificationRequest;
 import io.codelaser.maddi.analysis.api.PrepRequest;
 import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
-import java.io.File;
-import io.codelaser.maddi.util.Trie;
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
-import io.codelaser.maddi.kotlin.realm.K2Realm;
 import io.codelaser.maddi.graph.G;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
+import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
+import io.codelaser.maddi.util.Trie;
 
 /**
  * Prep-only runner for a mixed Java+Kotlin project. Parses the input configuration with
@@ -361,10 +363,10 @@ public class RunMixedPrepAnalyzer {
     private static void writeMemberVerdicts(List<TypeInfo> types) throws IOException {
         String target = System.getProperty("maddi.memberVerdictDump");
         if (target == null || target.isBlank()) return;
-        List<String> lines = new java.util.ArrayList<>();
+        List<String> lines = new ArrayList<>();
         Map<Object, Boolean> seen = new IdentityHashMap<>();
         for (TypeInfo type : types) memberVerdicts(type, lines, seen);
-        java.util.Collections.sort(lines);
+        Collections.sort(lines);
         Path path = Path.of(target);
         if (path.getParent() != null) Files.createDirectories(path.getParent());
         Files.write(path, lines);

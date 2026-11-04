@@ -22,18 +22,22 @@ import java.net.URL;
 import java.nio.CharBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.nio.file.Path;
+import java.security.Permission;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
 
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
 public class JavaIo {
     public static final String PACKAGE_NAME = "java.io";
@@ -738,12 +742,12 @@ public class JavaIo {
         @Modified @AllowsInterrupt long transferTo(/*@Independent[T]*/ @NotNull Writer out) { return 0L; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Reader$(@NotNull java.lang.Object p0) { }
-        static java.io.Reader of(@NotNull java.lang.CharSequence p0) { return null; }
+        Reader$(@NotNull Object p0) { }
+        static Reader of(@NotNull CharSequence p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified String readAllAsString() { return null; }
-        @Modified java.util.List<String> readAllLines() { return null; }
+        @Modified List<String> readAllLines() { return null; }
     }
     //public interface Serializable
     @ImmutableContainer(hc = true) @Independent class Serializable$ { }
@@ -797,7 +801,7 @@ public class JavaIo {
         @Modified void close() { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Writer$(@NotNull java.lang.Object p0) { }
+        Writer$(@NotNull Object p0) { }
     }
 
     // null contracts (docs/design/nullability.md M2), formerly the analyzer's LibraryNullness
@@ -826,17 +830,17 @@ public class JavaIo {
     //public java.io.BufferedInputStream (shadow created for its nullability, generated)
     class BufferedInputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        BufferedInputStream$(@NotNull java.io.InputStream p0) { }
-        BufferedInputStream$(@NotNull java.io.InputStream p0, int p1) { }
+        BufferedInputStream$(@NotNull InputStream p0) { }
+        BufferedInputStream$(@NotNull InputStream p0, int p1) { }
         @Modified int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
-        @Modified long transferTo(@NotNull java.io.OutputStream p0) { return 0; }
+        @Modified long transferTo(@NotNull OutputStream p0) { return 0; }
     }
 
     //public java.io.BufferedOutputStream (shadow created for its nullability, generated)
     class BufferedOutputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        BufferedOutputStream$(@NotNull java.io.OutputStream p0) { }
-        BufferedOutputStream$(@NotNull java.io.OutputStream p0, int p1) { }
+        BufferedOutputStream$(@NotNull OutputStream p0) { }
+        BufferedOutputStream$(@NotNull OutputStream p0, int p1) { }
         @Modified void write(@NotNull byte[] p0, int p1, int p2) { }
     }
 
@@ -845,18 +849,18 @@ public class JavaIo {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         CharArrayReader$(@NotNull char[] p0) { }
         CharArrayReader$(@NotNull char[] p0, int p1, int p2) { }
-        @Modified int read(@NotNull java.nio.CharBuffer p0) { return 0; }
+        @Modified int read(@NotNull CharBuffer p0) { return 0; }
         @Modified int read(@NotNull char[] p0, int p1, int p2) { return 0; }
     }
 
     //public java.io.CharArrayWriter (shadow created for its nullability, generated)
     class CharArrayWriter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified java.io.CharArrayWriter append(@Nullable java.lang.CharSequence p0) { return null; }
-        @Modified java.io.CharArrayWriter append(@Nullable java.lang.CharSequence p0, int p1, int p2) { return null; }
-        @Modified void write(@NotNull java.lang.String p0, int p1, int p2) { }
+        @Modified CharArrayWriter append(@Nullable CharSequence p0) { return null; }
+        @Modified CharArrayWriter append(@Nullable CharSequence p0, int p1, int p2) { return null; }
+        @Modified void write(@NotNull String p0, int p1, int p2) { }
         @Modified void write(@NotNull char[] p0, int p1, int p2) { }
-        @Modified void writeTo(@NotNull java.io.Writer p0) { }
+        @Modified void writeTo(@NotNull Writer p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void reset() { }
@@ -869,35 +873,35 @@ public class JavaIo {
     //public java.io.Console (shadow created for its nullability, generated)
     class Console$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        java.io.Console format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
-        java.io.Console format(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
-        java.io.Console printf(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
-        java.io.Console printf(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
-        @Modified @Nullable java.lang.String readLine() { return null; }
-        @Modified @Nullable java.lang.String readLine(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
-        @Modified @Nullable java.lang.String readLine(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
+        Console format(@Nullable Locale p0, @NotNull String p1, @NotNull(nullableArguments = 0) Object... p2) { return null; }
+        Console format(@NotNull String p0, @NotNull(nullableArguments = 0) Object... p1) { return null; }
+        Console printf(@Nullable Locale p0, @NotNull String p1, @NotNull(nullableArguments = 0) Object... p2) { return null; }
+        Console printf(@NotNull String p0, @NotNull(nullableArguments = 0) Object... p1) { return null; }
+        @Modified @Nullable String readLine() { return null; }
+        @Modified @Nullable String readLine(@Nullable Locale p0, @NotNull String p1, @NotNull(nullableArguments = 0) Object... p2) { return null; }
+        @Modified @Nullable String readLine(@NotNull String p0, @NotNull(nullableArguments = 0) Object... p1) { return null; }
         @Modified @Nullable char[] readPassword() { return null; }
-        @Modified @Nullable char[] readPassword(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
-        @Modified @Nullable char[] readPassword(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
+        @Modified @Nullable char[] readPassword(@Nullable Locale p0, @NotNull String p1, @NotNull(nullableArguments = 0) Object... p2) { return null; }
+        @Modified @Nullable char[] readPassword(@NotNull String p0, @NotNull(nullableArguments = 0) Object... p1) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void flush() { }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.nio.charset.Charset charset() { return null; }
+        @NotModified Charset charset() { return null; }
         @NotModified boolean isTerminal() { return false; }
     }
 
     //public java.io.DataInputStream (shadow created for its nullability, generated)
     class DataInputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        DataInputStream$(@Nullable java.io.InputStream p0) { }
+        DataInputStream$(@Nullable InputStream p0) { }
         @Modified int read(@NotNull byte[] p0) { return 0; }
         @Modified int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
         @Modified void readFully(@NotNull byte[] p0) { }
         @Modified void readFully(@NotNull byte[] p0, int p1, int p2) { }
-        @Modified @Nullable java.lang.String readLine() { return null; }
-        static java.lang.String readUTF(@NotNull java.io.DataInput p0) { return null; }
+        @Modified @Nullable String readLine() { return null; }
+        static String readUTF(@NotNull DataInput p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean readBoolean() { return false; }
@@ -919,9 +923,9 @@ public class JavaIo {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Modified void write(@NotNull byte[] p0) { }
         @Modified void write(@NotNull byte[] p0, int p1, int p2) { }
-        @Modified void writeBytes(@NotNull java.lang.String p0) { }
-        @Modified void writeChars(@NotNull java.lang.String p0) { }
-        @Modified void writeUTF(@NotNull java.lang.String p0) { }
+        @Modified void writeBytes(@NotNull String p0) { }
+        @Modified void writeChars(@NotNull String p0) { }
+        @Modified void writeUTF(@NotNull String p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void write(int p0) { }
@@ -938,11 +942,11 @@ public class JavaIo {
     //public java.io.DataOutputStream (shadow created for its nullability, generated)
     class DataOutputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        DataOutputStream$(@NotNull java.io.OutputStream p0) { }
+        DataOutputStream$(@NotNull OutputStream p0) { }
         @Modified void write(@NotNull byte[] p0, int p1, int p2) { }
-        @Modified void writeBytes(@NotNull java.lang.String p0) { }
-        @Modified void writeChars(@NotNull java.lang.String p0) { }
-        @Modified void writeUTF(@NotNull java.lang.String p0) { }
+        @Modified void writeBytes(@NotNull String p0) { }
+        @Modified void writeChars(@NotNull String p0) { }
+        @Modified void writeUTF(@NotNull String p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void writeBoolean(boolean p0) { }
@@ -961,37 +965,37 @@ public class JavaIo {
     //public java.io.Externalizable (shadow created for its nullability, generated)
     class Externalizable$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified void readExternal(@NotNull java.io.ObjectInput p0) { }
-        @Modified void writeExternal(@NotNull java.io.ObjectOutput p0) { }
+        @Modified void readExternal(@NotNull ObjectInput p0) { }
+        @Modified void writeExternal(@NotNull ObjectOutput p0) { }
     }
 
     //public java.io.FileFilter (shadow created for its nullability, generated)
     class FileFilter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        boolean accept(@NotNull java.io.File p0) { return false; }
+        boolean accept(@NotNull File p0) { return false; }
     }
 
     //public java.io.FileOutputStream (shadow created for its nullability, generated)
     class FileOutputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        FileOutputStream$(@NotNull java.io.File p0) { }
-        FileOutputStream$(@NotNull java.io.File p0, boolean p1) { }
-        FileOutputStream$(@NotNull java.io.FileDescriptor p0) { }
-        FileOutputStream$(@NotNull java.lang.String p0) { }
-        FileOutputStream$(@NotNull java.lang.String p0, boolean p1) { }
+        FileOutputStream$(@NotNull File p0) { }
+        FileOutputStream$(@NotNull File p0, boolean p1) { }
+        FileOutputStream$(@NotNull FileDescriptor p0) { }
+        FileOutputStream$(@NotNull String p0) { }
+        FileOutputStream$(@NotNull String p0, boolean p1) { }
         @Modified void write(@NotNull byte[] p0) { }
         @Modified void write(@NotNull byte[] p0, int p1, int p2) { }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.nio.channels.FileChannel getChannel() { return null; }
-        @NotModified java.io.FileDescriptor getFD() { return null; }
+        @NotModified FileChannel getChannel() { return null; }
+        @NotModified FileDescriptor getFD() { return null; }
     }
 
     //public java.io.FilePermission (shadow created for its nullability, generated)
     class FilePermission$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        FilePermission$(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { }
-        boolean implies(@Nullable java.security.Permission p0) { return false; }
+        FilePermission$(@NotNull String p0, @NotNull String p1) { }
+        boolean implies(@Nullable Permission p0) { return false; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified String getActions() { return null; }
@@ -1000,23 +1004,23 @@ public class JavaIo {
     //public java.io.FileReader (shadow created for its nullability, generated)
     class FileReader$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        FileReader$(@NotNull java.io.File p0) { }
-        FileReader$(@NotNull java.io.File p0, @NotNull java.nio.charset.Charset p1) { }
-        FileReader$(@NotNull java.io.FileDescriptor p0) { }
-        FileReader$(@NotNull java.lang.String p0) { }
-        FileReader$(@NotNull java.lang.String p0, @NotNull java.nio.charset.Charset p1) { }
+        FileReader$(@NotNull File p0) { }
+        FileReader$(@NotNull File p0, @NotNull Charset p1) { }
+        FileReader$(@NotNull FileDescriptor p0) { }
+        FileReader$(@NotNull String p0) { }
+        FileReader$(@NotNull String p0, @NotNull Charset p1) { }
     }
 
     //public java.io.FilenameFilter (shadow created for its nullability, generated)
     class FilenameFilter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        boolean accept(@NotNull java.io.File p0, @NotNull java.lang.String p1) { return false; }
+        boolean accept(@NotNull File p0, @NotNull String p1) { return false; }
     }
 
     //public java.io.FilterInputStream (shadow created for its nullability, generated)
     class FilterInputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        FilterInputStream$(@Nullable java.io.InputStream p0) { }
+        FilterInputStream$(@Nullable InputStream p0) { }
         @Modified int read(@NotNull byte[] p0) { return 0; }
         @Modified int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
     }
@@ -1024,50 +1028,50 @@ public class JavaIo {
     //public java.io.FilterReader (shadow created for its nullability, generated)
     class FilterReader$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        FilterReader$(@NotNull java.io.Reader p0) { }
+        FilterReader$(@NotNull Reader p0) { }
         @Modified int read(@NotNull char[] p0, int p1, int p2) { return 0; }
     }
 
     //public java.io.FilterWriter (shadow created for its nullability, generated)
     class FilterWriter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        FilterWriter$(@NotNull java.io.Writer p0) { }
-        @Modified void write(@NotNull java.lang.String p0, int p1, int p2) { }
+        FilterWriter$(@NotNull Writer p0) { }
+        @Modified void write(@NotNull String p0, int p1, int p2) { }
         @Modified void write(@NotNull char[] p0, int p1, int p2) { }
     }
 
     //public java.io.InputStreamReader (shadow created for its nullability, generated)
     class InputStreamReader$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        InputStreamReader$(@NotNull java.io.InputStream p0) { }
-        InputStreamReader$(@NotNull java.io.InputStream p0, @NotNull java.nio.charset.Charset p1) { }
-        InputStreamReader$(@NotNull java.io.InputStream p0, @NotNull java.nio.charset.CharsetDecoder p1) { }
-        InputStreamReader$(@NotNull java.io.InputStream p0, @NotNull java.lang.String p1) { }
-        @NotModified @Nullable java.lang.String getEncoding() { return null; }
-        @Modified int read(@NotNull java.nio.CharBuffer p0) { return 0; }
+        InputStreamReader$(@NotNull InputStream p0) { }
+        InputStreamReader$(@NotNull InputStream p0, @NotNull Charset p1) { }
+        InputStreamReader$(@NotNull InputStream p0, @NotNull CharsetDecoder p1) { }
+        InputStreamReader$(@NotNull InputStream p0, @NotNull String p1) { }
+        @NotModified @Nullable String getEncoding() { return null; }
+        @Modified int read(@NotNull CharBuffer p0) { return 0; }
         @Modified int read(@NotNull char[] p0, int p1, int p2) { return 0; }
     }
 
     //public java.io.InterruptedIOException (shadow created for its nullability, generated)
     class InterruptedIOException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        InterruptedIOException$(@Nullable java.lang.String p0) { }
+        InterruptedIOException$(@Nullable String p0) { }
     }
 
     //public java.io.InvalidObjectException (shadow created for its nullability, generated)
     class InvalidObjectException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        InvalidObjectException$(@Nullable java.lang.String p0) { }
-        InvalidObjectException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        InvalidObjectException$(@Nullable String p0) { }
+        InvalidObjectException$(@Nullable String p0, @Nullable Throwable p1) { }
     }
 
     //public java.io.LineNumberReader (shadow created for its nullability, generated)
     class LineNumberReader$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        LineNumberReader$(@NotNull java.io.Reader p0) { }
-        LineNumberReader$(@NotNull java.io.Reader p0, int p1) { }
+        LineNumberReader$(@NotNull Reader p0) { }
+        LineNumberReader$(@NotNull Reader p0, int p1) { }
         @Modified int read(@NotNull char[] p0, int p1, int p2) { return 0; }
-        @Modified @Nullable java.lang.String readLine() { return null; }
+        @Modified @Nullable String readLine() { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setLineNumber(int p0) { }
@@ -1095,44 +1099,44 @@ public class JavaIo {
     //public java.io.ObjectInputFilter (shadow created for its nullability, generated)
     class ObjectInputFilter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static java.io.ObjectInputFilter merge(java.io.ObjectInputFilter p0, @Nullable java.io.ObjectInputFilter p1) { return null; }
+        static ObjectInputFilter merge(ObjectInputFilter p0, @Nullable ObjectInputFilter p1) { return null; }
 
         //public java.io.ObjectInputFilter.FilterInfo (shadow created for its nullability, generated)
         class FilterInfo {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable java.lang.Class<?> serialClass() { return null; }
+            @Nullable Class<?> serialClass() { return null; }
         }
     }
 
     //public java.io.ObjectInputStream (shadow created for its nullability, generated)
     class ObjectInputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        ObjectInputStream$(@NotNull java.io.InputStream p0) { }
-        @NotModified @Nullable java.io.ObjectInputFilter getObjectInputFilter() { return null; }
+        ObjectInputStream$(@NotNull InputStream p0) { }
+        @NotModified @Nullable ObjectInputFilter getObjectInputFilter() { return null; }
         @Modified int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
         @Modified void readFully(@NotNull byte[] p0) { }
         @Modified void readFully(@NotNull byte[] p0, int p1, int p2) { }
-        @Modified @Nullable java.lang.String readLine() { return null; }
-        @Nullable java.lang.Object readObjectOverride() { return null; }
-        @Modified void registerValidation(@NotNull java.io.ObjectInputValidation p0, int p1) { }
-        java.lang.Class<?> resolveClass(@NotNull java.io.ObjectStreamClass p0) { return null; }
-        java.lang.Object resolveObject(@NotNull java.lang.Object p0) { return null; }
-        java.lang.Class<?> resolveProxyClass(@NotNull java.lang.String[] p0) { return null; }
-        @Modified void setObjectInputFilter(@Nullable java.io.ObjectInputFilter p0) { }
+        @Modified @Nullable String readLine() { return null; }
+        @Nullable Object readObjectOverride() { return null; }
+        @Modified void registerValidation(@NotNull ObjectInputValidation p0, int p1) { }
+        Class<?> resolveClass(@NotNull ObjectStreamClass p0) { return null; }
+        Object resolveObject(@NotNull Object p0) { return null; }
+        Class<?> resolveProxyClass(@NotNull String[] p0) { return null; }
+        @Modified void setObjectInputFilter(@Nullable ObjectInputFilter p0) { }
 
         //public java.io.ObjectInputStream.GetField (shadow created for its nullability, generated)
         class GetField {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            boolean defaulted(@NotNull java.lang.String p0) { return false; }
-            @NotModified java.lang.Object get(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { return null; }
-            @NotModified boolean get(@NotNull java.lang.String p0, boolean p1) { return false; }
-            @NotModified byte get(@NotNull java.lang.String p0, byte p1) { return 0; }
-            @NotModified char get(@NotNull java.lang.String p0, char p1) { return 0; }
-            @NotModified double get(@NotNull java.lang.String p0, double p1) { return 0; }
-            @NotModified float get(@NotNull java.lang.String p0, float p1) { return 0; }
-            @NotModified int get(@NotNull java.lang.String p0, int p1) { return 0; }
-            @NotModified long get(@NotNull java.lang.String p0, long p1) { return 0; }
-            @NotModified short get(@NotNull java.lang.String p0, short p1) { return 0; }
+            boolean defaulted(@NotNull String p0) { return false; }
+            @NotModified Object get(@NotNull String p0, @Nullable Object p1) { return null; }
+            @NotModified boolean get(@NotNull String p0, boolean p1) { return false; }
+            @NotModified byte get(@NotNull String p0, byte p1) { return 0; }
+            @NotModified char get(@NotNull String p0, char p1) { return 0; }
+            @NotModified double get(@NotNull String p0, double p1) { return 0; }
+            @NotModified float get(@NotNull String p0, float p1) { return 0; }
+            @NotModified int get(@NotNull String p0, int p1) { return 0; }
+            @NotModified long get(@NotNull String p0, long p1) { return 0; }
+            @NotModified short get(@NotNull String p0, short p1) { return 0; }
         }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
@@ -1140,7 +1144,7 @@ public class JavaIo {
         @Modified byte readByte() { return 0; }
         @Modified char readChar() { return 0; }
         @Modified double readDouble() { return 0; }
-        @Modified java.io.ObjectInputStream.GetField readFields() { return null; }
+        @Modified ObjectInputStream.GetField readFields() { return null; }
         @Modified float readFloat() { return 0; }
         @Modified int readInt() { return 0; }
         @Modified long readLong() { return 0; }
@@ -1158,7 +1162,7 @@ public class JavaIo {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Modified void write(@NotNull byte[] p0) { }
         @Modified void write(@NotNull byte[] p0, int p1, int p2) { }
-        @Modified void writeObject(@Nullable java.lang.Object p0) { }
+        @Modified void writeObject(@Nullable Object p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void close() { }
@@ -1169,37 +1173,37 @@ public class JavaIo {
     //public java.io.ObjectOutputStream (shadow created for its nullability, generated)
     class ObjectOutputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        ObjectOutputStream$(@NotNull java.io.OutputStream p0) { }
-        void annotateClass(@NotNull java.lang.Class<?> p0) { }
-        void annotateProxyClass(@NotNull java.lang.Class<?> p0) { }
-        java.lang.Object replaceObject(@NotNull java.lang.Object p0) { return null; }
+        ObjectOutputStream$(@NotNull OutputStream p0) { }
+        void annotateClass(@NotNull Class<?> p0) { }
+        void annotateProxyClass(@NotNull Class<?> p0) { }
+        Object replaceObject(@NotNull Object p0) { return null; }
         @Modified void write(@NotNull byte[] p0) { }
         @Modified void write(@NotNull byte[] p0, int p1, int p2) { }
-        @Modified void writeBytes(@NotNull java.lang.String p0) { }
-        @Modified void writeChars(@NotNull java.lang.String p0) { }
-        void writeClassDescriptor(@NotNull java.io.ObjectStreamClass p0) { }
-        @Modified void writeObject(@Nullable java.lang.Object p0) { }
-        void writeObjectOverride(@Nullable java.lang.Object p0) { }
-        @Modified void writeUTF(@NotNull java.lang.String p0) { }
-        @Modified void writeUnshared(@Nullable java.lang.Object p0) { }
+        @Modified void writeBytes(@NotNull String p0) { }
+        @Modified void writeChars(@NotNull String p0) { }
+        void writeClassDescriptor(@NotNull ObjectStreamClass p0) { }
+        @Modified void writeObject(@Nullable Object p0) { }
+        void writeObjectOverride(@Nullable Object p0) { }
+        @Modified void writeUTF(@NotNull String p0) { }
+        @Modified void writeUnshared(@Nullable Object p0) { }
 
         //public java.io.ObjectOutputStream.PutField (shadow created for its nullability, generated)
         class PutField {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Modified void put(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { }
-            @Modified void put(@NotNull java.lang.String p0, boolean p1) { }
-            @Modified void put(@NotNull java.lang.String p0, byte p1) { }
-            @Modified void put(@NotNull java.lang.String p0, char p1) { }
-            @Modified void put(@NotNull java.lang.String p0, double p1) { }
-            @Modified void put(@NotNull java.lang.String p0, float p1) { }
-            @Modified void put(@NotNull java.lang.String p0, int p1) { }
-            @Modified void put(@NotNull java.lang.String p0, long p1) { }
-            @Modified void put(@NotNull java.lang.String p0, short p1) { }
-            @Modified void write(@NotNull java.io.ObjectOutput p0) { }
+            @Modified void put(@NotNull String p0, @Nullable Object p1) { }
+            @Modified void put(@NotNull String p0, boolean p1) { }
+            @Modified void put(@NotNull String p0, byte p1) { }
+            @Modified void put(@NotNull String p0, char p1) { }
+            @Modified void put(@NotNull String p0, double p1) { }
+            @Modified void put(@NotNull String p0, float p1) { }
+            @Modified void put(@NotNull String p0, int p1) { }
+            @Modified void put(@NotNull String p0, long p1) { }
+            @Modified void put(@NotNull String p0, short p1) { }
+            @Modified void write(@NotNull ObjectOutput p0) { }
         }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified java.io.ObjectOutputStream.PutField putFields() { return null; }
+        @Modified ObjectOutputStream.PutField putFields() { return null; }
         @Modified void reset() { }
         @Modified void writeBoolean(boolean p0) { }
         @Modified void writeByte(int p0) { }
@@ -1215,13 +1219,13 @@ public class JavaIo {
     //public java.io.ObjectStreamClass (shadow created for its nullability, generated)
     class ObjectStreamClass$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.Class<?> forClass() { return null; }
-        @NotModified @Nullable java.io.ObjectStreamField getField(@NotNull java.lang.String p0) { return null; }
-        @Nullable static java.io.ObjectStreamClass lookup(@NotNull java.lang.Class<?> p0) { return null; }
-        static java.io.ObjectStreamClass lookupAny(@NotNull java.lang.Class<?> p0) { return null; }
+        @Nullable Class<?> forClass() { return null; }
+        @NotModified @Nullable ObjectStreamField getField(@NotNull String p0) { return null; }
+        @Nullable static ObjectStreamClass lookup(@NotNull Class<?> p0) { return null; }
+        static ObjectStreamClass lookupAny(@NotNull Class<?> p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.io.ObjectStreamField[] getFields() { return null; }
+        @NotModified ObjectStreamField[] getFields() { return null; }
         @NotModified String getName() { return null; }
         @NotModified long getSerialVersionUID() { return 0; }
     }
@@ -1229,18 +1233,18 @@ public class JavaIo {
     //public java.io.ObjectStreamException (shadow created for its nullability, generated)
     class ObjectStreamException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        ObjectStreamException$(@Nullable java.lang.String p0) { }
-        ObjectStreamException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
-        ObjectStreamException$(@Nullable java.lang.Throwable p0) { }
+        ObjectStreamException$(@Nullable String p0) { }
+        ObjectStreamException$(@Nullable String p0, @Nullable Throwable p1) { }
+        ObjectStreamException$(@Nullable Throwable p0) { }
     }
 
     //public java.io.ObjectStreamField (shadow created for its nullability, generated)
     class ObjectStreamField$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        ObjectStreamField$(@NotNull java.lang.String p0, @NotNull java.lang.Class<?> p1) { }
-        ObjectStreamField$(@NotNull java.lang.String p0, @NotNull java.lang.Class<?> p1, boolean p2) { }
-        int compareTo(@NotNull java.lang.Object p0) { return 0; }
-        @NotModified @Nullable java.lang.String getTypeString() { return null; }
+        ObjectStreamField$(@NotNull String p0, @NotNull Class<?> p1) { }
+        ObjectStreamField$(@NotNull String p0, @NotNull Class<?> p1, boolean p2) { }
+        int compareTo(@NotNull Object p0) { return 0; }
+        @NotModified @Nullable String getTypeString() { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified String getName() { return null; }
@@ -1254,56 +1258,56 @@ public class JavaIo {
     //public java.io.PipedOutputStream (shadow created for its nullability, generated)
     class PipedOutputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PipedOutputStream$(@NotNull java.io.PipedInputStream p0) { }
-        void connect(@NotNull java.io.PipedInputStream p0) { }
+        PipedOutputStream$(@NotNull PipedInputStream p0) { }
+        void connect(@NotNull PipedInputStream p0) { }
         @Modified void write(@NotNull byte[] p0, int p1, int p2) { }
     }
 
     //public java.io.PipedReader (shadow created for its nullability, generated)
     class PipedReader$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PipedReader$(@NotNull java.io.PipedWriter p0) { }
-        PipedReader$(@NotNull java.io.PipedWriter p0, int p1) { }
-        void connect(@NotNull java.io.PipedWriter p0) { }
+        PipedReader$(@NotNull PipedWriter p0) { }
+        PipedReader$(@NotNull PipedWriter p0, int p1) { }
+        void connect(@NotNull PipedWriter p0) { }
         @Modified int read(@NotNull char[] p0, int p1, int p2) { return 0; }
     }
 
     //public java.io.PipedWriter (shadow created for its nullability, generated)
     class PipedWriter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PipedWriter$(@NotNull java.io.PipedReader p0) { }
-        void connect(@NotNull java.io.PipedReader p0) { }
+        PipedWriter$(@NotNull PipedReader p0) { }
+        void connect(@NotNull PipedReader p0) { }
         @Modified void write(@NotNull char[] p0, int p1, int p2) { }
     }
 
     //public java.io.PrintWriter (shadow created for its nullability, generated)
     class PrintWriter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PrintWriter$(@NotNull java.io.File p0) { }
-        PrintWriter$(@NotNull java.io.File p0, @NotNull java.nio.charset.Charset p1) { }
-        PrintWriter$(@NotNull java.io.File p0, @NotNull java.lang.String p1) { }
-        PrintWriter$(@NotNull java.io.OutputStream p0) { }
-        PrintWriter$(@NotNull java.io.OutputStream p0, boolean p1) { }
-        PrintWriter$(@NotNull java.io.OutputStream p0, boolean p1, @NotNull java.nio.charset.Charset p2) { }
-        PrintWriter$(@NotNull java.lang.String p0) { }
-        PrintWriter$(@NotNull java.lang.String p0, @NotNull java.nio.charset.Charset p1) { }
-        PrintWriter$(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { }
-        PrintWriter$(@NotNull java.io.Writer p0) { }
-        PrintWriter$(@NotNull java.io.Writer p0, boolean p1) { }
-        @Modified java.io.PrintWriter append(@Nullable java.lang.CharSequence p0) { return null; }
-        @Modified java.io.PrintWriter append(@Nullable java.lang.CharSequence p0, int p1, int p2) { return null; }
-        java.io.PrintWriter format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
-        java.io.PrintWriter format(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
-        void print(@Nullable java.lang.Object p0) { }
-        void print(@Nullable java.lang.String p0) { }
+        PrintWriter$(@NotNull File p0) { }
+        PrintWriter$(@NotNull File p0, @NotNull Charset p1) { }
+        PrintWriter$(@NotNull File p0, @NotNull String p1) { }
+        PrintWriter$(@NotNull OutputStream p0) { }
+        PrintWriter$(@NotNull OutputStream p0, boolean p1) { }
+        PrintWriter$(@NotNull OutputStream p0, boolean p1, @NotNull Charset p2) { }
+        PrintWriter$(@NotNull String p0) { }
+        PrintWriter$(@NotNull String p0, @NotNull Charset p1) { }
+        PrintWriter$(@NotNull String p0, @NotNull String p1) { }
+        PrintWriter$(@NotNull Writer p0) { }
+        PrintWriter$(@NotNull Writer p0, boolean p1) { }
+        @Modified PrintWriter append(@Nullable CharSequence p0) { return null; }
+        @Modified PrintWriter append(@Nullable CharSequence p0, int p1, int p2) { return null; }
+        PrintWriter format(@Nullable Locale p0, @NotNull String p1, @NotNull(nullableArguments = 0) Object... p2) { return null; }
+        PrintWriter format(@NotNull String p0, @NotNull(nullableArguments = 0) Object... p1) { return null; }
+        void print(@Nullable Object p0) { }
+        void print(@Nullable String p0) { }
         void print(@NotNull char[] p0) { }
-        java.io.PrintWriter printf(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
-        java.io.PrintWriter printf(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
-        void println(@Nullable java.lang.Object p0) { }
-        void println(@Nullable java.lang.String p0) { }
+        PrintWriter printf(@Nullable Locale p0, @NotNull String p1, @NotNull(nullableArguments = 0) Object... p2) { return null; }
+        PrintWriter printf(@NotNull String p0, @NotNull(nullableArguments = 0) Object... p1) { return null; }
+        void println(@Nullable Object p0) { }
+        void println(@Nullable String p0) { }
         void println(@NotNull char[] p0) { }
-        @Modified void write(@NotNull java.lang.String p0) { }
-        @Modified void write(@NotNull java.lang.String p0, int p1, int p2) { }
+        @Modified void write(@NotNull String p0) { }
+        @Modified void write(@NotNull String p0, int p1, int p2) { }
         @Modified void write(@NotNull char[] p0) { }
         @Modified void write(@NotNull char[] p0, int p1, int p2) { }
     }
@@ -1311,10 +1315,10 @@ public class JavaIo {
     //public java.io.PushbackInputStream (shadow created for its nullability, generated)
     class PushbackInputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PushbackInputStream$(@NotNull java.io.InputStream p0) { }
-        PushbackInputStream$(@NotNull java.io.InputStream p0, int p1) { }
+        PushbackInputStream$(@NotNull InputStream p0) { }
+        PushbackInputStream$(@NotNull InputStream p0, int p1) { }
         @Modified int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
-        @Modified long transferTo(@NotNull java.io.OutputStream p0) { return 0; }
+        @Modified long transferTo(@NotNull OutputStream p0) { return 0; }
         @Modified void unread(@NotNull byte[] p0) { }
         @Modified void unread(@NotNull byte[] p0, int p1, int p2) { }
 
@@ -1325,8 +1329,8 @@ public class JavaIo {
     //public java.io.PushbackReader (shadow created for its nullability, generated)
     class PushbackReader$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PushbackReader$(@NotNull java.io.Reader p0) { }
-        PushbackReader$(@NotNull java.io.Reader p0, int p1) { }
+        PushbackReader$(@NotNull Reader p0) { }
+        PushbackReader$(@NotNull Reader p0, int p1) { }
         @Modified int read(@NotNull char[] p0, int p1, int p2) { return 0; }
         @Modified void unread(@NotNull char[] p0) { }
         @Modified void unread(@NotNull char[] p0, int p1, int p2) { }
@@ -1338,24 +1342,24 @@ public class JavaIo {
     //public java.io.SequenceInputStream (shadow created for its nullability, generated)
     class SequenceInputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        SequenceInputStream$(@NotNull java.util.Enumeration<? extends java.io.InputStream> p0) { }
-        SequenceInputStream$(@NotNull java.io.InputStream p0, @NotNull java.io.InputStream p1) { }
+        SequenceInputStream$(@NotNull Enumeration<? extends InputStream> p0) { }
+        SequenceInputStream$(@NotNull InputStream p0, @NotNull InputStream p1) { }
         @Modified int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
-        @Modified long transferTo(@NotNull java.io.OutputStream p0) { return 0; }
+        @Modified long transferTo(@NotNull OutputStream p0) { return 0; }
     }
 
     //public java.io.SerializablePermission (shadow created for its nullability, generated)
     class SerializablePermission$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        SerializablePermission$(@NotNull java.lang.String p0) { }
-        SerializablePermission$(@NotNull java.lang.String p0, @Nullable java.lang.String p1) { }
+        SerializablePermission$(@NotNull String p0) { }
+        SerializablePermission$(@NotNull String p0, @Nullable String p1) { }
     }
 
     //public java.io.StreamTokenizer (shadow created for its nullability, generated)
     class StreamTokenizer$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        StreamTokenizer$(@NotNull java.io.InputStream p0) { }
-        StreamTokenizer$(@NotNull java.io.Reader p0) { }
+        StreamTokenizer$(@NotNull InputStream p0) { }
+        StreamTokenizer$(@NotNull Reader p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified int nextToken() { return 0; }
@@ -1366,24 +1370,24 @@ public class JavaIo {
     //public java.io.StringBufferInputStream (shadow created for its nullability, generated)
     class StringBufferInputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        StringBufferInputStream$(@NotNull java.lang.String p0) { }
+        StringBufferInputStream$(@NotNull String p0) { }
         @Modified int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
     }
 
     //public java.io.StringReader (shadow created for its nullability, generated)
     class StringReader$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        StringReader$(@NotNull java.lang.String p0) { }
+        StringReader$(@NotNull String p0) { }
         @Modified int read(@NotNull char[] p0, int p1, int p2) { return 0; }
     }
 
     //public java.io.StringWriter (shadow created for its nullability, generated)
     class StringWriter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified java.io.StringWriter append(@Nullable java.lang.CharSequence p0) { return null; }
-        @Modified java.io.StringWriter append(@Nullable java.lang.CharSequence p0, int p1, int p2) { return null; }
-        @Modified void write(@NotNull java.lang.String p0) { }
-        @Modified void write(@NotNull java.lang.String p0, int p1, int p2) { }
+        @Modified StringWriter append(@Nullable CharSequence p0) { return null; }
+        @Modified StringWriter append(@Nullable CharSequence p0, int p1, int p2) { return null; }
+        @Modified void write(@NotNull String p0) { }
+        @Modified void write(@NotNull String p0, int p1, int p2) { }
         @Modified void write(@NotNull char[] p0, int p1, int p2) { }
 
         // a query, declared so (generated from the assumed-defaults list)
@@ -1393,6 +1397,6 @@ public class JavaIo {
     //public java.io.UnsupportedEncodingException (shadow created for its nullability, generated)
     class UnsupportedEncodingException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        UnsupportedEncodingException$(@Nullable java.lang.String p0) { }
+        UnsupportedEncodingException$(@Nullable String p0) { }
     }
 }

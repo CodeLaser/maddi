@@ -211,7 +211,7 @@ public class ParseException extends RuntimeException {
                     continue;
                 default : 
                     if (Character.isISOControl(ch)) { 
-                        String s = "0000" + java.lang.Integer.toString(ch, 16);
+                        String s = "0000" + Integer.toString(ch, 16);
                         retval.append("\\u" + s.substring(s.length() - 4));
                     } else { 
                         retval.appendCodePoint(ch);

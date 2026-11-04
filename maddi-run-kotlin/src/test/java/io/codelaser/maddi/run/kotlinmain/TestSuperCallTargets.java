@@ -16,6 +16,19 @@
  */
 package io.codelaser.maddi.run.kotlinmain;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -26,17 +39,6 @@ import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * What a Kotlin `super` binds to when the parent is Java -- source or a class file.
@@ -101,7 +103,7 @@ public class TestSuperCallTargets {
     }
 
     private static String jar(String classPath, String pattern) {
-        return Stream.of(classPath.split(java.io.File.pathSeparator))
+        return Stream.of(classPath.split(File.pathSeparator))
                 .filter(p -> Path.of(p).getFileName().toString().matches(pattern)).findFirst().orElseThrow();
     }
 

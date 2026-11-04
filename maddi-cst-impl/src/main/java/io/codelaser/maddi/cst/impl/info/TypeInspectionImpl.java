@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.*;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.TypeNature;
 import io.codelaser.maddi.cst.impl.info.util.MethodMapImpl;
-
-import java.util.*;
-import java.util.stream.Stream;
 
 public class TypeInspectionImpl extends InspectionImpl implements TypeInspection {
     private final Set<TypeModifier> typeModifiers;

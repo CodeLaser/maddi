@@ -16,18 +16,10 @@
  */
 package io.codelaser.maddi.run.config.compile;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.Opcodes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.FileVisitResult;
 import java.net.URI;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
@@ -43,6 +35,15 @@ import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * Recovers the <b>annotation-processor products</b> that {@link CompileListToSourceSets} drops, by declaring them
@@ -365,10 +366,10 @@ public class AnnotationProcessorOutput {
     /** {@code p/q/Foo$Bar$1.class} -> {@code p/q/Foo}: a nested class is decided by its top-level name. */
     private static String topLevelOf(String relative) {
         String withoutSuffix = relative.substring(0, relative.length() - ".class".length());
-        int separator = withoutSuffix.lastIndexOf(java.io.File.separatorChar);
+        int separator = withoutSuffix.lastIndexOf(File.separatorChar);
         int dollar = withoutSuffix.indexOf('$', separator + 1);
         return (dollar < 0 ? withoutSuffix : withoutSuffix.substring(0, dollar))
-                .replace(java.io.File.separatorChar, '/');
+                .replace(File.separatorChar, '/');
     }
 
     private static boolean exists(List<Path> roots, String relative) {

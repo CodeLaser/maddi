@@ -1,7 +1,9 @@
 package io.codelaser.maddi.java.openjdk;
 
-import javax.tools.SimpleJavaFileObject;
 import java.net.URI;
+import java.net.URISyntaxException;
+
+import javax.tools.SimpleJavaFileObject;
 
 public class InMemoryJavaFileObject extends SimpleJavaFileObject {
     private final String source;
@@ -24,7 +26,7 @@ public class InMemoryJavaFileObject extends SimpleJavaFileObject {
     public static URI uri(String sourceSetName, String className) {
         try {
             return new URI("mem", "", "/" + sourceSetName + "/" + className.replace('.', '/') + ".java", null, null);
-        } catch (java.net.URISyntaxException e) {
+        } catch (URISyntaxException e) {
             throw new IllegalArgumentException("no in-memory URI for " + className + " in source set '"
                                                + sourceSetName + "'", e);
         }

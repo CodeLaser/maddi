@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.inspection.api.parser;
 
+import java.util.Map;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -27,8 +29,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.Map;
 
 public interface GenericsHelper {
 

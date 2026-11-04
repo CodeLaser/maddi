@@ -16,15 +16,16 @@
  */
 package io.codelaser.maddi.run.openjdkmain;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.ParseException;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * An analysis run loads the analysis results maddi ships unless told otherwise (CodeLaser/maddi-mod#15): without them
@@ -61,7 +62,7 @@ public class TestShippedAnalysisResults {
 
     @Test
     public void defaultNamesTheShippedResultsInAList() throws ParseException {
-        List<String> expected = new java.util.ArrayList<>(Main.SHIPPED_ANALYSIS_RESULTS);
+        List<String> expected = new ArrayList<>(Main.SHIPPED_ANALYSIS_RESULTS);
         expected.add("my/results");
         assertEquals(expected, preload("--source", "src", "--preload-analysis-results-dirs", "default,my/results"));
     }

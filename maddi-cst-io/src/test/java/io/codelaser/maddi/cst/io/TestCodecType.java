@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.cst.io;
 
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 
 public class TestCodecType extends  CommonTest {

@@ -1,12 +1,13 @@
 package io.codelaser.maddi.java.openjdk.type;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * maddi#159: {@code concreteSuperType} puts a WILDCARD argument into the type arguments nested in a supertype's

@@ -17,10 +17,15 @@
 
 package io.codelaser.maddi.cst.impl.element;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.info.Access;
 import io.codelaser.maddi.cst.api.info.Info;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -34,12 +39,6 @@ import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.support.SetOnce;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     private final CompilationUnit compilationUnit;

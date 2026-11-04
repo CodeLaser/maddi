@@ -17,15 +17,16 @@
 
 package io.codelaser.maddi.inspection.resource;
 
-import io.codelaser.maddi.cst.api.element.CompilationUnit;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /**
  * The shared type registry: fully-qualified name -> {@link TypeInfo}, with multi-source-set resolution

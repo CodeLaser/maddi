@@ -17,18 +17,26 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.StringConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.print.rust.RustBodyPrinter.Held;
 import io.codelaser.maddi.cst.print.rust.RustBodyPrinter.Printed;
-
-import java.util.List;
-import java.util.Set;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 /**
  * The JDK's methods as {@code std}'s, for the types {@link RustTypes} maps: {@code String}, the collections,
@@ -143,8 +151,8 @@ final class RustJdk {
         if ("stream/0".equals(name + "/" + args.size()) && kind != null && Set.of("Vec", "HashSet", "BTreeSet", "VecDeque")
                 .contains(kind)) {
             // values the stream may hand on as copies: a primitive, a string, an @Immutable class
-            List<io.codelaser.maddi.cst.api.type.ParameterizedType> ps = mc.object().parameterizedType().parameters();
-            io.codelaser.maddi.cst.api.type.ParameterizedType element = ps.isEmpty() ? null : ps.getFirst();
+            List<ParameterizedType> ps = mc.object().parameterizedType().parameters();
+            ParameterizedType element = ps.isEmpty() ? null : ps.getFirst();
             if (element != null && RustTypes.isCopy(element)) return value(iter(o) + ".copied()");
             if (element != null && (RustTypes.isString(element)
                                     || RustTypes.isImmutableValue(element, printer.context().facts))) {
@@ -295,7 +303,7 @@ final class RustJdk {
                 }
                 if (fqn.equals("java.util.Map") && name.equals("of") && n % 2 == 0) {
                     printer.context().use("std::collections::HashMap");
-                    List<String> pairs = new java.util.ArrayList<>();
+                    List<String> pairs = new ArrayList<>();
                     for (int i = 0; i < n; i += 2) {
                         pairs.add("(" + printer.ownedText(args.get(i)) + ", " + printer.ownedText(args.get(i + 1)) + ")");
                     }
@@ -386,7 +394,7 @@ final class RustJdk {
      */
     private static Printed stringEquals(String o, Expression arg, RustBodyPrinter printer) {
         Printed a = printer.printed(arg);
-        io.codelaser.maddi.cst.api.type.ParameterizedType type = arg.parameterizedType();
+        ParameterizedType type = arg.parameterizedType();
         boolean object = type.typeInfo() != null && type.typeInfo().isJavaLangObject();
         String self = o.startsWith("\"") ? o : "&" + paren(o) + "[..]";
         String test = object ? "v.downcast_ref::<String>().map_or(false, |s| s.as_str() == " + self + ")"
@@ -398,7 +406,7 @@ final class RustJdk {
 
     /** {@code sb.append(x)}: a char is pushed, a string pushed as a {@code &str}, anything else formatted first. */
     static String append(String target, Expression arg, RustBodyPrinter printer) {
-        io.codelaser.maddi.cst.api.type.ParameterizedType type = arg.parameterizedType();
+        ParameterizedType type = arg.parameterizedType();
         if (type.isPrimitiveExcludingVoid() && type.typeInfo().isChar()) return target + ".push(" + printer.text(arg) + ")";
         if (RustTypes.isString(type) && !printer.printed(arg).nullable()) {
             return target + ".push_str(" + printer.reference(arg) + ")";
@@ -476,7 +484,7 @@ final class RustJdk {
 
     /** {@code entry.getKey()}: the entries of a map's iterator are {@code (&K, &V)} tuples. */
     private static Printed entry(String o, String name, MethodCall mc) {
-        List<io.codelaser.maddi.cst.api.type.ParameterizedType> kv = mc.object().parameterizedType().parameters();
+        List<ParameterizedType> kv = mc.object().parameterizedType().parameters();
         int index = switch (name) {
             case "getKey" -> 0;
             case "getValue" -> 1;
@@ -508,7 +516,7 @@ final class RustJdk {
     private static Printed getOrDefault(String o, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         String get = o + ".get(" + printer.reference(args.get(0)) + ")";
         if (copyValues(mc)) return value(get + ".copied().unwrap_or(" + operand(printer, args.get(1)) + ")");
-        List<io.codelaser.maddi.cst.api.type.ParameterizedType> kv = mc.object().parameterizedType().parameters();
+        List<ParameterizedType> kv = mc.object().parameterizedType().parameters();
         if (kv.size() == 2 && RustTypes.isString(kv.get(1))) {
             return value(get + ".cloned().unwrap_or_else(|| " + printer.ownedText(args.get(1)) + ")");
         }
@@ -547,13 +555,13 @@ final class RustJdk {
      * {@code %n} a newline. Another specifier is reported, and printed as {@code {}}.
      */
     private static Printed format(List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
-        if (!(args.getFirst() instanceof io.codelaser.maddi.cst.api.expression.StringConstant sc)) return null;
+        if (!(args.getFirst() instanceof StringConstant sc)) return null;
         String f = sc.constant();
         StringBuilder out = new StringBuilder();
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("%([-#+ 0,(]*)(\\d+)?(\\.\\d+)?([a-zA-Z%])").matcher(f);
+        Matcher m = Pattern.compile("%([-#+ 0,(]*)(\\d+)?(\\.\\d+)?([a-zA-Z%])").matcher(f);
         int at = 0;
         int conversions = 0;
-        List<String> shown = new java.util.ArrayList<>();
+        List<String> shown = new ArrayList<>();
         while (m.find()) {
             out.append(braces(f.substring(at, m.start())));
             at = m.end();
@@ -725,7 +733,7 @@ final class RustJdk {
                 String v = printer.ownedAs(args.get(1), typeArgument(mc, 1));
                 // the value reads the map being modified (m.put(k, m.get(k) + 1)): computed before the exclusive borrow
                 String root = o.replaceFirst("[.\\[(].*$", "");
-                if (java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(root) + "\\b").matcher(v).find()) {
+                if (Pattern.compile("\\b" + Pattern.quote(root) + "\\b").matcher(v).find()) {
                     yield value("{ let v = " + v + "; " + o + ".insert(" + key + ", v) }");
                 }
                 yield value(o + ".insert(" + key + ", " + v + ")");
@@ -818,19 +826,19 @@ final class RustJdk {
         };
     }
 
-    private static io.codelaser.maddi.cst.api.type.ParameterizedType typeArgument(MethodCall mc, int i) {
-        List<io.codelaser.maddi.cst.api.type.ParameterizedType> ps = mc.object().parameterizedType().parameters();
+    private static ParameterizedType typeArgument(MethodCall mc, int i) {
+        List<ParameterizedType> ps = mc.object().parameterizedType().parameters();
         return i < ps.size() ? ps.get(i) : null;
     }
 
     /** A map whose values are copied out: {@code get} gives an {@code Option<V>}, not an {@code Option<&V>}. */
     private static boolean copyValues(MethodCall mc) {
-        List<io.codelaser.maddi.cst.api.type.ParameterizedType> parameters = mc.object().parameterizedType().parameters();
+        List<ParameterizedType> parameters = mc.object().parameterizedType().parameters();
         return parameters.size() == 2 && RustTypes.isCopy(parameters.get(1));
     }
 
     /** The JDK's constants: {@code Math.PI}, {@code Integer.MAX_VALUE}, … {@code null} for another field. */
-    static String constant(io.codelaser.maddi.cst.api.info.FieldInfo f) {
+    static String constant(FieldInfo f) {
         return switch (f.owner().fullyQualifiedName() + "." + f.name()) {
             case "java.lang.Math.PI" -> "std::f64::consts::PI";
             case "java.lang.Boolean.TRUE" -> "true";
@@ -848,7 +856,7 @@ final class RustJdk {
         };
     }
 
-    private static boolean isObject(io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+    private static boolean isObject(ParameterizedType type) {
         return type.typeInfo() != null && type.typeInfo().isJavaLangObject() && type.arrays() == 0;
     }
 
@@ -867,8 +875,8 @@ final class RustJdk {
      * on the spot leaves rustc without the type of its parameter.
      */
     private static String compare(Expression e, RustBodyPrinter printer, String a, String b) {
-        Expression c = io.codelaser.maddi.cst.print.translate.CstQueries.unwrap(e);
-        if (c instanceof io.codelaser.maddi.cst.api.expression.Lambda l && l.methodInfo().parameters().size() == 2) {
+        Expression c = CstQueries.unwrap(e);
+        if (c instanceof Lambda l && l.methodInfo().parameters().size() == 2) {
             return printer.applied(l, List.of(a, b)) + ".cmp(&0)";
         }
         if (!(c instanceof MethodCall mc)) return null;
@@ -907,7 +915,7 @@ final class RustJdk {
     }
 
     private static boolean stringElements(MethodCall mc) {
-        List<io.codelaser.maddi.cst.api.type.ParameterizedType> parameters = mc.object().parameterizedType().parameters();
+        List<ParameterizedType> parameters = mc.object().parameterizedType().parameters();
         return !parameters.isEmpty() && RustTypes.isString(parameters.getFirst());
     }
 

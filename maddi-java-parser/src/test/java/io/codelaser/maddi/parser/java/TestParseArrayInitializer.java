@@ -17,20 +17,18 @@
 
 package io.codelaser.maddi.parser.java;
 
-import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
-import io.codelaser.maddi.cst.api.expression.BinaryOperator;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.statement.AssertStatement;
-import io.codelaser.maddi.cst.api.statement.Block;
-import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
-import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 
 public class TestParseArrayInitializer extends CommonTestParse {
 

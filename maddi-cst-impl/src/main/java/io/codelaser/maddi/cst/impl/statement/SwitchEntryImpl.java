@@ -17,10 +17,15 @@
 
 package io.codelaser.maddi.cst.impl.statement;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -34,12 +39,6 @@ import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.util.ListUtil;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class SwitchEntryImpl implements SwitchEntry {
     private final List<Expression> conditions;

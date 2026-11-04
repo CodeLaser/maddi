@@ -1,18 +1,20 @@
 package io.codelaser.maddi.inspection.integration;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 
 /**
  * The ASM/in-house front-end reads JDK library classes from {@code .jmod} files. Some JDK distributions ship the
@@ -42,7 +44,7 @@ public class TestRuntimeImageFallback {
         // a real member proves actual bytecode was read, not a stub
         assertNotNull(string.findUniqueMethod("length", 0));
 
-        TypeInfo list = javaInspector.compiledTypesManager().type(java.util.List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         assertNotNull(list);
         assertTrue(list.hasBeenInspected());
     }

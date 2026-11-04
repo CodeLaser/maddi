@@ -1,5 +1,17 @@
 package io.codelaser.maddi.inspection.openjdk;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
@@ -7,16 +19,6 @@ import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.net.URI;
-import java.util.List;
-import java.util.Map;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * <b>{@code --jdk-internals} must not depend on HOW the configuration was authored.</b>
@@ -91,7 +93,7 @@ public class TestJdkInternalsWithoutJdkDependencies {
                     .map(e -> String.valueOf(e.getMessage())).toList();
             TypeInfo t = summary.parseResult().findType("a.b.UsesInternal");
             return new Outcome(messages.isEmpty(), messages, warnings, t != null);
-        } catch (RuntimeException | java.io.IOException re) {
+        } catch (RuntimeException | IOException re) {
             return new Outcome(false, List.of(re.getClass().getSimpleName() + ": " + re.getMessage()),
                     List.of(), false);
         }

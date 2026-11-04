@@ -18,12 +18,12 @@
 package io.codelaser.maddi.cst.impl.expression.util;
 
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.expression.And;
 import io.codelaser.maddi.cst.api.expression.Equals;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
-
-import java.util.List;
 
 public record LhsRhs(Expression lhs, Expression rhs) {
 

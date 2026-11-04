@@ -16,15 +16,15 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import io.codelaser.maddi.annotation.ImmutableContainer;
-import io.codelaser.maddi.annotation.NotModified;
-
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
-import io.codelaser.maddi.annotation.Nullable;
+
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaLangAnnotation {
     public static final String PACKAGE_NAME = "java.lang.annotation";
@@ -52,7 +52,7 @@ public class JavaLangAnnotation {
         @Nullable @NotModified String foundType() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        AnnotationTypeMismatchException$(@Nullable java.lang.reflect.Method p0, @Nullable java.lang.String p1) { }
+        AnnotationTypeMismatchException$(@Nullable Method p0, @Nullable String p1) { }
     }
 
     //public enum ElementType extends Enum<ElementType>
@@ -69,7 +69,7 @@ public class JavaLangAnnotation {
         @NotModified String elementName() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        IncompleteAnnotationException$(@NotNull java.lang.Class<? extends java.lang.annotation.Annotation> p0, @NotNull java.lang.String p1) { }
+        IncompleteAnnotationException$(@NotNull Class<? extends Annotation> p0, @NotNull String p1) { }
     }
 
     //public enum RetentionPolicy extends Enum<RetentionPolicy>
@@ -82,8 +82,8 @@ public class JavaLangAnnotation {
     //public java.lang.annotation.AnnotationFormatError (shadow created for its nullability, generated)
     class AnnotationFormatError$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        AnnotationFormatError$(@Nullable java.lang.String p0) { }
-        AnnotationFormatError$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
-        AnnotationFormatError$(@Nullable java.lang.Throwable p0) { }
+        AnnotationFormatError$(@Nullable String p0) { }
+        AnnotationFormatError$(@Nullable String p0, @Nullable Throwable p1) { }
+        AnnotationFormatError$(@Nullable Throwable p0) { }
     }
 }

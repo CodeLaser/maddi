@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.run.openjdkmain;
 
-import io.codelaser.maddi.run.j2cs.JavaToCSharpRatchet;
-import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.run.j2cs.JavaToCSharpRatchet;
+import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 
 /**
  * Fernflower's main sources translated to C# and judged by Roslyn; the numbers are held by

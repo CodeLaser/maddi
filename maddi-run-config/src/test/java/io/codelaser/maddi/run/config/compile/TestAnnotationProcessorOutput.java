@@ -17,14 +17,9 @@
 
 package io.codelaser.maddi.run.config.compile;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -32,7 +27,15 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * ⛔⛔ THE DEFECT: an output directory that becomes a source set stops being a classpath entry, so a
@@ -108,7 +111,7 @@ public class TestAnnotationProcessorOutput {
     private static List<String> relativeClassFiles(Path directory) throws IOException {
         try (Stream<Path> walk = Files.walk(directory)) {
             return walk.filter(p -> p.toString().endsWith(".class"))
-                    .map(p -> directory.relativize(p).toString().replace(java.io.File.separatorChar, '/'))
+                    .map(p -> directory.relativize(p).toString().replace(File.separatorChar, '/'))
                     .sorted().toList();
         }
     }

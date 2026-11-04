@@ -17,10 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.statement;
 
+import java.util.List;
+import java.util.Objects;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -31,9 +33,6 @@ import io.codelaser.maddi.cst.impl.output.KeywordImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.List;
-import java.util.Objects;
 
 public class BreakStatementImpl extends BreakOrContinueStatementImpl implements BreakStatement {
     public BreakStatementImpl(List<Comment> comments, Source source,

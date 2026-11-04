@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.support;
 
+import java.util.Objects;
+import java.util.function.Supplier;
+
 import io.codelaser.maddi.annotation.*;
 import io.codelaser.maddi.annotation.eventual.Mark;
 import io.codelaser.maddi.annotation.eventual.TestMark;
-
-import java.util.Objects;
-import java.util.function.Supplier;
 
 /**
  * Implementation of a lazy value, where <code>null</code> is used to indicate that the value has not been

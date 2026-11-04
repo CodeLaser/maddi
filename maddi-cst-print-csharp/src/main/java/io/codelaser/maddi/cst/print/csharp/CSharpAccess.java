@@ -17,7 +17,10 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -31,10 +34,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeModifier;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
-
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Stream;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 /**
  * Java's {@code private} is private to the top-level type: a class reaches the private members of the classes nested

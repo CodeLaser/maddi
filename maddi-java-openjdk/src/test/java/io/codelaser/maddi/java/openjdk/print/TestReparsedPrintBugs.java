@@ -17,20 +17,21 @@
 
 package io.codelaser.maddi.java.openjdk.print;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Map;
+import java.util.regex.Pattern;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-import java.util.regex.Pattern;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Printed units that did not compile when re-parsed (jenkins core, timefold-solver, retrofit), on the openjdk front

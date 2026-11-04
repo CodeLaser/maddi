@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.cst.api.element.JavaDoc;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.List;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * {@link JavaDoc#commentWithPlaceholders()} keeps the comment's LINES: its line {@code k} is the javadoc's source

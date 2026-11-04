@@ -18,10 +18,15 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 
-import io.codelaser.maddi.annotation.NotModified;
+import java.lang.ref.Cleaner;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.util.concurrent.ThreadFactory;
+
 import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaLangRef {
     public static final String PACKAGE_NAME = "java.lang.ref";
@@ -30,7 +35,7 @@ public class JavaLangRef {
         @NotModified @Nullable T get() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static void reachabilityFence(@Nullable java.lang.Object p0) { }
+        static void reachabilityFence(@Nullable Object p0) { }
         boolean refersTo(@Nullable T p0) { return false; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
@@ -44,32 +49,32 @@ public class JavaLangRef {
     //public java.lang.ref.Cleaner (shadow created for its nullability, generated)
     class Cleaner$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static java.lang.ref.Cleaner create(@NotNull java.util.concurrent.ThreadFactory p0) { return null; }
-        @Modified java.lang.ref.Cleaner.Cleanable register(@NotNull java.lang.Object p0, @NotNull java.lang.Runnable p1) { return null; }
+        static Cleaner create(@NotNull ThreadFactory p0) { return null; }
+        @Modified Cleaner.Cleanable register(@NotNull Object p0, @NotNull Runnable p1) { return null; }
     }
 
     //public java.lang.ref.PhantomReference (shadow created for its nullability, generated)
     class PhantomReference$<T> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PhantomReference$(@Nullable T p0, @Nullable java.lang.ref.ReferenceQueue<? super T> p1) { }
+        PhantomReference$(@Nullable T p0, @Nullable ReferenceQueue<? super T> p1) { }
         @NotModified @Nullable T get() { return null; }
     }
 
     //public java.lang.ref.ReferenceQueue (shadow created for its nullability, generated)
     class ReferenceQueue$<T> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified @Nullable java.lang.ref.Reference<? extends T> poll() { return null; }
-        @Modified @Nullable java.lang.ref.Reference<? extends T> remove(long p0) { return null; }
+        @Modified @Nullable Reference<? extends T> poll() { return null; }
+        @Modified @Nullable Reference<? extends T> remove(long p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified java.lang.ref.Reference<? extends T> remove() { return null; }
+        @Modified Reference<? extends T> remove() { return null; }
     }
 
     //public java.lang.ref.SoftReference (shadow created for its nullability, generated)
     class SoftReference$<T> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         SoftReference$(@Nullable T p0) { }
-        SoftReference$(@Nullable T p0, @Nullable java.lang.ref.ReferenceQueue<? super T> p1) { }
+        SoftReference$(@Nullable T p0, @Nullable ReferenceQueue<? super T> p1) { }
         @NotModified @Nullable T get() { return null; }
     }
 
@@ -77,6 +82,6 @@ public class JavaLangRef {
     class WeakReference$<T> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         WeakReference$(@Nullable T p0) { }
-        WeakReference$(@Nullable T p0, @Nullable java.lang.ref.ReferenceQueue<? super T> p1) { }
+        WeakReference$(@Nullable T p0, @Nullable ReferenceQueue<? super T> p1) { }
     }
 }

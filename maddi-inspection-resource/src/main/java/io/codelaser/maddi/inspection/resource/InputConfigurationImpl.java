@@ -17,20 +17,19 @@
 
 package io.codelaser.maddi.inspection.resource;
 
-import io.codelaser.maddi.annotation.Container;
-import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.api.resource.BuildFiles;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 
 public record InputConfigurationImpl(Path workingDirectory,
                                      List<SourceSet> sourceSets,

@@ -17,7 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -36,11 +41,6 @@ import io.codelaser.maddi.cst.impl.info.TypeParameterInspectionImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.support.Either;
 import io.codelaser.maddi.support.EventuallyFinal;
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
-
-import java.util.*;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     private final int index;
@@ -212,7 +212,7 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     }
 
     @Override
-    public io.codelaser.maddi.cst.api.info.Variance variance() {
+    public Variance variance() {
         return inspection.get().variance();
     }
 

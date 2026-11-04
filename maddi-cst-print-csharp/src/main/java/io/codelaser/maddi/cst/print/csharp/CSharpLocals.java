@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.InstanceOf;
@@ -25,10 +29,6 @@ import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 /**
  * The names a block declares at its own level, for {@link CSharpContext#enterScope}. C#'s scoping of locals is

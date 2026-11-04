@@ -17,19 +17,19 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
-import io.codelaser.maddi.cst.api.info.Info;
-import io.codelaser.maddi.cst.api.info.ParameterInfo;
-
-import java.util.ArrayList;
 import java.util.ArrayDeque;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 
 /**
  * Task #35 Phase A (measure, GO/NO-GO): records, per analyzed element, which OTHER elements'

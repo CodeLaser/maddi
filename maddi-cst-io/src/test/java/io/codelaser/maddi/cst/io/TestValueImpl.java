@@ -17,12 +17,11 @@
 
 package io.codelaser.maddi.cst.io;
 
-import io.codelaser.maddi.cst.api.analysis.Codec;
-import io.codelaser.maddi.cst.api.analysis.Value;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.analysis.PropertyProviderImpl;
-import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
-import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.parsers.json.JSONParser;
 import org.parsers.json.Node;
@@ -31,10 +30,12 @@ import org.parsers.json.ast.JSONObject;
 import org.parsers.json.ast.KeyValuePair;
 import org.parsers.json.ast.StringLiteral;
 
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.PropertyProviderImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 
 public class TestValueImpl {
     Runtime runtime = new RuntimeImpl();

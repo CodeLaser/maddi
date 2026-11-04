@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
@@ -24,13 +31,6 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.CstSupertypes;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * A method's parameter {@code EmbeddingStoreRequestContext<?> c} takes any context, whose type argument Java captures

@@ -17,19 +17,9 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static org.junit.jupiter.api.Assertions.*;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -41,8 +31,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.junit.jupiter.api.Assertions.*;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * ⛔⛔ <b>A STUB MET THE SOURCE IT STANDS IN FOR, AND THE SOURCE LOST.</b> {@code ClassSymbolScanner} mints a

@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.net.URI;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * {@code JavaInspectorImpl.computeScanOrder}: a source set must be scanned after everything it depends on.

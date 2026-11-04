@@ -1,16 +1,19 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
+import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
+import io.codelaser.maddi.run.config.javac.Javac;
 
 /**
  * Phase 1–3 coverage for the kotlinc source-set reconstruction: the {@link Kotlinc} tokenizer, the shared
@@ -198,9 +201,9 @@ public class TestKotlinc {
         assertTrue(kotlinOnly.languageLevel() <= 0, "kotlinc states no Java language level");
         assertFalse(kotlinOnly.enablePreview());
 
-        io.codelaser.maddi.run.config.javac.Javac javac = io.codelaser.maddi.run.config.javac.Javac.parse(
+        Javac javac = Javac.parse(
                 "-d " + out + " -source 21 --enable-preview " + bar);
-        List<io.codelaser.maddi.run.config.compile.CompileInvocation> merged = SharedDestination.merge(List.of(kotlinc, javac));
+        List<CompileInvocation> merged = SharedDestination.merge(List.of(kotlinc, javac));
         assertEquals(1, merged.size());
         SourceSet mixed = new CompileListToSourceSets().compute(merged).jSourceSets().getFirst().sourceSet();
         assertEquals(21, mixed.languageLevel());

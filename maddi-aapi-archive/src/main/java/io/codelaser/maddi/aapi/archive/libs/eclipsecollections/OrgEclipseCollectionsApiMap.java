@@ -3,6 +3,7 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
+
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.bag.Bag;
 import org.eclipse.collections.api.bag.ImmutableBag;
@@ -46,10 +47,9 @@ import org.eclipse.collections.api.set.ImmutableSet;
 import org.eclipse.collections.api.set.MutableSet;
 import org.eclipse.collections.api.set.UnsortedSetIterable;
 import org.eclipse.collections.api.tuple.Pair;
+
 import io.codelaser.maddi.annotation.Container;
-import io.codelaser.maddi.annotation.FinalFields;
 import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;

@@ -1,13 +1,14 @@
 package io.codelaser.maddi.java.openjdk;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.lang.model.util.Elements;
+
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
-
-import javax.lang.model.util.Elements;
-import java.util.ArrayList;
-import java.util.List;
 
 public record ComputeMethodOverrides(Types types, Elements elements) {
 

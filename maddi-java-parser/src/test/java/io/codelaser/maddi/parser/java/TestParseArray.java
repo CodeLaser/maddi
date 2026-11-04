@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.parser.java;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 public class TestParseArray extends CommonTestParse {
     @Language("java")

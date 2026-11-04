@@ -17,20 +17,18 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
-import io.codelaser.maddi.annotation.Independent;
+import java.util.List;
+import java.util.stream.Stream;
 
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
-
-import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * A statement in the common syntax tree (CST).

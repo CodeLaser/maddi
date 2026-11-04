@@ -19,7 +19,6 @@ package io.codelaser.maddi.inspection.api.parser;
 
 import io.codelaser.maddi.cst.api.analysis.Property;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 public interface HierarchyHelper {
 

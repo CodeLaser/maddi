@@ -17,21 +17,22 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.cst.api.element.DetailedSources;
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
-import io.codelaser.maddi.cst.api.element.Source;
-import io.codelaser.maddi.cst.api.info.*;
-import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 public class TestModifierDetailedSources extends CommonTest {
 

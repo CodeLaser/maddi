@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.inspection.integration.java.method;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.nio.file.FileSystem;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.expression.BinaryOperator;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -29,13 +37,6 @@ import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.FileSystem;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethodCall7 extends CommonTest {
     @Language("java")

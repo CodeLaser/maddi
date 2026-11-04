@@ -17,19 +17,21 @@
 
 package io.codelaser.maddi.inspection.integration.java.type;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.impl.type.IsAssignableFrom2;
-import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.Closeable;
+import java.io.Serializable;
 import java.util.List;
 import java.util.function.LongConsumer;
 import java.util.function.LongPredicate;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.type.IsAssignableFrom2;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 
 public class TestIsAssignableFrom2 extends CommonTest {
 
@@ -237,7 +239,7 @@ public class TestIsAssignableFrom2 extends CommonTest {
         ParameterizedType intArray = runtime.intParameterizedType().copyWithArrays(1);
         ParameterizedType longArray = runtime.longParameterizedType().copyWithArrays(1);
 
-        TypeInfo serializable = javaInspector.compiledTypesManager().type(java.io.Serializable.class);
+        TypeInfo serializable = javaInspector.compiledTypesManager().type(Serializable.class);
         TypeInfo cloneable = javaInspector.compiledTypesManager().type(Cloneable.class);
 
         // reference array covariance

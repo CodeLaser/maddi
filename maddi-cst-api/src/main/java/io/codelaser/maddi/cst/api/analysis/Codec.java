@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.cst.api.analysis;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -25,13 +32,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.stream.Stream;
 
 /*
 support for reading and writing the property-value pairs in many elements.

@@ -16,13 +16,15 @@
  */
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
-
 import java.nio.charset.Charset;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
+
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import kotlin.io.path.PathWalkOption;
+import kotlin.sequences.Sequence;
 
 /**
  * The annotated API for {@code kotlin.io.path}: like {@link KotlinIo}, a Path only names a file, and writing or
@@ -46,8 +48,8 @@ public class KotlinIoPath {
         }
 
         @NotNull
-        static kotlin.sequences.Sequence<Path> walk(@NotModified Path receiver,
-                                                    @NotModified kotlin.io.path.PathWalkOption... options) {
+        static Sequence<Path> walk(@NotModified Path receiver,
+                                                    @NotModified PathWalkOption... options) {
             return null;
         }
     }

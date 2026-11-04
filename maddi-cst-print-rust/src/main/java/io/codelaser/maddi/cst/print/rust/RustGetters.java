@@ -18,6 +18,11 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -28,10 +33,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 /**
  * A getter handing out part of the object prints as {@code fn items(&self) -> &T}; a caller that modifies what it
@@ -82,7 +83,7 @@ final class RustGetters {
         for (MethodInfo m : Set.copyOf(out)) {
             m.overrides().stream().filter(RustGetters::abstractGetter).forEach(out::add);
         }
-        List<MethodInfo> all = new java.util.ArrayList<>();
+        List<MethodInfo> all = new ArrayList<>();
         for (TypeInfo type : types) collect(type, all);
         for (MethodInfo a : Set.copyOf(out)) {
             if (!abstractGetter(a)) continue;

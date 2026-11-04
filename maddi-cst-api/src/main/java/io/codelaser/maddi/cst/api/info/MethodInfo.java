@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.api.info;
 
+import java.util.*;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
@@ -25,9 +27,6 @@ import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.util.ParSeq;
-
-import java.util.*;
-import java.util.stream.Stream;
 
 /**
  * Represents a method or constructor declaration in the CST.

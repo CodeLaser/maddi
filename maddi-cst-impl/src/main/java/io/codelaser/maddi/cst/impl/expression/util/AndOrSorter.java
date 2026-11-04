@@ -18,14 +18,14 @@
 package io.codelaser.maddi.cst.impl.expression.util;
 
 
+import java.util.*;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.expression.VariableExpressionImpl;
 import io.codelaser.maddi.cst.impl.expression.eval.EvalSwitches;
 import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 
 /*

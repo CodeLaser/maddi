@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.inspection.integration.java.other;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -30,10 +35,6 @@ import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAnnotations extends CommonTest {
     @Language("java")

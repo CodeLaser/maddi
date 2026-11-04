@@ -17,29 +17,32 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.run.config.report.ExitCode;
-import io.codelaser.maddi.run.config.util.JavaModules;
-import io.codelaser.maddi.run.config.util.JsonStreaming;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.api.resource.BuildFiles;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.apache.commons.cli.Option;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import io.codelaser.maddi.run.config.report.ExitCode;
+import io.codelaser.maddi.run.config.util.JavaModules;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
 
 /**
  * <b>"One entry point" as a test.</b> {@code bin/maddi-kotlin} must be a strict SUPERSET of {@code bin/maddi}:
@@ -48,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class TestOneEntryPoint {
 
-    private static Set<String> longOptions(org.apache.commons.cli.Options options) {
+    private static Set<String> longOptions(Options options) {
         return options.getOptions().stream().map(Option::getLongOpt).collect(Collectors.toUnmodifiableSet());
     }
 
@@ -170,7 +173,7 @@ public class TestOneEntryPoint {
     }
 
     private static String[] concat(String[] first, String... rest) {
-        String[] all = java.util.Arrays.copyOf(first, first.length + rest.length);
+        String[] all = Arrays.copyOf(first, first.length + rest.length);
         System.arraycopy(rest, 0, all, first.length, rest.length);
         return all;
     }

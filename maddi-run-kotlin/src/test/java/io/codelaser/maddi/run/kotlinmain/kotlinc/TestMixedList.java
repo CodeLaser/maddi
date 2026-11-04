@@ -1,17 +1,18 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import io.codelaser.maddi.run.config.compile.CompileInvocation;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
 
 /**
  * Phase 5: one build log holding both {@code kotlinc} and {@code javac} invocations produces one

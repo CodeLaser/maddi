@@ -17,9 +17,6 @@
 
 package io.codelaser.maddi.run.config.compile;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,6 +24,9 @@ import java.util.*;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Which compile destination a packaged jar was built from, decided by what the jar CONTAINS rather than by its

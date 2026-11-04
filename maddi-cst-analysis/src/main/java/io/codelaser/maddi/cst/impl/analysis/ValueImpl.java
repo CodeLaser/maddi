@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
+import java.util.*;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.analysis.Codec;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -28,10 +32,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.util.ParSeq;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.*;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 public abstract class ValueImpl implements Value {
 

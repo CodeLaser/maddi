@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * A Lombok jar as a dependency of a parsed source set. The real one comes from the build ({@code maddi.test.lombokJar},

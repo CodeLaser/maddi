@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.parser.java;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
+
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -26,13 +34,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.Wildcard;
 import io.codelaser.maddi.inspection.api.parser.Context;
 import io.codelaser.maddi.inspection.api.parser.Summary;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.*;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Stack;
 
 public class ParseType extends CommonParse {
 

@@ -17,18 +17,8 @@
 
 package io.codelaser.maddi.callgraph;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,10 +26,25 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
-import static org.junit.jupiter.api.Assertions.*;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.byname.ByNameSink;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * The call graph per primary type (docs/design/incremental-and-overlay.md §7 item 5): after a partial re-parse only
@@ -94,7 +99,7 @@ public class TestCallGraphContributions {
 
         CallGraphContributions contributions = new CallGraphContributions();
         // one predicate object for the whole sequence: another one clears the contributions (they were filtered by it)
-        java.util.function.Predicate<TypeInfo> noExternals = _ -> false;
+        Predicate<TypeInfo> noExternals = _ -> false;
         ComputeCallGraph first = new ComputeCallGraph(inspector.runtime(), pr, noExternals).go(contributions);
         assertEquals(3, contributions.computed());
         assertAsFullWalk(first, pr);
@@ -152,7 +157,7 @@ public class TestCallGraphContributions {
         JavaInspector inspector = inspector(set);
         ParseResult pr = inspector.parse(Map.of(), JavaInspectorImpl.DETAILED_SOURCES).parseResult();
         CallGraphContributions contributions = new CallGraphContributions();
-        java.util.function.Predicate<TypeInfo> noExternals = _ -> false;
+        Predicate<TypeInfo> noExternals = _ -> false;
         new ComputeCallGraph(inspector.runtime(), pr, noExternals).go(contributions);
 
         write(src, "p/B.java", "// edited\n" + B);
@@ -197,9 +202,9 @@ public class TestCallGraphContributions {
             }
             """;
 
-    private static final List<io.codelaser.maddi.inspection.api.byname.ByNameSink> SINKS = List.of(
-            new io.codelaser.maddi.inspection.api.byname.ByNameSink("p.R", "type", 1, 0, -1,
-                    io.codelaser.maddi.inspection.api.byname.ByNameSink.Kind.TYPE));
+    private static final List<ByNameSink> SINKS = List.of(
+            new ByNameSink("p.R", "type", 1, 0, -1,
+                    ByNameSink.Kind.TYPE));
 
     /*
      With by-name sinks declared, a type's by-name rows are part of its contribution: the refactor service always
@@ -219,7 +224,7 @@ public class TestCallGraphContributions {
         JavaInspector inspector = inspector(set);
         ParseResult pr = inspector.parse(Map.of(), JavaInspectorImpl.DETAILED_SOURCES).parseResult();
         CallGraphContributions contributions = new CallGraphContributions();
-        java.util.function.Predicate<TypeInfo> noExternals = _ -> false;
+        Predicate<TypeInfo> noExternals = _ -> false;
 
         ComputeCallGraph first = withSinks(inspector, pr, noExternals).go(contributions);
         assertEquals(5, contributions.computed());
@@ -261,12 +266,12 @@ public class TestCallGraphContributions {
     }
 
     private static ComputeCallGraph withSinks(JavaInspector inspector, ParseResult pr,
-                                              java.util.function.Predicate<TypeInfo> externals) {
+                                              Predicate<TypeInfo> externals) {
         return new ComputeCallGraph(inspector.runtime(), pr, externals).withByNameSinks(SINKS, pr);
     }
 
     private static JavaInspector.ParseOptions options(
-            java.util.function.Function<TypeInfo, JavaInspector.InvalidationState> invalidated) {
+            Function<TypeInfo, JavaInspector.InvalidationState> invalidated) {
         return new JavaInspector.ParseOptions.Builder().setDetailedSources(true).setFailFast(true)
                 .setInvalidated(invalidated::apply).build();
     }
@@ -296,7 +301,7 @@ public class TestCallGraphContributions {
 
     private static Set<String> names(ComputeCallGraph ccg) {
         return ccg.recursiveMethods().stream().map(mi -> mi.fullyQualifiedName())
-                .collect(Collectors.toCollection(java.util.TreeSet::new));
+                .collect(Collectors.toCollection(TreeSet::new));
     }
 
     private static JavaInspector inspector(SourceSet set) {

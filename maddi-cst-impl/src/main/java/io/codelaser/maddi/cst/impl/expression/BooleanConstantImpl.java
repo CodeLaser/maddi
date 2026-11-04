@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.BooleanConstant;
@@ -28,8 +30,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.List;
 
 public class BooleanConstantImpl extends ConstantExpressionImpl<Boolean> implements BooleanConstant {
     private final ParameterizedType booleanPt;

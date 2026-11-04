@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.inspection.api.resource;
 
-import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 
 public interface InputConfiguration {
 

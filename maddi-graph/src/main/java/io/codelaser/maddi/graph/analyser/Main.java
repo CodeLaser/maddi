@@ -17,23 +17,24 @@
 
 package io.codelaser.maddi.graph.analyzer;
 
-import io.codelaser.maddi.graph.*;
-import io.codelaser.maddi.graph.op.BreakCycles;
-import io.codelaser.maddi.graph.op.GreedyEdgeRemoval;
-import io.codelaser.maddi.graph.op.ParallelGreedyEdgeRemoval;
-import io.codelaser.maddi.graph.op.RemoveEdgesByVertexWeight;
-import io.codelaser.maddi.graph.util.TimedLogger;
-import org.jgrapht.Graph;
-import org.jgrapht.graph.DefaultWeightedEdge;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultWeightedEdge;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.graph.*;
+import io.codelaser.maddi.graph.op.BreakCycles;
+import io.codelaser.maddi.graph.op.GreedyEdgeRemoval;
+import io.codelaser.maddi.graph.op.ParallelGreedyEdgeRemoval;
+import io.codelaser.maddi.graph.op.RemoveEdgesByVertexWeight;
+import io.codelaser.maddi.graph.util.TimedLogger;
 
 public class Main {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);

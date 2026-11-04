@@ -16,17 +16,22 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InlineConditional;
+import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Java's immutable collection factories as Kotlin's (CodeLaser/maddi#141): {@code List.of(a, b)} is
@@ -78,11 +83,11 @@ final class KotlinCollectionFactories {
      */
     private static boolean typedByTarget(Expression e) {
         Expression u = KotlinExpressionPrinter.unwrap(e);
-        return u instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall
-               || u instanceof io.codelaser.maddi.cst.api.expression.ArrayInitializer
-               || u instanceof io.codelaser.maddi.cst.api.expression.Lambda
-               || u instanceof io.codelaser.maddi.cst.api.expression.MethodReference
-               || u instanceof io.codelaser.maddi.cst.api.expression.InlineConditional;
+        return u instanceof ConstructorCall
+               || u instanceof ArrayInitializer
+               || u instanceof Lambda
+               || u instanceof MethodReference
+               || u instanceof InlineConditional;
     }
 
     static OutputBuilder print(MethodCall mc, Qualification q) {

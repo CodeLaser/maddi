@@ -1,9 +1,5 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import io.codelaser.maddi.run.config.compile.CompileInvocation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,6 +8,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
 
 /**
  * One parsed {@code kotlinc} command line — the Kotlin analogue of {@code Javac}. A {@link CompileInvocation}
@@ -92,7 +94,7 @@ public record Kotlinc(int jvmTarget,
     }
 
     // options that consume the following token as their value (so it is not misread as a source file)
-    private static final java.util.Set<String> VALUE_OPTIONS = java.util.Set.of(
+    private static final Set<String> VALUE_OPTIONS = Set.of(
             "-d", "-classpath", "-cp", "-module-name", "-jvm-target", "-api-version", "-language-version",
             "-jdk-home", "-kotlin-home", "-script-templates", "-jvm-default", "-expression", "-e", "-P");
 

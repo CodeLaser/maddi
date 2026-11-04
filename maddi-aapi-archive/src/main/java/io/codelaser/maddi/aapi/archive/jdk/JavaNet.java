@@ -17,14 +17,28 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.*;
+import java.nio.channels.DatagramChannel;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.security.CodeSource;
+import java.security.Permission;
+import java.security.PermissionCollection;
+import java.security.cert.Certificate;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Map;
+import java.util.jar.Attributes;
+import java.util.jar.JarEntry;
+import java.util.jar.Manifest;
 
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.ImmutableContainer;
-import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaNet {
     public static final String PACKAGE_NAME = "java.net";
@@ -190,97 +204,97 @@ public class JavaNet {
     //public java.net.Authenticator (shadow created for its nullability, generated)
     class Authenticator$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.net.PasswordAuthentication getPasswordAuthentication() { return null; }
-        @Nullable static java.net.PasswordAuthentication requestPasswordAuthentication(java.net.Authenticator p0, java.lang.String p1, java.net.InetAddress p2, int p3, java.lang.String p4, java.lang.String p5, java.lang.String p6, java.net.URL p7, java.net.Authenticator.RequestorType p8) { return null; }
-        @Nullable static java.net.PasswordAuthentication requestPasswordAuthentication(java.net.InetAddress p0, int p1, java.lang.String p2, java.lang.String p3, java.lang.String p4) { return null; }
-        @Nullable static java.net.PasswordAuthentication requestPasswordAuthentication(java.lang.String p0, java.net.InetAddress p1, int p2, java.lang.String p3, java.lang.String p4, java.lang.String p5) { return null; }
-        @Nullable static java.net.PasswordAuthentication requestPasswordAuthentication(java.lang.String p0, java.net.InetAddress p1, int p2, java.lang.String p3, java.lang.String p4, java.lang.String p5, java.net.URL p6, java.net.Authenticator.RequestorType p7) { return null; }
+        @Nullable PasswordAuthentication getPasswordAuthentication() { return null; }
+        @Nullable static PasswordAuthentication requestPasswordAuthentication(Authenticator p0, String p1, InetAddress p2, int p3, String p4, String p5, String p6, URL p7, Authenticator.RequestorType p8) { return null; }
+        @Nullable static PasswordAuthentication requestPasswordAuthentication(InetAddress p0, int p1, String p2, String p3, String p4) { return null; }
+        @Nullable static PasswordAuthentication requestPasswordAuthentication(String p0, InetAddress p1, int p2, String p3, String p4, String p5) { return null; }
+        @Nullable static PasswordAuthentication requestPasswordAuthentication(String p0, InetAddress p1, int p2, String p3, String p4, String p5, URL p6, Authenticator.RequestorType p7) { return null; }
     }
 
     //public java.net.BindException (shadow created for its nullability, generated)
     class BindException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        BindException$(@Nullable java.lang.String p0) { }
+        BindException$(@Nullable String p0) { }
     }
 
     //public java.net.ConnectException (shadow created for its nullability, generated)
     class ConnectException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        ConnectException$(@Nullable java.lang.String p0) { }
+        ConnectException$(@Nullable String p0) { }
     }
 
     //public java.net.ContentHandler (shadow created for its nullability, generated)
     class ContentHandler$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @NotModified @Nullable java.lang.Object getContent(java.net.URLConnection p0, java.lang.Class[] p1) { return null; }
+        @NotModified @Nullable Object getContent(URLConnection p0, Class[] p1) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified Object getContent(java.net.URLConnection p0) { return null; }
+        @NotModified Object getContent(URLConnection p0) { return null; }
     }
 
     //public java.net.CookieHandler (shadow created for its nullability, generated)
     class CookieHandler$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @NotModified java.util.Map<java.lang.String, java.util.List<java.lang.String>> get(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { return null; }
-        @Nullable static java.net.CookieHandler getDefault() { return null; }
-        @Modified void put(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { }
-        static void setDefault(@Nullable java.net.CookieHandler p0) { }
+        @NotModified Map<String, List<String>> get(@NotNull URI p0, @NotNull Map<String, List<String>> p1) { return null; }
+        @Nullable static CookieHandler getDefault() { return null; }
+        @Modified void put(@NotNull URI p0, @NotNull Map<String, List<String>> p1) { }
+        static void setDefault(@Nullable CookieHandler p0) { }
     }
 
     //public java.net.CookieManager (shadow created for its nullability, generated)
     class CookieManager$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        CookieManager$(@Nullable java.net.CookieStore p0, @Nullable java.net.CookiePolicy p1) { }
-        @NotModified java.util.Map<java.lang.String, java.util.List<java.lang.String>> get(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { return null; }
-        @Modified void put(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { }
-        @Modified void setCookiePolicy(@Nullable java.net.CookiePolicy p0) { }
+        CookieManager$(@Nullable CookieStore p0, @Nullable CookiePolicy p1) { }
+        @NotModified Map<String, List<String>> get(@NotNull URI p0, @NotNull Map<String, List<String>> p1) { return null; }
+        @Modified void put(@NotNull URI p0, @NotNull Map<String, List<String>> p1) { }
+        @Modified void setCookiePolicy(@Nullable CookiePolicy p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.net.CookieStore getCookieStore() { return null; }
+        @NotModified CookieStore getCookieStore() { return null; }
     }
 
     //public java.net.CookiePolicy (shadow created for its nullability, generated)
     class CookiePolicy$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        boolean shouldAccept(@NotNull java.net.URI p0, @NotNull java.net.HttpCookie p1) { return false; }
+        boolean shouldAccept(@NotNull URI p0, @NotNull HttpCookie p1) { return false; }
     }
 
     //public java.net.CookieStore (shadow created for its nullability, generated)
     class CookieStore$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified void add(@Nullable java.net.URI p0, @NotNull java.net.HttpCookie p1) { }
-        @NotModified java.util.List<java.net.HttpCookie> get(@NotNull java.net.URI p0) { return null; }
-        @Modified boolean remove(@Nullable java.net.URI p0, @NotNull java.net.HttpCookie p1) { return false; }
+        @Modified void add(@Nullable URI p0, @NotNull HttpCookie p1) { }
+        @NotModified List<HttpCookie> get(@NotNull URI p0) { return null; }
+        @Modified boolean remove(@Nullable URI p0, @NotNull HttpCookie p1) { return false; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean removeAll() { return false; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.util.List<java.net.HttpCookie> getCookies() { return null; }
-        @NotModified java.util.List<java.net.URI> getURIs() { return null; }
+        @NotModified List<HttpCookie> getCookies() { return null; }
+        @NotModified List<URI> getURIs() { return null; }
     }
 
     //public java.net.DatagramSocket (shadow created for its nullability, generated)
     class DatagramSocket$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        DatagramSocket$(@NotNull java.net.DatagramSocketImpl p0) { }
-        DatagramSocket$(@Nullable java.net.SocketAddress p0) { }
-        DatagramSocket$(int p0, @Nullable java.net.InetAddress p1) { }
-        void bind(@Nullable java.net.SocketAddress p0) { }
-        void connect(@NotNull java.net.InetAddress p0, int p1) { }
-        void connect(@NotNull java.net.SocketAddress p0) { }
-        @NotModified @Nullable java.nio.channels.DatagramChannel getChannel() { return null; }
-        @NotModified @Nullable java.net.InetAddress getInetAddress() { return null; }
-        @NotModified @Nullable java.net.InetAddress getLocalAddress() { return null; }
-        @NotModified @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
-        @NotModified <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
-        @NotModified @Nullable java.net.SocketAddress getRemoteSocketAddress() { return null; }
-        void joinGroup(@NotNull java.net.SocketAddress p0, @Nullable java.net.NetworkInterface p1) { }
-        void leaveGroup(@NotNull java.net.SocketAddress p0, @Nullable java.net.NetworkInterface p1) { }
-        void receive(@NotNull java.net.DatagramPacket p0) { }
-        void send(@NotNull java.net.DatagramPacket p0) { }
-        static void setDatagramSocketImplFactory(@NotNull java.net.DatagramSocketImplFactory p0) { }
-        @Modified <T> java.net.DatagramSocket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
+        DatagramSocket$(@NotNull DatagramSocketImpl p0) { }
+        DatagramSocket$(@Nullable SocketAddress p0) { }
+        DatagramSocket$(int p0, @Nullable InetAddress p1) { }
+        void bind(@Nullable SocketAddress p0) { }
+        void connect(@NotNull InetAddress p0, int p1) { }
+        void connect(@NotNull SocketAddress p0) { }
+        @NotModified @Nullable DatagramChannel getChannel() { return null; }
+        @NotModified @Nullable InetAddress getInetAddress() { return null; }
+        @NotModified @Nullable InetAddress getLocalAddress() { return null; }
+        @NotModified @Nullable SocketAddress getLocalSocketAddress() { return null; }
+        @NotModified <T> T getOption(@NotNull SocketOption<T> p0) { return null; }
+        @NotModified @Nullable SocketAddress getRemoteSocketAddress() { return null; }
+        void joinGroup(@NotNull SocketAddress p0, @Nullable NetworkInterface p1) { }
+        void leaveGroup(@NotNull SocketAddress p0, @Nullable NetworkInterface p1) { }
+        void receive(@NotNull DatagramPacket p0) { }
+        void send(@NotNull DatagramPacket p0) { }
+        static void setDatagramSocketImplFactory(@NotNull DatagramSocketImplFactory p0) { }
+        @Modified <T> DatagramSocket setOption(@NotNull SocketOption<T> p0, T p1) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setBroadcast(boolean p0) { }
@@ -307,18 +321,18 @@ public class JavaNet {
     //public java.net.HttpCookie (shadow created for its nullability, generated)
     class HttpCookie$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static boolean domainMatches(@Nullable java.lang.String p0, @Nullable java.lang.String p1) { return false; }
-        @NotModified @Nullable java.lang.String getComment() { return null; }
-        @NotModified @Nullable java.lang.String getCommentURL() { return null; }
-        @NotModified @Nullable java.lang.String getDomain() { return null; }
-        @NotModified @Nullable java.lang.String getPath() { return null; }
-        @NotModified @Nullable java.lang.String getPortlist() { return null; }
-        static java.util.List<java.net.HttpCookie> parse(@NotNull java.lang.String p0) { return null; }
-        @Modified void setComment(@Nullable java.lang.String p0) { }
-        @Modified void setCommentURL(@Nullable java.lang.String p0) { }
-        @Modified void setDomain(@Nullable java.lang.String p0) { }
-        @Modified void setPath(@Nullable java.lang.String p0) { }
-        @Modified void setPortlist(@Nullable java.lang.String p0) { }
+        static boolean domainMatches(@Nullable String p0, @Nullable String p1) { return false; }
+        @NotModified @Nullable String getComment() { return null; }
+        @NotModified @Nullable String getCommentURL() { return null; }
+        @NotModified @Nullable String getDomain() { return null; }
+        @NotModified @Nullable String getPath() { return null; }
+        @NotModified @Nullable String getPortlist() { return null; }
+        static List<HttpCookie> parse(@NotNull String p0) { return null; }
+        @Modified void setComment(@Nullable String p0) { }
+        @Modified void setCommentURL(@Nullable String p0) { }
+        @Modified void setDomain(@Nullable String p0) { }
+        @Modified void setPath(@Nullable String p0) { }
+        @Modified void setPortlist(@Nullable String p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setDiscard(boolean p0) { }
@@ -342,12 +356,12 @@ public class JavaNet {
     //public java.net.HttpURLConnection (shadow created for its nullability, generated)
     class HttpURLConnection$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.io.InputStream getErrorStream() { return null; }
-        @Nullable java.lang.String getHeaderField(int p0) { return null; }
-        @Nullable java.lang.String getHeaderFieldKey(int p0) { return null; }
+        @Nullable InputStream getErrorStream() { return null; }
+        @Nullable String getHeaderField(int p0) { return null; }
+        @Nullable String getHeaderFieldKey(int p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified void setAuthenticator(java.net.Authenticator p0) { }
+        @Modified void setAuthenticator(Authenticator p0) { }
         @Modified void setChunkedStreamingMode(int p0) { }
         @Modified void setFixedLengthStreamingMode(int p0) { }
         @Modified void setFixedLengthStreamingMode(long p0) { }
@@ -356,24 +370,24 @@ public class JavaNet {
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified boolean getInstanceFollowRedirects() { return false; }
-        @NotModified java.security.Permission getPermission() { return null; }
+        @NotModified Permission getPermission() { return null; }
         @NotModified String getRequestMethod() { return null; }
     }
 
     //public java.net.Inet4Address (shadow created for its nullability, generated)
     class Inet4Address$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static java.net.Inet4Address ofLiteral(@NotNull java.lang.String p0) { return null; }
-        static java.net.Inet4Address ofPosixLiteral(@NotNull java.lang.String p0) { return null; }
+        static Inet4Address ofLiteral(@NotNull String p0) { return null; }
+        static Inet4Address ofPosixLiteral(@NotNull String p0) { return null; }
     }
 
     //public java.net.Inet6Address (shadow created for its nullability, generated)
     class Inet6Address$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static java.net.Inet6Address getByAddress(@Nullable java.lang.String p0, @NotNull byte[] p1, @Nullable java.net.NetworkInterface p2) { return null; }
-        static java.net.Inet6Address getByAddress(@Nullable java.lang.String p0, @NotNull byte[] p1, int p2) { return null; }
-        @NotModified @Nullable java.net.NetworkInterface getScopedInterface() { return null; }
-        static java.net.InetAddress ofLiteral(@NotNull java.lang.String p0) { return null; }
+        static Inet6Address getByAddress(@Nullable String p0, @NotNull byte[] p1, @Nullable NetworkInterface p2) { return null; }
+        static Inet6Address getByAddress(@Nullable String p0, @NotNull byte[] p1, int p2) { return null; }
+        @NotModified @Nullable NetworkInterface getScopedInterface() { return null; }
+        static InetAddress ofLiteral(@NotNull String p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified int getScopeId() { return 0; }
@@ -383,10 +397,10 @@ public class JavaNet {
     //public java.net.InetSocketAddress (shadow created for its nullability, generated)
     class InetSocketAddress$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        InetSocketAddress$(@Nullable java.net.InetAddress p0, int p1) { }
-        InetSocketAddress$(@NotNull java.lang.String p0, int p1) { }
-        static java.net.InetSocketAddress createUnresolved(@NotNull java.lang.String p0, int p1) { return null; }
-        @NotModified @Nullable java.net.InetAddress getAddress() { return null; }
+        InetSocketAddress$(@Nullable InetAddress p0, int p1) { }
+        InetSocketAddress$(@NotNull String p0, int p1) { }
+        static InetSocketAddress createUnresolved(@NotNull String p0, int p1) { return null; }
+        @NotModified @Nullable InetAddress getAddress() { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified String getHostName() { return null; }
@@ -398,62 +412,62 @@ public class JavaNet {
     //public java.net.JarURLConnection (shadow created for its nullability, generated)
     class JarURLConnection$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.util.jar.Attributes getAttributes() { return null; }
-        @Nullable java.security.cert.Certificate[] getCertificates() { return null; }
-        @Nullable java.util.jar.JarEntry getJarEntry() { return null; }
-        @Nullable java.util.jar.Attributes getMainAttributes() { return null; }
-        @Nullable java.util.jar.Manifest getManifest() { return null; }
+        @Nullable Attributes getAttributes() { return null; }
+        @Nullable Certificate[] getCertificates() { return null; }
+        @Nullable JarEntry getJarEntry() { return null; }
+        @Nullable Attributes getMainAttributes() { return null; }
+        @Nullable Manifest getManifest() { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified String getEntryName() { return null; }
-        @NotModified java.net.URL getJarFileURL() { return null; }
+        @NotModified URL getJarFileURL() { return null; }
     }
 
     //public java.net.MalformedURLException (shadow created for its nullability, generated)
     class MalformedURLException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        MalformedURLException$(@Nullable java.lang.String p0) { }
+        MalformedURLException$(@Nullable String p0) { }
     }
 
     //public java.net.MulticastSocket (shadow created for its nullability, generated)
     class MulticastSocket$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        MulticastSocket$(@Nullable java.net.SocketAddress p0) { }
-        void joinGroup(@NotNull java.net.InetAddress p0) { }
-        void joinGroup(@NotNull java.net.SocketAddress p0, @Nullable java.net.NetworkInterface p1) { }
-        void leaveGroup(@NotNull java.net.InetAddress p0) { }
-        void leaveGroup(@NotNull java.net.SocketAddress p0, @Nullable java.net.NetworkInterface p1) { }
+        MulticastSocket$(@Nullable SocketAddress p0) { }
+        void joinGroup(@NotNull InetAddress p0) { }
+        void joinGroup(@NotNull SocketAddress p0, @Nullable NetworkInterface p1) { }
+        void leaveGroup(@NotNull InetAddress p0) { }
+        void leaveGroup(@NotNull SocketAddress p0, @Nullable NetworkInterface p1) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified void setInterface(java.net.InetAddress p0) { }
+        @Modified void setInterface(InetAddress p0) { }
         @Modified void setLoopbackMode(boolean p0) { }
-        @Modified void setNetworkInterface(java.net.NetworkInterface p0) { }
+        @Modified void setNetworkInterface(NetworkInterface p0) { }
         @Modified void setTimeToLive(int p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.net.InetAddress getInterface() { return null; }
+        @NotModified InetAddress getInterface() { return null; }
         @NotModified boolean getLoopbackMode() { return false; }
-        @NotModified java.net.NetworkInterface getNetworkInterface() { return null; }
+        @NotModified NetworkInterface getNetworkInterface() { return null; }
         @NotModified int getTimeToLive() { return 0; }
     }
 
     //public java.net.NetworkInterface (shadow created for its nullability, generated)
     class NetworkInterface$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable static java.net.NetworkInterface getByIndex(int p0) { return null; }
-        @Nullable static java.net.NetworkInterface getByInetAddress(@NotNull java.net.InetAddress p0) { return null; }
-        @Nullable static java.net.NetworkInterface getByName(@NotNull java.lang.String p0) { return null; }
-        @NotModified @Nullable java.lang.String getDisplayName() { return null; }
+        @Nullable static NetworkInterface getByIndex(int p0) { return null; }
+        @Nullable static NetworkInterface getByInetAddress(@NotNull InetAddress p0) { return null; }
+        @Nullable static NetworkInterface getByName(@NotNull String p0) { return null; }
+        @NotModified @Nullable String getDisplayName() { return null; }
         @NotModified @Nullable byte[] getHardwareAddress() { return null; }
-        @NotModified @Nullable java.net.NetworkInterface getParent() { return null; }
+        @NotModified @Nullable NetworkInterface getParent() { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified int getIndex() { return 0; }
-        @NotModified java.util.Enumeration<java.net.InetAddress> getInetAddresses() { return null; }
-        @NotModified java.util.List<java.net.InterfaceAddress> getInterfaceAddresses() { return null; }
+        @NotModified Enumeration<InetAddress> getInetAddresses() { return null; }
+        @NotModified List<InterfaceAddress> getInterfaceAddresses() { return null; }
         @NotModified int getMTU() { return 0; }
         @NotModified String getName() { return null; }
-        @NotModified java.util.Enumeration<java.net.NetworkInterface> getSubInterfaces() { return null; }
+        @NotModified Enumeration<NetworkInterface> getSubInterfaces() { return null; }
         @NotModified boolean isLoopback() { return false; }
         @NotModified boolean isPointToPoint() { return false; }
         @NotModified boolean isUp() { return false; }
@@ -463,35 +477,35 @@ public class JavaNet {
     //public java.net.NoRouteToHostException (shadow created for its nullability, generated)
     class NoRouteToHostException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        NoRouteToHostException$(@Nullable java.lang.String p0) { }
+        NoRouteToHostException$(@Nullable String p0) { }
     }
 
     //public java.net.PortUnreachableException (shadow created for its nullability, generated)
     class PortUnreachableException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PortUnreachableException$(@Nullable java.lang.String p0) { }
+        PortUnreachableException$(@Nullable String p0) { }
     }
 
     //public java.net.ProtocolException (shadow created for its nullability, generated)
     class ProtocolException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        ProtocolException$(@Nullable java.lang.String p0) { }
+        ProtocolException$(@Nullable String p0) { }
     }
 
     //public java.net.ServerSocket (shadow created for its nullability, generated)
     class ServerSocket$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        ServerSocket$(@NotNull java.net.SocketImpl p0) { }
-        ServerSocket$(int p0, int p1, @Nullable java.net.InetAddress p2) { }
-        void bind(@Nullable java.net.SocketAddress p0) { }
-        void bind(@Nullable java.net.SocketAddress p0, int p1) { }
-        @NotModified @Nullable java.nio.channels.ServerSocketChannel getChannel() { return null; }
-        @NotModified @Nullable java.net.InetAddress getInetAddress() { return null; }
-        @NotModified @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
-        @NotModified <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
-        void implAccept(@NotNull java.net.Socket p0) { }
-        @Modified <T> java.net.ServerSocket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
-        static void setSocketFactory(@NotNull java.net.SocketImplFactory p0) { }
+        ServerSocket$(@NotNull SocketImpl p0) { }
+        ServerSocket$(int p0, int p1, @Nullable InetAddress p2) { }
+        void bind(@Nullable SocketAddress p0) { }
+        void bind(@Nullable SocketAddress p0, int p1) { }
+        @NotModified @Nullable ServerSocketChannel getChannel() { return null; }
+        @NotModified @Nullable InetAddress getInetAddress() { return null; }
+        @NotModified @Nullable SocketAddress getLocalSocketAddress() { return null; }
+        @NotModified <T> T getOption(@NotNull SocketOption<T> p0) { return null; }
+        void implAccept(@NotNull Socket p0) { }
+        @Modified <T> ServerSocket setOption(@NotNull SocketOption<T> p0, T p1) { return null; }
+        static void setSocketFactory(@NotNull SocketImplFactory p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setPerformancePreferences(int p0, int p1, int p2) { }
@@ -511,24 +525,24 @@ public class JavaNet {
     //public java.net.Socket (shadow created for its nullability, generated)
     class Socket$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Socket$(@NotNull java.net.InetAddress p0, int p1) { }
-        Socket$(@NotNull java.net.InetAddress p0, int p1, @Nullable java.net.InetAddress p2, int p3) { }
-        Socket$(@NotNull java.net.InetAddress p0, int p1, boolean p2) { }
-        Socket$(@NotNull java.net.Proxy p0) { }
-        Socket$(@Nullable java.net.SocketImpl p0) { }
-        Socket$(@Nullable java.lang.String p0, int p1) { }
-        Socket$(@Nullable java.lang.String p0, int p1, @Nullable java.net.InetAddress p2, int p3) { }
-        Socket$(@Nullable java.lang.String p0, int p1, boolean p2) { }
-        void bind(@Nullable java.net.SocketAddress p0) { }
-        void connect(@NotNull java.net.SocketAddress p0) { }
-        void connect(@NotNull java.net.SocketAddress p0, int p1) { }
-        @NotModified @Nullable java.nio.channels.SocketChannel getChannel() { return null; }
-        @NotModified @Nullable java.net.InetAddress getInetAddress() { return null; }
-        @NotModified @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
-        @NotModified <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
-        @NotModified @Nullable java.net.SocketAddress getRemoteSocketAddress() { return null; }
-        @Modified <T> java.net.Socket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
-        static void setSocketImplFactory(@Nullable java.net.SocketImplFactory p0) { }
+        Socket$(@NotNull InetAddress p0, int p1) { }
+        Socket$(@NotNull InetAddress p0, int p1, @Nullable InetAddress p2, int p3) { }
+        Socket$(@NotNull InetAddress p0, int p1, boolean p2) { }
+        Socket$(@NotNull Proxy p0) { }
+        Socket$(@Nullable SocketImpl p0) { }
+        Socket$(@Nullable String p0, int p1) { }
+        Socket$(@Nullable String p0, int p1, @Nullable InetAddress p2, int p3) { }
+        Socket$(@Nullable String p0, int p1, boolean p2) { }
+        void bind(@Nullable SocketAddress p0) { }
+        void connect(@NotNull SocketAddress p0) { }
+        void connect(@NotNull SocketAddress p0, int p1) { }
+        @NotModified @Nullable SocketChannel getChannel() { return null; }
+        @NotModified @Nullable InetAddress getInetAddress() { return null; }
+        @NotModified @Nullable SocketAddress getLocalSocketAddress() { return null; }
+        @NotModified <T> T getOption(@NotNull SocketOption<T> p0) { return null; }
+        @NotModified @Nullable SocketAddress getRemoteSocketAddress() { return null; }
+        @Modified <T> Socket setOption(@NotNull SocketOption<T> p0, T p1) { return null; }
+        static void setSocketImplFactory(@Nullable SocketImplFactory p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setKeepAlive(boolean p0) { }
@@ -545,12 +559,12 @@ public class JavaNet {
         @Modified void shutdownOutput() { }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.io.InputStream getInputStream() { return null; }
+        @NotModified InputStream getInputStream() { return null; }
         @NotModified boolean getKeepAlive() { return false; }
-        @NotModified java.net.InetAddress getLocalAddress() { return null; }
+        @NotModified InetAddress getLocalAddress() { return null; }
         @NotModified int getLocalPort() { return 0; }
         @NotModified boolean getOOBInline() { return false; }
-        @NotModified java.io.OutputStream getOutputStream() { return null; }
+        @NotModified OutputStream getOutputStream() { return null; }
         @NotModified int getPort() { return 0; }
         @NotModified int getReceiveBufferSize() { return 0; }
         @NotModified boolean getReuseAddress() { return false; }
@@ -569,22 +583,22 @@ public class JavaNet {
     //public java.net.SocketException (shadow created for its nullability, generated)
     class SocketException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        SocketException$(@Nullable java.lang.String p0) { }
-        SocketException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
-        SocketException$(@Nullable java.lang.Throwable p0) { }
+        SocketException$(@Nullable String p0) { }
+        SocketException$(@Nullable String p0, @Nullable Throwable p1) { }
+        SocketException$(@Nullable Throwable p0) { }
     }
 
     //public java.net.SocketTimeoutException (shadow created for its nullability, generated)
     class SocketTimeoutException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        SocketTimeoutException$(@Nullable java.lang.String p0) { }
+        SocketTimeoutException$(@Nullable String p0) { }
     }
 
     //public java.net.URISyntaxException (shadow created for its nullability, generated)
     class URISyntaxException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        URISyntaxException$(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { }
-        URISyntaxException$(@NotNull java.lang.String p0, @NotNull java.lang.String p1, int p2) { }
+        URISyntaxException$(@NotNull String p0, @NotNull String p1) { }
+        URISyntaxException$(@NotNull String p0, @NotNull String p1, int p2) { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified int getIndex() { return 0; }
@@ -595,38 +609,38 @@ public class JavaNet {
     //public java.net.URLClassLoader (shadow created for its nullability, generated)
     class URLClassLoader$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        URLClassLoader$(@Nullable java.lang.String p0, @NotNull java.net.URL[] p1, @Nullable java.lang.ClassLoader p2) { }
-        URLClassLoader$(@Nullable java.lang.String p0, @NotNull java.net.URL[] p1, @Nullable java.lang.ClassLoader p2, @Nullable java.net.URLStreamHandlerFactory p3) { }
-        URLClassLoader$(@NotNull java.net.URL[] p0) { }
-        URLClassLoader$(@NotNull java.net.URL[] p0, @Nullable java.lang.ClassLoader p1) { }
-        URLClassLoader$(@NotNull java.net.URL[] p0, @Nullable java.lang.ClassLoader p1, @Nullable java.net.URLStreamHandlerFactory p2) { }
-        void addURL(@Nullable java.net.URL p0) { }
-        java.lang.Package definePackage(@NotNull java.lang.String p0, @NotNull java.util.jar.Manifest p1, @Nullable java.net.URL p2) { return null; }
-        java.lang.Class<?> findClass(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.net.URL findResource(@NotNull java.lang.String p0) { return null; }
-        java.util.Enumeration<java.net.URL> findResources(@NotNull java.lang.String p0) { return null; }
-        java.security.PermissionCollection getPermissions(@NotNull java.security.CodeSource p0) { return null; }
-        @Nullable java.io.InputStream getResourceAsStream(@NotNull java.lang.String p0) { return null; }
-        static java.net.URLClassLoader newInstance(@NotNull java.net.URL[] p0) { return null; }
-        static java.net.URLClassLoader newInstance(@NotNull java.net.URL[] p0, @Nullable java.lang.ClassLoader p1) { return null; }
+        URLClassLoader$(@Nullable String p0, @NotNull URL[] p1, @Nullable ClassLoader p2) { }
+        URLClassLoader$(@Nullable String p0, @NotNull URL[] p1, @Nullable ClassLoader p2, @Nullable URLStreamHandlerFactory p3) { }
+        URLClassLoader$(@NotNull URL[] p0) { }
+        URLClassLoader$(@NotNull URL[] p0, @Nullable ClassLoader p1) { }
+        URLClassLoader$(@NotNull URL[] p0, @Nullable ClassLoader p1, @Nullable URLStreamHandlerFactory p2) { }
+        void addURL(@Nullable URL p0) { }
+        Package definePackage(@NotNull String p0, @NotNull Manifest p1, @Nullable URL p2) { return null; }
+        Class<?> findClass(@NotNull String p0) { return null; }
+        @Nullable URL findResource(@NotNull String p0) { return null; }
+        Enumeration<URL> findResources(@NotNull String p0) { return null; }
+        PermissionCollection getPermissions(@NotNull CodeSource p0) { return null; }
+        @Nullable InputStream getResourceAsStream(@NotNull String p0) { return null; }
+        static URLClassLoader newInstance(@NotNull URL[] p0) { return null; }
+        static URLClassLoader newInstance(@NotNull URL[] p0, @Nullable ClassLoader p1) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.net.URL[] getURLs() { return null; }
+        @NotModified URL[] getURLs() { return null; }
     }
 
     //public java.net.URLConnection (shadow created for its nullability, generated)
     class URLConnection$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.Object getContent(java.lang.Class<?>[] p0) { return null; }
-        @Nullable java.lang.String getContentEncoding() { return null; }
-        @Nullable java.lang.String getContentType() { return null; }
-        @Nullable static java.lang.String getDefaultRequestProperty(java.lang.String p0) { return null; }
-        @Nullable java.lang.String getHeaderField(java.lang.String p0) { return null; }
-        @Nullable java.lang.String getHeaderField(int p0) { return null; }
-        @Nullable java.lang.String getHeaderFieldKey(int p0) { return null; }
-        @NotModified @Nullable java.security.Permission getPermission() { return null; }
-        @NotModified @Nullable java.lang.String getRequestProperty(java.lang.String p0) { return null; }
-        @Nullable static java.lang.String guessContentTypeFromStream(java.io.InputStream p0) { return null; }
+        @Nullable Object getContent(Class<?>[] p0) { return null; }
+        @Nullable String getContentEncoding() { return null; }
+        @Nullable String getContentType() { return null; }
+        @Nullable static String getDefaultRequestProperty(String p0) { return null; }
+        @Nullable String getHeaderField(String p0) { return null; }
+        @Nullable String getHeaderField(int p0) { return null; }
+        @Nullable String getHeaderFieldKey(int p0) { return null; }
+        @NotModified @Nullable Permission getPermission() { return null; }
+        @NotModified @Nullable String getRequestProperty(String p0) { return null; }
+        @Nullable static String guessContentTypeFromStream(InputStream p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void addRequestProperty(String p0, String p1) { }
@@ -648,26 +662,26 @@ public class JavaNet {
         @NotModified boolean getDoOutput() { return false; }
         @NotModified long getIfModifiedSince() { return 0; }
         @NotModified int getReadTimeout() { return 0; }
-        @NotModified java.util.Map<String, java.util.List<String>> getRequestProperties() { return null; }
-        @NotModified java.net.URL getURL() { return null; }
+        @NotModified Map<String, List<String>> getRequestProperties() { return null; }
+        @NotModified URL getURL() { return null; }
         @NotModified boolean getUseCaches() { return false; }
     }
 
     //public java.net.URLStreamHandlerFactory (shadow created for its nullability, generated)
     class URLStreamHandlerFactory$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.net.URLStreamHandler createURLStreamHandler(@NotNull java.lang.String p0) { return null; }
+        @Nullable URLStreamHandler createURLStreamHandler(@NotNull String p0) { return null; }
     }
 
     //public java.net.UnknownHostException (shadow created for its nullability, generated)
     class UnknownHostException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        UnknownHostException$(@Nullable java.lang.String p0) { }
+        UnknownHostException$(@Nullable String p0) { }
     }
 
     //public java.net.UnknownServiceException (shadow created for its nullability, generated)
     class UnknownServiceException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        UnknownServiceException$(@Nullable java.lang.String p0) { }
+        UnknownServiceException$(@Nullable String p0) { }
     }
 }

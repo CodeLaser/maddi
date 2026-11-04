@@ -1,17 +1,14 @@
 package io.codelaser.maddi.aapi.archive.libs.eclipsecollections;
 import java.util.Comparator;
+
 import org.eclipse.collections.api.bag.sorted.ImmutableSortedBag;
 import org.eclipse.collections.api.bag.sorted.MutableSortedBag;
 import org.eclipse.collections.api.bag.sorted.SortedBag;
-import io.codelaser.maddi.annotation.Container;
-import io.codelaser.maddi.annotation.FinalFields;
-import io.codelaser.maddi.annotation.Fluent;
+
 import io.codelaser.maddi.annotation.Immutable;
-import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
 @Independent(absent = true)
 public class OrgEclipseCollectionsApiFactoryBagSorted {
     public static final String PACKAGE_NAME = "org.eclipse.collections.api.factory.bag.sorted";

@@ -32,12 +32,14 @@ import java.text.AttributedCharacterIterator;
 import java.util.EventListener;
 import java.util.Locale;
 import java.util.Set;
+
 import javax.accessibility.AccessibleContext;
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.NotModified;
+
 import io.codelaser.maddi.annotation.Commutable;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.method.GetSet;
 
 public class JavaAwt {
@@ -756,8 +758,8 @@ public class JavaAwt {
 
     class ItemSelectable$ {
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified void addItemListener(java.awt.event.ItemListener p0) { }
-        @Modified void removeItemListener(java.awt.event.ItemListener p0) { }
+        @Modified void addItemListener(ItemListener p0) { }
+        @Modified void removeItemListener(ItemListener p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified Object[] getSelectedObjects() { return null; }
@@ -765,10 +767,10 @@ public class JavaAwt {
 
     class MenuContainer$ {
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified void remove(java.awt.MenuComponent p0) { }
+        @Modified void remove(MenuComponent p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.awt.Font getFont() { return null; }
+        @NotModified Font getFont() { return null; }
     }
 
     class Transparency$ {

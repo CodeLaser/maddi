@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.support;
 
+import java.util.Objects;
+
 import io.codelaser.maddi.annotation.*;
 import io.codelaser.maddi.annotation.eventual.Mark;
 import io.codelaser.maddi.annotation.eventual.Only;
 import io.codelaser.maddi.annotation.eventual.TestMark;
-
-import java.util.Objects;
 
 /**
  * Simple example eventually level 2 immutable type which can hold a single value.

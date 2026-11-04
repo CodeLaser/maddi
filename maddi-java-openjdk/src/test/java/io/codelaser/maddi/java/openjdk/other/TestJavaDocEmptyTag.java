@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.cst.api.element.JavaDoc;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * An EMPTY doc tag is legal input, and it must not throw.

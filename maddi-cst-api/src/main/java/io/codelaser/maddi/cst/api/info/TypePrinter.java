@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.cst.api.info;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
-
-import java.util.List;
 
 public interface TypePrinter {
 

@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Equals;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Negation;
 import io.codelaser.maddi.cst.api.expression.Precedence;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -31,8 +32,6 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
-
-import java.util.List;
 
 public class NegationImpl extends UnaryOperatorImpl implements Negation {
 

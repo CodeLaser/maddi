@@ -18,6 +18,8 @@
 
 package io.codelaser.maddi.cst.impl.output;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -26,8 +28,6 @@ import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.element.BlankLine;
 import io.codelaser.maddi.cst.api.output.element.ElementarySpace;
 import io.codelaser.maddi.cst.api.output.element.Split;
-
-import java.util.List;
 
 /**
  * The one {@link BlankLine}, and when to add it: when the source has a blank line between two neighbours.

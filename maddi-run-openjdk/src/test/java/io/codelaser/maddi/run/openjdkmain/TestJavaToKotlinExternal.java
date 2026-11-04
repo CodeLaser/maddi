@@ -16,14 +16,17 @@
  */
 package io.codelaser.maddi.run.openjdkmain;
 
-import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 
 /*
  The KotlinConf scoreboard (CodeLaser/maddi-mod#36): a Java -> Kotlin translation made elsewhere, IntelliJ J2K's,
@@ -46,7 +49,7 @@ public class TestJavaToKotlinExternal {
         Path dir = Path.of(external).toAbsolutePath();
         // a translation that is not there is not a translation with no compiling file (a lab run on a machine without
         // the directory judged 0 files and reported success)
-        try (java.util.stream.Stream<Path> walk = java.nio.file.Files.walk(dir.resolve("src"))) {
+        try (Stream<Path> walk = Files.walk(dir.resolve("src"))) {
             assertTrue(walk.anyMatch(p -> p.toString().endsWith(".kt")), "no .kt files under " + dir.resolve("src"));
         }
         JavaToKotlinRatchet.Corpus corpus = JavaToKotlinRatchet.parse(corpusName);

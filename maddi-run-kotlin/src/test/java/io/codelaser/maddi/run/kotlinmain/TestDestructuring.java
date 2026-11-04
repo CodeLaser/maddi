@@ -16,21 +16,23 @@
  */
 package io.codelaser.maddi.run.kotlinmain;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Destructuring, in a declaration and in a lambda's parameter list. A destructured lambda parameter `(a, b) ->` is
@@ -66,7 +68,7 @@ public class TestDestructuring {
         SourceSet kotlinSet = new SourceSetImpl.Builder().setName("kotlin/main")
                 .setSourceDirectories(List.of(kDir)).setUri(kDir.toUri()).setDependencies(List.of(javaSet)).build();
         String cp = System.getProperty("maddi.k2.classpath", "");
-        String stdlib = Stream.of(cp.split(java.io.File.pathSeparator))
+        String stdlib = Stream.of(cp.split(File.pathSeparator))
                 .filter(p -> Path.of(p).getFileName().toString().matches("kotlin-stdlib-\\d[^-]*\\.jar")).findFirst().orElseThrow();
         MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(new InputConfigurationImpl.Builder()
                 .addSourceSets(javaSet).addSourceSets(kotlinSet).addClassPath(stdlib).build());

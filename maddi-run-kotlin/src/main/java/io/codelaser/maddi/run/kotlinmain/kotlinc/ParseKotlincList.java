@@ -1,13 +1,7 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import io.codelaser.maddi.run.config.compile.CompileListToInputConfiguration;
-import io.codelaser.maddi.run.config.compile.CompileInvocation;
-import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,6 +10,14 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
+import io.codelaser.maddi.run.config.compile.CompileListToInputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
 
 /**
  * Reads a build log containing {@code kotlinc} command lines and reconstructs an {@link InputConfiguration}.
@@ -188,6 +190,6 @@ public class ParseKotlincList {
 
     private static List<String> splitPath(String path) {
         if (path.isBlank()) return List.of();
-        return Arrays.stream(path.split(java.io.File.pathSeparator)).filter(s -> !s.isBlank()).toList();
+        return Arrays.stream(path.split(File.pathSeparator)).filter(s -> !s.isBlank()).toList();
     }
 }

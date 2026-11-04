@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * Source shapes surfaced by the elasticsearch first-contact scan (2026-07-18); each test pins one

@@ -16,23 +16,28 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.statement.ForEachStatement;
-import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
-import io.codelaser.maddi.cst.api.statement.ReturnStatement;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.api.variable.FieldReference;
-
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.ForEachStatement;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 /**
  * Kotlin's read-only collection types for fields and for the results of methods (maddi-mod#25's structural verdict,
@@ -97,7 +102,7 @@ final class KotlinReadOnly {
      * Nothing can change it then, whatever the analysis concluded about its uses; the reads still decide.
      */
     private static boolean bornImmutable(FieldInfo fieldInfo) {
-        List<Expression> values = new java.util.ArrayList<>();
+        List<Expression> values = new ArrayList<>();
         if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) values.add(fieldInfo.initializer());
         KotlinWorld world = KotlinContext.options().world();
         List<TypeInfo> writers = world.contains(fieldInfo.owner().primaryType()) ? world.mentioning(fieldInfo)
@@ -164,7 +169,7 @@ final class KotlinReadOnly {
 
     private static void arguments(Set<Expression> bound, List<Expression> args, MethodInfo callee) {
         for (int i = 0; i < args.size() && i < callee.parameters().size(); i++) {
-            io.codelaser.maddi.cst.api.info.ParameterInfo p = callee.parameters().get(i);
+            ParameterInfo p = callee.parameters().get(i);
             if (p.isVarArgs() || p.parameterizedType().typeParameter() != null
                 || !isCollection(p.parameterizedType())) {
                 continue;
@@ -187,7 +192,7 @@ final class KotlinReadOnly {
         }
     }
 
-    private static void forEachType(TypeInfo typeInfo, java.util.function.Consumer<TypeInfo> consumer) {
+    private static void forEachType(TypeInfo typeInfo, Consumer<TypeInfo> consumer) {
         consumer.accept(typeInfo);
         typeInfo.subTypes().forEach(t -> forEachType(t, consumer));
     }
@@ -259,7 +264,7 @@ final class KotlinReadOnly {
      * the cycle's root is read-only. Without that each member of a long chain of fields assigned to each other was
      * decided again for each path to it: guava's printing did not finish (maddi-mod#50).
      */
-    private static boolean decided(Object member, java.util.function.BooleanSupplier compute) {
+    private static boolean decided(Object member, BooleanSupplier compute) {
         KotlinWorld world = KotlinContext.options().world();
         Boolean known = world.readOnly(member);
         if (known != null) return known;
@@ -297,7 +302,7 @@ final class KotlinReadOnly {
 
     /** The method's own {@code return}s: not those of its lambdas. */
     private static List<ReturnStatement> returnStatements(MethodInfo methodInfo) {
-        List<ReturnStatement> returns = new java.util.ArrayList<>();
+        List<ReturnStatement> returns = new ArrayList<>();
         ((Element) methodInfo.methodBody()).visit((Element e) -> {
             if (e instanceof Lambda) return false;
             if (e instanceof ReturnStatement rs) returns.add(rs);
@@ -388,13 +393,13 @@ final class KotlinReadOnly {
      */
     private static Set<Expression> carriers(Object member, Element body) {
         Set<Expression> carriers = Collections.newSetFromMap(new IdentityHashMap<>());
-        List<MethodCall> identityCalls = new java.util.ArrayList<>();
-        List<MethodCall> viewCalls = new java.util.ArrayList<>();
+        List<MethodCall> identityCalls = new ArrayList<>();
+        List<MethodCall> viewCalls = new ArrayList<>();
         body.visit((Element e) -> {
             if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
                 && fr.fieldInfo() == member
                 || e instanceof MethodCall mc && mc.methodInfo() == member
-                || e instanceof io.codelaser.maddi.cst.api.expression.MethodReference mr && mr.methodInfo() == member) {
+                || e instanceof MethodReference mr && mr.methodInfo() == member) {
                 carriers.add((Expression) e);
             }
             if (e instanceof MethodCall mc && identity(mc)) identityCalls.add(mc);
@@ -440,7 +445,7 @@ final class KotlinReadOnly {
     // accepted, also where it is an argument to a parameter that takes any value
     private static void accept(Set<Expression> carriers, Expression e, Set<Element> accepted) {
         Expression u = unwrapped(e);
-        if (carriers.contains(u) && !(u instanceof io.codelaser.maddi.cst.api.expression.MethodReference)) {
+        if (carriers.contains(u) && !(u instanceof MethodReference)) {
             accepted.add(u);
         }
     }
@@ -459,7 +464,7 @@ final class KotlinReadOnly {
             ParameterizedType type = callee.parameters().get(Math.min(i, callee.parameters().size() - 1)).parameterizedType();
             ParameterizedType element = i >= callee.parameters().size() - 1 && callee.parameters().getLast().isVarArgs()
                                         && type.arrays() == 1 ? type.componentType() : type;
-            io.codelaser.maddi.cst.api.info.TypeParameter tp = element.typeParameter();
+            TypeParameter tp = element.typeParameter();
             if (tp != null && (CstQueries.mentions(callee.returnType(), tp)
                                || tp.typeBounds().stream().anyMatch(KotlinReadOnly::isCollection))) {
                 continue;
@@ -486,14 +491,14 @@ final class KotlinReadOnly {
             return false;
         }
         Set<Expression> advanced = Collections.newSetFromMap(new IdentityHashMap<>());
-        List<Expression> uses = new java.util.ArrayList<>();
+        List<Expression> uses = new ArrayList<>();
         forEachBody(fieldInfo.owner(), (m, body) -> body.visit((Element e) -> {
             if (e instanceof MethodCall mc && mc.object() != null && mc.parameterExpressions().isEmpty()
                 && ("hasNext".equals(mc.methodInfo().name()) || "next".equals(mc.methodInfo().name()))) {
                 advanced.add(KotlinExpressionPrinter.unwrap(mc.object()));
             }
-            if (e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-                && ve.variable() instanceof io.codelaser.maddi.cst.api.variable.FieldReference fr
+            if (e instanceof VariableExpression ve
+                && ve.variable() instanceof FieldReference fr
                 && fr.fieldInfo() == fieldInfo) {
                 uses.add(ve);
             }

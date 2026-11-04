@@ -17,15 +17,26 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import org.intellij.lang.annotations.Language;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import org.junit.jupiter.api.Test;
-
-import java.util.stream.Collectors;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.ModificationFacts;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 /**
  * Step 3 of the Java-to-Kotlin translation: where Java and Kotlin put things differently. Statics, constructors,
@@ -853,13 +864,13 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 .forEach(m -> m.parameters().forEach(p -> {
                     if (m.name().equals("touch")) {
                         // deep: modified through its elements; structural: the list itself is not
-                        p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.FALSE);
-                        p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
-                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                        p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                                ValueImpl.BoolImpl.FALSE);
+                        p.analysis().set(PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                                ValueImpl.BoolImpl.TRUE);
                     } else {
-                        p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                        p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                                ValueImpl.BoolImpl.TRUE);
                     }
                 })));
         contains(kotlin, "fun count(items: List<String>): Int");
@@ -916,8 +927,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     @Test
     public void readOnlyPassedOn() {
         String kotlin = kotlin(READ_ONLY_PASSED_ON, type -> type.methods().forEach(m -> m.parameters().forEach(
-                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "fun fromMap(map: Map<String, Any>): String");
         contains(kotlin, "fun isRepresentable(map: Map<String, Any>, allowedKeys: Set<String>): Boolean");
         // ThreadLocal<MutableMap<String, Any>>.set(value: T): the receiver's T is the mutable type
@@ -941,10 +952,10 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     static int element(List<String> list, Function<String, Integer> f) { return f.apply(list.get(0)); }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(p -> {
-            p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                    io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
-            p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
-                    io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+            p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                    ValueImpl.BoolImpl.TRUE);
+            p.analysis().set(PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                    ValueImpl.BoolImpl.TRUE);
         })));
         contains(kotlin, "fun whole(list: MutableList<String>,");
         contains(kotlin, "fun element(list: List<String>,");
@@ -971,8 +982,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().stream()
                 .filter(p -> p.parameterizedType().typeInfo().simpleName().equals("Collection"))
-                .forEach(p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                .forEach(p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "fun addAll(values: MutableCollection<Int>)");
         compiles(kotlin);
     }
@@ -997,8 +1008,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     B addAll(Collection<Integer> values) { n += values.size(); return this; }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(p -> p.analysis().set(
-                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                PropertyImpl.UNMODIFIED_PARAMETER,
+                ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "fun addAll(values: MutableCollection<Int>)");
         compiles(kotlin);
     }
@@ -1041,8 +1052,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(
-                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "fun toArrayImpl(c: MutableCollection<*>)");
         compiles(kotlin);
     }
@@ -1068,8 +1079,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(
-                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "fun both(a: MutableCollection<String>, b: MutableCollection<String>)");
         compiles(kotlin);
     }
@@ -1113,8 +1124,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(
-                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "union(set1: Set<out E>)");
         contains(kotlin, "val itr1: Iterator<out E> = set1.iterator()");
         compiles(kotlin);
@@ -1138,8 +1149,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(
-                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "removeOnly(set: MutableSet<E>)");
         compiles(kotlin);
     }
@@ -1171,10 +1182,10 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     @Test
     public void readOnlyNeedsTheModificationFacts() {
         String kotlin = kotlin(READ_ONLY_PASSED_ON.replace("class J", "class J2"),
-                KotlinPrintOptions.DEFAULT.withModification(io.codelaser.maddi.cst.impl.analysis.ModificationFacts.NONE),
+                KotlinPrintOptions.DEFAULT.withModification(ModificationFacts.NONE),
                 type -> type.methods().forEach(m -> m.parameters().forEach(
-                        p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                        p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                                ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "fun fromMap(map: MutableMap<String, Any>): String");
         contains(kotlin, "fun isRepresentable(map: MutableMap<String, Any>, allowedKeys: MutableSet<String>): Boolean");
     }
@@ -1710,12 +1721,12 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String kotlin = kotlin(READ_ONLY_FIELDS, type -> {
             type.fields().stream()
                     .filter(f -> !f.name().equals("added"))
-                    .forEach(f -> f.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
-                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+                    .forEach(f -> f.analysis().set(PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                            ValueImpl.BoolImpl.TRUE));
             // what the analysis computes for same(T): it returns its argument
             type.methods().stream().filter(m -> m.name().equals("same"))
-                    .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IDENTITY_METHOD,
-                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+                    .forEach(m -> m.analysis().set(PropertyImpl.IDENTITY_METHOD,
+                            ValueImpl.BoolImpl.TRUE));
             notModified(type, "size", "getOrDefault");
         });
         contains(kotlin, "private val names: List<String>");
@@ -1764,8 +1775,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             """;
 
     private static void unmodifiedFields(TypeInfo type) {
-        type.fields().forEach(f -> f.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
-                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+        type.fields().forEach(f -> f.analysis().set(PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                ValueImpl.BoolImpl.TRUE));
         notModified(type, "size");
     }
 
@@ -1887,12 +1898,12 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     @Test
     public void bornImmutable() {
         String kotlin = kotlin(BORN_IMMUTABLE, type -> {
-            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-                if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo().isStatic()
+            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((Element e) -> {
+                if (e instanceof MethodCall mc && mc.methodInfo().isStatic()
                     && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.util.")
-                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD)) {
-                    mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD,
-                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(PropertyImpl.IMMUTABLE_METHOD)) {
+                    mc.methodInfo().analysis().set(PropertyImpl.IMMUTABLE_METHOD,
+                            ValueImpl.ImmutableImpl.IMMUTABLE_HC);
                 }
                 return true;
             }));
@@ -1940,13 +1951,13 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     @Test
     public void unmodifiableView() {
         String kotlin = kotlin(UNMODIFIABLE_VIEW, type -> {
-            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-                if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo().isStatic()
+            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((Element e) -> {
+                if (e instanceof MethodCall mc && mc.methodInfo().isStatic()
                     && "java.util.Collections".equals(mc.methodInfo().typeInfo().fullyQualifiedName())
                     && mc.methodInfo().name().startsWith("unmodifiable")
-                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIABLE_VIEW_METHOD)) {
-                    mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIABLE_VIEW_METHOD,
-                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(PropertyImpl.UNMODIFIABLE_VIEW_METHOD)) {
+                    mc.methodInfo().analysis().set(PropertyImpl.UNMODIFIABLE_VIEW_METHOD,
+                            ValueImpl.BoolImpl.TRUE);
                 }
                 return true;
             }));
@@ -2000,8 +2011,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String world = kotlinInWorld(FAMILY, KotlinPrintOptions.DEFAULT, type -> {
             type.recursiveSubTypeStream().flatMap(TypeInfo::methodStream).forEach(m -> m.parameters().forEach(p -> {
                 boolean adds = m.name().equals("put");
-                p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.from(!adds));
+                p.analysis().set(PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.from(!adds));
             }));
             type.recursiveSubTypeStream().forEach(t -> notModified(t, "size"));
         });
@@ -2013,8 +2024,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
 
         String alone = kotlin(FAMILY.replace("class Family", "class Alone"), KotlinPrintOptions.DEFAULT, type -> {
             type.recursiveSubTypeStream().flatMap(TypeInfo::methodStream).forEach(m -> m.parameters().forEach(p ->
-                    p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
-                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+                    p.analysis().set(PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                            ValueImpl.BoolImpl.TRUE)));
             type.recursiveSubTypeStream().forEach(t -> notModified(t, "size"));
         });
         // the printer alone sees no family: open methods keep Java's mutable type
@@ -2060,12 +2071,12 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     @Test
     public void familyResults() {
         String world = kotlinInWorld(FAMILY_RESULTS, KotlinPrintOptions.DEFAULT, type -> {
-            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-                if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo().isStatic()
+            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((Element e) -> {
+                if (e instanceof MethodCall mc && mc.methodInfo().isStatic()
                     && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.util.")
-                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD)) {
-                    mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD,
-                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(PropertyImpl.IMMUTABLE_METHOD)) {
+                    mc.methodInfo().analysis().set(PropertyImpl.IMMUTABLE_METHOD,
+                            ValueImpl.ImmutableImpl.IMMUTABLE_HC);
                 }
                 return true;
             }));
@@ -2101,11 +2112,11 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             if (i + 2 < n) source.append("        f").append(i + 2).append(" = f").append(i).append(";\n");
         }
         source.append("    }\n    int size() { return f").append(n - 1).append(".size(); }\n}\n");
-        String kotlin = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(60),
+        String kotlin = Assertions.assertTimeoutPreemptively(Duration.ofSeconds(60),
                 () -> kotlinInWorld(source.toString(), KotlinPrintOptions.DEFAULT, type -> {
                     type.fields().forEach(f -> f.analysis().set(
-                            io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
-                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+                            PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                            ValueImpl.BoolImpl.TRUE));
                     notModified(type, "size");
                 }));
         contains(kotlin, "private val f0: List<String>");
@@ -3126,8 +3137,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     static int size(Collection<String> c) { checkNotNull(c); return checkNotNull(c).size(); }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(
-                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "fun <E> filter(unfiltered: MutableCollection<E>)");
         contains(kotlin, "fun size(c: Collection<String>): Int");
     }
@@ -3156,8 +3167,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(
-                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "fun removeAll(map: MutableMap<String, Int>");
         contains(kotlin, "fun count(map: Map<String, Int>, k: String): Int");
         compiles(kotlin);
@@ -3205,8 +3216,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """, type -> type.fields().forEach(f -> f.analysis().set(
-                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
-                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+                PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                ValueImpl.BoolImpl.TRUE)));
         contains(kotlin, "MutableMap<String, Int>");
         contains(kotlin, "unfiltered: MutableMap<String, Int>");
         contains(kotlin, "as Array<TypeVariable<*>>");
@@ -3441,7 +3452,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                         return center + Jenkins.getAuthentication2();
                     }
                 }
-                """, java.util.Map.of("jenkins.model.Jenkins", """
+                """, Map.of("jenkins.model.Jenkins", """
                 package jenkins.model;
                 public class Jenkins {
                     public static Jenkins get() { return new Jenkins(); }
@@ -3522,7 +3533,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
      * source set must then be named after (maddi test gate, 2026-10-23).
      */
     @Test
-    public void privateMethodSourceFactoryIsJvmStatic() throws java.io.IOException {
+    public void privateMethodSourceFactoryIsJvmStatic() throws IOException {
         String kotlin = kotlinWithLibrary("""
                 package a;
                 import java.util.stream.Stream;
@@ -3641,7 +3652,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """);
         contains(kotlin, "as MutableIterator<MutableList<T>>)");
-        compiles(kotlin, java.util.List.of("org/jspecify/annotations"));
+        compiles(kotlin, List.of("org/jspecify/annotations"));
     }
 
     /**

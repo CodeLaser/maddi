@@ -17,16 +17,19 @@
 
 package io.codelaser.maddi.project.config;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.run.config.javac.ParseJavacList;
 
 public class CompileLogCaptureTest {
 
@@ -75,7 +78,7 @@ public class CompileLogCaptureTest {
 
     @Test
     public void javacCommandLines() {
-        var pattern = java.util.regex.Pattern.compile(CaptureSpec.JAVAC_COMMAND_LINE);
+        var pattern = Pattern.compile(CaptureSpec.JAVAC_COMMAND_LINE);
         for (String line : List.of("javac -d out A.java", "/usr/bin/javac -d out A.java", "+ javac @args",
                 "  C:\\jdk\\bin\\javac.exe -d out A.java")) {
             var m = pattern.matcher(line);
@@ -162,7 +165,7 @@ public class CompileLogCaptureTest {
     public void specs(@TempDir Path dir) {
         CaptureSpec maven = CaptureSpec.maven(dir);
         assertEquals(List.of("mvn", "-B", "-X", "clean", "compile", "test-compile"), maven.command());
-        assertEquals(io.codelaser.maddi.run.config.javac.ParseJavacList.MAVEN_PATTERN, maven.patternOrDefault());
+        assertEquals(ParseJavacList.MAVEN_PATTERN, maven.patternOrDefault());
         assertTrue(maven.buildFileGlobs().contains("**/pom.xml"));
         assertEquals(List.of("gradle"), CaptureSpec.gradle(dir).command());
         assertThrows(IllegalArgumentException.class,

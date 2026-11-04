@@ -18,10 +18,11 @@
 package io.codelaser.maddi.cst.impl.expression;
 
 
-import io.codelaser.maddi.cst.api.expression.Expression;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import io.codelaser.maddi.cst.api.expression.Expression;
 
 public class TestBooleanExpressions extends CommonTest {
 

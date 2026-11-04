@@ -17,14 +17,12 @@
 
 package io.codelaser.maddi.cst.api.element;
 
-import io.codelaser.maddi.annotation.Independent;
+import java.util.List;
 
-import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
-
-import java.util.List;
 
 /**
  * A structured {@code /** … *}{@code /} Javadoc comment, parsed into a list of {@link Tag} entries.

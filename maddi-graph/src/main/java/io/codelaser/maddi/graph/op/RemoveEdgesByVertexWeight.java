@@ -17,15 +17,16 @@
 
 package io.codelaser.maddi.graph.op;
 
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.V;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.V;
 
 public class RemoveEdgesByVertexWeight<T> implements BreakCycles.ActionComputer<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(GreedyEdgeRemoval.class);

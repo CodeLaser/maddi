@@ -17,18 +17,18 @@
 
 package io.codelaser.maddi.cst.impl.expression.eval;
 
-import io.codelaser.maddi.cst.api.expression.And;
-import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.Negation;
-import io.codelaser.maddi.cst.api.expression.Or;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import io.codelaser.maddi.cst.api.expression.And;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Negation;
+import io.codelaser.maddi.cst.api.expression.Or;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 
 public class EvalBoolean {
     private final Runtime runtime;

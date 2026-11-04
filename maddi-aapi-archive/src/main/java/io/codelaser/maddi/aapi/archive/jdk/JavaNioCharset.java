@@ -26,8 +26,8 @@ import java.util.Set;
 import java.util.SortedMap;
 
 import io.codelaser.maddi.annotation.Immutable;
-import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaNioCharset {
     public static final String PACKAGE_NAME = "java.nio.charset";
@@ -73,6 +73,6 @@ public class JavaNioCharset {
         public String toString() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Charset$(@NotNull java.lang.String p0, @Nullable java.lang.String[] p1) { }
+        Charset$(@NotNull String p0, @Nullable String[] p1) { }
     }
 }

@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.api.runtime;
 
+import java.util.Collection;
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.Collection;
-import java.util.List;
 
 public interface Predefined extends PredefinedWithoutParameterizedType {
     MethodInfo assignOperator(ParameterizedType parameterizedType);

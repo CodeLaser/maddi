@@ -18,6 +18,10 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -27,10 +31,6 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * The null annotations, recognised by SIMPLE NAME, the way the families are actually used: JSpecify, JetBrains,

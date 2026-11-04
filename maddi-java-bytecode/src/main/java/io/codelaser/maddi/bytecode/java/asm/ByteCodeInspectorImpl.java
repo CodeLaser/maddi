@@ -17,6 +17,18 @@
 
 package io.codelaser.maddi.bytecode.java.asm;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.objectweb.asm.ClassReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
 import io.codelaser.maddi.cst.api.element.SourceSet;
@@ -27,17 +39,6 @@ import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
-import org.objectweb.asm.ClassReader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 /*

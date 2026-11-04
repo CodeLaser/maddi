@@ -17,6 +17,20 @@
 
 package io.codelaser.maddi.parser.java;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+import org.parsers.java.ast.Delimiter;
+import org.parsers.java.ast.ImportDeclaration;
+import org.parsers.java.ast.KeyWord;
+import org.parsers.java.ast.MultiLineComment;
+import org.parsers.java.ast.Operator;
+import org.parsers.java.ast.SingleLineComment;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.ImportStatement;
@@ -32,19 +46,6 @@ import io.codelaser.maddi.cst.api.type.TypeNature;
 import io.codelaser.maddi.inspection.api.parser.Context;
 import io.codelaser.maddi.inspection.api.parser.ForwardType;
 import io.codelaser.maddi.parser.java.util.JavaDocParser;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.Delimiter;
-import org.parsers.java.ast.ImportDeclaration;
-import org.parsers.java.ast.KeyWord;
-import org.parsers.java.ast.Operator;
-import org.parsers.java.ast.*;
-import org.parsers.java.ast.MultiLineComment;
-import org.parsers.java.ast.SingleLineComment;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
 
 public abstract class CommonParse {
     protected final Runtime runtime;
@@ -387,8 +388,8 @@ public abstract class CommonParse {
                                        ForwardType selectorTypeFwd,
                                        Context enumContext) {
         Context newContext = Objects.requireNonNullElse(enumContext, context);
-        io.codelaser.maddi.cst.api.expression.Expression whenExpression = runtime.newEmptyExpression();
-        List<io.codelaser.maddi.cst.api.expression.Expression> conditions = new ArrayList<>();
+        Expression whenExpression = runtime.newEmptyExpression();
+        List<Expression> conditions = new ArrayList<>();
         // 'case A _, B _ ->' (JEP 456): the first pattern is the entry's pattern variable, the others go to
         // SwitchEntry.otherPatterns. Setting each one as THE pattern variable kept only the last.
         boolean havePattern = false;
