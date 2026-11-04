@@ -296,6 +296,11 @@ The list for a prep-only incremental step, in order:
    A contribution is dropped when its type leaves the universe, when it points into a source type that is no longer
    the same object (counted as `stale`: an invalidation that kept a referrer of a replaced type), and all are
    dropped when the universe gains a type or the external predicate changes. By-name sinks keep the full walk.
+   *Since 2026-11-04* they don't: a type's by-name rows (references, danglings, unresolved sink calls) are part of
+   its contribution and are appended in the same order, so the rows equal a full walk's too. A contribution with
+   rows is also dropped when a binary name it read no longer resolves to the same type objects, and the type of a
+   `static final` field a name came through counts as a target; another list of sinks drops all
+   (`TestCallGraphContributions.testByNameSinks`).
    `PrepRequest.callGraphContributions` carries it; the rewire driver keeps one for its warm inspector. On
    fernflower the walk follows the re-parse: 1 type for an edit with an empty cone, 202 of 227 for the usual
    193-type cone, never a stale one; the oracle finds no differences. `PrimaryTypeUseGraph` still projects the

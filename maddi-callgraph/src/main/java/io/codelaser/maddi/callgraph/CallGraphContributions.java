@@ -21,11 +21,18 @@ import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
+import io.codelaser.maddi.inspection.api.byname.ByNameReference;
+import io.codelaser.maddi.inspection.api.byname.ByNameSink;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -42,17 +49,27 @@ import java.util.function.Predicate;
  * a contribution points into must still be in the universe, the same object; a universe that gained a type, or another
  * external predicate, clears everything.
  * <p>
+ * With by-name sinks declared ({@link ComputeCallGraph#withByNameSinks}), a type's by-name rows are part of its
+ * contribution: its references, danglings and unresolved sink calls. A row depends on two more things, and both are
+ * checked too. The binary names it read must resolve now as they did then, to the same type objects (a type that was
+ * removed, re-parsed, or added as a nested type under a kept name changes that); and the {@code static final} field a
+ * name came through, possibly in another type, is a target like any other. Another list of sinks clears everything.
+ * <p>
  * Not thread-safe. Hold one per sequence of parses of the same inspector: a contribution holds the objects of the
  * generation it was computed on, and is dropped when its type leaves the universe.
  */
 public class CallGraphContributions {
 
-    record Contribution(G.Builder<Info> builder, Set<MethodInfo> recursive, Set<TypeInfo> targets) {
+    record Contribution(G.Builder<Info> builder, Set<MethodInfo> recursive, Set<TypeInfo> targets,
+                        List<ByNameReference> byNameReferences, List<ByNameDangling> byNameDanglings,
+                        int unresolvedSinkCalls, Map<String, List<TypeInfo>> resolutions) {
     }
 
     private final Map<TypeInfo, Contribution> byType = new IdentityHashMap<>();
     private Set<String> lastFullyQualifiedNames;
     private Predicate<TypeInfo> lastExternalsToAccept;
+    private List<ByNameSink> lastByNameSinks;
+    private ParseResult byNameParseResult;
     private int reused;
     private int computed;
     private int stale;
@@ -84,21 +101,27 @@ public class CallGraphContributions {
         byType.clear();
         lastFullyQualifiedNames = null;
         lastExternalsToAccept = null;
+        lastByNameSinks = null;
+        byNameParseResult = null;
     }
 
     /* Drop what no longer holds for this universe; see the class comment. */
-    void prepare(Set<TypeInfo> primaryTypes, Predicate<TypeInfo> externalsToAccept) {
+    void prepare(Set<TypeInfo> primaryTypes, Predicate<TypeInfo> externalsToAccept, List<ByNameSink> byNameSinks,
+                 ParseResult byNameParseResult) {
         reused = 0;
         computed = 0;
         stale = 0;
         Set<String> fqns = new HashSet<>();
         for (TypeInfo pt : primaryTypes) fqns.add(pt.fullyQualifiedName());
         if (externalsToAccept != lastExternalsToAccept
-            || lastFullyQualifiedNames != null && !lastFullyQualifiedNames.containsAll(fqns)) {
+            || lastFullyQualifiedNames != null && !lastFullyQualifiedNames.containsAll(fqns)
+            || lastByNameSinks != null && !lastByNameSinks.equals(byNameSinks)) {
             byType.clear();
         }
         lastFullyQualifiedNames = fqns;
         lastExternalsToAccept = externalsToAccept;
+        lastByNameSinks = byNameSinks;
+        this.byNameParseResult = byNameParseResult;
         Set<TypeInfo> universe = Collections.newSetFromMap(new IdentityHashMap<>());
         universe.addAll(primaryTypes);
         // stale: a target named like a source type of this universe that is not that type's object. A target
@@ -107,10 +130,23 @@ public class CallGraphContributions {
         byType.keySet().removeIf(type -> !universe.contains(type));
         byType.values().removeIf(c -> {
             boolean isStale = c.targets().stream().anyMatch(t -> !universe.contains(t)
-                                                                 && fqns.contains(t.fullyQualifiedName()));
+                                                                 && fqns.contains(t.fullyQualifiedName()))
+                              || !c.resolutions().isEmpty() && (byNameParseResult == null
+                                                                || !sameResolutions(c.resolutions(), byNameParseResult));
             if (isStale) ++stale;
             return isStale;
         });
+    }
+
+    /* every binary name resolves to the same type objects, in the same order; a dangling name still to none */
+    private static boolean sameResolutions(Map<String, List<TypeInfo>> resolutions, ParseResult parseResult) {
+        for (Map.Entry<String, List<TypeInfo>> e : resolutions.entrySet()) {
+            List<TypeInfo> now = parseResult.typeByBinaryName(e.getKey());
+            List<TypeInfo> then = e.getValue();
+            if (now.size() != then.size()) return false;
+            for (int i = 0; i < now.size(); i++) if (now.get(i) != then.get(i)) return false;
+        }
+        return true;
     }
 
     Contribution get(TypeInfo primaryType) {
@@ -119,7 +155,9 @@ public class CallGraphContributions {
         return c;
     }
 
-    Contribution put(TypeInfo primaryType, G.Builder<Info> builder, Set<MethodInfo> recursive) {
+    Contribution put(TypeInfo primaryType, G.Builder<Info> builder, Set<MethodInfo> recursive,
+                     List<ByNameReference> byNameReferences, List<ByNameDangling> byNameDanglings,
+                     int unresolvedSinkCalls) {
         Set<TypeInfo> targets = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Info vertex : builder.vertices()) {
             TypeInfo type = vertex instanceof TypeInfo ti ? ti : vertex.typeInfo();
@@ -130,9 +168,33 @@ public class CallGraphContributions {
             TypeInfo owner = mi.typeInfo().primaryType();
             if (owner != primaryType) targets.add(owner);
         }
-        Contribution c = new Contribution(builder, Set.copyOf(recursive), targets);
+        Map<String, List<TypeInfo>> resolutions = new HashMap<>();
+        for (ByNameReference r : byNameReferences) {
+            addOwner(targets, r.targetType(), primaryType);
+            addOwner(targets, r.siteOwner(), primaryType);
+            addOwner(targets, r.targetMember(), primaryType);
+            resolutions.computeIfAbsent(r.binaryName(), this::resolve);
+        }
+        for (ByNameDangling d : byNameDanglings) {
+            addOwner(targets, d.siteOwner(), primaryType);
+            resolutions.computeIfAbsent(d.binaryName(), this::resolve);
+        }
+        Contribution c = new Contribution(builder, Set.copyOf(recursive), targets, List.copyOf(byNameReferences),
+                List.copyOf(byNameDanglings), unresolvedSinkCalls, Map.copyOf(resolutions));
         byType.put(primaryType, c);
         ++computed;
         return c;
+    }
+
+    private List<TypeInfo> resolve(String binaryName) {
+        return List.copyOf(Objects.requireNonNull(byNameParseResult, "by-name rows without a parse result")
+                .typeByBinaryName(binaryName));
+    }
+
+    private static void addOwner(Set<TypeInfo> targets, Info info, TypeInfo primaryType) {
+        if (info == null) return;
+        TypeInfo type = info instanceof TypeInfo ti ? ti : info.typeInfo();
+        TypeInfo owner = type == null ? null : type.primaryType();
+        if (owner != null && owner != primaryType) targets.add(owner);
     }
 }

@@ -167,9 +167,127 @@ public class TestCallGraphContributions {
         assertEquals(1, contributions.stale(), "A");
     }
 
+    @Language("java")
+    private static final String R = """
+            package p;
+            public class R {
+                public static Object type(String className) { return null; }
+            }
+            """;
+
+    @Language("java")
+    private static final String K = """
+            package p;
+            public class K {
+                public static final String NAME = "p.B";
+            }
+            """;
+
+    @Language("java")
+    private static final String D = """
+            package p;
+            public class D {
+                public Object m(String s) {
+                    R.type("p.B");
+                    R.type(K.NAME);
+                    R.type("p.Gone");
+                    R.type(s);
+                    return R.type("p.C");
+                }
+            }
+            """;
+
+    private static final List<io.codelaser.maddi.inspection.api.byname.ByNameSink> SINKS = List.of(
+            new io.codelaser.maddi.inspection.api.byname.ByNameSink("p.R", "type", 1, 0, -1,
+                    io.codelaser.maddi.inspection.api.byname.ByNameSink.Kind.TYPE));
+
+    /*
+     With by-name sinks declared, a type's by-name rows are part of its contribution: the refactor service always
+     declares sinks, and before this a declared sink made go(contributions) fall back to the full walk.
+     */
+    @DisplayName("by-name sinks: the rows are reused per type, and are those of a full walk")
+    @Test
+    public void testByNameSinks() throws IOException {
+        Path src = root.resolve("src3");
+        write(src, "p/B.java", B);
+        write(src, "p/C.java", C);
+        write(src, "p/R.java", R);
+        write(src, "p/K.java", K);
+        write(src, "p/D.java", D);
+        SourceSet set = new SourceSetImpl.Builder().setName("main").setSourceDirectories(List.of(src))
+                .setUri(src.toUri()).build();
+        JavaInspector inspector = inspector(set);
+        ParseResult pr = inspector.parse(Map.of(), JavaInspectorImpl.DETAILED_SOURCES).parseResult();
+        CallGraphContributions contributions = new CallGraphContributions();
+        java.util.function.Predicate<TypeInfo> noExternals = _ -> false;
+
+        ComputeCallGraph first = withSinks(inspector, pr, noExternals).go(contributions);
+        assertEquals(5, contributions.computed());
+        assertEquals(3, first.byNameReferences().size(), "p.B twice, p.C once");
+        assertEquals(1, first.byNameDanglings().size(), "p.Gone");
+        assertEquals(1, first.unresolvedSinkCalls(), "the parameter");
+        assertByNameAsFullWalk(first, pr);
+
+        ComputeCallGraph second = withSinks(inspector, pr, noExternals).go(contributions);
+        assertEquals(5, contributions.reused());
+        assertEquals(0, contributions.computed());
+        assertByNameAsFullWalk(second, pr);
+
+        // the constant's owner is re-parsed and the caller rewired: only those two are walked again
+        write(src, "p/K.java", "// edited\n" + K);
+        pr = inspector.parse(Map.of(), options(ti -> switch (ti.fullyQualifiedName()) {
+            case "p.K" -> INVALID;
+            case "p.D" -> REWIRE;
+            default -> UNCHANGED;
+        })).parseResult();
+        ComputeCallGraph third = withSinks(inspector, pr, noExternals).go(contributions);
+        assertEquals(3, contributions.reused());
+        assertEquals(2, contributions.computed());
+        assertEquals(0, contributions.stale());
+        assertByNameAsFullWalk(third, pr);
+
+        // a kept caller whose by-name target was replaced (an invalidation that should not happen) is walked again
+        write(src, "p/C.java", "// edited\n" + C);
+        pr = inspector.parse(Map.of(), options(ti -> ti.fullyQualifiedName().equals("p.C") ? INVALID : UNCHANGED))
+                .parseResult();
+        ComputeCallGraph fourth = withSinks(inspector, pr, noExternals).go(contributions);
+        assertEquals(1, contributions.stale(), "D");
+        assertEquals(2, contributions.computed(), "C and D");
+        assertByNameAsFullWalk(fourth, pr);
+
+        // another list of sinks: nothing is reused
+        new ComputeCallGraph(inspector.runtime(), pr, noExternals).go(contributions);
+        assertEquals(5, contributions.computed());
+    }
+
+    private static ComputeCallGraph withSinks(JavaInspector inspector, ParseResult pr,
+                                              java.util.function.Predicate<TypeInfo> externals) {
+        return new ComputeCallGraph(inspector.runtime(), pr, externals).withByNameSinks(SINKS, pr);
+    }
+
+    private static JavaInspector.ParseOptions options(
+            java.util.function.Function<TypeInfo, JavaInspector.InvalidationState> invalidated) {
+        return new JavaInspector.ParseOptions.Builder().setDetailedSources(true).setFailFast(true)
+                .setInvalidated(invalidated::apply).build();
+    }
+
+    private static void assertByNameAsFullWalk(ComputeCallGraph incremental, ParseResult pr) {
+        ComputeCallGraph full = new ComputeCallGraph(null, pr, _ -> false).withByNameSinks(SINKS, pr).go();
+        assertAsFullWalk(incremental, pr, full);
+        assertEquals(full.byNameReferences().toString(), incremental.byNameReferences().toString());
+        assertEquals(full.byNameDanglings().toString(), incremental.byNameDanglings().toString());
+        assertEquals(full.unresolvedSinkCalls(), incremental.unresolvedSinkCalls());
+        for (int i = 0; i < full.byNameReferences().size(); i++) {
+            assertSame(full.byNameReferences().get(i).targetType(), incremental.byNameReferences().get(i).targetType());
+        }
+    }
+
     /* the same graph, vertex and edge order included, and the same recursive methods, as a full walk over pr */
     private static void assertAsFullWalk(ComputeCallGraph incremental, ParseResult pr) {
-        ComputeCallGraph full = new ComputeCallGraph(null, pr, _ -> false).go();
+        assertAsFullWalk(incremental, pr, new ComputeCallGraph(null, pr, _ -> false).go());
+    }
+
+    private static void assertAsFullWalk(ComputeCallGraph incremental, ParseResult pr, ComputeCallGraph full) {
         assertEquals(ComputeCallGraph.print(full.graph()), ComputeCallGraph.print(incremental.graph()));
         assertEquals(List.copyOf(full.graph().vertices()).toString(),
                 List.copyOf(incremental.graph().vertices()).toString(), "vertex order");

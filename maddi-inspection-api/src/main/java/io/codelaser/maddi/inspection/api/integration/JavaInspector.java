@@ -144,8 +144,9 @@ public interface JavaInspector {
                 return this;
             }
 
+            /** {@code null} means nothing is invalidated: the default, {@code NOT_INVALIDATED}. */
             public Builder setInvalidated(Invalidated invalidated) {
-                this.invalidated = invalidated;
+                this.invalidated = invalidated == null ? NOT_INVALIDATED : invalidated;
                 return this;
             }
 

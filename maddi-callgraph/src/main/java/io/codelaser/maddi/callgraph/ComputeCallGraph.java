@@ -267,12 +267,13 @@ public class ComputeCallGraph {
      * As {@link #go()}, reusing the contribution of every primary type that {@code contributions} holds from an
      * earlier run and that still holds; the others are computed and stored. The result is the graph {@link #go()}
      * builds, vertex and edge order included: each type's walk adds only edges from its own members, so the union, in
-     * the same order of the primary types, is the same map. With by-name sinks declared, or no contributions, this is
-     * {@link #go()}.
+     * the same order of the primary types, is the same map. With by-name sinks declared, a type's by-name rows
+     * ({@link #byNameReferences()}, {@link #byNameDanglings()}, {@link #unresolvedSinkCalls()}) are part of its
+     * contribution too, and come out in the same order as well. Without contributions, this is {@link #go()}.
      */
     public ComputeCallGraph go(CallGraphContributions contributions) {
-        if (contributions == null || !byNameSinks.isEmpty()) return go();
-        contributions.prepare(primaryTypes, externalsToAccept);
+        if (contributions == null) return go();
+        contributions.prepare(primaryTypes, externalsToAccept, byNameSinks, byNameParseResult);
         G.Builder<Info> union = builder;
         Set<MethodInfo> allRecursive = recursive;
         try {
@@ -281,8 +282,19 @@ public class ComputeCallGraph {
                 if (c == null) {
                     builder = new ImmutableGraph.Builder<>(ComputeCallGraph::mergeWeights);
                     recursive = new HashSet<>();
+                    int references = byNameReferences.size();
+                    int danglings = byNameDanglings.size();
+                    int unresolved = unresolvedSinkCalls;
                     go(primaryType);
-                    c = contributions.put(primaryType, builder, recursive);
+                    // the walk appended this type's rows; they stay where they are, and are copied into the contribution
+                    c = contributions.put(primaryType, builder, recursive,
+                            byNameReferences.subList(references, byNameReferences.size()),
+                            byNameDanglings.subList(danglings, byNameDanglings.size()),
+                            unresolvedSinkCalls - unresolved);
+                } else {
+                    byNameReferences.addAll(c.byNameReferences());
+                    byNameDanglings.addAll(c.byNameDanglings());
+                    unresolvedSinkCalls += c.unresolvedSinkCalls();
                 }
                 // the edges' from-vertices are disjoint between types, so addAll's plain sum never meets a collision
                 union.addAll(c.builder());
