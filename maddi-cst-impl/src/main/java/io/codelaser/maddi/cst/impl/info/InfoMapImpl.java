@@ -282,10 +282,31 @@ public class InfoMapImpl implements InfoMap {
             result = (FieldInfo) map.get(fieldInfo);
         }
         if (result == null && isRebuilt(owner.primaryType())) return fieldInfo;
+        if (result == null) {
+            FieldInfo reowned = rewired(fieldInfo, () -> reownedInheritedField(fieldInfo, owner));
+            if (reowned != null) return reowned;
+        }
         return Objects.requireNonNull(result,
                 () -> "Cannot find " + fieldInfo.fullyQualifiedName() + ", owner " + owner
                       + ", primary type " + owner.primaryType()
                       + " (in the rewire set, but this field was never registered)");
+    }
+
+    /*
+     A field of a supertype, seen through the type that inherits it: the link engine translates a callee's 'this' into
+     its caller's, and FieldInfoImpl.translate then gives an inherited field the caller's type as its owner. Such a
+     field is no member of that owner, so no rewire phase registered it. Its copy is the rewired declaration, owned by
+     the rewired owner, with the view's own (rewired) type. Null when no supertype declares it.
+     */
+    private FieldInfo reownedInheritedField(FieldInfo fieldInfo, TypeInfo owner) {
+        for (TypeInfo superType : owner.superTypesExcludingJavaLangObject()) {
+            FieldInfo declared = superType.getFieldByName(fieldInfo.name(), false);
+            if (declared != null && declared.owner() == superType) {
+                FieldInfo rewiredDeclared = fieldInfo(declared);
+                return ((FieldInfoImpl) rewiredDeclared).reowned(typeInfo(owner), fieldInfo.type().rewire(this));
+            }
+        }
+        return null;
     }
 
     @Override

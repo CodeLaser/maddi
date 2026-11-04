@@ -327,6 +327,18 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         return fi;
     }
 
+    /** This field, as seen through {@code newOwner}, which inherits it, with {@code newType}: its declaration's
+     * inspection, committed. See {@code InfoMapImpl.reownedInheritedField}. */
+    FieldInfo reowned(TypeInfo newOwner, ParameterizedType newType) {
+        FieldInfoImpl fi = new FieldInfoImpl(name, isStatic, newType, newOwner);
+        if (inspection.isFinal()) {
+            fi.inspection.setFinal(inspection.get());
+        } else {
+            fi.inspection.setVariable(inspection.get());
+        }
+        return fi;
+    }
+
     @Override
     public FieldInfo withOwner(TypeInfo newOwner) {
         if (owner != newOwner) {
