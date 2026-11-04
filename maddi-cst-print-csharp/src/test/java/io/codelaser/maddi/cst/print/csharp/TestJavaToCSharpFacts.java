@@ -221,6 +221,9 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                 }
                 static String use(Provider p) { return p.get("a", null); }
                 static String go() { return use((e, i) -> e); }
+                interface Mapper<A> { int map(A any); }
+                static class Length implements Mapper<String> { public int map(String any) { return any == null ? 0 : 1; } }
+                static int count(Mapper<String> m) { return m.map(null) + count(s -> 2); }
                 static class Node implements Comparable<Node> {
                     final String name;
                     Node(String name) { this.name = name; }
@@ -252,13 +255,16 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
 
             @Override
             public NullableState nullable(ParameterInfo parameter) {
-                return "internal".equals(parameter.name()) ? NullableState.NULLABLE : NullableState.NONNULL;
+                return "internal".equals(parameter.name()) || "any".equals(parameter.name()) ? NullableState.NULLABLE
+                        : NullableState.NONNULL;
             }
         });
         String cs = translate("Adapters", ADAPTERS);
         contains(cs, "string? Get(string external, string? @internal);");
         contains(cs, "public sealed class Lambda(Func<string, string?, string?> f) : IProvider { public string? "
                      + "Get(string external, string? @internal) => f(external, @internal); }");
+        // a type parameter's verdict stays out of the adapter: Func<A?, int> would not take a method group of A
+        contains(cs, "public sealed class Lambda(Func<A, int> f) : IMapper<A> { public int Map(A any) => f(any); }");
         contains(cs, "public int CompareTo(Node o) => string.CompareOrdinal(name, o.name);");
         contains(cs, "int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);");
     }

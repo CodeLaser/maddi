@@ -568,7 +568,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<String> names = signature.names();
         boolean isVoid = signature.result().isVoid();
         // as the parameters (signature): the interface's own method returns string? when the analysis says so
-        NullableState resultState = sam.typeInfo().equals(typeInfo)
+        NullableState resultState = verdictInAdapter(sam, sam.returnType())
                 ? CSharpContext.program().facts().nullable(sam) : NullableState.UNSPECIFIED;
         String result = CSharpTypeName.withNullable(signature.result(), CSharpTypeName.of(signature.result(), q),
                 resultState);
@@ -623,6 +623,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .orElse(List.of());
     }
 
+    /** The adapter of an interface's own method takes the analysis's verdict on a declared type that is no type parameter. */
+    private boolean verdictInAdapter(MethodInfo sam, ParameterizedType declared) {
+        return sam.typeInfo().equals(typeInfo) && !declared.isTypeParameter();
+    }
+
     /** {@code bool Test(Solution_ arg0, object arg1);}: the library's method the interface has as its own. */
     private OutputBuilder librarySingleAbstractMethod(Qualification q) {
         Signature signature = signature(CstSupertypes.singleAbstractMethod(typeInfo), q);
@@ -644,18 +649,18 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .toList();
         ParameterizedType samReturn = CstSupertypes.substituteDroppingWildcards(sam.returnType(), map);
         // the interface's own method is declared with the analysis's verdicts, string? GetBytecode(string, string?):
-        // the adapter implements it with the same ones (CS8767, CS8766)
-        boolean own = asSeen == null;
+        // the adapter implements it with the same ones (CS8767, CS8766). Not a type parameter: Func<.., A?, ..> would
+        // move the one mismatch at the adapter to every lambda and method group converted to it (CS8622, CS8620)
         CSharpFacts facts = CSharpContext.program().facts();
-        List<String> parameterTypes = IntStream.range(0, samParameters.size()).mapToObj(i -> own
-                ? CSharpTypeName.withNullable(samParameters.get(i), CSharpTypeName.argument(samParameters.get(i), q),
-                        facts.nullable(sam.parameters().get(i)))
-                : CSharpTypeName.argument(samParameters.get(i), q)).toList();
+        List<NullableState> states = sam.parameters().stream()
+                .map(p -> verdictInAdapter(sam, p.parameterizedType()) ? facts.nullable(p) : NullableState.UNSPECIFIED)
+                .toList();
+        List<String> parameterTypes = IntStream.range(0, samParameters.size()).mapToObj(i -> CSharpTypeName.withNullable(
+                samParameters.get(i), CSharpTypeName.argument(samParameters.get(i), q), states.get(i))).toList();
         List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
         String parameters = IntStream.range(0, names.size())
-                .mapToObj(i -> (own ? CSharpTypeName.withNullable(samParameters.get(i),
-                        CSharpTypeName.of(samParameters.get(i), q), facts.nullable(sam.parameters().get(i)))
-                        : CSharpTypeName.of(samParameters.get(i), q)) + " " + names.get(i))
+                .mapToObj(i -> CSharpTypeName.withNullable(samParameters.get(i), CSharpTypeName.of(samParameters.get(i), q),
+                        states.get(i)) + " " + names.get(i))
                 .collect(Collectors.joining(", "));
         // a method that is a property is implemented as one; a library's, BiPredicate.test, is the interface's Test
         String property = CSharpContext.program().computedProperty(sam);

@@ -329,7 +329,8 @@ implements the interface.
   lambdas and method references: `new IExprentIterator.Lambda(e => 0)`. With the nullability analysis, the adapter of
   an interface's own method takes its verdicts: `string? GetBytecode(string externalPath, string? internalPath)` is
   implemented as `Lambda(Func<string, string?, string?> f)` with the same signature, not the declared one (CS8767,
-  CS8766). A class implementing `Comparable<Node>` whose `compareTo(Node o)` is non-null (it dereferences `o`) gets
+  CS8766). Not where the declared type is a type parameter: a `Func<.., A?, ..>` would not take a method group of
+  `A`, which moves the one mismatch at the adapter to every conversion (CS8622, CS8620). A class implementing `Comparable<Node>` whose `compareTo(Node o)` is non-null (it dereferences `o`) gets
   an explicit `int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);`, since C# declares the
   interface's parameter nullable; Java's compareTo of null throws, as `other!` then does. The policy `FunctionalInterfaces.ADAPTER`,
   and a printer that is not given the program (`CSharpProgram.NONE`), use this form for all of them. The JDK's
