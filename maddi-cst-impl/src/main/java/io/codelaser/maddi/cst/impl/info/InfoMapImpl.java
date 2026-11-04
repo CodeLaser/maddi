@@ -20,6 +20,7 @@ package io.codelaser.maddi.cst.impl.info;
 import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.statement.BlockImpl;
 
 import java.util.HashMap;
@@ -282,9 +283,8 @@ public class InfoMapImpl implements InfoMap {
             result = (FieldInfo) map.get(fieldInfo);
         }
         if (result == null && isRebuilt(owner.primaryType())) return fieldInfo;
-        if (result == null) {
-            FieldInfo reowned = rewired(fieldInfo, () -> reownedInheritedField(fieldInfo, owner));
-            if (reowned != null) return reowned;
+        if (result == null && owner.getFieldByName(fieldInfo.name(), false) == null) {
+            return rewired(fieldInfo, () -> rewiredNonMember(fieldInfo, owner));
         }
         return Objects.requireNonNull(result,
                 () -> "Cannot find " + fieldInfo.fullyQualifiedName() + ", owner " + owner
@@ -293,20 +293,25 @@ public class InfoMapImpl implements InfoMap {
     }
 
     /*
-     A field of a supertype, seen through the type that inherits it: the link engine translates a callee's 'this' into
-     its caller's, and FieldInfoImpl.translate then gives an inherited field the caller's type as its owner. Such a
-     field is no member of that owner, so no rewire phase registered it. Its copy is the rewired declaration, owned by
-     the rewired owner, with the view's own (rewired) type. Null when no supertype declares it.
+     A field that is no member of its owner, so that no rewire phase registered it. Two kinds:
+     - a field of a supertype, seen through the type that inherits it: the link engine translates a callee's 'this'
+       into its caller's, and FieldInfoImpl.translate then gives an inherited field the caller's type as its owner.
+       Its copy is the rewired declaration, owned by the rewired owner, with the view's own (rewired) type.
+     - a virtual field of the link engine (§$, §$s, ...: VirtualFieldComputer), the hidden content of a type that
+       declares none, such as one extending a library container. Its copy is itself, owned by the rewired owner, with
+       its type rewired; it has no declaration, and its inspection (an empty initializer) names nothing of a generation.
+     A member that is missing is not one of these: the caller still fails on it.
      */
-    private FieldInfo reownedInheritedField(FieldInfo fieldInfo, TypeInfo owner) {
+    private FieldInfo rewiredNonMember(FieldInfo fieldInfo, TypeInfo owner) {
+        TypeInfo rewiredOwner = typeInfo(owner);
+        ParameterizedType rewiredType = fieldInfo.type().rewire(this);
         for (TypeInfo superType : owner.superTypesExcludingJavaLangObject()) {
             FieldInfo declared = superType.getFieldByName(fieldInfo.name(), false);
             if (declared != null && declared.owner() == superType) {
-                FieldInfo rewiredDeclared = fieldInfo(declared);
-                return ((FieldInfoImpl) rewiredDeclared).reowned(typeInfo(owner), fieldInfo.type().rewire(this));
+                return ((FieldInfoImpl) fieldInfo(declared)).reowned(rewiredOwner, rewiredType);
             }
         }
-        return null;
+        return ((FieldInfoImpl) fieldInfo).reowned(rewiredOwner, rewiredType);
     }
 
     @Override
