@@ -1,15 +1,35 @@
 package io.codelaser.maddi.java.openjdk;
 
+import java.io.IOException;
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
+import javax.tools.Diagnostic;
+
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.sun.source.doctree.DocCommentTree;
-import com.sun.source.util.TreePath;
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.*;
@@ -25,21 +45,6 @@ import io.codelaser.maddi.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import io.codelaser.maddi.inspection.api.util.RecordSynthetics;
 import io.codelaser.maddi.parser.java.util.TextBlockParser;
 import io.codelaser.maddi.util.StringUtil;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
-import javax.tools.Diagnostic;
-import java.io.IOException;
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.IntFunction;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnit.class);
@@ -1349,7 +1354,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     /** {@code f} applied to the innermost component of an array type (to the type itself when not an array). */
-    static ParameterizedType mapElement(ParameterizedType pt, java.util.function.UnaryOperator<ParameterizedType> f) {
+    static ParameterizedType mapElement(ParameterizedType pt, UnaryOperator<ParameterizedType> f) {
         if (pt.arrays() == 0) return f.apply(pt);
         return pt.withComponentType(mapElement(pt.componentType(), f));
     }
@@ -1360,7 +1365,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         if (extra.isEmpty()) return pt;
         List<AnnotationExpression> merged = new ArrayList<>(pt.annotations());
         Set<String> present = merged.stream().map(a -> a.typeInfo() == null ? "" : a.typeInfo().fullyQualifiedName())
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
         for (AnnotationExpression ae : extra) {
             String fqn = ae.typeInfo() == null ? "" : ae.typeInfo().fullyQualifiedName();
             if (present.add(fqn)) merged.add(ae);
@@ -2104,7 +2109,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 unionType = type;
             }
             LocalVariable lv = runtime.newLocalVariable(c.getParameter().getName().toString(), unionType);
-            boolean isFinal = c.getParameter().getModifiers().getFlags().contains(javax.lang.model.element.Modifier.FINAL);
+            boolean isFinal = c.getParameter().getModifiers().getFlags().contains(Modifier.FINAL);
             Block catchBlock = parseBlock(StringUtil.pad(i, n), c.getBlock(), lv);
 
             // annotations
@@ -3953,7 +3958,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     // use this instead of lineMap.getColumnNumber(offset), which uses 8 spaces for a TAB
     // we want to see a single character.
     private int getExactColumn(long startOffset, long lineNumber) {
-        if (startOffset == javax.tools.Diagnostic.NOPOS) return -1;
+        if (startOffset == Diagnostic.NOPOS) return -1;
         // 1. Find the character offset where this specific line starts
         long lineStartOffset = lineMap.getStartPosition(lineNumber);
         // 2. The true character column is simply the absolute offset minus the line's start offset

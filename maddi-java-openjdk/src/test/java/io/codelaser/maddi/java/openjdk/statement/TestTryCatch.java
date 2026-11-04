@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.java.openjdk.statement;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.SingleLineComment;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -28,10 +33,6 @@ import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.cst.api.variable.DependentVariable;
 import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestTryCatch extends CommonTest {
 

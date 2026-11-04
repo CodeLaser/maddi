@@ -16,23 +16,27 @@
  */
 package io.codelaser.maddi.run.config.compile;
 
-import io.codelaser.maddi.run.config.util.ConfigurationChecks;
-import io.codelaser.maddi.run.config.util.JavaModules;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-
+import java.util.ArrayList;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.util.ConfigurationChecks;
+import io.codelaser.maddi.run.config.util.JavaModules;
 
 /**
  * Assembles a {@link CompileListToSourceSets.Result} into an {@link InputConfiguration}: the JDK module closure,
@@ -46,8 +50,8 @@ import java.util.stream.Stream;
  * front-ends BY CONSTRUCTION rather than by remembering.
  */
 public class CompileListToInputConfiguration {
-    private static final org.slf4j.Logger LOGGER =
-            org.slf4j.LoggerFactory.getLogger(CompileListToInputConfiguration.class);
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(CompileListToInputConfiguration.class);
 
 
     /**
@@ -145,7 +149,7 @@ public class CompileListToInputConfiguration {
         // run of this method for want of one null check.
         List<CompileInvocation> invocations = result.jSourceSets().stream()
                 .map(CompileListToSourceSets.JSourceSet::invocation)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .toList();
         Set<Integer> releases = invocations.stream()
                 .map(CompileInvocation::effectiveRelease)

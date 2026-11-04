@@ -17,18 +17,24 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldPrinter;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.Keyword;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.output.*;
-
-import java.util.List;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 /**
  * Prints a {@link FieldInfo} as a Kotlin property: `[visibility] val|var name: Type [= initializer]`. A final
@@ -71,7 +77,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         boolean isVal = isVal(fieldInfo, hasInitializer, asParameterInPrimaryConstructor);
         boolean needsDefault = !asParameterInPrimaryConstructor && !hasInitializer && !isVal
                                && !fieldInfo.owner().isInterface();
-        io.codelaser.maddi.cst.api.type.ParameterizedType type = KotlinNullability.fieldType(fieldInfo);
+        ParameterizedType type = KotlinNullability.fieldType(fieldInfo);
         // Java's default for a reference is null: written out when the verdict allows it, else lateinit. Kotlin has
         // no lateinit for Int or Long (Java's Integer and Long too), nor for T, whose upper bound is nullable
         String zero = !needsDefault ? null : KotlinNullability.isNullable(type) ? "null"
@@ -79,11 +85,11 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
                 : defaultValue(type);
 
         OutputBuilder builder = new OutputBuilderImpl();
-        java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
+        Optional<Keyword> visibility =
                 KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner(), fieldInfo);
         boolean lateinit = needsDefault && zero == null;
         builder.add(KotlinAnnotations.print(fieldInfo.annotations(), qualification)).add(jvmModifiers(fieldInfo));
-        if (!isConst() && !visibility.equals(java.util.Optional.of(KeywordImpl.PRIVATE))) {
+        if (!isConst() && !visibility.equals(Optional.of(KeywordImpl.PRIVATE))) {
             boolean clash = accessorClash(fieldInfo, isVal);
             if (lateinit && clash) {
                 // a lateinit property cannot be a @JvmField: its accessors get names no Java method has
@@ -125,7 +131,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
     }
 
     /** The getter names of Kotlin's mapped members that are properties there, which a class's field may not reuse. */
-    private static final java.util.Set<String> MAPPED_PROPERTIES = java.util.Set.of("size", "keys", "values", "entries",
+    private static final Set<String> MAPPED_PROPERTIES = Set.of("size", "keys", "values", "entries",
             "key", "value", "message", "cause", "length");
 
     /**
@@ -154,13 +160,13 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     private static boolean hidesSuperclassField(FieldInfo fieldInfo) {
         if (!KotlinContext.translatingJava() || fieldInfo.isStatic() || fieldInfo.owner() == null) return false;
-        java.util.Set<io.codelaser.maddi.cst.api.info.TypeInfo> visited = new java.util.HashSet<>();
+        Set<TypeInfo> visited = new HashSet<>();
         for (var s = fieldInfo.owner().parentClass(); s != null && s.typeInfo() != null && !s.isJavaLangObject()
                                                       && visited.add(s.typeInfo()); s = s.typeInfo().parentClass()) {
             if (!KotlinNullability.translated(s.typeInfo())) return false;
             for (FieldInfo f : s.typeInfo().fields()) {
                 if (!f.isStatic() && f.name().equals(fieldInfo.name()) && !KotlinModifiers.visibility(f.access(), f.owner())
-                        .equals(java.util.Optional.of(io.codelaser.maddi.cst.impl.output.KeywordImpl.PRIVATE))) {
+                        .equals(Optional.of(KeywordImpl.PRIVATE))) {
                     return true;
                 }
             }
@@ -172,7 +178,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         return KotlinContext.translatingJava() && !fieldInfo.isStatic() && MAPPED_PROPERTIES.contains(fieldInfo.name())
                && fieldInfo.owner() != null && !fieldInfo.owner().typeNature().isEnum()
                && !fieldInfo.owner().typeNature().isRecord()
-               && mappedProperty(fieldInfo.owner(), fieldInfo.name(), new java.util.HashSet<>());
+               && mappedProperty(fieldInfo.owner(), fieldInfo.name(), new HashSet<>());
     }
 
     /**
@@ -185,20 +191,20 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         String name = KotlinNames.name(fieldInfo.name());
         if (!renamed(fieldInfo)) return name;
         String renamed = "_" + fieldInfo.name();
-        java.util.Set<String> taken = new java.util.HashSet<>();
+        Set<String> taken = new HashSet<>();
         fieldInfo.owner().fields().forEach(f -> taken.add(f.name()));
         while (taken.contains(renamed)) renamed = "_" + renamed;
         return renamed;
     }
 
     /** {@code typeInfo} has a Kotlin property {@code name} from a mapped supertype ({@code values} of a Map). */
-    static boolean mappedPropertyOf(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, String name) {
+    static boolean mappedPropertyOf(TypeInfo typeInfo, String name) {
         return KotlinContext.translatingJava() && MAPPED_PROPERTIES.contains(name)
-               && mappedProperty(typeInfo, name, new java.util.HashSet<>());
+               && mappedProperty(typeInfo, name, new HashSet<>());
     }
 
-    private static boolean mappedProperty(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, String name,
-                                          java.util.Set<io.codelaser.maddi.cst.api.info.TypeInfo> visited) {
+    private static boolean mappedProperty(TypeInfo typeInfo, String name,
+                                          Set<TypeInfo> visited) {
         if (typeInfo == null || !visited.add(typeInfo)) return false;
         if (typeInfo.methods().stream().anyMatch(m -> !m.isStatic() && m.parameters().isEmpty()
                                                       && name.equals(KotlinMappedMembers.property(m)))) {
@@ -224,12 +230,12 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         String getter = isPrefix ? name : "get" + capitalized;
         String setter = isPrefix ? "set" + name.substring(2) : "set" + capitalized;
         return accessorClash(fieldInfo.owner(), fieldInfo.isStatic(), getter, isVal ? null : setter,
-                new java.util.HashSet<>());
+                new HashSet<>());
     }
 
-    private static boolean accessorClash(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, boolean isStatic,
+    private static boolean accessorClash(TypeInfo typeInfo, boolean isStatic,
                                          String getter, String setter,
-                                         java.util.Set<io.codelaser.maddi.cst.api.info.TypeInfo> visited) {
+                                         Set<TypeInfo> visited) {
         if (typeInfo == null || !visited.add(typeInfo)) return false;
         if (typeInfo.methods().stream().anyMatch(m -> !m.isSynthetic() && m.isStatic() == isStatic
                 && (m.parameters().isEmpty() && getter.equals(m.name())
@@ -249,7 +255,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
      * its properties to be {@code @JvmField}, then.
      */
     static boolean javaField(FieldInfo fieldInfo,
-                             java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility) {
+                             Optional<Keyword> visibility) {
         if (!KotlinContext.translatingJava() || !visibility.isEmpty()) return false;
         if (!fieldInfo.isStatic()) return true;
         // Kotlin: in an interface's companion, all properties are @JvmField, or none; a const val is not
@@ -282,7 +288,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
      * Java's default value of a primitive field, as Kotlin writes it; null for a reference type. A boxed one that is
      * not nullable prints as the primitive: its zero, which no one reads before the constructor assigns it.
      */
-    static String defaultValue(io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+    static String defaultValue(ParameterizedType type) {
         if (type.arrays() > 0 || type.typeInfo() == null) return null;
         return switch (type.typeInfo().fullyQualifiedName()) {
             case "boolean", "java.lang.Boolean" -> "false";

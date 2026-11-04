@@ -1,12 +1,12 @@
 package io.codelaser.maddi.java.openjdk;
 
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /*
@@ -47,7 +47,7 @@ public class TestChainNoBlankLine extends CommonTest {
             String[] lines = out.split("\n", -1);
             for (int i = 1; i < lines.length; i++) {
                 if (lines[i - 1].isBlank() && lines[i].strip().startsWith(".")) {
-                    org.junit.jupiter.api.Assertions.fail(
+                    Assertions.fail(
                             "blank line before a chain continuation at width " + width + ":\n" + out);
                 }
             }

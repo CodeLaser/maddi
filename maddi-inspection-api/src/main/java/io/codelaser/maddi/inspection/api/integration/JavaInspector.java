@@ -18,10 +18,20 @@
 package io.codelaser.maddi.inspection.api.integration;
 
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -31,15 +41,6 @@ import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
-
-import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
 
 /*
 Unless you have very good reasons not to, please use the openjdk implementation of the JavaInspector.
@@ -328,7 +329,22 @@ public interface JavaInspector {
 
     Set<SourceFile> sourceFiles();
 
-    record ReloadResult(List<InitializationProblem> problems, Set<TypeInfo> sourceHasChanged) {
+    /**
+     * What {@link #reloadSources} found.
+     *
+     * @param sourceHasChanged the primary types whose file changed: for the caller to make INVALID
+     * @param added            the source files that are new since the last parse. They hold no types yet; the next
+     *                         re-parse scans them, whatever the {@link Invalidated} says about their source set, and
+     *                         their types are in its result
+     * @param removed          the primary types of the files that are gone. The next re-parse forgets them, by name
+     *                         too, before it scans anything: a type that still refers to one fails to resolve, as in a
+     *                         cold parse, provided the caller makes it INVALID (or REWIRE, beyond its source set)
+     */
+    record ReloadResult(List<InitializationProblem> problems, Set<TypeInfo> sourceHasChanged, Set<SourceFile> added,
+                        Set<TypeInfo> removed) {
+        public ReloadResult(List<InitializationProblem> problems, Set<TypeInfo> sourceHasChanged) {
+            this(problems, sourceHasChanged, Set.of(), Set.of());
+        }
     }
 
     ReloadResult reloadSources(InputConfiguration inputConfiguration, Map<String, String> sourcesByTestProtocolURIString) throws IOException;
@@ -339,7 +355,7 @@ public interface JavaInspector {
      * type's analysis onto its new object <em>outside</em> the reload, via the {@code rewire(InfoMapView, …)} path —
      * see {@code docs/design/analysis-rewiring.md}. Valid until the next parse.
      */
-    default io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
+    default InfoMapView lastRewireInfoMap() {
         return null;
     }
 }

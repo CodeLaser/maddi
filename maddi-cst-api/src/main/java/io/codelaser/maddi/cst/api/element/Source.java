@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.api.element;
 
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+
 /**
  * A source-position range describing where a CST element appears in source.
  * <p>
@@ -81,7 +83,7 @@ public interface Source extends Comparable<Source> {
      * This source for a rewired element: its detailed sources keyed by the rewired objects (see
      * {@link DetailedSources#rewire}). Itself when it has no detailed sources.
      */
-    default Source rewire(io.codelaser.maddi.cst.api.info.InfoMapView infoMap) {
+    default Source rewire(InfoMapView infoMap) {
         DetailedSources detailedSources = detailedSources();
         if (detailedSources == null) return this;
         DetailedSources rewired = detailedSources.rewire(infoMap);

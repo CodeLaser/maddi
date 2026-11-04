@@ -17,9 +17,6 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
-import io.codelaser.maddi.cst.api.analysis.Property;
-import io.codelaser.maddi.cst.api.analysis.Value;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -27,6 +24,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
 
 /**
  * CodeLaser/maddi-mod#76: records, for one computation on one thread, every analysis value it read and every

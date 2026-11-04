@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -29,11 +34,6 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.type.DiamondEnum;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
 
 public class FieldPrinterImpl implements FieldPrinter {
     private final boolean formatter2;

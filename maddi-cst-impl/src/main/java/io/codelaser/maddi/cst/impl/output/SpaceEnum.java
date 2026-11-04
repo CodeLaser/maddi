@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.output;
 
+import java.util.Objects;
+
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.element.ElementarySpace;
 import io.codelaser.maddi.cst.api.output.element.Space;
 import io.codelaser.maddi.cst.api.output.element.Split;
-
-import java.util.Objects;
 
 
 public enum SpaceEnum implements Space {

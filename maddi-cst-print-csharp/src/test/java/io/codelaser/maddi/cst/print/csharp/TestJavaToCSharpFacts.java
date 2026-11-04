@@ -17,6 +17,16 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Set;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -24,15 +34,6 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The analyses' facts in the printing ({@link CSharpFacts}): read-only parameters, nullable declarations and the
@@ -205,6 +206,120 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         assertFalse(cs.contains("where D : notnull"), cs);
         assertFalse(cs.contains("where P : notnull"), cs);
         assertFalse(cs.contains("where V : notnull"), cs);
+    }
+
+    @Language("java")
+    private static final String ADAPTERS = """
+            package org.example.adapt;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Adapters {
+                interface Provider { String get(String external, String internal); }
+                static class Console implements Provider {
+                    public String get(String external, String internal) {
+                        return internal == null ? external.trim() : null;
+                    }
+                }
+                static String use(Provider p) { return p.get("a", null); }
+                static String go() { return use((e, i) -> e); }
+                interface Mapper<A> { int map(A any); }
+                static class Length implements Mapper<String> { public int map(String any) { return any == null ? 0 : 1; } }
+                static int count(Mapper<String> m) { return m.map(null) + count(s -> 2); }
+                static class Node implements Comparable<Node> {
+                    final String name;
+                    Node(String name) { this.name = name; }
+                    @Override
+                    public int compareTo(Node o) { return name.compareTo(o.name); }
+                }
+                static void sort(List<Node> nodes) { nodes.sort(null); }
+            }
+            """;
+
+    /**
+     * The analysis's verdicts on a functional interface's own method reach its lambda adapter: the interface declares
+     * {@code string? Get(string external, string? internal)}, and the adapter implements it with the same types
+     * (CS8767, CS8766). A {@code compareTo(Node o)} whose parameter is non-null does not implement C#'s {@code
+     * IComparable<Node>.CompareTo(Node? other)}: an explicit bridge does, asserting as Java's compareTo of null throws.
+     */
+    @Test
+    public void adapterVerdicts() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return "get".equals(method.name()) ? NullableState.NULLABLE : NullableState.UNSPECIFIED;
+            }
+
+            @Override
+            public NullableState nullable(ParameterInfo parameter) {
+                return "internal".equals(parameter.name()) || "any".equals(parameter.name()) ? NullableState.NULLABLE
+                        : NullableState.NONNULL;
+            }
+        });
+        String cs = translate("Adapters", ADAPTERS);
+        contains(cs, "string? Get(string external, string? @internal);");
+        contains(cs, "public sealed class Lambda(Func<string, string?, string?> f) : IProvider { public string? "
+                     + "Get(string external, string? @internal) => f(external, @internal); }");
+        // a type parameter's verdict stays out of the adapter: Func<A?, int> would not take a method group of A
+        contains(cs, "public sealed class Lambda(Func<A, int> f) : IMapper<A> { public int Map(A any) => f(any); }");
+        contains(cs, "public int CompareTo(Node o) => string.CompareOrdinal(name, o.name);");
+        contains(cs, "int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);");
+    }
+
+    @Language("java")
+    private static final String PROPERTIES = """
+            package org.example.props;
+            import java.util.List;
+            class Switches {
+                static class Edge { String dest = ""; }
+                static class Switch {
+                    private Edge defaultEdge;
+                    Switch(boolean b) { if (b) defaultEdge = new Edge(); }
+                    Edge getDefaultEdge() { return defaultEdge; }
+                }
+                static String destination(Switch s) { return s.getDefaultEdge().dest; }
+                static boolean has(List<Edge> edges, Switch s) { return edges.contains(s.getDefaultEdge()); }
+                interface Candidate { }
+                static class StringCandidate implements Candidate { }
+                interface Recognizer { Candidate recognize(String s); }
+                static class StringRecognizer implements Recognizer {
+                    public StringCandidate recognize(String s) { return s.isEmpty() ? null : new StringCandidate(); }
+                }
+            }
+            """;
+
+    /**
+     * A getter printed as its field's property is read with the field's verdict, which the property is declared with:
+     * {@code s.DefaultEdge!.dest} (CS8602), {@code Contains(s.DefaultEdge!)} (CS8604), whatever the analysis says of the
+     * getter. A covariant override's bridge to the interface's member returns that member's {@code T?} (CS8603).
+     */
+    @Test
+    public void propertiesAndBridges() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(FieldInfo field) {
+                return "defaultEdge".equals(field.name()) ? NullableState.NULLABLE : NullableState.UNSPECIFIED;
+            }
+
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return "recognize".equals(method.name()) ? NullableState.NULLABLE : NullableState.UNSPECIFIED;
+            }
+        });
+        String cs = translate("Switches", PROPERTIES);
+        contains(cs, "Edge? DefaultEdge");
+        contains(cs, "s.DefaultEdge!.dest");
+        contains(cs, "Contains(s.DefaultEdge!)");
+        contains(cs, "ICandidate? IRecognizer.Recognize(string s) => Recognize(s);");
     }
 
     @Language("java")

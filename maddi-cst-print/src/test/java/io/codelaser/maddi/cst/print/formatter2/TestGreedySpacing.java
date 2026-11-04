@@ -5,15 +5,16 @@
 
 package io.codelaser.maddi.cst.print.formatter2;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /*
 Regression tests for a GREEDY_FILL spacing defect: the separator space in front of a guide block

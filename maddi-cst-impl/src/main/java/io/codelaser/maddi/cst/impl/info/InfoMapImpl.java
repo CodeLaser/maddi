@@ -17,16 +17,19 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
-import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
-import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
-import io.codelaser.maddi.cst.api.info.*;
-import io.codelaser.maddi.cst.impl.statement.BlockImpl;
-
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
+import io.codelaser.maddi.cst.impl.statement.BlockImpl;
 
 /*
 BASIC RULE OF REWIRING: the fqn stays the same, as does the (name of the) source set.
@@ -38,7 +41,7 @@ public class InfoMapImpl implements InfoMap {
     private final Map<TypeInfo, Map<Info, Info>> setOfPrimaryTypesToRewire;
     private final Set<TypeInfo> toRewire;
     // see InfoMapView#rewired: one copy per original object, so that identity-keyed DetailedSources find it
-    private final java.util.IdentityHashMap<Object, Object> rewiredObjects = new java.util.IdentityHashMap<>();
+    private final IdentityHashMap<Object, Object> rewiredObjects = new IdentityHashMap<>();
     private final boolean carryIntrinsic;
 
     public InfoMapImpl(Set<TypeInfo> setOfPrimaryTypesToRewire) {
@@ -133,7 +136,7 @@ public class InfoMapImpl implements InfoMap {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T> T rewired(T original, java.util.function.Supplier<T> rewire) {
+    public <T> T rewired(T original, Supplier<T> rewire) {
         Object done = rewiredObjects.get(original);
         if (done != null) return (T) done;
         T result = rewire.get();
@@ -298,10 +301,35 @@ public class InfoMapImpl implements InfoMap {
             result = (FieldInfo) map.get(fieldInfo);
         }
         if (result == null && isRebuilt(owner.primaryType())) return fieldInfo;
+        if (result == null && owner.getFieldByName(fieldInfo.name(), false) == null) {
+            return rewired(fieldInfo, () -> rewiredNonMember(fieldInfo, owner));
+        }
         return Objects.requireNonNull(result,
                 () -> "Cannot find " + fieldInfo.fullyQualifiedName() + ", owner " + owner
                       + ", primary type " + owner.primaryType()
                       + " (in the rewire set, but this field was never registered)");
+    }
+
+    /*
+     A field that is no member of its owner, so that no rewire phase registered it. Two kinds:
+     - a field of a supertype, seen through the type that inherits it: the link engine translates a callee's 'this'
+       into its caller's, and FieldInfoImpl.translate then gives an inherited field the caller's type as its owner.
+       Its copy is the rewired declaration, owned by the rewired owner, with the view's own (rewired) type.
+     - a virtual field of the link engine (§$, §$s, ...: VirtualFieldComputer), the hidden content of a type that
+       declares none, such as one extending a library container. Its copy is itself, owned by the rewired owner, with
+       its type rewired; it has no declaration, and its inspection (an empty initializer) names nothing of a generation.
+     A member that is missing is not one of these: the caller still fails on it.
+     */
+    private FieldInfo rewiredNonMember(FieldInfo fieldInfo, TypeInfo owner) {
+        TypeInfo rewiredOwner = typeInfo(owner);
+        ParameterizedType rewiredType = fieldInfo.type().rewire(this);
+        for (TypeInfo superType : owner.superTypesExcludingJavaLangObject()) {
+            FieldInfo declared = superType.getFieldByName(fieldInfo.name(), false);
+            if (declared != null && declared.owner() == superType) {
+                return ((FieldInfoImpl) fieldInfo(declared)).reowned(rewiredOwner, rewiredType);
+            }
+        }
+        return ((FieldInfoImpl) fieldInfo).reowned(rewiredOwner, rewiredType);
     }
 
     @Override

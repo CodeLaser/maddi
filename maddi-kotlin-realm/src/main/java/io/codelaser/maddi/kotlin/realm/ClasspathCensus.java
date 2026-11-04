@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.kotlin.realm;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
@@ -87,7 +89,7 @@ public final class ClasspathCensus {
     /** A path-separated classpath, as {@code -Dmaddi.k2.classpath} or {@code java.class.path} carries it. */
     public static List<Path> split(String classpath) {
         List<Path> entries = new ArrayList<>();
-        for (String s : classpath.split(java.io.File.pathSeparator)) {
+        for (String s : classpath.split(File.pathSeparator)) {
             if (!s.isBlank()) entries.add(Path.of(s));
         }
         return entries;
@@ -105,7 +107,7 @@ public final class ClasspathCensus {
                 }
             } else if (Files.isRegularFile(entry)) {
                 try (ZipFile zip = new ZipFile(entry.toFile())) {
-                    zip.stream().map(java.util.zip.ZipEntry::getName)
+                    zip.stream().map(ZipEntry::getName)
                             .filter(n -> n.endsWith(".class"))
                             .filter(ClasspathCensus::isLoadableName)
                             .forEach(names::add);

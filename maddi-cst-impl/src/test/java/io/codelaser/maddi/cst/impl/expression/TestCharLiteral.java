@@ -17,13 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
-import io.codelaser.maddi.cst.api.runtime.Predefined;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 public class TestCharLiteral {
 

@@ -16,28 +16,42 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.Symbol;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * The {@link NullabilityFacts} applied: a declaration's type as the verdict has it, and at a use site, the
@@ -51,7 +65,7 @@ import java.util.Set;
 final class KotlinNullability {
 
     /** {@code !!}, glued to its operand: no line break in front of it, where it would start a statement. */
-    static final io.codelaser.maddi.cst.api.output.element.Symbol NOT_NULL =
+    static final Symbol NOT_NULL =
             new SymbolEnum("!!", SpaceEnum.NONE_NO_SPLIT_BEFORE, SpaceEnum.NONE, null);
 
     /**
@@ -120,12 +134,12 @@ final class KotlinNullability {
         return method.overrides().stream().anyMatch(m -> {
             if (index >= m.parameters().size()) return false;
             ParameterizedType p = m.parameters().get(index).parameterizedType();
-            io.codelaser.maddi.cst.api.info.TypeParameter tp = p.typeParameter();
+            TypeParameter tp = p.typeParameter();
             if (tp == null || p.arrays() > 0 || tp.isMethodTypeParameter() || !m.typeInfo().typeParameters().contains(tp)
                 || tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) {
                 return false;
             }
-            return java.util.stream.Stream.concat(java.util.stream.Stream.ofNullable(owner.parentClass()),
+            return Stream.concat(Stream.ofNullable(owner.parentClass()),
                             owner.interfacesImplemented().stream())
                     .anyMatch(s -> s.typeInfo() == m.typeInfo() && s.parameters().isEmpty());
         });
@@ -138,7 +152,7 @@ final class KotlinNullability {
      * would not override {@code compareTo(other: Int)}.
      */
     private static boolean boxedAbi(MethodInfo method,
-                                    java.util.function.Function<MethodInfo, ParameterizedType> typeIn) {
+                                    Function<MethodInfo, ParameterizedType> typeIn) {
         if (!KotlinContext.translatingJava() || !translated(method.typeInfo()) || method.isSynthetic()
             || method.access() != null && method.access().isPrivate() || method.typeInfo().isAnonymous()) {
             return false;
@@ -159,7 +173,7 @@ final class KotlinNullability {
             || methodInfo.parameters().stream().noneMatch(p -> isBoxed(p.parameterizedType()))) {
             return false;
         }
-        java.util.List<MethodInfo> siblings = methodInfo.isConstructor() ? methodInfo.typeInfo().constructors()
+        List<MethodInfo> siblings = methodInfo.isConstructor() ? methodInfo.typeInfo().constructors()
                 : methodInfo.typeInfo().methods().stream().filter(m -> m.name().equals(methodInfo.name())).toList();
         String signature = kotlinSignature(methodInfo);
         return siblings.stream().anyMatch(m -> m != methodInfo && !m.isSynthetic()
@@ -169,7 +183,7 @@ final class KotlinNullability {
 
     private static String kotlinSignature(MethodInfo m) {
         return m.parameters().stream().map(p -> KotlinTypeName.of(p.parameterizedType()))
-                .collect(java.util.stream.Collectors.joining(","));
+                .collect(Collectors.joining(","));
     }
 
     /**
@@ -240,7 +254,7 @@ final class KotlinNullability {
             }
             if (asSuper == null || asSuper.parameters().size() != seen.parameters().size()) continue;
             List<ParameterizedType> arguments = new ArrayList<>();
-            for (io.codelaser.maddi.cst.api.info.TypeParameter tp : raw.typeParameters()) {
+            for (TypeParameter tp : raw.typeParameters()) {
                 ParameterizedType argument = null;
                 for (int i = 0; i < asSuper.parameters().size(); i++) {
                     ParameterizedType a = asSuper.parameters().get(i);
@@ -302,7 +316,7 @@ final class KotlinNullability {
      * {@code Table.Cell<R, C, V>.getValue()}, AbstractCell passing its own V on.
      */
     private static boolean nullablyInstantiated(TypeInfo type, MethodInfo overridden) {
-        io.codelaser.maddi.cst.api.info.TypeParameter tp = overridden.returnType().typeParameter();
+        TypeParameter tp = overridden.returnType().typeParameter();
         int index = overridden.typeInfo().typeParameters().indexOf(tp);
         if (index < 0) return false;
         return directSupertypes(type).stream().map(s -> instantiation(s, overridden.typeInfo(), index))
@@ -310,10 +324,10 @@ final class KotlinNullability {
     }
 
     private static List<ParameterizedType> directSupertypes(TypeInfo type) {
-        List<ParameterizedType> supertypes = new java.util.ArrayList<>();
+        List<ParameterizedType> supertypes = new ArrayList<>();
         if (type.parentClass() != null) supertypes.add(KotlinTypePrinter.parentClass(type));
         supertypes.addAll(type.interfacesImplemented());
-        supertypes.removeIf(java.util.Objects::isNull);
+        supertypes.removeIf(Objects::isNull);
         return supertypes;
     }
 
@@ -399,7 +413,7 @@ final class KotlinNullability {
         ParameterizedType type = kotlinType(iterable);
         if (type == null) return null;
         if (type.arrays() > 0) return type.componentType();
-        TypeInfo iterableType = supertype(type.typeInfo(), "java.lang.Iterable", new java.util.HashSet<>());
+        TypeInfo iterableType = supertype(type.typeInfo(), "java.lang.Iterable", new HashSet<>());
         if (iterableType == null) return null;
         // concreteSuperType walks the hierarchy recursively: a deep or cyclic one overflows, as caught across maddi
         try {
@@ -427,8 +441,8 @@ final class KotlinNullability {
     }
 
     // lambda parameters Kotlin types nullable by inference, whatever their verdict (inferLambdaParameters)
-    private static final ThreadLocal<java.util.Map<ParameterInfo, Boolean>> INFERRED_NULLABLE =
-            ThreadLocal.withInitial(java.util.WeakHashMap::new);
+    private static final ThreadLocal<Map<ParameterInfo, Boolean>> INFERRED_NULLABLE =
+            ThreadLocal.withInitial(WeakHashMap::new);
 
     /**
      * A lambda printed without parameter types takes them from the parameter it is passed to, instantiated by the
@@ -447,11 +461,11 @@ final class KotlinNullability {
         if (sam == null) return;
         List<ParameterInfo> parameters = lambda.parameters();
         for (int j = 0; j < parameters.size() && j < sam.parameters().size(); j++) {
-            io.codelaser.maddi.cst.api.info.TypeParameter samVariable = sam.parameters().get(j).parameterizedType()
+            TypeParameter samVariable = sam.parameters().get(j).parameterizedType()
                     .typeParameter();
             if (samVariable == null || samVariable.isMethodTypeParameter()
                 || samVariable.getIndex() >= formal.parameters().size()) continue;
-            io.codelaser.maddi.cst.api.info.TypeParameter receiverVariable = formal.parameters()
+            TypeParameter receiverVariable = formal.parameters()
                     .get(samVariable.getIndex()).typeParameter();
             if (receiverVariable == null || receiverVariable.isMethodTypeParameter()
                 || !method.typeInfo().typeParameters().contains(receiverVariable)
@@ -481,11 +495,11 @@ final class KotlinNullability {
     private static ParameterizedType withDeclaredArgumentStates(ParameterizedType type, ParameterizedType declared) {
         if (type == null || declared == null || type.parameters().isEmpty()
             || type.parameters().size() != declared.parameters().size()
-            || !java.util.Objects.equals(type.typeInfo(), declared.typeInfo()) || type.arrays() != declared.arrays()) {
+            || !Objects.equals(type.typeInfo(), declared.typeInfo()) || type.arrays() != declared.arrays()) {
             return type;
         }
         boolean changed = false;
-        java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(type.parameters().size());
+        List<ParameterizedType> arguments = new ArrayList<>(type.parameters().size());
         for (int i = 0; i < type.parameters().size(); i++) {
             ParameterizedType mine = type.parameters().get(i);
             ParameterizedType theirs = declared.parameters().get(i);
@@ -521,7 +535,7 @@ final class KotlinNullability {
      * The loop variables over a raw or star-projected collection being printed: Kotlin's {@code Any?}, which the
      * verdicts, holding the variable non-null, do not know (jenkins's RedactSecretJsonInErrorMessageSanitizer).
      */
-    static final ThreadLocal<Set<String>> RAW_LOOP_VARIABLES = ThreadLocal.withInitial(java.util.HashSet::new);
+    static final ThreadLocal<Set<String>> RAW_LOOP_VARIABLES = ThreadLocal.withInitial(HashSet::new);
 
     /** Kotlin will type this value as nullable. */
     static boolean nullableInKotlin(Expression e) {
@@ -543,7 +557,7 @@ final class KotlinNullability {
                         !KotlinSmartCasts.asserted(lv, ve);
                 case LocalVariable lv -> isNullable(KotlinContext.localType(lv.simpleName())) && !knownNonNull(lv, ve);
                 // nor does it smart-cast an element read: only the element's state counts
-                case io.codelaser.maddi.cst.api.variable.DependentVariable dv -> {
+                case DependentVariable dv -> {
                     ParameterizedType array = kotlinType(dv.arrayExpression());
                     yield array != null && array.arrays() > 0 && isNullable(array.componentType());
                 }
@@ -580,8 +594,8 @@ final class KotlinNullability {
                && mc.methodInfo() != null && !mc.methodInfo().isConstructor() && mc.methodInfo().returnType() != null
                && (mc.methodInfo().returnType().isJavaLangObject() || mc.methodInfo().returnType().isTypeParameter())
                && !translated(mc.methodInfo().typeInfo())
-               && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(mc.methodInfo()) != NullableState.NONNULL
-               && !io.codelaser.maddi.cst.impl.analysis.NullAnnotations.inNullMarkedScope(mc.methodInfo());
+               && NullAnnotations.explicitState(mc.methodInfo()) != NullableState.NONNULL
+               && !NullAnnotations.inNullMarkedScope(mc.methodInfo());
     }
 
     /** The type Kotlin gives this expression, with the verdicts' states; null when not known here. */
@@ -593,7 +607,7 @@ final class KotlinNullability {
                 case ParameterInfo pi -> parameterType(pi);
                 case LocalVariable lv -> KotlinContext.localType(lv.simpleName()) != null
                         ? KotlinContext.localType(lv.simpleName()) : lv.parameterizedType();
-                case io.codelaser.maddi.cst.api.variable.DependentVariable dv -> {
+                case DependentVariable dv -> {
                     ParameterizedType array = kotlinType(dv.arrayExpression());
                     yield array == null || array.arrays() == 0 ? null : array.componentType();
                 }
@@ -625,7 +639,7 @@ final class KotlinNullability {
                     ? t.withComponentType(component.withNullable(NullableState.NULLABLE)) : t;
         }
         if (t.parameters().isEmpty() || t.parameters().size() != f.parameters().size()) return t;
-        List<ParameterizedType> arguments = new java.util.ArrayList<>();
+        List<ParameterizedType> arguments = new ArrayList<>();
         boolean changed = false;
         for (int i = 0; i < t.parameters().size(); i++) {
             ParameterizedType a = t.parameters().get(i);
@@ -715,7 +729,7 @@ final class KotlinNullability {
         }
         if (object == null || !object.isJavaLangObject()) return seen;
         List<ParameterizedType> arguments = new ArrayList<>();
-        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : raw.typeParameters()) {
+        for (TypeParameter tp : raw.typeParameters()) {
             ParameterizedType bound = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject() && b.typeInfo() != null)
                     .findFirst().orElse(null);
             if (bound != null && !bound.typeInfo().typeParameters().isEmpty()) return seen;
@@ -752,7 +766,7 @@ final class KotlinNullability {
             return isNullable(declared) ? argument.withNullable(NullableState.NULLABLE) : argument;
         }
         if (declared.arrays() > 0 || declared.parameters().isEmpty()) return declared;
-        List<ParameterizedType> arguments = new java.util.ArrayList<>();
+        List<ParameterizedType> arguments = new ArrayList<>();
         boolean changed = false;
         for (ParameterizedType p : declared.parameters()) {
             // a bounded wildcard on a type parameter (? super T) is that parameter's argument for nullability
@@ -797,12 +811,12 @@ final class KotlinNullability {
     }
 
     /** A use-site fact: known non-null where the current statement starts, or at the current call. */
-    private static boolean knownNonNull(io.codelaser.maddi.cst.api.variable.Variable variable) {
+    private static boolean knownNonNull(Variable variable) {
         return knownNonNull(variable, null);
     }
 
     /** As {@link #knownNonNull(io.codelaser.maddi.cst.api.variable.Variable)}, used at {@code use}: also smart-cast by an earlier {@code !!}. */
-    private static boolean knownNonNull(io.codelaser.maddi.cst.api.variable.Variable variable, Expression use) {
+    private static boolean knownNonNull(Variable variable, Expression use) {
         return KotlinContext.state().knownNonNull(verdicts(), variable) || KotlinSmartCasts.asserted(variable, use);
     }
 
@@ -824,7 +838,7 @@ final class KotlinNullability {
 
     static boolean nullableJdkResult(MethodInfo methodInfo) {
         if (methodInfo.isStatic()) return false;
-        return java.util.stream.Stream.concat(java.util.stream.Stream.of(methodInfo), methodInfo.overrides().stream())
+        return Stream.concat(Stream.of(methodInfo), methodInfo.overrides().stream())
                 .anyMatch(m -> NULLABLE_JDK_RESULTS.getOrDefault(m.typeInfo().fullyQualifiedName(), Set.of())
                         .contains(m.name()));
     }
@@ -860,7 +874,7 @@ final class KotlinNullability {
     private static boolean libraryNullableResult(MethodInfo methodInfo) {
         return KotlinContext.translatingJava() && !methodInfo.isConstructor() && !translated(methodInfo.typeInfo())
                && !methodInfo.returnType().isPrimitiveExcludingVoid() && !methodInfo.returnType().isVoidOrJavaLangVoid()
-               && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(methodInfo) == NullableState.NULLABLE;
+               && NullAnnotations.explicitState(methodInfo) == NullableState.NULLABLE;
     }
 
     /**
@@ -873,12 +887,12 @@ final class KotlinNullability {
             || pi.parameterizedType().isPrimitiveExcludingVoid()) {
             return false;
         }
-        NullableState explicit = io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(pi);
+        NullableState explicit = NullAnnotations.explicitState(pi);
         // String.format(String, @NotNull(nullableArguments = 0) Object... args): the annotation is the array's, its
         // elements take null (fernflower's ConverterHelperTest formats a null class name)
         if (explicit != null) return explicit == NullableState.NONNULL && !pi.isVarArgs();
         return !pi.parameterizedType().isTypeParameter()
-               && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.inNullMarkedScope(pi.methodInfo());
+               && NullAnnotations.inNullMarkedScope(pi.methodInfo());
     }
 
     static boolean translated(TypeInfo owner) {
@@ -940,7 +954,7 @@ final class KotlinNullability {
             && from != KotlinExpressionPrinter.primitive(target)) {
             return printed; // widened, x!!.toLong(), asserted there
         }
-        io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
+        MethodInfo method = KotlinContext.currentMethod();
         if (target.arrays() == 0 && target.typeParameter() != null && method != null
             && method.typeParameters().contains(target.typeParameter())
             && KotlinMethodPrinter.typeArgumentOfParameter(method, target.typeParameter())) {
@@ -993,7 +1007,7 @@ final class KotlinNullability {
         }
         ParameterizedType type = kotlinType(value);
         if (type == null || !type.isTypeParameter() || type.arrays() > 0) return false;
-        io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();
+        TypeParameter tp = type.typeParameter();
         // ArgumentMatchers.any(): the callee's own T, which Kotlin infers from the parameter
         if (unwrapped instanceof MethodCall mc && mc.methodInfo().typeParameters().contains(tp)) return false;
         if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
@@ -1058,7 +1072,7 @@ final class KotlinNullability {
             if (mc.methodInfo() != null && "java.util.stream.Stream".equals(mc.methodInfo().typeInfo().fullyQualifiedName())) {
                 for (Expression a : mc.parameterExpressions()) {
                     Expression u = KotlinExpressionPrinter.unwrap(a);
-                    if (u instanceof io.codelaser.maddi.cst.api.expression.Lambda l && lambdaResultNullable(l)
+                    if (u instanceof Lambda l && lambdaResultNullable(l)
                         || u instanceof MethodReference mr && mr.methodInfo() != null && !mr.methodInfo().isConstructor()
                            && isNullable(returnType(mr.methodInfo()))) {
                         return true;
@@ -1070,16 +1084,16 @@ final class KotlinNullability {
         return false;
     }
 
-    private static boolean lambdaResultNullable(io.codelaser.maddi.cst.api.expression.Lambda l) {
-        io.codelaser.maddi.cst.api.statement.Block body = l.methodInfo().methodBody();
+    private static boolean lambdaResultNullable(Lambda l) {
+        Block body = l.methodInfo().methodBody();
         if (body == null || body.statements().size() != 1) return false;
-        return body.statements().getFirst() instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement rs
+        return body.statements().getFirst() instanceof ReturnStatement rs
                && rs.expression() != null && nullableInKotlin(rs.expression());
     }
 
     private static boolean unboundTypeVariable(ParameterizedType type) {
         if (!type.isTypeParameter() || type.wildcard() != null) return false;
-        io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();
+        TypeParameter tp = type.typeParameter();
         if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
         if (!tp.isMethodTypeParameter()) return true;
         // a method's: only the current one's or an enclosing one's, whose bound is known here (a callee's may be
@@ -1121,7 +1135,7 @@ final class KotlinNullability {
      * Print a call with {@code ?.} after {@code receiver}; null when the call does not print its receiver through
      * {@link #receiverWithDot} (a member Kotlin writes otherwise), so that the caller prints the conditional instead.
      */
-    static OutputBuilder withSafeReceiver(Expression receiver, java.util.function.Supplier<OutputBuilder> call) {
+    static OutputBuilder withSafeReceiver(Expression receiver, Supplier<OutputBuilder> call) {
         Expression[] previous = SAFE_RECEIVER.get();
         Expression[] slot = {KotlinExpressionPrinter.unwrap(receiver), null};
         SAFE_RECEIVER.set(slot);

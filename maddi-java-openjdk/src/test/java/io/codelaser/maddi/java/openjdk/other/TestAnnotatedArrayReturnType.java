@@ -17,18 +17,19 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.util.Map;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * <b>{@code Constraint @NonNull [] defineConstraints(@NonNull ConstraintFactory f)} — the JSpecify array
@@ -208,7 +209,7 @@ public class TestAnnotatedArrayReturnType extends CommonTest {
     @Test
     public void unresolvedAnnotation() {
         Map<String, TypeInfo> types = scan(true, "a.b.Factory", FACTORY, "a.b.Unresolved", UNRESOLVED_ANNOTATION);
-        if (java.lang.Runtime.version().feature() < 27) {
+        if (Runtime.version().feature() < 27) {
             assertNull(types.get("a.b.Unresolved"), "the unit is dropped, not repaired: " + types.keySet());
             return;
         }

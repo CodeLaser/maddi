@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.api.info;
 
+import java.util.List;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
@@ -24,9 +27,6 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
-
-import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * Base interface for all named, inspectable program elements: types, methods, fields, and parameters.

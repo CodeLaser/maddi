@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.inspection.integration;
 
+import java.net.URI;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
@@ -26,12 +33,6 @@ import io.codelaser.maddi.inspection.api.resource.SourceFile;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.support.SetOnce;
 import io.codelaser.maddi.util.Trie;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.net.URI;
-import java.util.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(CompiledTypesManagerImpl.class);

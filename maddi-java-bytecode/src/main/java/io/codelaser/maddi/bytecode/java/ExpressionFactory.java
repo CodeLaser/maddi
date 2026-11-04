@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.bytecode.java;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.objectweb.asm.Type;
+
 import io.codelaser.maddi.bytecode.java.asm.LocalTypeMap;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
@@ -26,11 +32,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.util.StringUtil;
-import org.objectweb.asm.Type;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 public class ExpressionFactory {
 

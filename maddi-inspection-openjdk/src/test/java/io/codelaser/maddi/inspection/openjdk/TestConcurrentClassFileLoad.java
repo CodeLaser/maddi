@@ -17,28 +17,16 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.CompilationUnit;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InfoByFqn;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static org.junit.jupiter.api.Assertions.*;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,8 +39,24 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Stream;
 
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.junit.jupiter.api.Assertions.*;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InfoByFqn;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * A library type committed twice from the same class file: "type io.micronaut.http.client.HttpClient committed
@@ -140,7 +144,7 @@ public class TestConcurrentClassFileLoad {
                     }));
                 }
                 start.countDown();
-                Set<TypeInfo> winners = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+                Set<TypeInfo> winners = Collections.newSetFromMap(new IdentityHashMap<>());
                 for (Future<TypeInfo> f : futures) winners.add(f.get()); // an AssertionError surfaces here
                 assertEquals(1, winners.size(), "every loader must get the same instance");
                 assertSame(winners.iterator().next(), registry.getType("a.b.Api", task("set0")));

@@ -17,20 +17,21 @@
 
 package io.codelaser.maddi.inspection.integration.java.type;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.impl.type.IsAssignableFrom;
-import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
-import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.Closeable;
 import java.util.List;
 import java.util.function.LongConsumer;
 import java.util.function.LongPredicate;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.type.IsAssignableFrom;
+import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 
 public class TestIsAssignableFrom extends CommonTest {
 

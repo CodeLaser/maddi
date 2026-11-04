@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.graph.analyzer;
 
-import io.codelaser.maddi.graph.op.BreakCycles;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.graph.op.BreakCycles;
 
 public class TestTypeDependencies {
 

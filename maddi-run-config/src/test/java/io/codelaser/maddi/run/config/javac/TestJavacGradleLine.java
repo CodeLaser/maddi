@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.run.config.javac;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * {@link Javac#parse} against a line <b>Gradle</b> writes, rather than one Maven writes.

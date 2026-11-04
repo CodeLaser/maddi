@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
@@ -35,10 +38,6 @@ import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.analysis.LinkFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
@@ -164,7 +163,7 @@ public interface RustFacts extends NullabilityFacts {
         }
 
         @Override
-        public java.util.Set<String> marks(MethodInfo method) {
+        public Set<String> marks(MethodInfo method) {
             return method.analysis().getOrDefault(PropertyImpl.EVENTUAL_METHOD,
                     ValueImpl.EventualImpl.NOT_EVENTUAL).fields();
         }
@@ -281,7 +280,7 @@ public interface RustFacts extends NullabilityFacts {
             }
 
             @Override
-            public java.util.Set<String> marks(MethodInfo method) {
+            public Set<String> marks(MethodInfo method) {
                 return ownership.marks(method);
             }
 
@@ -372,8 +371,8 @@ public interface RustFacts extends NullabilityFacts {
     }
 
     /** The fields of the transition {@link #side} refers to: the label of {@code @Mark} and {@code @Only}. */
-    default java.util.Set<String> marks(MethodInfo method) {
-        return java.util.Set.of();
+    default Set<String> marks(MethodInfo method) {
+        return Set.of();
     }
 
     /** The method returns its receiver ({@code return this}): a borrow of it, {@code &Self} or {@code &mut Self}. */

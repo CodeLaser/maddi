@@ -16,17 +16,18 @@
  */
 package io.codelaser.maddi.cst.impl.analysis;
 
+import java.util.Objects;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.Objects;
 
 /**
  * {@link NullabilityFacts} that answer as {@code delegate} does: a base for facts that change one answer or add a
@@ -101,7 +102,7 @@ public class ForwardingNullabilityFacts implements NullabilityFacts {
     }
 
     @Override
-    public boolean nonNullTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+    public boolean nonNullTypeParameter(TypeParameter typeParameter) {
         return delegate.nonNullTypeParameter(typeParameter);
     }
 

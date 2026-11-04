@@ -17,6 +17,18 @@
 
 package io.codelaser.maddi.bytecode.java.asm;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -29,18 +41,6 @@ import io.codelaser.maddi.inspection.api.resource.SourceFile;
 import io.codelaser.maddi.inspection.integration.CompiledTypesManagerImpl;
 import io.codelaser.maddi.inspection.integration.ResourcesImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestGrpcStub {
 

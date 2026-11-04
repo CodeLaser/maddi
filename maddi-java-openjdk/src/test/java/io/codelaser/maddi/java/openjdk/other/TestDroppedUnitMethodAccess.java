@@ -17,23 +17,23 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * ⛔ <b>A METHOD HALF-SCANNED BY A DROPPED COMPILATION UNIT IS NEVER FINISHED, AND ITS TYPE IS COMMITTED
@@ -172,7 +172,7 @@ public class TestDroppedUnitMethodAccess extends CommonTest {
     public void commitThrowsToo() {
         // ⚠ Up to JDK 26 completing the type threw on 'later(Gone g)'. JDK 27's javac stubs Gone, so the commit
         // succeeds and every member must come out committed: the failed-commit branch has no fixture on 27.
-        check(COMMIT_THROWS_TOO, java.lang.Runtime.version().feature() >= 27);
+        check(COMMIT_THROWS_TOO, Runtime.version().feature() >= 27);
     }
 
     private void check(String source, boolean commitSucceeds) {

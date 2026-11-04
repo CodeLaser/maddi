@@ -18,10 +18,10 @@
 package io.codelaser.maddi.bytecode.java.asm;
 
 
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
 import java.util.HashSet;
 import java.util.Set;
+
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 public class ParameterNameFactory {
     private final Set<String> names = new HashSet<>();

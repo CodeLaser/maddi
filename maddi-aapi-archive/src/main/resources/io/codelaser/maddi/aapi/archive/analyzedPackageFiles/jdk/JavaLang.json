@@ -2735,8 +2735,8 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}}]},
 
 {"name": "Tjava.lang.String", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
- {"name": "FCASE_INSENSITIVE_ORDER(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
- {"name": "FUNICODE_CASEFOLD_ORDER(1)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FCASE_INSENSITIVE_ORDER(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":3,"independentField":1,"unmodifiedField":1}},
+ {"name": "FUNICODE_CASEFOLD_ORDER(1)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":1,"unmodifiedField":1}},
  {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "C<init>(1,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},

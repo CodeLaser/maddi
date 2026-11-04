@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+import java.util.Objects;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -29,9 +32,6 @@ import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.util.StringUtil;
-
-import java.util.List;
-import java.util.Objects;
 
 public class StringConstantImpl extends ConstantExpressionImpl<String> implements StringConstant {
     private final ParameterizedType stringPt;

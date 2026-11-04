@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.Objects;
+import java.util.function.Predicate;
+
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.impl.analysis.ForwardingNullabilityFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
-
-import java.util.Objects;
-import java.util.function.Predicate;
 
 /** {@link CSharpFacts#of}: the nullability facts as given, and the modification analysis's {@code unmodified}. */
 final class ComposedFacts extends ForwardingNullabilityFacts implements CSharpFacts {

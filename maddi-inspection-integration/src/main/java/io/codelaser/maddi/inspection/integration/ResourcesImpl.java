@@ -17,14 +17,7 @@
 
 package io.codelaser.maddi.inspection.integration;
 
-import io.codelaser.maddi.cst.api.element.CompilationUnit;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.inspection.api.resource.Resources;
-import io.codelaser.maddi.inspection.api.resource.SourceFile;
-import io.codelaser.maddi.util.Trie;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static io.codelaser.maddi.util.StringUtil.replaceSlashDollar;
 
 import java.io.*;
 import java.net.*;
@@ -40,7 +33,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static io.codelaser.maddi.util.StringUtil.replaceSlashDollar;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.resource.Resources;
+import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.util.Trie;
 
 public class ResourcesImpl implements Resources {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResourcesImpl.class);

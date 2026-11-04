@@ -17,16 +17,6 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.info.*;
-import io.codelaser.maddi.cst.api.output.OutputBuilder;
-import io.codelaser.maddi.cst.api.output.Qualification;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
-import io.codelaser.maddi.cst.impl.output.*;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.print.translate.CstSupertypes;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +25,17 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 /**
  * Prints a {@link TypeInfo} as a C# type declaration, with the same pluggable-printer seam as the Java
@@ -233,6 +234,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (record) members.addAll(accessorImplementations(components, q));
         if (record) members.addAll(recordHashCode(components));
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
+        if (!typeInfo.isInterface()) members.addAll(comparableBridge(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
         if (CSharpWildcardInterfaces.has(typeInfo)) members.addAll(CSharpWildcardInterfaces.bridges(typeInfo, q));
         members.addAll(CSharpErasures.members(typeInfo, q));
@@ -565,8 +567,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<String> parameterTypes = signature.parameterTypes();
         List<String> names = signature.names();
         boolean isVoid = signature.result().isVoid();
+        // as the parameters (signature): the interface's own method returns string? when the analysis says so
+        NullableState resultState = verdictInAdapter(sam, sam.returnType())
+                ? CSharpContext.program().facts().nullable(sam) : NullableState.UNSPECIFIED;
+        String result = CSharpTypeName.withNullable(signature.result(), CSharpTypeName.of(signature.result(), q),
+                resultState);
         List<String> delegateArguments = new ArrayList<>(parameterTypes);
-        if (!isVoid) delegateArguments.add(CSharpTypeName.argument(signature.result(), q));
+        if (!isVoid) delegateArguments.add(CSharpTypeName.withNullable(signature.result(),
+                CSharpTypeName.argument(signature.result(), q), resultState));
         String delegate = (isVoid ? "Action" : "Func")
                           + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
         String self = CSharpNames.type(typeInfo) + CSharpNames.typeParameters(typeInfo.typeParameters());
@@ -579,8 +587,45 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .mapToObj(i -> CSharpTypeName.valueReference(signature.parameters().get(i))
                         ? "(" + parameterTypes.get(i) + ") " + names.get(i) + forgiven : names.get(i)).toList();
         return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
-                + " { public " + CSharpTypeName.of(signature.result(), q) + " " + signature.member() + " => " + f + "("
+                + " { public " + result + " " + signature.member() + " => " + f + "("
                 + String.join(", ", forwarded) + "); }"));
+    }
+
+    /**
+     * {@code int IComparable<ClassNode>.CompareTo(ClassNode? o) => CompareTo(o!);}: C# declares {@code
+     * IComparable<T>.CompareTo(T? other)}, and a {@code compareTo(ClassNode o)} the analysis finds non-null (it
+     * dereferences {@code o}) does not implement it (CS8767). The method keeps its non-null parameter, the bridge
+     * implements the interface; Java's compareTo of null throws, as {@code o!} then does. Only for a type that
+     * implements {@code Comparable<X>} itself: an explicit implementation needs the interface in its own base list.
+     */
+    private List<OutputBuilder> comparableBridge(Qualification q) {
+        CSharpFacts facts = CSharpContext.program().facts();
+        if (!facts.nullabilityAnalysed()) return List.of();
+        ParameterizedType comparable = typeInfo.interfacesImplemented().stream()
+                .filter(i -> i.typeInfo() != null && "java.lang.Comparable".equals(i.typeInfo().fullyQualifiedName())
+                             && i.parameters().size() == 1)
+                .findFirst().orElse(null);
+        if (comparable == null) return List.of();
+        ParameterizedType compared = comparable.parameters().getFirst();
+        if (compared.typeInfo() == null || compared.isTypeParameter() || compared.arrays() != 0
+            || CSharpTypeName.valueReference(compared)) return List.of();
+        return typeInfo.methods().stream()
+                .filter(m -> "compareTo".equals(m.name()) && m.parameters().size() == 1 && !m.isStatic()
+                             && m.parameters().getFirst().parameterizedType().equals(compared)
+                             && facts.nullable(m.parameters().getFirst()) != NullableState.NULLABLE)
+                .findFirst()
+                .map(m -> {
+                    String type = CSharpTypeName.of(compared, q);
+                    CSharpContext.using("System");
+                    return List.<OutputBuilder>of(new OutputBuilderImpl().add(new TextImpl("int IComparable<" + type
+                            + ">.CompareTo(" + type + "? other) => CompareTo(other!);")));
+                })
+                .orElse(List.of());
+    }
+
+    /** The adapter of an interface's own method takes the analysis's verdict on a declared type that is no type parameter. */
+    private boolean verdictInAdapter(MethodInfo sam, ParameterizedType declared) {
+        return sam.typeInfo().equals(typeInfo) && !declared.isTypeParameter();
     }
 
     /** {@code bool Test(Solution_ arg0, object arg1);}: the library's method the interface has as its own. */
@@ -603,10 +648,19 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<ParameterizedType> samParameters = sam.parameters().stream().map(p -> CstSupertypes.substituteDroppingWildcards(p.parameterizedType(), map))
                 .toList();
         ParameterizedType samReturn = CstSupertypes.substituteDroppingWildcards(sam.returnType(), map);
-        List<String> parameterTypes = samParameters.stream().map(p -> CSharpTypeName.argument(p, q)).toList();
+        // the interface's own method is declared with the analysis's verdicts, string? GetBytecode(string, string?):
+        // the adapter implements it with the same ones (CS8767, CS8766). Not a type parameter: Func<.., A?, ..> would
+        // move the one mismatch at the adapter to every lambda and method group converted to it (CS8622, CS8620)
+        CSharpFacts facts = CSharpContext.program().facts();
+        List<NullableState> states = sam.parameters().stream()
+                .map(p -> verdictInAdapter(sam, p.parameterizedType()) ? facts.nullable(p) : NullableState.UNSPECIFIED)
+                .toList();
+        List<String> parameterTypes = IntStream.range(0, samParameters.size()).mapToObj(i -> CSharpTypeName.withNullable(
+                samParameters.get(i), CSharpTypeName.argument(samParameters.get(i), q), states.get(i))).toList();
         List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
         String parameters = IntStream.range(0, names.size())
-                .mapToObj(i -> CSharpTypeName.of(samParameters.get(i), q) + " " + names.get(i))
+                .mapToObj(i -> CSharpTypeName.withNullable(samParameters.get(i), CSharpTypeName.of(samParameters.get(i), q),
+                        states.get(i)) + " " + names.get(i))
                 .collect(Collectors.joining(", "));
         // a method that is a property is implemented as one; a library's, BiPredicate.test, is the interface's Test
         String property = CSharpContext.program().computedProperty(sam);
@@ -713,8 +767,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     .filter(o -> !o.isStatic() && !o.isSynthetic() && o != m && o.overrides().contains(m))
                     .findFirst().orElse(null);
             if (own == null || own.typeInfo().typeNature().isRecord() && CstQueries.isRecordAccessor(own)) continue;
-            String returnType = CSharpTypeName.of(CstSupertypes.substituteDroppingWildcards(m.returnType(), map), q);
-            if (returnType.equals(CSharpTypeName.of(own.returnType(), q))) continue;
+            ParameterizedType declared = CstSupertypes.substituteDroppingWildcards(m.returnType(), map);
+            String plain = CSharpTypeName.of(declared, q);
+            if (plain.equals(CSharpTypeName.of(own.returnType(), q))) continue;
+            // the interface's member is declared with the analysis's verdict, ISwitchOnCandidate? Recognize(..): the
+            // bridge implements it with the same one (CS8603, CS8766); not a type parameter's, as the lambda adapter
+            String returnType = m.returnType().isTypeParameter() ? plain
+                    : CSharpTypeName.withNullable(declared, plain, CSharpContext.program().facts().nullable(m));
             List<String> names = own.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
             StringBuilder sb = new StringBuilder(returnType).append(' ').append(CSharpTypeName.of(implemented, q))
                     .append('.').append(CSharpNames.method(m)).append('(');

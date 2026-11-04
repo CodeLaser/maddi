@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.runtime;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.ComputeMethodOverrides;
@@ -33,12 +39,6 @@ import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.element.MaddiAnnotationsImpl;
 import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.impl.info.ComputeMethodOverridesImpl;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Stream;
 
 public class RuntimeImpl extends FactoryImpl implements Runtime {
     private final Eval eval;

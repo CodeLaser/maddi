@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.api.info;
 
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
@@ -25,9 +28,6 @@ import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
-import java.util.Set;
 
 /**
  * Represents a field declaration in the CST.

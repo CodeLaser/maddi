@@ -17,17 +17,18 @@
 
 package io.codelaser.maddi.inspection.integration.java.type;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.List;
+
 import org.assertj.core.api.AbstractAssert;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /*
 Captures bug (b): a self-referential ("F-bounded") generic bound that mentions more than one of the

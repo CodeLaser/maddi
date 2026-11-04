@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.graph.op;
 
+import java.util.*;
+
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.V;
-
-import java.util.*;
 
 public class Common {
 

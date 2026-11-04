@@ -17,6 +17,19 @@
 
 package io.codelaser.maddi.run.config.util;
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.core.JacksonException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -29,8 +42,7 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleAbstractTypeResolver;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
-import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
-import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.runtime.LanguageConfiguration;
 import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
@@ -38,18 +50,8 @@ import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
 
 public class JsonStreaming {
     private static final Logger LOGGER = LoggerFactory.getLogger(JsonStreaming.class);

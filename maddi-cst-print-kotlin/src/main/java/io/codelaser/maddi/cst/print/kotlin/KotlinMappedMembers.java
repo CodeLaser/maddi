@@ -16,15 +16,18 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.Map;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * Members of the JDK types that Kotlin maps to its own (String, the collections, Number, Throwable, Enum, Object):
@@ -235,9 +238,9 @@ final class KotlinMappedMembers {
      * type-use annotations: guava's ArrayTable.ColumnMap extends ArrayMap<C, Map<R, @Nullable V>>, whose put(key,
      * value) takes a Map<R, V?>, as the class header writes it. Null when no direct supertype leads there.
      */
-    private static ParameterizedType declaredSupertype(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo,
-                                                       io.codelaser.maddi.cst.api.info.TypeInfo owner) {
-        List<ParameterizedType> direct = new java.util.ArrayList<>();
+    private static ParameterizedType declaredSupertype(TypeInfo typeInfo,
+                                                       TypeInfo owner) {
+        List<ParameterizedType> direct = new ArrayList<>();
         if (typeInfo.parentClass() != null) direct.add(typeInfo.parentClass());
         direct.addAll(typeInfo.interfacesImplemented());
         for (ParameterizedType st : direct) {
@@ -325,7 +328,7 @@ final class KotlinMappedMembers {
         }
         if (asMap == null || asMap.parameters().size() != 2) return null;
         ParameterizedType v = asMap.parameters().get(1);
-        String vName = KotlinTypeName.of(v.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+        String vName = KotlinTypeName.of(v.withNullable(NullableState.NONNULL), q);
         return new String[]{KotlinTypeName.of(asMap.parameters().get(0), q), vName,
                 // V & Any only of a nullable-bounded V: a V : Any (a null-marked LocalCache's) takes no intersection
                 KotlinTypeName.nullableTypeVariable(v) ? vName + " & Any" : vName};
@@ -415,7 +418,7 @@ final class KotlinMappedMembers {
 
     static boolean isMonitorMethod(MethodInfo methodInfo) {
         return !methodInfo.isStatic() && "java.lang.Object".equals(methodInfo.typeInfo().fullyQualifiedName())
-               && java.util.Set.of("wait", "notify", "notifyAll").contains(methodInfo.name());
+               && Set.of("wait", "notify", "notifyAll").contains(methodInfo.name());
     }
 
     /**
@@ -424,7 +427,7 @@ final class KotlinMappedMembers {
      */
     static boolean isJavaStringOnly(MethodInfo methodInfo) {
         return !methodInfo.isStatic() && "java.lang.String".equals(methodInfo.typeInfo().fullyQualifiedName())
-               && java.util.Set.of("strip", "stripLeading", "stripTrailing", "stripIndent", "indent",
+               && Set.of("strip", "stripLeading", "stripTrailing", "stripIndent", "indent",
                 "translateEscapes", "getChars").contains(methodInfo.name());
     }
 
@@ -456,6 +459,6 @@ final class KotlinMappedMembers {
         if (methodInfo.isStatic() || methodInfo.isConstructor()) return null;
         return Stream.concat(Stream.of(methodInfo), methodInfo.overrides().stream())
                 .map(m -> map.get(new Key(m.typeInfo().fullyQualifiedName(), m.name(), m.parameters().size())))
-                .filter(java.util.Objects::nonNull).findFirst().orElse(null);
+                .filter(Objects::nonNull).findFirst().orElse(null);
     }
 }

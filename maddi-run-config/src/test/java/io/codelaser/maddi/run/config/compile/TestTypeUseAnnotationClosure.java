@@ -16,22 +16,28 @@
  */
 package io.codelaser.maddi.run.config.compile;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * A compile classpath is not a closure over the TYPE_USE annotations its dependencies carry.
@@ -82,7 +88,7 @@ public class TestTypeUseAnnotationClosure {
                 import java.lang.annotation.*;
                 @Target(ElementType.METHOD) @Retention(RetentionPolicy.CLASS) public @interface Decl {}
                 """);
-        carrier = compile(javac, "carrier", annotations + java.io.File.pathSeparator + declAnnotations, """
+        carrier = compile(javac, "carrier", annotations + File.pathSeparator + declAnnotations, """
                 package lib;
                 public class Carrier { @decl.Decl public @tu.TU String hello() { return ""; } }
                 """);
@@ -113,21 +119,21 @@ public class TestTypeUseAnnotationClosure {
      * ⚠ The file is named after the PUBLIC type it declares; javac rejects any other name, which is how the
      * first version of this fixture failed.
      */
-    private static final java.util.regex.Pattern DECLARES =
-            java.util.regex.Pattern.compile("public (?:@interface|class|interface|record|enum) (\\w+)");
+    private static final Pattern DECLARES =
+            Pattern.compile("public (?:@interface|class|interface|record|enum) (\\w+)");
 
     private static Path compile(JavaCompiler javac, String name, String cp, String... sources) throws IOException {
         Path src = Files.createDirectories(root.resolve(name).resolve("src"));
         Path out = Files.createDirectories(root.resolve(name).resolve("classes"));
-        List<String> files = new java.util.ArrayList<>();
+        List<String> files = new ArrayList<>();
         for (String source : sources) {
-            java.util.regex.Matcher m = DECLARES.matcher(source);
+            Matcher m = DECLARES.matcher(source);
             assertTrue(m.find(), "cannot see what this source declares: " + source);
             Path f = src.resolve(m.group(1) + ".java");
             Files.writeString(f, source);
             files.add(f.toString());
         }
-        List<String> args = new java.util.ArrayList<>(List.of("-d", out.toString()));
+        List<String> args = new ArrayList<>(List.of("-d", out.toString()));
         if (cp != null) args.addAll(List.of("-classpath", cp));
         args.addAll(files);
         assertEquals(0, javac.run(null, null, System.err, args.toArray(String[]::new)),
@@ -144,18 +150,18 @@ public class TestTypeUseAnnotationClosure {
                                       String... sources) throws IOException {
         Path src = Files.createDirectories(root.resolve(name).resolve("src"));
         Path out = Files.createDirectories(root.resolve(name).resolve("classes"));
-        List<String> files = new java.util.ArrayList<>();
+        List<String> files = new ArrayList<>();
         Path mi = src.resolve("module-info.java");
         Files.writeString(mi, moduleInfo);
         files.add(mi.toString());
         for (String source : sources) {
-            java.util.regex.Matcher m = DECLARES.matcher(source);
+            Matcher m = DECLARES.matcher(source);
             assertTrue(m.find(), "cannot see what this source declares: " + source);
             Path f = src.resolve(m.group(1) + ".java");
             Files.writeString(f, source);
             files.add(f.toString());
         }
-        List<String> args = new java.util.ArrayList<>(List.of("-d", out.toString()));
+        List<String> args = new ArrayList<>(List.of("-d", out.toString()));
         if (modulePath != null) args.addAll(List.of("--module-path", modulePath));
         args.addAll(files);
         assertEquals(0, javac.run(null, null, System.err, args.toArray(String[]::new)),

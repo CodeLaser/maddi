@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.Set;
+
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.FieldModifier;
-
-import java.util.Set;
 
 public interface FieldInspection extends Inspection {
 

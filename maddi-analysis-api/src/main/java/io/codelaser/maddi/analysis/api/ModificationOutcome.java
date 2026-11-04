@@ -17,12 +17,23 @@
 
 package io.codelaser.maddi.analysis.api;
 
-import io.codelaser.maddi.cst.api.analysis.Message;
-
 import java.util.List;
+import java.util.Set;
+
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.Info;
 
 /**
  * @param fingerprintedSourceSets the number of source sets whose fingerprint was stored; 0 unless asked for
+ * @param scope                   null after a cold analysis. After a seeded one ({@link ModificationRequest#seed()}),
+ *                                the elements it analysed: the seed, and whatever its worklist pulled in. The
+ *                                {@code messages} are about these elements only; an element outside the scope kept
+ *                                its values, and the messages an earlier analysis gave about it still hold
  */
-public record ModificationOutcome(List<Message> messages, int fingerprintedSourceSets) {
+public record ModificationOutcome(List<Message> messages, int fingerprintedSourceSets, Set<Info> scope) {
+
+    /** A cold analysis' outcome: no scope. */
+    public ModificationOutcome(List<Message> messages, int fingerprintedSourceSets) {
+        this(messages, fingerprintedSourceSets, null);
+    }
 }

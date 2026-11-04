@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.parser.java.util;
 
-import io.codelaser.maddi.cst.api.element.JavaDoc;
-import io.codelaser.maddi.cst.api.element.Source;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 
 public final class JavaDocParser {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaDocParser.class);

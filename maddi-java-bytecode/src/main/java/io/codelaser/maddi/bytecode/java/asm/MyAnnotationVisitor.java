@@ -18,6 +18,14 @@
 package io.codelaser.maddi.bytecode.java.asm;
 
 
+import static org.objectweb.asm.Opcodes.ASM9;
+
+import java.util.Objects;
+
+import org.objectweb.asm.AnnotationVisitor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.bytecode.java.ExpressionFactory;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -26,13 +34,6 @@ import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
-import org.objectweb.asm.AnnotationVisitor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Objects;
-
-import static org.objectweb.asm.Opcodes.ASM9;
 
 
 public class MyAnnotationVisitor<T extends Info.Builder<? extends Info.Builder<T>>> extends AnnotationVisitor {

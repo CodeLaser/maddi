@@ -1,10 +1,5 @@
 package io.codelaser.maddi.run.config.javac;
 
-import io.codelaser.maddi.run.config.compile.CompileListToInputConfiguration;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -14,6 +9,12 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileListToInputConfiguration;
 
 public class ParseJavacList {
     private static final Logger LOGGER = LoggerFactory.getLogger(ParseJavacList.class);

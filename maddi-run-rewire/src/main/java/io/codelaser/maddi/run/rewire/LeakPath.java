@@ -17,7 +17,16 @@
 
 package io.codelaser.maddi.run.rewire;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+
+import io.codelaser.maddi.cst.api.info.Info;
 
 /**
  * A diagnostic for the rewire driver's leak check: the shortest chain of references (by fields, map entries,
@@ -29,8 +38,8 @@ final class LeakPath {
     }
 
     static String path(Object root, Object target) {
-        java.util.IdentityHashMap<Object, Object[]> parent = new java.util.IdentityHashMap<>();
-        java.util.ArrayDeque<Object> queue = new java.util.ArrayDeque<>();
+        IdentityHashMap<Object, Object[]> parent = new IdentityHashMap<>();
+        ArrayDeque<Object> queue = new ArrayDeque<>();
         parent.put(root, new Object[]{null, "root"});
         queue.add(root);
         while (!queue.isEmpty()) {
@@ -41,7 +50,7 @@ final class LeakPath {
                 while (c != null) {
                     Object[] pe = parent.get(c);
                     sb.insert(0, "\n  " + pe[1] + " : " + c.getClass().getName()
-                                 + (c instanceof io.codelaser.maddi.cst.api.info.Info info ? " (" + info + ")" : ""));
+                                 + (c instanceof Info info ? " (" + info + ")" : ""));
                     c = pe[0];
                 }
                 return sb.toString();
@@ -60,7 +69,7 @@ final class LeakPath {
     }
 
     static List<Object[]> edges(Object o) {
-        List<Object[]> out = new java.util.ArrayList<>();
+        List<Object[]> out = new ArrayList<>();
         Class<?> c = o.getClass();
         if (c.isArray()) {
             if (!c.getComponentType().isPrimitive()) {
@@ -69,7 +78,7 @@ final class LeakPath {
             }
             return out;
         }
-        if (o instanceof java.util.Map<?, ?> m && !c.getName().startsWith("io.codelaser")) {
+        if (o instanceof Map<?, ?> m && !c.getName().startsWith("io.codelaser")) {
             try {
                 for (var e : m.entrySet()) {
                     out.add(new Object[]{e.getKey(), "key"});
@@ -78,7 +87,7 @@ final class LeakPath {
             } catch (RuntimeException re) { /* ignore */ }
             return out;
         }
-        if (o instanceof java.util.Collection<?> col && !c.getName().startsWith("io.codelaser")) {
+        if (o instanceof Collection<?> col && !c.getName().startsWith("io.codelaser")) {
             try {
                 int i = 0;
                 for (Object e : col) out.add(new Object[]{e, "elem" + (i++)});
@@ -86,8 +95,8 @@ final class LeakPath {
             return out;
         }
         for (Class<?> k = c; k != null && k != Object.class; k = k.getSuperclass()) {
-            for (java.lang.reflect.Field f : k.getDeclaredFields()) {
-                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.getType().isPrimitive()) continue;
+            for (Field f : k.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers()) || f.getType().isPrimitive()) continue;
                 try {
                     f.setAccessible(true);
                     out.add(new Object[]{f.get(o), k.getSimpleName() + "." + f.getName()});
@@ -99,9 +108,9 @@ final class LeakPath {
 
     /** Every instance of {@code type} reachable from {@code root}, visiting at most {@code cap} objects. */
     static <T> List<T> reachable(Object root, Class<T> type, int cap) {
-        java.util.IdentityHashMap<Object, Boolean> seen = new java.util.IdentityHashMap<>();
-        java.util.ArrayDeque<Object> queue = new java.util.ArrayDeque<>();
-        List<T> found = new java.util.ArrayList<>();
+        IdentityHashMap<Object, Boolean> seen = new IdentityHashMap<>();
+        ArrayDeque<Object> queue = new ArrayDeque<>();
+        List<T> found = new ArrayList<>();
         seen.put(root, true);
         queue.add(root);
         while (!queue.isEmpty() && seen.size() < cap) {

@@ -18,6 +18,12 @@
 package io.codelaser.maddi.cst.api.info;
 
 
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
@@ -32,12 +38,6 @@ import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.TypeNature;
 import io.codelaser.maddi.support.Either;
-
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /**
  * Represents a type declaration in the CST: a class, interface, enum, record, or annotation type.

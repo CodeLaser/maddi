@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.parser.java;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 public class TestParseSealed extends CommonTestParse {
 

@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.run.config.report;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.inspection.api.parser.Summary;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.List;
 
 /**
  * Harmonized error rendering for every runner. All three front-ends (openjdk, in-house/main, kotlin) accumulate

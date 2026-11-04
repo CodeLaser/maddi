@@ -17,13 +17,6 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
-import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
-import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +26,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
 /**
  * Java to C# for a list of types: each compilation unit as a {@code .cs} file under a directory, by package, and

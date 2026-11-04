@@ -17,6 +17,19 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -33,16 +46,6 @@ import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Passing;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Receiver;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A method body as Rust statements. Every use of a value is adapted to what its destination expects, as the facts
@@ -96,12 +99,12 @@ final class RustBodyPrinter {
     /** The lambda being printed is Optional.orElseGet's supplier: its result is a value of its own, copied. */
     private boolean copiedResult;
     /** The switch expression being printed is a method's result: each arm's value is converted as the result is. */
-    private java.util.function.Function<Expression, String> armResult;
+    private Function<Expression, String> armResult;
     /** The labeled blocks of the switch arms being printed, innermost first: a yield is a break out of one. */
     private final Deque<YieldTarget> yieldTargets = new ArrayDeque<>();
     private int yieldCount;
 
-    private record YieldTarget(String label, java.util.function.Function<Expression, String> value) {
+    private record YieldTarget(String label, Function<Expression, String> value) {
     }
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
@@ -309,7 +312,7 @@ final class RustBodyPrinter {
     private String resultValue(Expression e) {
         MethodInfo method = context.method;
         if (e instanceof SwitchExpression se && !RustTypes.isCopy(method.returnType())) {
-            java.util.function.Function<Expression, String> outer = armResult;
+            Function<Expression, String> outer = armResult;
             armResult = this::resultValue;
             try {
                 return switchExpression(se).text;
@@ -653,8 +656,8 @@ final class RustBodyPrinter {
                 if (body.size() == 1) return armValue(body.getFirst(), type, depth);
                 String pad = INDENT.repeat(depth);
                 // a yield before the last statement leaves the arm: a labeled block, broken out of with the value
-                java.util.function.Function<Expression, String> result = armResult;
-                java.util.function.Function<Expression, String> value = e -> result != null ? result.apply(e)
+                Function<Expression, String> result = armResult;
+                Function<Expression, String> value = e -> result != null ? result.apply(e)
                         : armExpression(e, type);
                 boolean early = yieldsEarly(body);
                 String label = early ? "'y" + (yieldCount++) : null;
@@ -696,7 +699,7 @@ final class RustBodyPrinter {
 
     private String armExpression(Expression e, ParameterizedType type) {
         if (armResult != null) {
-            java.util.function.Function<Expression, String> result = armResult;
+            Function<Expression, String> result = armResult;
             armResult = null;
             try {
                 return result.apply(e);
@@ -1084,7 +1087,7 @@ final class RustBodyPrinter {
     }
 
     /** An operand of an operator: a borrowed value compares and computes as the value itself. */
-    private static final java.util.regex.Pattern AS_CAST = java.util.regex.Pattern.compile(" as [\\w:<>]+$");
+    private static final Pattern AS_CAST = Pattern.compile(" as [\\w:<>]+$");
 
     private static boolean isObject(ParameterizedType type) {
         return type.typeInfo() != null && type.typeInfo().isJavaLangObject() && type.arrays() == 0;
@@ -1184,7 +1187,7 @@ final class RustBodyPrinter {
         if (ti.typeNature().isEnum() && RustTypePrinter.plainEnum(ti)) return new String[]{"{}", p.text + ".name()"};
         String mapped = RustTypes.mapped(ti);
         if (mapped != null) {
-            boolean debug = java.util.Set.of("Vec", "HashSet", "BTreeSet", "HashMap", "BTreeMap", "VecDeque", "Option",
+            boolean debug = Set.of("Vec", "HashSet", "BTreeSet", "HashMap", "BTreeMap", "VecDeque", "Option",
                     "SystemTime").contains(mapped);
             return new String[]{debug ? "{:?}" : "{}", p.text};
         }
@@ -1829,7 +1832,7 @@ final class RustBodyPrinter {
             for (ParameterInfo p : l.methodInfo().parameters()) {
                 ps.add((RustTypes.isCopy(p.parameterizedType()) ? "&" : "") + RustNames.snake(p.name()));
             }
-            return text.replaceFirst("^\\|([^|]*)\\|", java.util.regex.Matcher.quoteReplacement(
+            return text.replaceFirst("^\\|([^|]*)\\|", Matcher.quoteReplacement(
                     "|(" + String.join(", ", ps) + ")|"));
         }
         if (e instanceof MethodReference mr && mr.concreteParameterTypes().size() == 2) {
@@ -1837,7 +1840,7 @@ final class RustBodyPrinter {
             for (int i = 0; i < 2; i++) {
                 ps.add((RustTypes.isCopy(mr.concreteParameterTypes().get(i)) ? "&" : "") + "x" + (i + 1));
             }
-            return text.replaceFirst("^\\|([^|]*)\\|", java.util.regex.Matcher.quoteReplacement(
+            return text.replaceFirst("^\\|([^|]*)\\|", Matcher.quoteReplacement(
                     "|(" + String.join(", ", ps) + ")|"));
         }
         return text;

@@ -16,18 +16,28 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.output.OutputBuilder;
-import io.codelaser.maddi.cst.api.statement.Statement;
-import io.codelaser.maddi.cst.api.variable.Variable;
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import io.codelaser.maddi.cst.print.translate.TranslationState;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Supplier;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import io.codelaser.maddi.cst.print.translate.TranslationState;
 
 /**
  * What a statement needs to know about where it is printed, which the CST does not say: the printers are static
@@ -89,12 +99,12 @@ final class KotlinContext {
     private static final ThreadLocal<TranslationState<KotlinPrintCode>> STATE =
             ThreadLocal.withInitial(TranslationState::new);
     private static final ThreadLocal<KotlinPrintOptions> OPTIONS = ThreadLocal.withInitial(() -> KotlinPrintOptions.DEFAULT);
-    private static final ThreadLocal<Map<String, io.codelaser.maddi.cst.api.type.ParameterizedType>> LOCAL_TYPES =
+    private static final ThreadLocal<Map<String, ParameterizedType>> LOCAL_TYPES =
             ThreadLocal.withInitial(HashMap::new);
     // the body a local variable is declared in: the method's, or a lambda's
-    private static final ThreadLocal<Deque<java.util.Optional<io.codelaser.maddi.cst.api.element.Element>>> SCOPES =
+    private static final ThreadLocal<Deque<Optional<Element>>> SCOPES =
             ThreadLocal.withInitial(ArrayDeque::new);
-    private static final ThreadLocal<java.util.Set<String>> SHADOWING = ThreadLocal.withInitial(java.util.Set::of);
+    private static final ThreadLocal<Set<String>> SHADOWING = ThreadLocal.withInitial(Set::of);
     // by name: a local variable's equality is its name, and so is its scope as far as Kotlin is concerned
     private static final ThreadLocal<Map<String, Supplier<OutputBuilder>>> PATTERNS =
             ThreadLocal.withInitial(HashMap::new);
@@ -154,11 +164,11 @@ final class KotlinContext {
     }
 
     /** The call around the innermost one: {@code Collections.sort(list, …)} while printing its comparingInt(…). */
-    static io.codelaser.maddi.cst.api.expression.Expression enclosingCall() {
+    static Expression enclosingCall() {
         return STATE.get().enclosingCall();
     }
 
-    static void pushCall(io.codelaser.maddi.cst.api.expression.Expression call) {
+    static void pushCall(Expression call) {
         STATE.get().pushCall(call);
     }
 
@@ -179,16 +189,16 @@ final class KotlinContext {
         STATE.get().popStatement();
     }
 
-    static io.codelaser.maddi.cst.api.info.MethodInfo currentMethod() {
+    static MethodInfo currentMethod() {
         return STATE.get().currentMethod();
     }
 
     /** The type a local variable was printed with, by name (the innermost declaration of that name wins). */
-    static void localType(String name, io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+    static void localType(String name, ParameterizedType type) {
         LOCAL_TYPES.get().put(name, type);
     }
 
-    static io.codelaser.maddi.cst.api.type.ParameterizedType localType(String name) {
+    static ParameterizedType localType(String name) {
         return LOCAL_TYPES.get().get(name);
     }
 
@@ -199,17 +209,17 @@ final class KotlinContext {
     }
 
     /** The types referenced since the last call, which starts a new record. */
-    static java.util.Set<TypeInfo> takeReferencedTypes() {
+    static Set<TypeInfo> takeReferencedTypes() {
         return STATE.get().takeReferenced();
     }
 
     // the file's imports by simple name: a type Java never named (a SAM constructor's guava Function, where the file
     // imports java.util.function.Function) cannot take a name another import holds
-    private static final ThreadLocal<java.util.Map<String, String>> IMPORTED_NAMES =
-            ThreadLocal.withInitial(java.util.Map::of);
+    private static final ThreadLocal<Map<String, String>> IMPORTED_NAMES =
+            ThreadLocal.withInitial(Map::of);
 
-    static void importedNames(java.util.List<String> imports) {
-        java.util.Map<String, String> names = new java.util.HashMap<>();
+    static void importedNames(List<String> imports) {
+        Map<String, String> names = new HashMap<>();
         imports.stream().filter(i -> !i.endsWith(".*"))
                 .forEach(i -> names.putIfAbsent(i.substring(i.lastIndexOf('.') + 1), i));
         IMPORTED_NAMES.set(names);
@@ -221,31 +231,31 @@ final class KotlinContext {
     }
 
     // the file's private helpers its text calls (KotlinCompilationUnitPrinter appends their declarations)
-    private static final ThreadLocal<java.util.Set<String>> FILE_HELPERS = ThreadLocal.withInitial(java.util.TreeSet::new);
+    private static final ThreadLocal<Set<String>> FILE_HELPERS = ThreadLocal.withInitial(TreeSet::new);
 
     static void fileHelper(String declaration) {
         FILE_HELPERS.get().add(declaration);
     }
 
     /** The helpers asked for since the last call, which starts a new record. */
-    static java.util.Set<String> takeFileHelpers() {
-        java.util.Set<String> taken = FILE_HELPERS.get();
-        FILE_HELPERS.set(new java.util.TreeSet<>());
+    static Set<String> takeFileHelpers() {
+        Set<String> taken = FILE_HELPERS.get();
+        FILE_HELPERS.set(new TreeSet<>());
         return taken;
     }
 
     /** Records a message about {@code subject}, an element of the type being printed. */
-    static void message(KotlinPrintCode code, io.codelaser.maddi.cst.api.element.Element subject, String detail) {
+    static void message(KotlinPrintCode code, Element subject, String detail) {
         STATE.get().message(code, subject, detail);
     }
 
     /** An element in a message: its Java text, on one line, shortened. */
-    static String describe(io.codelaser.maddi.cst.api.element.Element e) {
+    static String describe(Element e) {
         return TranslationState.describe(e);
     }
 
     /** The messages recorded since the last call, which starts a new record. */
-    static java.util.List<PrintMessage<KotlinPrintCode>> takeMessages() {
+    static List<PrintMessage<KotlinPrintCode>> takeMessages() {
         return STATE.get().takeMessages();
     }
 
@@ -258,11 +268,11 @@ final class KotlinContext {
      * The primary constructor's parameter names, while printing property initializers and init blocks: there a field
      * of the same name must be written {@code this.x}, or it reads the parameter.
      */
-    static void shadowingParameters(java.util.Set<String> names) {
+    static void shadowingParameters(Set<String> names) {
         SHADOWING.set(names);
     }
 
-    static java.util.Set<String> shadowingParameters() {
+    static Set<String> shadowingParameters() {
         return SHADOWING.get();
     }
 
@@ -298,7 +308,7 @@ final class KotlinContext {
      * A type parameter of one of the types being printed that Kotlin sees here, or of the method being printed: not the
      * outer class's in a nested class (jenkins's CopyOnWriteList.ConverterImpl and its E).
      */
-    static boolean typeParameterInScope(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+    static boolean typeParameterInScope(TypeParameter typeParameter) {
         if (STATE.get().typeParameterInScope(typeParameter, KotlinTypePrinter::inner)) return true;
         // an enclosing method's too: guava's MultimapBuilder.enumKeys<K0> creates an EnumMap<K0, …> in the
         // createMap of the anonymous class it returns
@@ -307,8 +317,8 @@ final class KotlinContext {
     }
 
     /** The method being printed, or one enclosing it, that declares {@code typeParameter}; null when none does. */
-    static io.codelaser.maddi.cst.api.info.MethodInfo enclosingMethodOf(
-            io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+    static MethodInfo enclosingMethodOf(
+            TypeParameter typeParameter) {
         return STATE.get().methods().stream().filter(m -> m.typeParameters().contains(typeParameter))
                 .findFirst().orElse(null);
     }
@@ -342,11 +352,11 @@ final class KotlinContext {
 
     /** A method body starts: the pattern variables of the enclosing method are not in scope. Restore with the result. */
     record MethodScope(Map<String, Supplier<OutputBuilder>> patterns,
-                       Map<String, io.codelaser.maddi.cst.api.type.ParameterizedType> localTypes,
-                       java.util.Deque<?> smartCasts) {
+                       Map<String, ParameterizedType> localTypes,
+                       Deque<?> smartCasts) {
     }
 
-    static MethodScope enterMethod(io.codelaser.maddi.cst.api.info.MethodInfo methodInfo) {
+    static MethodScope enterMethod(MethodInfo methodInfo) {
         MethodScope saved = new MethodScope(new HashMap<>(PATTERNS.get()), new HashMap<>(LOCAL_TYPES.get()),
                 KotlinSmartCasts.enterMethod());
         PATTERNS.get().clear();
@@ -369,24 +379,24 @@ final class KotlinContext {
         LOCAL_TYPES.get().putAll(saved.localTypes());
     }
 
-    private static final ThreadLocal<Map<io.codelaser.maddi.cst.api.info.ParameterInfo,
-            io.codelaser.maddi.cst.api.type.ParameterizedType>> LAMBDA_PARAMETERS = ThreadLocal.withInitial(HashMap::new);
+    private static final ThreadLocal<Map<ParameterInfo,
+            ParameterizedType>> LAMBDA_PARAMETERS = ThreadLocal.withInitial(HashMap::new);
 
     /** The type Kotlin gives this lambda parameter, from the call the lambda is an argument of; null if unknown. */
-    static io.codelaser.maddi.cst.api.type.ParameterizedType lambdaParameterType(
-            io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
+    static ParameterizedType lambdaParameterType(
+            ParameterInfo parameter) {
         return LAMBDA_PARAMETERS.get().get(parameter);
     }
 
-    static void lambdaParameterType(io.codelaser.maddi.cst.api.info.ParameterInfo parameter,
-                                    io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+    static void lambdaParameterType(ParameterInfo parameter,
+                                    ParameterizedType type) {
         if (type == null) LAMBDA_PARAMETERS.get().remove(parameter);
         else LAMBDA_PARAMETERS.get().put(parameter, type);
     }
 
     /** A method or lambda body starts: the scope of the local variables declared in it. */
-    static void pushScope(io.codelaser.maddi.cst.api.element.Element body) {
-        SCOPES.get().push(java.util.Optional.ofNullable(body));
+    static void pushScope(Element body) {
+        SCOPES.get().push(Optional.ofNullable(body));
     }
 
     static void popScope() {
@@ -412,7 +422,7 @@ final class KotlinContext {
     }
 
     /** A local of the current body declared without a value, which each path assigns at most once: a val. */
-    static boolean assignedOnce(io.codelaser.maddi.cst.api.statement.Statement declaration, Variable local) {
+    static boolean assignedOnce(Statement declaration, Variable local) {
         var scope = SCOPES.get().peek();
         return scope != null && scope.isPresent() && KotlinAssignments.assignedOnce(scope.get(), declaration, local);
     }

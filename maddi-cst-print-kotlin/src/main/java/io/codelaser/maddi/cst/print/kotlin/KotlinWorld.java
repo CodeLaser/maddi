@@ -16,13 +16,7 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.expression.MethodReference;
-import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.variable.FieldReference;
-
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -30,6 +24,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
 
 /**
  * The code that is translated together: the primary types whose Kotlin is compiled as one, main and test sources. A
@@ -83,14 +87,14 @@ public final class KotlinWorld {
      * A method of the code translated together overrides {@code method} ({@link #FILE}: of its compilation unit), so
      * a call of it may run another body.
      */
-    public boolean overridden(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+    public boolean overridden(MethodInfo method) {
         if (isFile()) return overriddenIn(method, method.typeInfo().compilationUnit().types());
         return overridden.computeIfAbsent(method, m -> overriddenIn(method, types));
     }
 
-    private static boolean overriddenIn(io.codelaser.maddi.cst.api.info.MethodInfo method,
+    private static boolean overriddenIn(MethodInfo method,
                                         Collection<TypeInfo> primaryTypes) {
-        return primaryTypes.stream().flatMap(t -> java.util.stream.Stream.concat(java.util.stream.Stream.of(t),
+        return primaryTypes.stream().flatMap(t -> Stream.concat(Stream.of(t),
                         t.recursiveSubTypeStream()))
                 .flatMap(TypeInfo::constructorAndMethodStream)
                 .anyMatch(m -> m != method && m.overrides().contains(method));
@@ -111,7 +115,7 @@ public final class KotlinWorld {
     }
 
     // the override families of the world's methods, built when first asked (maddi-mod#25)
-    private volatile Map<io.codelaser.maddi.cst.api.info.MethodInfo, List<io.codelaser.maddi.cst.api.info.MethodInfo>> families;
+    private volatile Map<MethodInfo, List<MethodInfo>> families;
 
     /**
      * The override family of a method of the world: the methods that override it or that it overrides, transitively,
@@ -120,7 +124,7 @@ public final class KotlinWorld {
      * implements one of its members: Kotlin types such an implementation's parameters from the interface, and its
      * body is not checked here. {@link #FILE} has no families.
      */
-    public List<io.codelaser.maddi.cst.api.info.MethodInfo> family(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+    public List<MethodInfo> family(MethodInfo method) {
         if (isFile()) return null;
         if (families == null) {
             synchronized (this) {
@@ -130,22 +134,22 @@ public final class KotlinWorld {
         return families.get(method);
     }
 
-    private Map<io.codelaser.maddi.cst.api.info.MethodInfo, List<io.codelaser.maddi.cst.api.info.MethodInfo>> computeFamilies() {
-        Map<io.codelaser.maddi.cst.api.info.MethodInfo, io.codelaser.maddi.cst.api.info.MethodInfo> parent = new IdentityHashMap<>();
-        Set<io.codelaser.maddi.cst.api.info.MethodInfo> implementedByFunction = Collections.newSetFromMap(new IdentityHashMap<>());
-        List<io.codelaser.maddi.cst.api.info.MethodInfo> methods = types.stream()
+    private Map<MethodInfo, List<MethodInfo>> computeFamilies() {
+        Map<MethodInfo, MethodInfo> parent = new IdentityHashMap<>();
+        Set<MethodInfo> implementedByFunction = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<MethodInfo> methods = types.stream()
                 .flatMap(TypeInfo::recursiveSubTypeStreamIncludingLocal)
                 .flatMap(TypeInfo::constructorAndMethodStream)
                 .filter(m -> !m.isConstructor() && !m.isStatic()).toList();
-        for (io.codelaser.maddi.cst.api.info.MethodInfo m : methods) {
+        for (MethodInfo m : methods) {
             parent.putIfAbsent(m, m);
-            for (io.codelaser.maddi.cst.api.info.MethodInfo o : m.overrides()) {
+            for (MethodInfo o : m.overrides()) {
                 parent.putIfAbsent(o, o);
                 union(parent, m, o);
             }
         }
         types.forEach(t -> KotlinReadOnly.forEachBody(t, (method, body) -> body.visit((Element e) -> {
-            TypeInfo functional = e instanceof io.codelaser.maddi.cst.api.expression.Lambda l
+            TypeInfo functional = e instanceof Lambda l
                     ? l.concreteFunctionalType().typeInfo()
                     : e instanceof MethodReference mr ? mr.parameterizedType().typeInfo() : null;
             if (functional != null && functional.singleAbstractMethod() != null) {
@@ -153,38 +157,38 @@ public final class KotlinWorld {
             }
             return true;
         })));
-        Map<io.codelaser.maddi.cst.api.info.MethodInfo, List<io.codelaser.maddi.cst.api.info.MethodInfo>> byRoot = new IdentityHashMap<>();
-        for (io.codelaser.maddi.cst.api.info.MethodInfo m : parent.keySet()) {
-            byRoot.computeIfAbsent(find(parent, m), _ -> new java.util.ArrayList<>()).add(m);
+        Map<MethodInfo, List<MethodInfo>> byRoot = new IdentityHashMap<>();
+        for (MethodInfo m : parent.keySet()) {
+            byRoot.computeIfAbsent(find(parent, m), _ -> new ArrayList<>()).add(m);
         }
-        Map<io.codelaser.maddi.cst.api.info.MethodInfo, List<io.codelaser.maddi.cst.api.info.MethodInfo>> result = new IdentityHashMap<>();
-        for (List<io.codelaser.maddi.cst.api.info.MethodInfo> family : byRoot.values()) {
+        Map<MethodInfo, List<MethodInfo>> result = new IdentityHashMap<>();
+        for (List<MethodInfo> family : byRoot.values()) {
             boolean complete = family.stream().allMatch(m -> types.contains(m.typeInfo().primaryType())
                                                               && !implementedByFunction.contains(m));
-            List<io.codelaser.maddi.cst.api.info.MethodInfo> members = complete ? List.copyOf(family) : null;
-            for (io.codelaser.maddi.cst.api.info.MethodInfo m : family) {
+            List<MethodInfo> members = complete ? List.copyOf(family) : null;
+            for (MethodInfo m : family) {
                 if (members != null) result.put(m, members);
             }
         }
         return result;
     }
 
-    private static io.codelaser.maddi.cst.api.info.MethodInfo find(
-            Map<io.codelaser.maddi.cst.api.info.MethodInfo, io.codelaser.maddi.cst.api.info.MethodInfo> parent,
-            io.codelaser.maddi.cst.api.info.MethodInfo m) {
-        io.codelaser.maddi.cst.api.info.MethodInfo root = m;
+    private static MethodInfo find(
+            Map<MethodInfo, MethodInfo> parent,
+            MethodInfo m) {
+        MethodInfo root = m;
         while (parent.get(root) != root) root = parent.get(root);
         while (parent.get(m) != root) {
-            io.codelaser.maddi.cst.api.info.MethodInfo next = parent.get(m);
+            MethodInfo next = parent.get(m);
             parent.put(m, root);
             m = next;
         }
         return root;
     }
 
-    private static void union(Map<io.codelaser.maddi.cst.api.info.MethodInfo, io.codelaser.maddi.cst.api.info.MethodInfo> parent,
-                              io.codelaser.maddi.cst.api.info.MethodInfo a, io.codelaser.maddi.cst.api.info.MethodInfo b) {
-        io.codelaser.maddi.cst.api.info.MethodInfo ra = find(parent, a), rb = find(parent, b);
+    private static void union(Map<MethodInfo, MethodInfo> parent,
+                              MethodInfo a, MethodInfo b) {
+        MethodInfo ra = find(parent, a), rb = find(parent, b);
         if (ra != rb) parent.put(ra, rb);
     }
 

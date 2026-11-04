@@ -17,14 +17,12 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
-import io.codelaser.maddi.annotation.Independent;
+import java.util.List;
 
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.cst.api.element.Comment;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
-
-import java.util.List;
 
 /**
  * A brace-delimited sequence of statements, {@code { ... }}.

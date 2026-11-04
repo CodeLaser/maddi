@@ -4,20 +4,23 @@
  */
 package io.codelaser.maddi.inspection.openjdk;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
+import org.slf4j.Logger;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.net.URI;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * ⛔ <b>A class path belongs to a source set, so an on-demand compiled-type load must run on the source set that
@@ -56,8 +59,8 @@ public class TestLazyLoaderSourceSet {
 
     private static Fixture parse() throws IOException {
         SourceSet javaBase = SourceSetImpl.javaBase();
-        SourceSet slf4jJar = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class, javaBase);
-        SourceSet opentest4jJar = SourceSetImpl.sourceSetOf(org.opentest4j.AssertionFailedError.class, javaBase);
+        SourceSet slf4jJar = SourceSetImpl.sourceSetOf(Logger.class, javaBase);
+        SourceSet opentest4jJar = SourceSetImpl.sourceSetOf(AssertionFailedError.class, javaBase);
         SourceSet withSlf4j = new SourceSetImpl.Builder()
                 .setName("with-slf4j").setUri(URI.create("file:/"))
                 .setDependencies(List.of(javaBase, slf4jJar))

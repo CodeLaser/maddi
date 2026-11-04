@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.parser.java;
 
+import java.util.List;
+
+import org.parsers.java.Node;
+import org.parsers.java.ast.*;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
@@ -24,10 +29,6 @@ import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.inspection.api.parser.Context;
 import io.codelaser.maddi.util.StringUtil;
-import org.parsers.java.Node;
-import org.parsers.java.ast.*;
-
-import java.util.List;
 
 public class ParseBlock extends CommonParse {
 

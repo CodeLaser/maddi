@@ -17,6 +17,24 @@
 
 package io.codelaser.maddi.run.rewire;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.ref.WeakReference;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
+
+import javax.management.ObjectName;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.callgraph.PrimaryTypeUseGraph;
 import io.codelaser.maddi.cst.api.info.Info;
@@ -26,17 +44,6 @@ import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.Supplier;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 
 /**
  * The rewire driver: edit a randomly chosen source file on disk, ask the inspector what changed, re-parse with the
@@ -162,7 +169,7 @@ public class RunRewireTests {
      */
     private static long heapAfterGcMb() {
         System.gc();
-        java.lang.Runtime rt = java.lang.Runtime.getRuntime();
+        Runtime rt = Runtime.getRuntime();
         return (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
     }
 
@@ -175,10 +182,10 @@ public class RunRewireTests {
     private static void logHistogram(int iteration, boolean restore) {
         if (HISTOGRAM <= 0) return;
         try {
-            Object out = java.lang.management.ManagementFactory.getPlatformMBeanServer().invoke(
-                    new javax.management.ObjectName("com.sun.management:type=DiagnosticCommand"),
+            Object out = ManagementFactory.getPlatformMBeanServer().invoke(
+                    new ObjectName("com.sun.management:type=DiagnosticCommand"),
                     "gcClassHistogram", new Object[]{new String[0]}, new String[]{String[].class.getName()});
-            String top = ((String) out).lines().limit(HISTOGRAM + 3L).collect(java.util.stream.Collectors.joining("\n"));
+            String top = ((String) out).lines().limit(HISTOGRAM + 3L).collect(Collectors.joining("\n"));
             LOGGER.info("REWIRE HISTOGRAM iteration {}{}:\n{}", iteration, restore ? " (restore)" : "", top);
         } catch (Exception e) {
             LOGGER.warn("REWIRE HISTOGRAM not available: {}", e.toString());
@@ -191,7 +198,7 @@ public class RunRewireTests {
      reaches it (LeakPath). "not found" means a root outside the driver: a static, a thread-local, a cache.
      */
     private static final boolean LEAK_CHECK = Boolean.getBoolean("maddi.rewire.leakCheck");
-    private final List<java.lang.ref.WeakReference<TypeInfo>> watched = new ArrayList<>();
+    private final List<WeakReference<TypeInfo>> watched = new ArrayList<>();
     private int watchedAt;
 
     private void leakCheck(int iteration, InfoMapView view) {
@@ -199,18 +206,18 @@ public class RunRewireTests {
         int n = stats.size();
         if (watched.isEmpty() && n == 2 && !view.rewiredTypes().isEmpty()) {
             // every type the rewire built: whether a generation survives is a count, and one survivor's chain is enough
-            view.rewiredTypes().forEach(t -> watched.add(new java.lang.ref.WeakReference<>(t)));
+            view.rewiredTypes().forEach(t -> watched.add(new WeakReference<>(t)));
             LOGGER.info("REWIRE LEAK watching the {} type(s) built at re-parse {}", watched.size(), n);
             watchedAt = n;
         } else if (!watched.isEmpty() && n == watchedAt + 4) {
             for (int i = 0; i < 3; i++) System.gc();
-            List<TypeInfo> alive = watched.stream().map(java.lang.ref.WeakReference::get).filter(Objects::nonNull)
+            List<TypeInfo> alive = watched.stream().map(WeakReference::get).filter(Objects::nonNull)
                     .toList();
             LOGGER.info("REWIRE LEAK of the {} type(s) built at re-parse {}, {} are still reachable", watched.size(),
                     watchedAt, alive.size());
             // the types reachable from the driver by name: more than one object for a name is a generation kept
             List<TypeInfo> all = LeakPath.reachable(this, TypeInfo.class, 40_000_000);
-            Map<String, List<TypeInfo>> byName = all.stream().collect(java.util.stream.Collectors.groupingBy(
+            Map<String, List<TypeInfo>> byName = all.stream().collect(Collectors.groupingBy(
                     TypeInfo::fullyQualifiedName));
             List<Map.Entry<String, List<TypeInfo>>> doubled = byName.entrySet().stream()
                     .filter(e -> e.getValue().size() > 1).sorted(Map.Entry.comparingByKey()).toList();
@@ -440,9 +447,9 @@ public class RunRewireTests {
             LOGGER.error("REWIRE ORACLE iteration {}: {} difference(s) with a cold parse", iteration,
                     differences.size());
             // up to 50 of each kind ("prep of", "analysis of", ...): one kind must not hide another
-            differences.stream().collect(java.util.stream.Collectors.groupingBy(
-                            d -> d.substring(0, Math.max(0, d.indexOf(" of "))), java.util.LinkedHashMap::new,
-                            java.util.stream.Collectors.toList()))
+            differences.stream().collect(Collectors.groupingBy(
+                            d -> d.substring(0, Math.max(0, d.indexOf(" of "))), LinkedHashMap::new,
+                            Collectors.toList()))
                     .forEach((kind, list) -> {
                         LOGGER.error("REWIRE ORACLE iteration {}: {} {} difference(s)", iteration, list.size(),
                                 kind.isEmpty() ? "other" : kind);
@@ -481,7 +488,7 @@ public class RunRewireTests {
                 median(stats.stream().mapToLong(Stats::analysisMs)), oracleChecks, oracleDifferences.size());
     }
 
-    private static long median(java.util.stream.LongStream values) {
+    private static long median(LongStream values) {
         long[] sorted = values.sorted().toArray();
         return sorted.length == 0 ? 0 : sorted[sorted.length / 2];
     }

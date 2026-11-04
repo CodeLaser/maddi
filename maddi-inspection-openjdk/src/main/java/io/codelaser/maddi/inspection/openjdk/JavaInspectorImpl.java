@@ -1,38 +1,70 @@
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.lang.module.ModuleDescriptor;
+import java.lang.module.ModuleFinder;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.*;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+import java.util.zip.GZIPInputStream;
+
+import javax.tools.*;
+
+import org.jetbrains.annotations.NotNull;
+import org.parsers.java.JavaParser;
+import org.parsers.java.Node;
+import org.parsers.java.ast.ModularCompilationUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.sun.source.util.JavacTask;
+
+import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
-import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
-import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
-import io.codelaser.maddi.parser.java.ParseHelperImpl;
-import io.codelaser.maddi.parser.java.ParseModuleInfo;
-import org.parsers.java.JavaParser;
-import org.parsers.java.Node;
-import org.parsers.java.ast.ModularCompilationUnit;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
+import io.codelaser.maddi.graph.op.Linearize;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
 import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
+import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
+import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
 import io.codelaser.maddi.inspection.resource.ResolveModuleDirectives;
 import io.codelaser.maddi.inspection.resource.SummaryImpl;
@@ -42,34 +74,8 @@ import io.codelaser.maddi.java.openjdk.MaddiDiagnosticCollector;
 import io.codelaser.maddi.java.openjdk.ScanCompilationUnits;
 import io.codelaser.maddi.java.openjdk.SourceSetInterleave;
 import io.codelaser.maddi.java.openjdk.UnresolvedSymbolException;
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.ImmutableGraph;
-import io.codelaser.maddi.graph.op.Linearize;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.tools.*;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.lang.module.ModuleDescriptor;
-import java.lang.module.ModuleFinder;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-import java.util.zip.GZIPInputStream;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+import io.codelaser.maddi.parser.java.ParseHelperImpl;
+import io.codelaser.maddi.parser.java.ParseModuleInfo;
 
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
@@ -80,7 +86,10 @@ public class JavaInspectorImpl implements JavaInspector {
     private final Map<SourceFile, List<TypeInfo>> sourceFiles = new HashMap<>();
     private CompiledTypesManager compiledTypesManager;
     private InputConfiguration inputConfiguration; // kept for tests
-    private io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
+    private InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
+    // what reloadSources found added and removed since the last parse, for the next re-parse (see reparse)
+    private final Set<SourceFile> addedSinceParse = new LinkedHashSet<>();
+    private final Set<TypeInfo> removedSinceParse = new LinkedHashSet<>();
     private final boolean computeFingerPrints;
     private final JavaCompiler javaCompiler;
     private final InfoByFqn infoByFqn = new InfoByFqn();
@@ -127,7 +136,7 @@ public class JavaInspectorImpl implements JavaInspector {
     // that is actually asking.
     private boolean strictSourceSetLoading;
     // census for the strict-mode audit; see recordFallBack. Concurrent: getOrLoad runs on parallel analyzer threads.
-    private final Set<String> fallBackResolutions = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<String> fallBackResolutions = ConcurrentHashMap.newKeySet();
 
     /**
      * How to stand up a {@link #loaderUnits} equivalent to the scan task that generation destroyed: the same source
@@ -178,7 +187,7 @@ public class JavaInspectorImpl implements JavaInspector {
      */
     public JavaInspectorImpl setEvalOptions(EvalOptions evalOptions) {
         if (runtime != null) throw new IllegalStateException("setEvalOptions after initialize has no effect");
-        this.evalOptions = java.util.Objects.requireNonNull(evalOptions);
+        this.evalOptions = Objects.requireNonNull(evalOptions);
         return this;
     }
 
@@ -502,7 +511,14 @@ public class JavaInspectorImpl implements JavaInspector {
         // defaults it -- so the default is recognised by identity. It matters: onlyPreload() parses a warmup type,
         // which records its source set, and a subsequent full parse would then find it "known and unchanged" and
         // scan nothing at all.
+        // What a reload found gone: the types of a removed file are forgotten, by name too, before anything is
+        // scanned against them. A type that refers to one is scanned again if the caller made it INVALID (a full parse
+        // scans everything), and then fails to resolve it, as in a cold parse; a type of the same name in another file
+        // or source set is a new one.
+        removedSinceParse.forEach(compiledTypesManager::invalidate);
+        removedSinceParse.clear();
         if (parseOptions.invalidated() == NOT_INVALIDATED) {
+            addedSinceParse.clear(); // a full parse lists every file anyway
             preloadPass(linearization, parseOptions);
             for (SourceSet sourceSet : linearization) {
                 scanSourceSet(summary, sourcesByFqn, sourceSet, parseOptions);
@@ -758,6 +774,14 @@ public class JavaInspectorImpl implements JavaInspector {
         this.lastRewireInfoMap = null; // reset: a parse with no rewiring exposes no map
         // the evaluator's memos hold expressions of the generation this re-parse replaces (Eval.forgetMemos)
         runtime.forgetMemos();
+        // what the reload found new: those files are scanned with their set's changed ones
+        Map<SourceSet, Set<URI>> addedFiles = new HashMap<>();
+        for (SourceFile sourceFile : addedSinceParse) {
+            if (sourceFiles.containsKey(sourceFile)) {
+                addedFiles.computeIfAbsent(sourceFile.sourceSet(), _ -> new HashSet<>()).add(sourceFile.uri());
+            }
+        }
+        addedSinceParse.clear();
         // snapshot: a RESCAN re-records sourceFiles for its own set as it goes
         Map<SourceSet, List<TypeInfo>> typesBySourceSet = typesBySourceSet();
         Set<TypeInfo> toRewire = new LinkedHashSet<>();
@@ -767,7 +791,9 @@ public class JavaInspectorImpl implements JavaInspector {
 
         for (SourceSet sourceSet : linearization) {
             List<TypeInfo> types = typesBySourceSet.getOrDefault(sourceSet, List.of());
-            SourceSetAction action = actionFor(sourceSet, types, invalidated, sourcesByFqn, parseOptions);
+            Set<URI> added = addedFiles.getOrDefault(sourceSet, Set.of());
+            SourceSetAction action = actionFor(sourceSet, types, !added.isEmpty(), invalidated, sourcesByFqn,
+                    parseOptions);
             LOGGER.debug("Re-parse: source set {} -> {} ({} primary type(s))", sourceSet.name(), action, types.size());
             switch (action) {
                 case RESCAN -> {
@@ -785,7 +811,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     rescanned.add(sourceSet);
                 }
                 case PARTIAL -> {
-                    Set<URI> changedFiles = new HashSet<>();
+                    Set<URI> changedFiles = new HashSet<>(added); // a new file is a changed one with no types yet
                     for (TypeInfo typeInfo : types) {
                         if (invalidated.apply(typeInfo) == INVALID) changedFiles.add(typeInfo.compilationUnit().uri());
                     }
@@ -886,13 +912,14 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     /**
-     * A source set holding a type that changed must be re-scanned, partially where that can be trusted, in full
-     * otherwise; a type that vanished forces the full re-scan. Otherwise, if anything in it must be rewired, the
-     * whole set is rewired; if not, it is kept. A source set we have no types for has never been parsed (or is
-     * new), so it is scanned.
+     * A source set holding a type that changed, or a file that is new, must be re-scanned, partially where that can
+     * be trusted, in full otherwise; a type the caller says vanished forces the full re-scan. Otherwise, if anything in
+     * it must be rewired, the whole set is rewired; if not, it is kept. A source set we have no types for has never
+     * been parsed (or is new), so it is scanned.
      */
     private SourceSetAction actionFor(SourceSet sourceSet,
                                       List<TypeInfo> types,
+                                      boolean filesAdded,
                                       Invalidated invalidated,
                                       Map<String, String> sourcesByFqn,
                                       ParseOptions parseOptions) {
@@ -910,7 +937,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 if (state == REWIRE) rewire = true;
             }
         }
-        if (invalid) {
+        if (invalid || filesAdded) {
             return allInvalid || !partialRescanPossible(sourceSet, sourcesByFqn, parseOptions)
                     ? SourceSetAction.RESCAN : SourceSetAction.PARTIAL;
         }
@@ -1902,8 +1929,8 @@ public class JavaInspectorImpl implements JavaInspector {
         reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(), problem.toString(),
                 Summary.ClassOutputProblem.Kind.MISSING_OR_STALE, parsed.size(), missing.stream().sorted().toList(),
                 stale.stream().sorted().toList(),
-                newestClassFile == 0L ? null : java.time.Instant.ofEpochMilli(newestClassFile),
-                stale.isEmpty() ? null : java.time.Instant.ofEpochMilli(oldestStaleSource));
+                newestClassFile == 0L ? null : Instant.ofEpochMilli(newestClassFile),
+                stale.isEmpty() ? null : Instant.ofEpochMilli(oldestStaleSource));
     }
 
     private static List<String> fullyQualifiedNames(List<TypeInfo> types) {
@@ -1913,7 +1940,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private void reportClassOutputProblem(Summary summary, SourceSet sourceSet, SourceSet dependency, URI uri,
                                           String problem, Summary.ClassOutputProblem.Kind kind, int parsedTypes,
                                           List<String> missing, List<String> stale,
-                                          java.time.Instant newestClassFile, java.time.Instant oldestStaleSource) {
+                                          Instant newestClassFile, Instant oldestStaleSource) {
         String detail = "Source set '" + sourceSet.name() + "' resolves its references into '" + dependency.name()
                         + "' through class files, and " + problem
                         + ". Those references will not resolve, and the compilation units holding them are dropped."
@@ -2268,15 +2295,16 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
+    public InfoMapView lastRewireInfoMap() {
         return lastRewireInfoMap;
     }
 
     /*
     Strategy (the same as the in-house inspector's): re-list the source tree and compare each file's fingerprint
     against the one held by the types we built from it last time.
-    - new files: add to sourceFiles with no types; nothing to report, the code compiles.
-    - removed files: drop from sourceFiles; nothing to report either.
+    - new files: add to sourceFiles with no types, and report them (ReloadResult.added); the next re-parse scans them.
+    - removed files: drop from sourceFiles, and report their types (ReloadResult.removed); the next re-parse forgets
+      them in the registries.
     - changed files: report their types, so the caller's Invalidated can return INVALID for them and compute the
       dependents that need rewiring (see RunRewireTests).
     Nothing is invalidated or re-parsed here: this only answers "what changed?".
@@ -2290,6 +2318,7 @@ public class JavaInspectorImpl implements JavaInspector {
         List<InitializationProblem> problems = new ArrayList<>();
         Set<TypeInfo> changed = new HashSet<>();
         Set<SourceFile> removed = new HashSet<>(this.sourceFiles.keySet());
+        Set<SourceFile> added = new HashSet<>();
         int newSourceFiles = 0;
         int changedSourceFiles = 0;
 
@@ -2298,6 +2327,8 @@ public class JavaInspectorImpl implements JavaInspector {
             List<TypeInfo> types = this.sourceFiles.get(sourceFile);
             if (types == null) {
                 this.sourceFiles.put(sourceFile, List.of()); // NEW
+                addedSinceParse.add(sourceFile);
+                added.add(sourceFile);
                 ++newSourceFiles;
                 continue;
             }
@@ -2314,10 +2345,16 @@ public class JavaInspectorImpl implements JavaInspector {
                 ++changedSourceFiles;
             } // else: UNCHANGED
         }
+        Set<TypeInfo> removedTypes = new HashSet<>();
+        for (SourceFile sourceFile : removed) {
+            removedTypes.addAll(this.sourceFiles.get(sourceFile));
+            addedSinceParse.remove(sourceFile); // new since the parse, and gone again: nothing to scan
+        }
+        removedSinceParse.addAll(removedTypes);
         this.sourceFiles.keySet().removeAll(removed);
         LOGGER.info("Reloaded sources: {} source file(s) removed, {} new, {} of {} remaining changed",
                 removed.size(), newSourceFiles, changedSourceFiles, current.size());
-        return new ReloadResult(List.copyOf(problems), Set.copyOf(changed));
+        return new ReloadResult(List.copyOf(problems), Set.copyOf(changed), Set.copyOf(added), Set.copyOf(removedTypes));
     }
 
     /**

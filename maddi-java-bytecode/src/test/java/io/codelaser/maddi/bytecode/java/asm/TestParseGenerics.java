@@ -18,6 +18,16 @@
 package io.codelaser.maddi.bytecode.java.asm;
 
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.net.URI;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.SortedSet;
+import java.util.Spliterator;
+
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -30,15 +40,6 @@ import io.codelaser.maddi.cst.impl.type.ParameterizedTypePrinter;
 import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.Test;
-
-import java.net.URI;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.SortedSet;
-import java.util.Spliterator;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestParseGenerics extends CommonJmodBaseTests {
 

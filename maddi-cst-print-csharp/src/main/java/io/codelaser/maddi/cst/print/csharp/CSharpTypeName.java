@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -26,14 +34,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 import io.codelaser.maddi.cst.impl.type.WildcardEnum;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Renders a {@link ParameterizedType} as a C# type reference.

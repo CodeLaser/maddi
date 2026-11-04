@@ -17,9 +17,9 @@
 
 package io.codelaser.maddi.project.config;
 
-import io.codelaser.maddi.inspection.api.resource.BuildFiles;
-
 import java.nio.file.Path;
+
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
 
 /**
  * What a capture made.

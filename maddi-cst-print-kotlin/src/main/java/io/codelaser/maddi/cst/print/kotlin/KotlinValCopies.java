@@ -16,12 +16,21 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.BinaryOperator;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InstanceOf;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.NullConstant;
@@ -41,18 +50,13 @@ import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.analysis.ModificationFacts;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 /**
  * A getter tested against null and then used again, {@code if (stat.getExprents() != null && !stat.getExprents().isEmpty())}:
@@ -98,7 +102,7 @@ final class KotlinValCopies {
                 Expression other = KotlinExpressionPrinter.unwrap(bo.rhs()) instanceof NullConstant ? bo.lhs()
                         : KotlinExpressionPrinter.unwrap(bo.lhs()) instanceof NullConstant ? bo.rhs() : null;
                 if (other != null && KotlinExpressionPrinter.unwrap(other) instanceof MethodCall mc && eligible(mc, statement)) {
-                    tested.putIfAbsent(java.util.List.of(mc.methodInfo(), KotlinSmartCasts.receiverKey(mc)), mc);
+                    tested.putIfAbsent(List.of(mc.methodInfo(), KotlinSmartCasts.receiverKey(mc)), mc);
                 }
             }
             return true;
@@ -161,14 +165,14 @@ final class KotlinValCopies {
             return fieldValue.setter() || fieldValue.list() ? null : fieldValue.field();
         }
         if (getter.methodBody() == null || getter.isStatic()) return null;
-        List<Statement> statements = io.codelaser.maddi.cst.print.translate.CstQueries.own(getter.methodBody().statements());
+        List<Statement> statements = CstQueries.own(getter.methodBody().statements());
         if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs) || rs.expression() == null) {
             return null;
         }
         if (KotlinExpressionPrinter.unwrap(rs.expression()) instanceof VariableExpression ve
-            && ve.variable() instanceof io.codelaser.maddi.cst.api.variable.FieldReference fr && !fr.isStatic()
+            && ve.variable() instanceof FieldReference fr && !fr.isStatic()
             && (fr.scope() == null || KotlinExpressionPrinter.unwrap(fr.scope()) instanceof VariableExpression sv
-                                      && sv.variable() instanceof io.codelaser.maddi.cst.api.variable.This)) {
+                                      && sv.variable() instanceof This)) {
             return fr.fieldInfo();
         }
         return null;
@@ -245,9 +249,9 @@ final class KotlinValCopies {
     private static boolean declaredIn(Statement statement, Variable variable) {
         boolean[] found = {false};
         statement.visit((Element e) -> {
-            if (e instanceof io.codelaser.maddi.cst.api.expression.InstanceOf io && io.patternVariable() != null
+            if (e instanceof InstanceOf io && io.patternVariable() != null
                 && binds(io.patternVariable(), variable)
-                || e instanceof io.codelaser.maddi.cst.api.element.RecordPattern rp && binds(rp, variable)) {
+                || e instanceof RecordPattern rp && binds(rp, variable)) {
                 found[0] = true;
             }
             if (e instanceof LocalVariableCreation lvc && lvc.localVariableStream().anyMatch(variable::equals)) found[0] = true;
@@ -260,7 +264,7 @@ final class KotlinValCopies {
         return found[0];
     }
 
-    private static boolean binds(io.codelaser.maddi.cst.api.element.RecordPattern pattern, Variable variable) {
+    private static boolean binds(RecordPattern pattern, Variable variable) {
         if (variable.equals(pattern.localVariable())) return true;
         return pattern.patterns() != null && pattern.patterns().stream().anyMatch(p -> binds(p, variable));
     }
@@ -304,9 +308,9 @@ final class KotlinValCopies {
         for (MethodInfo m : KotlinContext.state().methods()) {
             if (m.methodBody() == null) continue;
             ((Element) m.methodBody()).visit((Element e) -> {
-                if (e instanceof VariableExpression ve && ve.variable() instanceof io.codelaser.maddi.cst.api.variable.FieldReference fr
+                if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
                     && (fr.scope() == null || fr.isStatic() || KotlinExpressionPrinter.unwrap(fr.scope()) instanceof VariableExpression sv
-                                                               && sv.variable() instanceof io.codelaser.maddi.cst.api.variable.This)
+                                                               && sv.variable() instanceof This)
                     && !(fr.fieldInfo() == field && KotlinSmartCasts.THIS.equals(KotlinSmartCasts.receiverKey(mc)))) {
                     taken.add(fr.fieldInfo().name());
                 }

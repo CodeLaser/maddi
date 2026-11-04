@@ -17,7 +17,6 @@
 
 package io.codelaser.maddi.cst.api.element;
 
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 

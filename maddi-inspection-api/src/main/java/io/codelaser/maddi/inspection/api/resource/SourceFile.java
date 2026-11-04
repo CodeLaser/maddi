@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.inspection.api.resource;
 
-import io.codelaser.maddi.cst.api.element.FingerPrint;
-import io.codelaser.maddi.cst.api.element.SourceSet;
+import static io.codelaser.maddi.util.StringUtil.replaceSlashDollar;
 
 import java.net.URI;
 import java.util.Objects;
 
-import static io.codelaser.maddi.util.StringUtil.replaceSlashDollar;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 
 public record SourceFile(String path, URI uri, SourceSet sourceSet, FingerPrint fingerPrint) {
 

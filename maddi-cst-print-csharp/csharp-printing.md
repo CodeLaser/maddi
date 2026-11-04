@@ -277,7 +277,9 @@ implements the interface.
     reference to the field becomes a reference to the property.
   - A setter `this.name = name` becomes the property's `set`, and `x.setName(v)` becomes `x.Name = v`. A field
     assigned only in its class's constructors gets `{ get; }`, even when it isn't `final`. Any other field gets
-    `{ get; private set; }`, with the access the field's writes need.
+    `{ get; private set; }`, with the access the field's writes need. With the nullability analysis the property
+    has the field's verdict, `StatEdge? DefaultEdge`, and a read of it through the getter is asserted by that
+    verdict, not the getter's: `s.DefaultEdge!.GetDestination()`.
   - The property is as visible as its getter, and an accessor that is less visible says so. A getter that outside
     code may override, as the policy has it, makes the property `virtual`.
   - The getter's annotations move to the property. One whose attribute only applies to methods goes on the
@@ -326,7 +328,15 @@ implements the interface.
   invocation `f(x)`, and a method reference `f::apply` is `f.Invoke`. `CSharpProgram` makes that decision once,
   over all the translated types, before the files are printed. Any other functional interface stays an interface
   and gets a nested adapter, `public sealed class Lambda(Func<Exprent, int> f) : IExprentIterator { … }`, around its
-  lambdas and method references: `new IExprentIterator.Lambda(e => 0)`. The policy `FunctionalInterfaces.ADAPTER`,
+  lambdas and method references: `new IExprentIterator.Lambda(e => 0)`. With the nullability analysis, the adapter of
+  an interface's own method takes its verdicts: `string? GetBytecode(string externalPath, string? internalPath)` is
+  implemented as `Lambda(Func<string, string?, string?> f)` with the same signature, not the declared one (CS8767,
+  CS8766). Not where the declared type is a type parameter: a `Func<.., A?, ..>` would not take a method group of
+  `A`, which moves the one mismatch at the adapter to every conversion (CS8622, CS8620). A class implementing `Comparable<Node>` whose `compareTo(Node o)` is non-null (it dereferences `o`) gets
+  an explicit `int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);`, since C# declares the
+  interface's parameter nullable; Java's compareTo of null throws, as `other!` then does. The explicit member that bridges an
+  override with a covariant result to its interface's method returns that method's verdict as well,
+  `ISwitchOnCandidate? ISwitchRecognizer.Recognize(..) => Recognize(..);` (CS8603). The policy `FunctionalInterfaces.ADAPTER`,
   and a printer that is not given the program (`CSharpProgram.NONE`), use this form for all of them. The JDK's
   functional interfaces are the BCL's delegates (see the JDK mapping). One that extends a JDK functional interface,
   `MovableFilter<Solution_> extends BiPredicate<Solution_, Object>`, cannot extend the delegate: it declares the method

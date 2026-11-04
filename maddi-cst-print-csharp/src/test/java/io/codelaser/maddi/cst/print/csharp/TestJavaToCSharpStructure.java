@@ -17,13 +17,15 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.List;
 import java.util.Set;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
 
 /**
  * The Java forms C# says differently: types and their members, statements and expressions, generics, inner

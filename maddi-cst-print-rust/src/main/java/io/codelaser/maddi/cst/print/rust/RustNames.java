@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.List;
-import java.util.Set;
 
 /**
  * Rust's names for Java's: snake case for functions, fields and locals, the type's own name for a type, a module per

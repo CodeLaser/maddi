@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.util;
 
-import org.junit.jupiter.api.Test;
-
 import static io.codelaser.maddi.util.StringUtil.replaceSlashDollar;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 public class TestStringUtil {
     @Test

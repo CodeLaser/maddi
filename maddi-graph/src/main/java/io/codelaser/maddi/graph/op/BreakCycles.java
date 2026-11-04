@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.graph.op;
 
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.V;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.*;
 import java.util.function.LongBinaryOperator;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.V;
 
 /*
 Combination of grouping and breaking cycles.

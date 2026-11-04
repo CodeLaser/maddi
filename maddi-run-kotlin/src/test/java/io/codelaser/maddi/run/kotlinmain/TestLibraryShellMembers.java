@@ -16,26 +16,29 @@
  */
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.expression.MethodReference;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
+import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
 
 /**
  * ⛔ A class-file type the Java front end had registered as a SHELL -- loaded hierarchy-only because another type's
@@ -128,20 +131,20 @@ public class TestLibraryShellMembers {
         assertEquals("java.net.URLStreamHandler.<init>()", superCall(parsed, "a.H"));
         assertEquals("java.text.ParsePosition.<init>(int)", superCall(parsed, "a.P"));
         // ...with its argument: the reads a dropped call took with it
-        io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci = eci(parsed, "a.P");
+        ExplicitConstructorInvocation eci = eci(parsed, "a.P");
         assertEquals(1, eci.parameterExpressions().size(), eci.toString());
         PlaceholderCensus census = PlaceholderCensus.of(parsed.getKotlinTypes());
         assertEquals(0, census.getTotal(), census.dumpLines().toString());
     }
 
-    private static io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci(
+    private static ExplicitConstructorInvocation eci(
             MixedProjectInspector.Result parsed, String fqn) {
         TypeInfo t = parsed.getKotlinTypes().stream().filter(x -> fqn.equals(x.fullyQualifiedName())).findFirst()
                 .orElseThrow();
         MethodInfo ctor = t.constructors().getFirst();
         return ctor.methodBody().statements().stream()
-                .filter(s -> s instanceof io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation)
-                .map(s -> (io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation) s)
+                .filter(s -> s instanceof ExplicitConstructorInvocation)
+                .map(s -> (ExplicitConstructorInvocation) s)
                 .findFirst().orElseThrow(() -> new AssertionError(fqn + ": the super call was dropped, body "
                                                                   + ctor.methodBody().statements()));
     }
@@ -165,7 +168,7 @@ public class TestLibraryShellMembers {
 
     private static String kotlinStdlibJar() {
         String cp = System.getProperty("maddi.k2.classpath", "");
-        return Stream.of(cp.split(java.io.File.pathSeparator))
+        return Stream.of(cp.split(File.pathSeparator))
                 .filter(p -> Path.of(p).getFileName().toString().matches("kotlin-stdlib-\\d[^-]*\\.jar"))
                 .findFirst().orElseThrow(() -> new AssertionError("no kotlin-stdlib jar on " + cp));
     }

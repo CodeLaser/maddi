@@ -17,6 +17,19 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.Cast;
@@ -27,11 +40,13 @@ import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
-import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
@@ -40,17 +55,6 @@ import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.CstSupertypes;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  * Java's wildcard of a self-bounded type, {@code Score<?>} where {@code Score<Score_ extends Score<Score_>>}, has no
@@ -265,7 +269,7 @@ final class CSharpWildcardInterfaces {
     }
 
     private static void passed(MethodInfo method, List<Expression> arguments, BiConsumer<Expression, Object> through) {
-        List<io.codelaser.maddi.cst.api.info.ParameterInfo> parameters = method.parameters();
+        List<ParameterInfo> parameters = method.parameters();
         for (int i = 0; i < arguments.size() && !parameters.isEmpty(); i++) {
             ParameterizedType formal = parameters.get(Math.min(i, parameters.size() - 1)).parameterizedType();
             ParameterizedType actual = arguments.get(i).parameterizedType();
@@ -545,7 +549,7 @@ final class CSharpWildcardInterfaces {
 
     /** The single abstract method's parameter types, then its result's (null when void), as {@code pt} has them. */
     private static List<ParameterizedType> samTypes(ParameterizedType pt, MethodInfo sam) {
-        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> map = pt.initialTypeParameterMap();
+        Map<NamedType, ParameterizedType> map = pt.initialTypeParameterMap();
         List<ParameterizedType> types = new ArrayList<>();
         for (var p : sam.parameters()) types.add(substituted(p.parameterizedType(), map));
         if (!sam.isVoid()) types.add(substituted(sam.returnType(), map));
@@ -553,7 +557,7 @@ final class CSharpWildcardInterfaces {
     }
 
     private static ParameterizedType substituted(ParameterizedType formal,
-                                                 Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> map) {
+                                                 Map<NamedType, ParameterizedType> map) {
         if (formal.isTypeParameter()) {
             ParameterizedType concrete = map.get(formal.typeParameter());
             return concrete == null ? formal : concrete;
@@ -565,8 +569,8 @@ final class CSharpWildcardInterfaces {
     static String erasedDelegateType(ParameterizedType pt, List<TypeParameter> removed, Qualification q) {
         String printed = CSharpTypeName.of(pt, q);
         for (TypeParameter tp : removed) {
-            printed = printed.replaceAll("\\b" + java.util.regex.Pattern.quote(CSharpNames.typeParameter(tp)) + "\\b",
-                    java.util.regex.Matcher.quoteReplacement(erasedBound(tp, removed, new HashSet<>(), q)));
+            printed = printed.replaceAll("\\b" + Pattern.quote(CSharpNames.typeParameter(tp)) + "\\b",
+                    Matcher.quoteReplacement(erasedBound(tp, removed, new HashSet<>(), q)));
         }
         return printed;
     }

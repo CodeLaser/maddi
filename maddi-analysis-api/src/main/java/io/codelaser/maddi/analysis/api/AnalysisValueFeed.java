@@ -17,9 +17,9 @@
 
 package io.codelaser.maddi.analysis.api;
 
-import io.codelaser.maddi.cst.api.info.Info;
-
 import java.util.Collection;
+
+import io.codelaser.maddi.cst.api.info.Info;
 
 /**
  * Streaming view of analysis values as the fixpoint iteration progresses, for consumers (the IDE daemon)

@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.run.config.util;
 
+import java.util.*;
+import java.util.function.Consumer;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;
-
-import java.util.*;
-import java.util.function.Consumer;
 
 /**
  * The dependency graph over a MAVEN module's source sets and libraries.

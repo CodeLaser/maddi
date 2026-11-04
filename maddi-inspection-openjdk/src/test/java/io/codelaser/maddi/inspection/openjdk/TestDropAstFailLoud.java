@@ -1,15 +1,17 @@
 package io.codelaser.maddi.inspection.openjdk;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.net.URI;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.Test;
-
-import java.net.URI;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * The safety contract of dropping the javac AST (DESIGN-drop-javac-ast.md): once the lazy loader is
@@ -19,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class TestDropAstFailLoud {
 
-    private static CompiledTypesManagerImpl newCtm(java.util.function.Function<String, TypeInfo> loader) {
+    private static CompiledTypesManagerImpl newCtm(Function<String, TypeInfo> loader) {
         SourceSet javaBase = new SourceSetImpl.Builder().setName("java.base").setUri(URI.create("file:/")).build();
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(javaBase, new InfoByFqn());
         // the loader takes the requesting source set too; these tests are about surfacing misses after the AST

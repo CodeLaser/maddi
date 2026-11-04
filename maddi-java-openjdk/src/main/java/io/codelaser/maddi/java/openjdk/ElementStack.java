@@ -1,11 +1,11 @@
 package io.codelaser.maddi.java.openjdk;
 
-import io.codelaser.maddi.cst.api.element.Element;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
+
+import io.codelaser.maddi.cst.api.element.Element;
 
 public class ElementStack {
     private final Deque<Map<String, Element>> elementStack = new ArrayDeque<>();

@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /**
  * A struct that holds itself by value has no size: {@code class Node { Node parent; }} is rustc's E0072. A field whose

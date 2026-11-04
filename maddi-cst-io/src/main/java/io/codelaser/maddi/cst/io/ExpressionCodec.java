@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.cst.io;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.analysis.Codec;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.*;
@@ -25,11 +30,6 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.Diamond;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
 
 public class ExpressionCodec {
     private final Codec codec;
@@ -49,7 +49,7 @@ public class ExpressionCodec {
         map.put(Cast.NAME, new CastCodec());
         map.put(BooleanConstant.NAME, new BooleanConstantCodec());
         map.put(IntConstant.NAME, new IntConstantCodec());
-        map.put(io.codelaser.maddi.cst.api.expression.TypeExpression.NAME, new TypeExpressionCodec());
+        map.put(TypeExpression.NAME, new TypeExpressionCodec());
     }
 
     private interface ECodec {
@@ -204,8 +204,8 @@ public class ExpressionCodec {
 
         @Override
         public List<Codec.EncodedValue> encode(Expression e) {
-            io.codelaser.maddi.cst.api.expression.TypeExpression te =
-                    (io.codelaser.maddi.cst.api.expression.TypeExpression) e;
+            TypeExpression te =
+                    (TypeExpression) e;
             return List.of(codec.encodeType(context, te.parameterizedType()));
         }
 

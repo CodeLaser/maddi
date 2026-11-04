@@ -17,9 +17,9 @@
 
 package io.codelaser.maddi.graph.op;
 
-import io.codelaser.maddi.graph.G;
-
 import java.util.Map;
+
+import io.codelaser.maddi.graph.G;
 
 public class SimpleDijkstraShortestPath {
 

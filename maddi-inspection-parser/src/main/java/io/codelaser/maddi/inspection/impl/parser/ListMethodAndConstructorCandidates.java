@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.inspection.impl.parser;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -28,9 +31,6 @@ import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.inspection.api.parser.*;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 /*
 Code that goes through the type hierarchy to find the candidate methods or constructors

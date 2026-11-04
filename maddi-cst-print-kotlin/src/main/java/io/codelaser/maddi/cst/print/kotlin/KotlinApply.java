@@ -16,12 +16,17 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -38,9 +43,6 @@ import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Construct, configure, return (CodeLaser/maddi#165):
@@ -147,7 +149,7 @@ final class KotlinApply {
                                                          || v.variable() instanceof FieldReference fr && bare(fr)
                                                             && hasMember(type, fr.fieldInfo().name()))
                 || e instanceof MethodCall m && m.objectIsImplicit()
-                   && (!(m.object() instanceof io.codelaser.maddi.cst.api.expression.TypeExpression)
+                   && (!(m.object() instanceof TypeExpression)
                        || hasMember(type, m.methodInfo().name()))) {
                 ok[0] = false;
             }
@@ -159,7 +161,7 @@ final class KotlinApply {
     // a field read by its bare name: of this, or a static of the enclosing classes
     private static boolean bare(FieldReference fr) {
         if (fr.scopeIsRecursivelyThis()) return true;
-        return fr.isStatic() && (fr.scope() == null || fr.scope() instanceof io.codelaser.maddi.cst.api.expression.TypeExpression te
+        return fr.isStatic() && (fr.scope() == null || fr.scope() instanceof TypeExpression te
                                                        && KotlinContext.typeInScope(te.parameterizedType().typeInfo()));
     }
 
@@ -169,7 +171,7 @@ final class KotlinApply {
      */
     private static boolean hasMember(TypeInfo type, String name) {
         String capitalized = name.isEmpty() ? name : Character.toUpperCase(name.charAt(0)) + name.substring(1);
-        return java.util.stream.Stream.concat(java.util.stream.Stream.of(type), type.superTypesExcludingJavaLangObject().stream())
+        return Stream.concat(Stream.of(type), type.superTypesExcludingJavaLangObject().stream())
                 .anyMatch(t -> t.fields().stream().anyMatch(f -> f.name().equals(name))
                                || t.methods().stream().anyMatch(m -> m.name().equals(name)
                                                                      || m.name().equals("get" + capitalized)

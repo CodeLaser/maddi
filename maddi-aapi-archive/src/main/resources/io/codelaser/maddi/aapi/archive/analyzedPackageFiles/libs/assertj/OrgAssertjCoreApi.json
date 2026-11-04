@@ -300,14 +300,14 @@
  {"name": "MisNullOrEmpty(32)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(33)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(34,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(35,java.lang.Boolean[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(36,boolean[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(37)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(38,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractBooleanAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisEqualTo(0,boolean)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -317,9 +317,9 @@
   {"name": "Pother(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MisTrue(3)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(4,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(5,java.util.Comparator,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.assertj.core.api.AbstractByteArrayAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
@@ -422,7 +422,7 @@
  {"name": "MisNullOrEmpty(49)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(50)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(51,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(52,java.lang.Byte[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(53,byte[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -431,7 +431,7 @@
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(55)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(56,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractByteAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisBetween(0,java.lang.Byte,java.lang.Byte)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -486,9 +486,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(24)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(25,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(26,java.util.Comparator,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(27)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -561,14 +561,14 @@
  {"name": "MisNullOrEmpty(33)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(34)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(35,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(36,java.lang.Character[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(37,char[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(38)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(39,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractCharSequenceAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mcontains(0,java.lang.CharSequence[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -724,7 +724,7 @@
  {"name": "MusingDefaultComparator(85)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingDefaultElementComparator(86)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(87,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractCharacterAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MinUnicode(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
@@ -743,9 +743,9 @@
   {"name": "Pother(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MisUpperCase(8)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(9,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(10,java.util.Comparator,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(11)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -1255,7 +1255,7 @@
  {"name": "MisNullOrEmpty(51)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(52)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(53,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(54,java.lang.Double[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(55,java.lang.Double[],org.assertj.core.data.Offset)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -1270,7 +1270,7 @@
   {"name": "Pprecision(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(59)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(60,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractDoubleAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(1,double,java.lang.Class)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
@@ -1346,9 +1346,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(35)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(36,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(37,java.util.Comparator,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(38)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -1589,7 +1589,7 @@
  {"name": "MisNullOrEmpty(51)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(52)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(53,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(54,java.lang.Float[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(55,java.lang.Float[],org.assertj.core.data.Offset)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -1604,7 +1604,7 @@
   {"name": "Pprecision(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(59)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(60,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractFloatAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(1,float,java.lang.Class)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
@@ -1680,9 +1680,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(35)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(36,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(37,java.util.Comparator,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(38)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -1843,14 +1843,14 @@
  {"name": "MisNullOrEmpty(32)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(33)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(34,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(35,java.lang.Integer[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(36,int[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(37)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(38,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractIntegerAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisBetween(0,java.lang.Integer,java.lang.Integer)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -1907,9 +1907,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(25)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(26,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(27,java.util.Comparator,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(28)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -2662,14 +2662,14 @@
  {"name": "MisNullOrEmpty(32)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(33)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(34,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(35,java.lang.Long[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(36,long[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(37)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(38,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractLongAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisBetween(0,java.lang.Long,java.lang.Long)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -2724,9 +2724,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(24)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(25,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(26,java.util.Comparator,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(27)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -3632,7 +3632,7 @@
  {"name": "MisNullOrEmpty(44)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(45)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(46,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(47,java.lang.Short[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(48,int[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -3641,7 +3641,7 @@
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(50)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(51,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractShortAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisBetween(0,java.lang.Short,java.lang.Short)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -3696,9 +3696,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(24)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(25,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(26,java.util.Comparator,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(27)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -3744,9 +3744,9 @@
   {"name": "PstartExclusive(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PendExclusive(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingComparator(21,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(22,java.util.Comparator,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(23)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -5231,12 +5231,12 @@
  {"name": "MisNullOrEmpty(23)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(24)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(25,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(26,int[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(27)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(28,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AtomicIntegerAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0,java.util.concurrent.atomic.AtomicInteger)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5332,12 +5332,12 @@
  {"name": "MisNullOrEmpty(23)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(24)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(25,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(26,long[])", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(27)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(28,java.util.Comparator)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AtomicLongAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0,java.util.concurrent.atomic.AtomicLong)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":

@@ -17,19 +17,20 @@
 
 package io.codelaser.maddi.parser.java;
 
-import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
-import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 
 public class TestParseLiteral extends CommonTestParse {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestParseLiteral.class);

@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.inspection.api.parser;
 
+import java.util.Map;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -26,8 +28,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.Map;
 
 public interface Context {
     VariableContext dependentVariableContext();

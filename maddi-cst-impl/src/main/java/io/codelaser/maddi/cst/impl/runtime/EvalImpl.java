@@ -17,16 +17,16 @@
 
 package io.codelaser.maddi.cst.impl.runtime;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.runtime.Eval;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.expression.eval.*;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Stream;
 
 public class EvalImpl implements Eval {
     private final EvalProduct evalProduct;

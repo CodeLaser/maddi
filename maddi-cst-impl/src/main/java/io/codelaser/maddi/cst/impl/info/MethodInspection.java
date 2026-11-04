@@ -17,15 +17,15 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.MethodModifier;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
-
-import java.util.List;
-import java.util.Set;
 
 public interface MethodInspection extends Inspection {
     List<ParameterizedType> exceptionTypes();

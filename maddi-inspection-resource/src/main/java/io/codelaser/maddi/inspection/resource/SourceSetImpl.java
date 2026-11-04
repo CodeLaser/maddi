@@ -17,9 +17,7 @@
 
 package io.codelaser.maddi.inspection.resource;
 
-import io.codelaser.maddi.cst.api.element.FingerPrint;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.support.SetOnce;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -28,7 +26,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.support.SetOnce;
 
 public class SourceSetImpl implements SourceSet {
     private final String name;
