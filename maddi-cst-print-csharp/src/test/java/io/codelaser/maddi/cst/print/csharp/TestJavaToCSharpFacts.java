@@ -208,6 +208,62 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String ADAPTERS = """
+            package org.example.adapt;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Adapters {
+                interface Provider { String get(String external, String internal); }
+                static class Console implements Provider {
+                    public String get(String external, String internal) {
+                        return internal == null ? external.trim() : null;
+                    }
+                }
+                static String use(Provider p) { return p.get("a", null); }
+                static String go() { return use((e, i) -> e); }
+                static class Node implements Comparable<Node> {
+                    final String name;
+                    Node(String name) { this.name = name; }
+                    @Override
+                    public int compareTo(Node o) { return name.compareTo(o.name); }
+                }
+                static void sort(List<Node> nodes) { nodes.sort(null); }
+            }
+            """;
+
+    /**
+     * The analysis's verdicts on a functional interface's own method reach its lambda adapter: the interface declares
+     * {@code string? Get(string external, string? internal)}, and the adapter implements it with the same types
+     * (CS8767, CS8766). A {@code compareTo(Node o)} whose parameter is non-null does not implement C#'s {@code
+     * IComparable<Node>.CompareTo(Node? other)}: an explicit bridge does, asserting as Java's compareTo of null throws.
+     */
+    @Test
+    public void adapterVerdicts() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return "get".equals(method.name()) ? NullableState.NULLABLE : NullableState.UNSPECIFIED;
+            }
+
+            @Override
+            public NullableState nullable(ParameterInfo parameter) {
+                return "internal".equals(parameter.name()) ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+        });
+        String cs = translate("Adapters", ADAPTERS);
+        contains(cs, "string? Get(string external, string? @internal);");
+        contains(cs, "public sealed class Lambda(Func<string, string?, string?> f) : IProvider { public string? "
+                     + "Get(string external, string? @internal) => f(external, @internal); }");
+        contains(cs, "public int CompareTo(Node o) => string.CompareOrdinal(name, o.name);");
+        contains(cs, "int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);");
+    }
+
+    @Language("java")
     private static final String PRECONDITION = """
             package org.example.pre;
             class P {

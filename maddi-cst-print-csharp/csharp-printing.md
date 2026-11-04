@@ -326,7 +326,12 @@ implements the interface.
   invocation `f(x)`, and a method reference `f::apply` is `f.Invoke`. `CSharpProgram` makes that decision once,
   over all the translated types, before the files are printed. Any other functional interface stays an interface
   and gets a nested adapter, `public sealed class Lambda(Func<Exprent, int> f) : IExprentIterator { … }`, around its
-  lambdas and method references: `new IExprentIterator.Lambda(e => 0)`. The policy `FunctionalInterfaces.ADAPTER`,
+  lambdas and method references: `new IExprentIterator.Lambda(e => 0)`. With the nullability analysis, the adapter of
+  an interface's own method takes its verdicts: `string? GetBytecode(string externalPath, string? internalPath)` is
+  implemented as `Lambda(Func<string, string?, string?> f)` with the same signature, not the declared one (CS8767,
+  CS8766). A class implementing `Comparable<Node>` whose `compareTo(Node o)` is non-null (it dereferences `o`) gets
+  an explicit `int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);`, since C# declares the
+  interface's parameter nullable; Java's compareTo of null throws, as `other!` then does. The policy `FunctionalInterfaces.ADAPTER`,
   and a printer that is not given the program (`CSharpProgram.NONE`), use this form for all of them. The JDK's
   functional interfaces are the BCL's delegates (see the JDK mapping). One that extends a JDK functional interface,
   `MovableFilter<Solution_> extends BiPredicate<Solution_, Object>`, cannot extend the delegate: it declares the method
