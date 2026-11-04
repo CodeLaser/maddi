@@ -17,11 +17,6 @@
 
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
@@ -33,6 +28,11 @@ import kotlin.jvm.functions.Function1;
 import kotlin.jvm.functions.Function2;
 import kotlin.sequences.Sequence;
 import kotlin.sequences.SequenceScope;
+
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * The annotated API for {@code kotlin.sequences}: the extensions on {@link Sequence}, the census's largest

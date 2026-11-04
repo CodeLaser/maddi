@@ -17,10 +17,9 @@
 
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
-import java.lang.reflect.Type;
-
 import io.codelaser.maddi.annotation.NotModified;
-import kotlin.reflect.KType;
+
+import java.lang.reflect.Type;
 
 /**
  * The annotated API for {@code kotlin.reflect}: the read-only accessors the library-call census found read as
@@ -51,7 +50,7 @@ public class KotlinReflect {
 
     /* public val KType.javaType: Type */
     class TypesJVMKt$ {
-        static Type getJavaType(@NotModified KType receiver) {
+        static Type getJavaType(@NotModified kotlin.reflect.KType receiver) {
             return null;
         }
     }

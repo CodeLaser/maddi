@@ -17,8 +17,6 @@
 
 package io.codelaser.maddi.aapi.archive.libs.junitparams;
 
-import org.junit.jupiter.params.provider.Arguments;
-
 import io.codelaser.maddi.annotation.NotModified;
 
 /**
@@ -31,8 +29,8 @@ public class OrgJunitJupiterParamsProvider {
 
     //public class org.junit.jupiter.params.provider.Arguments
     class Arguments$ {
-        static Arguments of(@NotModified Object... arg0) { return null; }
-        static Arguments arguments(@NotModified Object... arg0) { return null; }
-        static Arguments.ArgumentSet argumentSet(String arg0, @NotModified Object... arg1) { return null; }
+        static org.junit.jupiter.params.provider.Arguments of(@NotModified java.lang.Object... arg0) { return null; }
+        static org.junit.jupiter.params.provider.Arguments arguments(@NotModified java.lang.Object... arg0) { return null; }
+        static org.junit.jupiter.params.provider.Arguments.ArgumentSet argumentSet(java.lang.String arg0, @NotModified java.lang.Object... arg1) { return null; }
     }
 }

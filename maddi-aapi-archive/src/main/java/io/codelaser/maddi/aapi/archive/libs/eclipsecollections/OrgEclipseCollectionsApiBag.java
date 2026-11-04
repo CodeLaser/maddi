@@ -3,7 +3,6 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
-
 import org.eclipse.collections.api.RichIterable;
 import org.eclipse.collections.api.bag.*;
 import org.eclipse.collections.api.bag.primitive.*;
@@ -29,14 +28,16 @@ import org.eclipse.collections.api.partition.bag.*;
 import org.eclipse.collections.api.set.*;
 import org.eclipse.collections.api.tuple.Pair;
 import org.eclipse.collections.api.tuple.primitive.ObjectIntPair;
-
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.FinalFields;
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 @Independent(absent = true)
 public class OrgEclipseCollectionsApiBag {
     public static final String PACKAGE_NAME = "org.eclipse.collections.api.bag";

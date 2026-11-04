@@ -5,7 +5,6 @@ import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
-
 import org.eclipse.collections.api.*;
 import org.eclipse.collections.api.bag.*;
 import org.eclipse.collections.api.bag.primitive.*;
@@ -42,9 +41,9 @@ import org.eclipse.collections.api.set.primitive.*;
 import org.eclipse.collections.api.set.sorted.ImmutableSortedSet;
 import org.eclipse.collections.api.set.sorted.MutableSortedSet;
 import org.eclipse.collections.api.tuple.Pair;
-
 import io.codelaser.maddi.annotation.FinalFields;
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;

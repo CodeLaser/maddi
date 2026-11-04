@@ -25,7 +25,6 @@ import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.eventual.Mark;
 import io.codelaser.maddi.annotation.eventual.Only;
 import io.codelaser.maddi.annotation.eventual.TestMark;
-import io.codelaser.maddi.support.Either;
 import io.codelaser.maddi.support.SetOnce;
 
 /**
@@ -47,8 +46,8 @@ public class OrgE2immuSupport {
         @NotModified B getRight() { return null; }
         @NotModified boolean isLeft() { return false; }
         @NotModified boolean isRight() { return false; }
-        @NotModified static <L, R> Either<L, R> right(@NotNull R right) { return null; }
-        @NotModified static <L, R> Either<L, R> left(@NotNull L left) { return null; }
+        @NotModified static <L, R> io.codelaser.maddi.support.Either<L, R> right(@NotNull R right) { return null; }
+        @NotModified static <L, R> io.codelaser.maddi.support.Either<L, R> left(@NotNull L left) { return null; }
         @NotModified A getLeftOrElse(@NotNull A orElse) { return null; }
         @NotModified B getRightOrElse(@NotNull B orElse) { return null; }
     }

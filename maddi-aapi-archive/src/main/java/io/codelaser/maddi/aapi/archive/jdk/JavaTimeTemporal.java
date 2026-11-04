@@ -16,23 +16,14 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import java.time.DayOfWeek;
 import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.chrono.Chronology;
-import java.time.format.ResolverStyle;
 import java.time.temporal.*;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
-import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.NotNull;
 
 public class JavaTimeTemporal {
     public static final String PACKAGE_NAME = "java.time.temporal";
@@ -174,69 +165,69 @@ public class JavaTimeTemporal {
     //public java.time.temporal.ChronoField (shadow created for its nullability, generated)
     class ChronoField$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @NotModified String getDisplayName(@NotNull Locale p0) { return null; }
-        @NotModified long getFrom(@NotNull TemporalAccessor p0) { return 0; }
-        @NotModified boolean isSupportedBy(@NotNull TemporalAccessor p0) { return false; }
-        @NotModified ValueRange rangeRefinedBy(@NotNull TemporalAccessor p0) { return null; }
+        @NotModified java.lang.String getDisplayName(@NotNull java.util.Locale p0) { return null; }
+        @NotModified long getFrom(@NotNull java.time.temporal.TemporalAccessor p0) { return 0; }
+        @NotModified boolean isSupportedBy(@NotNull java.time.temporal.TemporalAccessor p0) { return false; }
+        @NotModified java.time.temporal.ValueRange rangeRefinedBy(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified TemporalUnit getBaseUnit() { return null; }
-        @NotModified TemporalUnit getRangeUnit() { return null; }
+        @NotModified java.time.temporal.TemporalUnit getBaseUnit() { return null; }
+        @NotModified java.time.temporal.TemporalUnit getRangeUnit() { return null; }
         @NotModified boolean isDateBased() { return false; }
         @NotModified boolean isTimeBased() { return false; }
-        @NotModified ValueRange range() { return null; }
+        @NotModified java.time.temporal.ValueRange range() { return null; }
     }
 
     //public java.time.temporal.TemporalField (shadow created for its nullability, generated)
     class TemporalField$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @NotModified String getDisplayName(@NotNull Locale p0) { return null; }
-        @NotModified long getFrom(@NotNull TemporalAccessor p0) { return 0; }
-        @NotModified boolean isSupportedBy(@NotNull TemporalAccessor p0) { return false; }
-        @NotModified ValueRange rangeRefinedBy(@NotNull TemporalAccessor p0) { return null; }
-        @Nullable TemporalAccessor resolve(@NotNull Map<TemporalField, Long> p0, @NotNull TemporalAccessor p1, @NotNull ResolverStyle p2) { return null; }
+        @NotModified java.lang.String getDisplayName(@NotNull java.util.Locale p0) { return null; }
+        @NotModified long getFrom(@NotNull java.time.temporal.TemporalAccessor p0) { return 0; }
+        @NotModified boolean isSupportedBy(@NotNull java.time.temporal.TemporalAccessor p0) { return false; }
+        @NotModified java.time.temporal.ValueRange rangeRefinedBy(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        @Nullable java.time.temporal.TemporalAccessor resolve(@NotNull java.util.Map<java.time.temporal.TemporalField, java.lang.Long> p0, @NotNull java.time.temporal.TemporalAccessor p1, @NotNull java.time.format.ResolverStyle p2) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified TemporalUnit getBaseUnit() { return null; }
-        @NotModified TemporalUnit getRangeUnit() { return null; }
+        @NotModified java.time.temporal.TemporalUnit getBaseUnit() { return null; }
+        @NotModified java.time.temporal.TemporalUnit getRangeUnit() { return null; }
         @NotModified boolean isDateBased() { return false; }
         @NotModified boolean isTimeBased() { return false; }
-        @NotModified ValueRange range() { return null; }
+        @NotModified java.time.temporal.ValueRange range() { return null; }
     }
 
     //public java.time.temporal.TemporalQuery (shadow created for its nullability, generated)
     class TemporalQuery$<R> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @NotModified R queryFrom(@NotNull TemporalAccessor p0) { return null; }
+        @NotModified R queryFrom(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
     }
 
     //public java.time.temporal.UnsupportedTemporalTypeException (shadow created for its nullability, generated)
     class UnsupportedTemporalTypeException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        UnsupportedTemporalTypeException$(@Nullable String p0) { }
-        UnsupportedTemporalTypeException$(@Nullable String p0, @Nullable Throwable p1) { }
+        UnsupportedTemporalTypeException$(@Nullable java.lang.String p0) { }
+        UnsupportedTemporalTypeException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
     }
 
     //public java.time.temporal.WeekFields (shadow created for its nullability, generated)
     class WeekFields$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static WeekFields of(@NotNull DayOfWeek p0, int p1) { return null; }
-        static WeekFields of(@NotNull Locale p0) { return null; }
+        static java.time.temporal.WeekFields of(@NotNull java.time.DayOfWeek p0, int p1) { return null; }
+        static java.time.temporal.WeekFields of(@NotNull java.util.Locale p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified DayOfWeek getFirstDayOfWeek() { return null; }
+        @NotModified java.time.DayOfWeek getFirstDayOfWeek() { return null; }
         @NotModified int getMinimalDaysInFirstWeek() { return 0; }
     }
 
     //public java.time.temporal.TemporalQueries (shadow created for its nullability, generated)
     class TemporalQueries$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @NotNull(nullableArguments = 0) static TemporalQuery<Chronology> chronology() { return null; }
-        @NotNull(nullableArguments = 0) static TemporalQuery<LocalDate> localDate() { return null; }
-        @NotNull(nullableArguments = 0) static TemporalQuery<LocalTime> localTime() { return null; }
-        @NotNull(nullableArguments = 0) static TemporalQuery<ZoneOffset> offset() { return null; }
-        @NotNull(nullableArguments = 0) static TemporalQuery<TemporalUnit> precision() { return null; }
-        @NotNull(nullableArguments = 0) static TemporalQuery<ZoneId> zone() { return null; }
-        @NotNull(nullableArguments = 0) static TemporalQuery<ZoneId> zoneId() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.chrono.Chronology> chronology() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.LocalDate> localDate() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.LocalTime> localTime() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.ZoneOffset> offset() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.temporal.TemporalUnit> precision() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.ZoneId> zone() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.ZoneId> zoneId() { return null; }
     }
 }

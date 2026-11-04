@@ -17,18 +17,18 @@
 
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
-import java.util.List;
-
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
-import kotlin.ranges.IntRange;
 import kotlin.sequences.Sequence;
+import kotlin.ranges.IntRange;
 import kotlin.text.MatchGroup;
 import kotlin.text.MatchGroupCollection;
 import kotlin.text.MatchResult;
 import kotlin.text.RegexOption;
+
+import java.util.List;
 
 /**
  * The annotated API for {@code kotlin.text}. The type that matters here is {@link kotlin.text.Regex}, the exact

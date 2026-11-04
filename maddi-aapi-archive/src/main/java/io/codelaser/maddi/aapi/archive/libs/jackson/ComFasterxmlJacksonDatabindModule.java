@@ -17,23 +17,6 @@
 
 package io.codelaser.maddi.aapi.archive.libs.jackson;
 
-import java.util.Collection;
-
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.KeyDeserializer;
-import com.fasterxml.jackson.databind.Module;
-import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
-import com.fasterxml.jackson.databind.deser.ValueInstantiator;
-import com.fasterxml.jackson.databind.jsontype.NamedType;
-import com.fasterxml.jackson.databind.module.SimpleAbstractTypeResolver;
-import com.fasterxml.jackson.databind.module.SimpleDeserializers;
-import com.fasterxml.jackson.databind.module.SimpleKeyDeserializers;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.module.SimpleSerializers;
-import com.fasterxml.jackson.databind.module.SimpleValueInstantiators;
-import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
-
 import io.codelaser.maddi.annotation.NotModified;
 
 /**
@@ -45,26 +28,26 @@ public class ComFasterxmlJacksonDatabindModule {
     //public class com.fasterxml.jackson.databind.module.SimpleModule extends com.fasterxml.jackson.databind.Module implements java.io.Serializable
     // the (de)serializers and other handlers are stored, never changed
     class SimpleModule$ {
-        @NotModified Object getTypeId() { return null; }
-        void setSerializers(@NotModified SimpleSerializers p0) { }
-        void setDeserializers(@NotModified SimpleDeserializers p0) { }
-        void setKeySerializers(@NotModified SimpleSerializers p0) { }
-        void setKeyDeserializers(@NotModified SimpleKeyDeserializers p0) { }
-        void setAbstractTypes(@NotModified SimpleAbstractTypeResolver p0) { }
-        void setValueInstantiators(@NotModified SimpleValueInstantiators p0) { }
-        SimpleModule setDeserializerModifier(@NotModified BeanDeserializerModifier p0) { return null; }
-        SimpleModule setSerializerModifier(@NotModified BeanSerializerModifier p0) { return null; }
-        SimpleModule addSerializer(@NotModified JsonSerializer<?> p0) { return null; }
-        <T> SimpleModule addSerializer(Class<? extends T> p0, @NotModified JsonSerializer<T> p1) { return null; }
-        <T> SimpleModule addKeySerializer(Class<? extends T> p0, @NotModified JsonSerializer<T> p1) { return null; }
-        <T> SimpleModule addDeserializer(Class<T> p0, @NotModified JsonDeserializer<? extends T> p1) { return null; }
-        SimpleModule addKeyDeserializer(Class<?> p0, @NotModified KeyDeserializer p1) { return null; }
-        SimpleModule registerSubtypes(@NotModified Class<?>... p0) { return null; }
-        SimpleModule registerSubtypes(@NotModified NamedType... p0) { return null; }
-        SimpleModule registerSubtypes(@NotModified Collection<Class<?>> p0) { return null; }
-        SimpleModule addValueInstantiator(Class<?> p0, @NotModified ValueInstantiator p1) { return null; }
-        @NotModified String getModuleName() { return null; }
-        void setupModule(@NotModified Module.SetupContext p0) { }
+        @NotModified java.lang.Object getTypeId() { return null; }
+        void setSerializers(@NotModified com.fasterxml.jackson.databind.module.SimpleSerializers p0) { }
+        void setDeserializers(@NotModified com.fasterxml.jackson.databind.module.SimpleDeserializers p0) { }
+        void setKeySerializers(@NotModified com.fasterxml.jackson.databind.module.SimpleSerializers p0) { }
+        void setKeyDeserializers(@NotModified com.fasterxml.jackson.databind.module.SimpleKeyDeserializers p0) { }
+        void setAbstractTypes(@NotModified com.fasterxml.jackson.databind.module.SimpleAbstractTypeResolver p0) { }
+        void setValueInstantiators(@NotModified com.fasterxml.jackson.databind.module.SimpleValueInstantiators p0) { }
+        com.fasterxml.jackson.databind.module.SimpleModule setDeserializerModifier(@NotModified com.fasterxml.jackson.databind.deser.BeanDeserializerModifier p0) { return null; }
+        com.fasterxml.jackson.databind.module.SimpleModule setSerializerModifier(@NotModified com.fasterxml.jackson.databind.ser.BeanSerializerModifier p0) { return null; }
+        com.fasterxml.jackson.databind.module.SimpleModule addSerializer(@NotModified com.fasterxml.jackson.databind.JsonSerializer<?> p0) { return null; }
+        <T> com.fasterxml.jackson.databind.module.SimpleModule addSerializer(java.lang.Class<? extends T> p0, @NotModified com.fasterxml.jackson.databind.JsonSerializer<T> p1) { return null; }
+        <T> com.fasterxml.jackson.databind.module.SimpleModule addKeySerializer(java.lang.Class<? extends T> p0, @NotModified com.fasterxml.jackson.databind.JsonSerializer<T> p1) { return null; }
+        <T> com.fasterxml.jackson.databind.module.SimpleModule addDeserializer(java.lang.Class<T> p0, @NotModified com.fasterxml.jackson.databind.JsonDeserializer<? extends T> p1) { return null; }
+        com.fasterxml.jackson.databind.module.SimpleModule addKeyDeserializer(java.lang.Class<?> p0, @NotModified com.fasterxml.jackson.databind.KeyDeserializer p1) { return null; }
+        com.fasterxml.jackson.databind.module.SimpleModule registerSubtypes(@NotModified java.lang.Class<?>... p0) { return null; }
+        com.fasterxml.jackson.databind.module.SimpleModule registerSubtypes(@NotModified com.fasterxml.jackson.databind.jsontype.NamedType... p0) { return null; }
+        com.fasterxml.jackson.databind.module.SimpleModule registerSubtypes(@NotModified java.util.Collection<java.lang.Class<?>> p0) { return null; }
+        com.fasterxml.jackson.databind.module.SimpleModule addValueInstantiator(java.lang.Class<?> p0, @NotModified com.fasterxml.jackson.databind.deser.ValueInstantiator p1) { return null; }
+        @NotModified java.lang.String getModuleName() { return null; }
+        void setupModule(@NotModified com.fasterxml.jackson.databind.Module.SetupContext p0) { }
     }
 
 }

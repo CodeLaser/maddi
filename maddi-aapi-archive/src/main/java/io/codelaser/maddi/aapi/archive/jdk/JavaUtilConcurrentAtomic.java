@@ -16,12 +16,10 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.*;
-
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Independent;
-import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 
@@ -199,10 +197,10 @@ public class JavaUtilConcurrentAtomic {
     class AtomicReferenceArray$<E> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         AtomicReferenceArray$(@NotNull E[] p0) { }
-        @Modified E accumulateAndGet(int p0, E p1, @NotNull BinaryOperator<E> p2) { return null; }
-        @Modified E getAndAccumulate(int p0, E p1, @NotNull BinaryOperator<E> p2) { return null; }
-        @Modified E getAndUpdate(int p0, @NotNull UnaryOperator<E> p1) { return null; }
-        @Modified E updateAndGet(int p0, @NotNull UnaryOperator<E> p1) { return null; }
+        @Modified E accumulateAndGet(int p0, E p1, @NotNull java.util.function.BinaryOperator<E> p2) { return null; }
+        @Modified E getAndAccumulate(int p0, E p1, @NotNull java.util.function.BinaryOperator<E> p2) { return null; }
+        @Modified E getAndUpdate(int p0, @NotNull java.util.function.UnaryOperator<E> p1) { return null; }
+        @Modified E updateAndGet(int p0, @NotNull java.util.function.UnaryOperator<E> p1) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified E compareAndExchange(int p0, E p1, E p2) { return null; }
@@ -232,11 +230,11 @@ public class JavaUtilConcurrentAtomic {
     //public java.util.concurrent.atomic.AtomicReferenceFieldUpdater (shadow created for its nullability, generated)
     class AtomicReferenceFieldUpdater$<T, V> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified V accumulateAndGet(T p0, V p1, @NotNull BinaryOperator<V> p2) { return null; }
-        @Modified V getAndAccumulate(T p0, V p1, @NotNull BinaryOperator<V> p2) { return null; }
-        @Modified V getAndUpdate(T p0, @NotNull UnaryOperator<V> p1) { return null; }
-        static <U, W> AtomicReferenceFieldUpdater<U, W> newUpdater(@NotNull Class<U> p0, @NotNull Class<W> p1, @NotNull String p2) { return null; }
-        @Modified V updateAndGet(T p0, @NotNull UnaryOperator<V> p1) { return null; }
+        @Modified V accumulateAndGet(T p0, V p1, @NotNull java.util.function.BinaryOperator<V> p2) { return null; }
+        @Modified V getAndAccumulate(T p0, V p1, @NotNull java.util.function.BinaryOperator<V> p2) { return null; }
+        @Modified V getAndUpdate(T p0, @NotNull java.util.function.UnaryOperator<V> p1) { return null; }
+        static <U, W> java.util.concurrent.atomic.AtomicReferenceFieldUpdater<U, W> newUpdater(@NotNull java.lang.Class<U> p0, @NotNull java.lang.Class<W> p1, @NotNull java.lang.String p2) { return null; }
+        @Modified V updateAndGet(T p0, @NotNull java.util.function.UnaryOperator<V> p1) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean compareAndSet(T p0, V p1, V p2) { return false; }

@@ -16,15 +16,14 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import java.lang.constant.ClassDesc;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotNull;
+
 import java.lang.constant.ConstantDesc;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
-
-import io.codelaser.maddi.annotation.ImmutableContainer;
-import io.codelaser.maddi.annotation.Independent;
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaLangConstant {
@@ -50,7 +49,7 @@ public class JavaLangConstant {
     //public java.lang.constant.ClassDesc (shadow created for its nullability, generated)
     class ClassDesc$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable ClassDesc componentType() { return null; }
+        @Nullable java.lang.constant.ClassDesc componentType() { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified boolean isArray() { return false; }

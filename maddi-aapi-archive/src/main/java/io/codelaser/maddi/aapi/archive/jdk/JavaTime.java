@@ -16,6 +16,10 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Independent;
+
 import java.time.*;
 import java.time.chrono.*;
 import java.time.format.DateTimeFormatter;
@@ -24,12 +28,8 @@ import java.time.temporal.*;
 import java.time.zone.ZoneRules;
 import java.util.*;
 import java.util.stream.Stream;
-
-import io.codelaser.maddi.annotation.ImmutableContainer;
-import io.codelaser.maddi.annotation.Independent;
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.NotNull;
 
 public class JavaTime {
     public static final String PACKAGE_NAME = "java.time";
@@ -276,7 +276,7 @@ public class JavaTime {
         public String toString() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Instant plusSaturating(@NotNull Duration p0) { return null; }
+        java.time.Instant plusSaturating(@NotNull java.time.Duration p0) { return null; }
     }
 
     //public final class LocalTime implements Temporal, TemporalAdjuster, Comparable<LocalTime>, Serializable
@@ -308,29 +308,29 @@ public class JavaTime {
         public String toString() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Temporal adjustInto(@NotNull Temporal p0) { return null; }
-        LocalDateTime atDate(@NotNull LocalDate p0) { return null; }
-        OffsetTime atOffset(@NotNull ZoneOffset p0) { return null; }
-        int compareTo(@NotNull LocalTime p0) { return 0; }
-        String format(@NotNull DateTimeFormatter p0) { return null; }
-        static LocalTime from(@NotNull TemporalAccessor p0) { return null; }
-        int get(@NotNull TemporalField p0) { return 0; }
-        long getLong(@NotNull TemporalField p0) { return 0; }
-        boolean isSupported(@NotNull TemporalField p0) { return false; }
-        boolean isSupported(@NotNull TemporalUnit p0) { return false; }
-        LocalTime minus(@NotNull TemporalAmount p0) { return null; }
-        LocalTime minus(long p0, @NotNull TemporalUnit p1) { return null; }
-        static LocalTime ofInstant(@NotNull Instant p0, @NotNull ZoneId p1) { return null; }
-        static LocalTime parse(@NotNull CharSequence p0, @NotNull DateTimeFormatter p1) { return null; }
-        LocalTime plus(@NotNull TemporalAmount p0) { return null; }
-        LocalTime plus(long p0, @NotNull TemporalUnit p1) { return null; }
-        <R> R query(@NotNull TemporalQuery<R> p0) { return null; }
-        ValueRange range(@NotNull TemporalField p0) { return null; }
-        long toEpochSecond(@NotNull LocalDate p0, @NotNull ZoneOffset p1) { return 0; }
-        LocalTime truncatedTo(@NotNull TemporalUnit p0) { return null; }
-        long until(@NotNull Temporal p0, @NotNull TemporalUnit p1) { return 0; }
-        LocalTime with(@NotNull TemporalAdjuster p0) { return null; }
-        LocalTime with(@NotNull TemporalField p0, long p1) { return null; }
+        java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
+        java.time.LocalDateTime atDate(@NotNull java.time.LocalDate p0) { return null; }
+        java.time.OffsetTime atOffset(@NotNull java.time.ZoneOffset p0) { return null; }
+        int compareTo(@NotNull java.time.LocalTime p0) { return 0; }
+        java.lang.String format(@NotNull java.time.format.DateTimeFormatter p0) { return null; }
+        static java.time.LocalTime from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        int get(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
+        java.time.LocalTime minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.LocalTime minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        static java.time.LocalTime ofInstant(@NotNull java.time.Instant p0, @NotNull java.time.ZoneId p1) { return null; }
+        static java.time.LocalTime parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
+        java.time.LocalTime plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.LocalTime plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
+        java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
+        long toEpochSecond(@NotNull java.time.LocalDate p0, @NotNull java.time.ZoneOffset p1) { return 0; }
+        java.time.LocalTime truncatedTo(@NotNull java.time.temporal.TemporalUnit p0) { return null; }
+        long until(@NotNull java.time.temporal.Temporal p0, @NotNull java.time.temporal.TemporalUnit p1) { return 0; }
+        java.time.LocalTime with(@NotNull java.time.temporal.TemporalAdjuster p0) { return null; }
+        java.time.LocalTime with(@NotNull java.time.temporal.TemporalField p0, long p1) { return null; }
     }
 
     //public final class LocalDate implements Temporal, TemporalAdjuster, ChronoLocalDate, Serializable
@@ -825,243 +825,243 @@ public class JavaTime {
     //public java.time.Clock (shadow created for its nullability, generated)
     class Clock$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static Clock fixed(@NotNull Instant p0, @NotNull ZoneId p1) { return null; }
-        static Clock offset(@NotNull Clock p0, @NotNull Duration p1) { return null; }
-        static Clock system(@NotNull ZoneId p0) { return null; }
-        static Clock tick(@NotNull Clock p0, @NotNull Duration p1) { return null; }
-        static Clock tickMillis(@NotNull ZoneId p0) { return null; }
-        static Clock tickMinutes(@NotNull ZoneId p0) { return null; }
-        static Clock tickSeconds(@NotNull ZoneId p0) { return null; }
-        Clock withZone(@NotNull ZoneId p0) { return null; }
+        static java.time.Clock fixed(@NotNull java.time.Instant p0, @NotNull java.time.ZoneId p1) { return null; }
+        static java.time.Clock offset(@NotNull java.time.Clock p0, @NotNull java.time.Duration p1) { return null; }
+        static java.time.Clock system(@NotNull java.time.ZoneId p0) { return null; }
+        static java.time.Clock tick(@NotNull java.time.Clock p0, @NotNull java.time.Duration p1) { return null; }
+        static java.time.Clock tickMillis(@NotNull java.time.ZoneId p0) { return null; }
+        static java.time.Clock tickMinutes(@NotNull java.time.ZoneId p0) { return null; }
+        static java.time.Clock tickSeconds(@NotNull java.time.ZoneId p0) { return null; }
+        java.time.Clock withZone(@NotNull java.time.ZoneId p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified ZoneId getZone() { return null; }
+        @NotModified java.time.ZoneId getZone() { return null; }
     }
 
     //public java.time.DateTimeException (shadow created for its nullability, generated)
     class DateTimeException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        DateTimeException$(@Nullable String p0) { }
-        DateTimeException$(@Nullable String p0, @Nullable Throwable p1) { }
+        DateTimeException$(@Nullable java.lang.String p0) { }
+        DateTimeException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
     }
 
     //public java.time.InstantSource (shadow created for its nullability, generated)
     class InstantSource$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static InstantSource fixed(@NotNull Instant p0) { return null; }
-        static InstantSource offset(@NotNull InstantSource p0, @NotNull Duration p1) { return null; }
-        static InstantSource tick(@NotNull InstantSource p0, @NotNull Duration p1) { return null; }
-        Clock withZone(@NotNull ZoneId p0) { return null; }
+        static java.time.InstantSource fixed(@NotNull java.time.Instant p0) { return null; }
+        static java.time.InstantSource offset(@NotNull java.time.InstantSource p0, @NotNull java.time.Duration p1) { return null; }
+        static java.time.InstantSource tick(@NotNull java.time.InstantSource p0, @NotNull java.time.Duration p1) { return null; }
+        java.time.Clock withZone(@NotNull java.time.ZoneId p0) { return null; }
     }
 
     //public java.time.Month (shadow created for its nullability, generated)
     class Month$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Temporal adjustInto(@NotNull Temporal p0) { return null; }
-        static Month from(@NotNull TemporalAccessor p0) { return null; }
-        int get(@NotNull TemporalField p0) { return 0; }
-        @NotModified String getDisplayName(@NotNull TextStyle p0, @NotNull Locale p1) { return null; }
-        long getLong(@NotNull TemporalField p0) { return 0; }
-        boolean isSupported(@NotNull TemporalField p0) { return false; }
-        <R> R query(@NotNull TemporalQuery<R> p0) { return null; }
-        ValueRange range(@NotNull TemporalField p0) { return null; }
+        java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
+        static java.time.Month from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        int get(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        @NotModified java.lang.String getDisplayName(@NotNull java.time.format.TextStyle p0, @NotNull java.util.Locale p1) { return null; }
+        long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
+        <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
+        java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified int getValue() { return 0; }
         @NotModified int length(boolean p0) { return 0; }
         @NotModified int maxLength() { return 0; }
         @NotModified int minLength() { return 0; }
-        @NotModified Month minus(long p0) { return null; }
+        @NotModified java.time.Month minus(long p0) { return null; }
     }
 
     //public java.time.MonthDay (shadow created for its nullability, generated)
     @ImmutableContainer
     class MonthDay$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Temporal adjustInto(@NotNull Temporal p0) { return null; }
-        int compareTo(@NotNull MonthDay p0) { return 0; }
-        String format(@NotNull DateTimeFormatter p0) { return null; }
-        static MonthDay from(@NotNull TemporalAccessor p0) { return null; }
-        int get(@NotNull TemporalField p0) { return 0; }
-        long getLong(@NotNull TemporalField p0) { return 0; }
-        boolean isAfter(@NotNull MonthDay p0) { return false; }
-        boolean isBefore(@NotNull MonthDay p0) { return false; }
-        boolean isSupported(@NotNull TemporalField p0) { return false; }
-        static MonthDay now(@NotNull Clock p0) { return null; }
-        static MonthDay now(@NotNull ZoneId p0) { return null; }
-        static MonthDay of(@NotNull Month p0, int p1) { return null; }
-        static MonthDay parse(@NotNull CharSequence p0) { return null; }
-        static MonthDay parse(@NotNull CharSequence p0, @NotNull DateTimeFormatter p1) { return null; }
-        <R> R query(@NotNull TemporalQuery<R> p0) { return null; }
-        ValueRange range(@NotNull TemporalField p0) { return null; }
-        MonthDay with(@NotNull Month p0) { return null; }
+        java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
+        int compareTo(@NotNull java.time.MonthDay p0) { return 0; }
+        java.lang.String format(@NotNull java.time.format.DateTimeFormatter p0) { return null; }
+        static java.time.MonthDay from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        int get(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        boolean isAfter(@NotNull java.time.MonthDay p0) { return false; }
+        boolean isBefore(@NotNull java.time.MonthDay p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
+        static java.time.MonthDay now(@NotNull java.time.Clock p0) { return null; }
+        static java.time.MonthDay now(@NotNull java.time.ZoneId p0) { return null; }
+        static java.time.MonthDay of(@NotNull java.time.Month p0, int p1) { return null; }
+        static java.time.MonthDay parse(@NotNull java.lang.CharSequence p0) { return null; }
+        static java.time.MonthDay parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
+        <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
+        java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
+        java.time.MonthDay with(@NotNull java.time.Month p0) { return null; }
     }
 
     //public java.time.OffsetDateTime (shadow created for its nullability, generated)
     @ImmutableContainer
     class OffsetDateTime$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Temporal adjustInto(@NotNull Temporal p0) { return null; }
-        ZonedDateTime atZoneSameInstant(@NotNull ZoneId p0) { return null; }
-        ZonedDateTime atZoneSimilarLocal(@NotNull ZoneId p0) { return null; }
-        int compareTo(@NotNull OffsetDateTime p0) { return 0; }
-        String format(@NotNull DateTimeFormatter p0) { return null; }
-        static OffsetDateTime from(@NotNull TemporalAccessor p0) { return null; }
-        int get(@NotNull TemporalField p0) { return 0; }
-        long getLong(@NotNull TemporalField p0) { return 0; }
-        boolean isAfter(@NotNull OffsetDateTime p0) { return false; }
-        boolean isBefore(@NotNull OffsetDateTime p0) { return false; }
-        boolean isEqual(@NotNull OffsetDateTime p0) { return false; }
-        boolean isSupported(@NotNull TemporalField p0) { return false; }
-        boolean isSupported(@NotNull TemporalUnit p0) { return false; }
-        OffsetDateTime minus(@NotNull TemporalAmount p0) { return null; }
-        OffsetDateTime minus(long p0, @NotNull TemporalUnit p1) { return null; }
-        static OffsetDateTime now(@NotNull Clock p0) { return null; }
-        static OffsetDateTime now(@NotNull ZoneId p0) { return null; }
-        static OffsetDateTime of(@NotNull LocalDate p0, @NotNull LocalTime p1, @NotNull ZoneOffset p2) { return null; }
-        static OffsetDateTime of(@NotNull LocalDateTime p0, @NotNull ZoneOffset p1) { return null; }
-        static OffsetDateTime of(int p0, int p1, int p2, int p3, int p4, int p5, int p6, @NotNull ZoneOffset p7) { return null; }
-        static OffsetDateTime ofInstant(@NotNull Instant p0, @NotNull ZoneId p1) { return null; }
-        static OffsetDateTime parse(@NotNull CharSequence p0) { return null; }
-        static OffsetDateTime parse(@NotNull CharSequence p0, @NotNull DateTimeFormatter p1) { return null; }
-        OffsetDateTime plus(@NotNull TemporalAmount p0) { return null; }
-        OffsetDateTime plus(long p0, @NotNull TemporalUnit p1) { return null; }
-        <R> R query(@NotNull TemporalQuery<R> p0) { return null; }
-        ValueRange range(@NotNull TemporalField p0) { return null; }
-        OffsetDateTime truncatedTo(@NotNull TemporalUnit p0) { return null; }
-        long until(@NotNull Temporal p0, @NotNull TemporalUnit p1) { return 0; }
-        OffsetDateTime with(@NotNull TemporalAdjuster p0) { return null; }
-        OffsetDateTime with(@NotNull TemporalField p0, long p1) { return null; }
-        OffsetDateTime withOffsetSameInstant(@NotNull ZoneOffset p0) { return null; }
-        OffsetDateTime withOffsetSameLocal(@NotNull ZoneOffset p0) { return null; }
+        java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
+        java.time.ZonedDateTime atZoneSameInstant(@NotNull java.time.ZoneId p0) { return null; }
+        java.time.ZonedDateTime atZoneSimilarLocal(@NotNull java.time.ZoneId p0) { return null; }
+        int compareTo(@NotNull java.time.OffsetDateTime p0) { return 0; }
+        java.lang.String format(@NotNull java.time.format.DateTimeFormatter p0) { return null; }
+        static java.time.OffsetDateTime from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        int get(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        boolean isAfter(@NotNull java.time.OffsetDateTime p0) { return false; }
+        boolean isBefore(@NotNull java.time.OffsetDateTime p0) { return false; }
+        boolean isEqual(@NotNull java.time.OffsetDateTime p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
+        java.time.OffsetDateTime minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.OffsetDateTime minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        static java.time.OffsetDateTime now(@NotNull java.time.Clock p0) { return null; }
+        static java.time.OffsetDateTime now(@NotNull java.time.ZoneId p0) { return null; }
+        static java.time.OffsetDateTime of(@NotNull java.time.LocalDate p0, @NotNull java.time.LocalTime p1, @NotNull java.time.ZoneOffset p2) { return null; }
+        static java.time.OffsetDateTime of(@NotNull java.time.LocalDateTime p0, @NotNull java.time.ZoneOffset p1) { return null; }
+        static java.time.OffsetDateTime of(int p0, int p1, int p2, int p3, int p4, int p5, int p6, @NotNull java.time.ZoneOffset p7) { return null; }
+        static java.time.OffsetDateTime ofInstant(@NotNull java.time.Instant p0, @NotNull java.time.ZoneId p1) { return null; }
+        static java.time.OffsetDateTime parse(@NotNull java.lang.CharSequence p0) { return null; }
+        static java.time.OffsetDateTime parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
+        java.time.OffsetDateTime plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.OffsetDateTime plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
+        java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
+        java.time.OffsetDateTime truncatedTo(@NotNull java.time.temporal.TemporalUnit p0) { return null; }
+        long until(@NotNull java.time.temporal.Temporal p0, @NotNull java.time.temporal.TemporalUnit p1) { return 0; }
+        java.time.OffsetDateTime with(@NotNull java.time.temporal.TemporalAdjuster p0) { return null; }
+        java.time.OffsetDateTime with(@NotNull java.time.temporal.TemporalField p0, long p1) { return null; }
+        java.time.OffsetDateTime withOffsetSameInstant(@NotNull java.time.ZoneOffset p0) { return null; }
+        java.time.OffsetDateTime withOffsetSameLocal(@NotNull java.time.ZoneOffset p0) { return null; }
     }
 
     //public java.time.OffsetTime (shadow created for its nullability, generated)
     @ImmutableContainer
     class OffsetTime$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Temporal adjustInto(@NotNull Temporal p0) { return null; }
-        OffsetDateTime atDate(@NotNull LocalDate p0) { return null; }
-        int compareTo(@NotNull OffsetTime p0) { return 0; }
-        String format(@NotNull DateTimeFormatter p0) { return null; }
-        static OffsetTime from(@NotNull TemporalAccessor p0) { return null; }
-        int get(@NotNull TemporalField p0) { return 0; }
-        long getLong(@NotNull TemporalField p0) { return 0; }
-        boolean isAfter(@NotNull OffsetTime p0) { return false; }
-        boolean isBefore(@NotNull OffsetTime p0) { return false; }
-        boolean isEqual(@NotNull OffsetTime p0) { return false; }
-        boolean isSupported(@NotNull TemporalField p0) { return false; }
-        boolean isSupported(@NotNull TemporalUnit p0) { return false; }
-        OffsetTime minus(@NotNull TemporalAmount p0) { return null; }
-        OffsetTime minus(long p0, @NotNull TemporalUnit p1) { return null; }
-        static OffsetTime now(@NotNull Clock p0) { return null; }
-        static OffsetTime now(@NotNull ZoneId p0) { return null; }
-        static OffsetTime of(@NotNull LocalTime p0, @NotNull ZoneOffset p1) { return null; }
-        static OffsetTime of(int p0, int p1, int p2, int p3, @NotNull ZoneOffset p4) { return null; }
-        static OffsetTime ofInstant(@NotNull Instant p0, @NotNull ZoneId p1) { return null; }
-        static OffsetTime parse(@NotNull CharSequence p0) { return null; }
-        static OffsetTime parse(@NotNull CharSequence p0, @NotNull DateTimeFormatter p1) { return null; }
-        OffsetTime plus(@NotNull TemporalAmount p0) { return null; }
-        OffsetTime plus(long p0, @NotNull TemporalUnit p1) { return null; }
-        <R> R query(@NotNull TemporalQuery<R> p0) { return null; }
-        ValueRange range(@NotNull TemporalField p0) { return null; }
-        long toEpochSecond(@NotNull LocalDate p0) { return 0; }
-        OffsetTime truncatedTo(@NotNull TemporalUnit p0) { return null; }
-        long until(@NotNull Temporal p0, @NotNull TemporalUnit p1) { return 0; }
-        OffsetTime with(@NotNull TemporalAdjuster p0) { return null; }
-        OffsetTime with(@NotNull TemporalField p0, long p1) { return null; }
-        OffsetTime withOffsetSameInstant(@NotNull ZoneOffset p0) { return null; }
-        OffsetTime withOffsetSameLocal(@NotNull ZoneOffset p0) { return null; }
+        java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
+        java.time.OffsetDateTime atDate(@NotNull java.time.LocalDate p0) { return null; }
+        int compareTo(@NotNull java.time.OffsetTime p0) { return 0; }
+        java.lang.String format(@NotNull java.time.format.DateTimeFormatter p0) { return null; }
+        static java.time.OffsetTime from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        int get(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        boolean isAfter(@NotNull java.time.OffsetTime p0) { return false; }
+        boolean isBefore(@NotNull java.time.OffsetTime p0) { return false; }
+        boolean isEqual(@NotNull java.time.OffsetTime p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
+        java.time.OffsetTime minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.OffsetTime minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        static java.time.OffsetTime now(@NotNull java.time.Clock p0) { return null; }
+        static java.time.OffsetTime now(@NotNull java.time.ZoneId p0) { return null; }
+        static java.time.OffsetTime of(@NotNull java.time.LocalTime p0, @NotNull java.time.ZoneOffset p1) { return null; }
+        static java.time.OffsetTime of(int p0, int p1, int p2, int p3, @NotNull java.time.ZoneOffset p4) { return null; }
+        static java.time.OffsetTime ofInstant(@NotNull java.time.Instant p0, @NotNull java.time.ZoneId p1) { return null; }
+        static java.time.OffsetTime parse(@NotNull java.lang.CharSequence p0) { return null; }
+        static java.time.OffsetTime parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
+        java.time.OffsetTime plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.OffsetTime plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
+        java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
+        long toEpochSecond(@NotNull java.time.LocalDate p0) { return 0; }
+        java.time.OffsetTime truncatedTo(@NotNull java.time.temporal.TemporalUnit p0) { return null; }
+        long until(@NotNull java.time.temporal.Temporal p0, @NotNull java.time.temporal.TemporalUnit p1) { return 0; }
+        java.time.OffsetTime with(@NotNull java.time.temporal.TemporalAdjuster p0) { return null; }
+        java.time.OffsetTime with(@NotNull java.time.temporal.TemporalField p0, long p1) { return null; }
+        java.time.OffsetTime withOffsetSameInstant(@NotNull java.time.ZoneOffset p0) { return null; }
+        java.time.OffsetTime withOffsetSameLocal(@NotNull java.time.ZoneOffset p0) { return null; }
     }
 
     //public java.time.Period (shadow created for its nullability, generated)
     @ImmutableContainer
     class Period$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Temporal addTo(@NotNull Temporal p0) { return null; }
-        static Period between(@NotNull LocalDate p0, @NotNull LocalDate p1) { return null; }
-        static Period from(@NotNull TemporalAmount p0) { return null; }
-        long get(@NotNull TemporalUnit p0) { return 0; }
-        Period minus(@NotNull TemporalAmount p0) { return null; }
-        static Period parse(@NotNull CharSequence p0) { return null; }
-        Period plus(@NotNull TemporalAmount p0) { return null; }
-        Temporal subtractFrom(@NotNull Temporal p0) { return null; }
+        java.time.temporal.Temporal addTo(@NotNull java.time.temporal.Temporal p0) { return null; }
+        static java.time.Period between(@NotNull java.time.LocalDate p0, @NotNull java.time.LocalDate p1) { return null; }
+        static java.time.Period from(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        long get(@NotNull java.time.temporal.TemporalUnit p0) { return 0; }
+        java.time.Period minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        static java.time.Period parse(@NotNull java.lang.CharSequence p0) { return null; }
+        java.time.Period plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.temporal.Temporal subtractFrom(@NotNull java.time.temporal.Temporal p0) { return null; }
     }
 
     //public java.time.Year (shadow created for its nullability, generated)
     @ImmutableContainer
     class Year$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Temporal adjustInto(@NotNull Temporal p0) { return null; }
-        YearMonth atMonth(@NotNull Month p0) { return null; }
-        LocalDate atMonthDay(@NotNull MonthDay p0) { return null; }
-        int compareTo(@NotNull Year p0) { return 0; }
-        String format(@NotNull DateTimeFormatter p0) { return null; }
-        static Year from(@NotNull TemporalAccessor p0) { return null; }
-        int get(@NotNull TemporalField p0) { return 0; }
-        long getLong(@NotNull TemporalField p0) { return 0; }
-        boolean isAfter(@NotNull Year p0) { return false; }
-        boolean isBefore(@NotNull Year p0) { return false; }
-        boolean isSupported(@NotNull TemporalField p0) { return false; }
-        boolean isSupported(@NotNull TemporalUnit p0) { return false; }
-        boolean isValidMonthDay(@NotNull MonthDay p0) { return false; }
-        Year minus(@NotNull TemporalAmount p0) { return null; }
-        Year minus(long p0, @NotNull TemporalUnit p1) { return null; }
-        static Year now(@NotNull Clock p0) { return null; }
-        static Year now(@NotNull ZoneId p0) { return null; }
-        static Year parse(@NotNull CharSequence p0) { return null; }
-        static Year parse(@NotNull CharSequence p0, @NotNull DateTimeFormatter p1) { return null; }
-        Year plus(@NotNull TemporalAmount p0) { return null; }
-        Year plus(long p0, @NotNull TemporalUnit p1) { return null; }
-        <R> R query(@NotNull TemporalQuery<R> p0) { return null; }
-        ValueRange range(@NotNull TemporalField p0) { return null; }
-        long until(@NotNull Temporal p0, @NotNull TemporalUnit p1) { return 0; }
-        Year with(@NotNull TemporalAdjuster p0) { return null; }
-        Year with(@NotNull TemporalField p0, long p1) { return null; }
+        java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
+        java.time.YearMonth atMonth(@NotNull java.time.Month p0) { return null; }
+        java.time.LocalDate atMonthDay(@NotNull java.time.MonthDay p0) { return null; }
+        int compareTo(@NotNull java.time.Year p0) { return 0; }
+        java.lang.String format(@NotNull java.time.format.DateTimeFormatter p0) { return null; }
+        static java.time.Year from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        int get(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        boolean isAfter(@NotNull java.time.Year p0) { return false; }
+        boolean isBefore(@NotNull java.time.Year p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
+        boolean isValidMonthDay(@NotNull java.time.MonthDay p0) { return false; }
+        java.time.Year minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.Year minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        static java.time.Year now(@NotNull java.time.Clock p0) { return null; }
+        static java.time.Year now(@NotNull java.time.ZoneId p0) { return null; }
+        static java.time.Year parse(@NotNull java.lang.CharSequence p0) { return null; }
+        static java.time.Year parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
+        java.time.Year plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.Year plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
+        java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
+        long until(@NotNull java.time.temporal.Temporal p0, @NotNull java.time.temporal.TemporalUnit p1) { return 0; }
+        java.time.Year with(@NotNull java.time.temporal.TemporalAdjuster p0) { return null; }
+        java.time.Year with(@NotNull java.time.temporal.TemporalField p0, long p1) { return null; }
     }
 
     //public java.time.YearMonth (shadow created for its nullability, generated)
     @ImmutableContainer
     class YearMonth$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Temporal adjustInto(@NotNull Temporal p0) { return null; }
-        int compareTo(@NotNull YearMonth p0) { return 0; }
-        String format(@NotNull DateTimeFormatter p0) { return null; }
-        static YearMonth from(@NotNull TemporalAccessor p0) { return null; }
-        int get(@NotNull TemporalField p0) { return 0; }
-        long getLong(@NotNull TemporalField p0) { return 0; }
-        boolean isAfter(@NotNull YearMonth p0) { return false; }
-        boolean isBefore(@NotNull YearMonth p0) { return false; }
-        boolean isSupported(@NotNull TemporalField p0) { return false; }
-        boolean isSupported(@NotNull TemporalUnit p0) { return false; }
-        YearMonth minus(@NotNull TemporalAmount p0) { return null; }
-        YearMonth minus(long p0, @NotNull TemporalUnit p1) { return null; }
-        static YearMonth now(@NotNull Clock p0) { return null; }
-        static YearMonth now(@NotNull ZoneId p0) { return null; }
-        static YearMonth of(int p0, @NotNull Month p1) { return null; }
-        static YearMonth parse(@NotNull CharSequence p0) { return null; }
-        static YearMonth parse(@NotNull CharSequence p0, @NotNull DateTimeFormatter p1) { return null; }
-        YearMonth plus(@NotNull TemporalAmount p0) { return null; }
-        YearMonth plus(long p0, @NotNull TemporalUnit p1) { return null; }
-        <R> R query(@NotNull TemporalQuery<R> p0) { return null; }
-        ValueRange range(@NotNull TemporalField p0) { return null; }
-        long until(@NotNull Temporal p0, @NotNull TemporalUnit p1) { return 0; }
-        YearMonth with(@NotNull TemporalAdjuster p0) { return null; }
-        YearMonth with(@NotNull TemporalField p0, long p1) { return null; }
+        java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
+        int compareTo(@NotNull java.time.YearMonth p0) { return 0; }
+        java.lang.String format(@NotNull java.time.format.DateTimeFormatter p0) { return null; }
+        static java.time.YearMonth from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        int get(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        boolean isAfter(@NotNull java.time.YearMonth p0) { return false; }
+        boolean isBefore(@NotNull java.time.YearMonth p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
+        java.time.YearMonth minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.YearMonth minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        static java.time.YearMonth now(@NotNull java.time.Clock p0) { return null; }
+        static java.time.YearMonth now(@NotNull java.time.ZoneId p0) { return null; }
+        static java.time.YearMonth of(int p0, @NotNull java.time.Month p1) { return null; }
+        static java.time.YearMonth parse(@NotNull java.lang.CharSequence p0) { return null; }
+        static java.time.YearMonth parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
+        java.time.YearMonth plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.YearMonth plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
+        <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
+        java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
+        long until(@NotNull java.time.temporal.Temporal p0, @NotNull java.time.temporal.TemporalUnit p1) { return 0; }
+        java.time.YearMonth with(@NotNull java.time.temporal.TemporalAdjuster p0) { return null; }
+        java.time.YearMonth with(@NotNull java.time.temporal.TemporalField p0, long p1) { return null; }
     }
 
     //public java.time.ZoneOffset (shadow created for its nullability, generated)
     @ImmutableContainer
     class ZoneOffset$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Temporal adjustInto(@NotNull Temporal p0) { return null; }
-        int compareTo(@NotNull ZoneOffset p0) { return 0; }
-        static ZoneOffset from(@NotNull TemporalAccessor p0) { return null; }
-        int get(@NotNull TemporalField p0) { return 0; }
-        long getLong(@NotNull TemporalField p0) { return 0; }
-        boolean isSupported(@NotNull TemporalField p0) { return false; }
-        static ZoneOffset of(@NotNull String p0) { return null; }
-        <R> R query(@NotNull TemporalQuery<R> p0) { return null; }
-        ValueRange range(@NotNull TemporalField p0) { return null; }
+        java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
+        int compareTo(@NotNull java.time.ZoneOffset p0) { return 0; }
+        static java.time.ZoneOffset from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        int get(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
+        boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
+        static java.time.ZoneOffset of(@NotNull java.lang.String p0) { return null; }
+        <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
+        java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
     }
 }

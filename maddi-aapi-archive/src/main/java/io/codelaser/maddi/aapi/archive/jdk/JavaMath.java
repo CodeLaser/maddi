@@ -129,7 +129,7 @@ public class JavaMath {
         static BigDecimal valueOf(long unscaledVal, int i) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        BigDecimal rootn(int p0, @NotNull MathContext p1) { return null; }
+        java.math.BigDecimal rootn(int p0, @NotNull java.math.MathContext p1) { return null; }
     }
 
     //public class BigInteger extends Number implements Comparable<BigInteger>

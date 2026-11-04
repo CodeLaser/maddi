@@ -23,11 +23,10 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import io.codelaser.maddi.annotation.Immutable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.function.ThrowingSupplier;
-
-import io.codelaser.maddi.annotation.Immutable;
 
 public class OrgJunitJupiterApi {
     public static final String PACKAGE_NAME = "org.junit.jupiter.api";

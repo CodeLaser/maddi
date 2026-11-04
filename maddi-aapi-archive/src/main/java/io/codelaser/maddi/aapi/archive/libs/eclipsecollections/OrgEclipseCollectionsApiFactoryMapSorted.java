@@ -2,13 +2,17 @@ package io.codelaser.maddi.aapi.archive.libs.eclipsecollections;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.SortedMap;
-
 import org.eclipse.collections.api.map.sorted.ImmutableSortedMap;
 import org.eclipse.collections.api.map.sorted.MutableSortedMap;
-
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.FinalFields;
+import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
 @Independent(absent = true)
 public class OrgEclipseCollectionsApiFactoryMapSorted {
     public static final String PACKAGE_NAME = "org.eclipse.collections.api.factory.map.sorted";

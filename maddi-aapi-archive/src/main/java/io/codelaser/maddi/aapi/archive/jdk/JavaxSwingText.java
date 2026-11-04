@@ -26,7 +26,6 @@ import java.awt.print.Printable;
 import java.io.Reader;
 import java.io.Writer;
 import java.text.MessageFormat;
-
 import javax.accessibility.*;
 import javax.print.PrintService;
 import javax.print.attribute.PrintRequestAttributeSet;
@@ -38,7 +37,6 @@ import javax.swing.event.CaretListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.plaf.TextUI;
 import javax.swing.text.*;
-
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 

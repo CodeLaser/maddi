@@ -1,24 +1,28 @@
 package io.codelaser.maddi.aapi.archive.libs.vavr;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.function.*;
-
-import io.codelaser.maddi.annotation.FinalFields;
-import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.annotation.Identity;
-import io.codelaser.maddi.annotation.Independent;
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.vavr.*;
 import io.vavr.collection.Iterator;
 import io.vavr.collection.Seq;
 import io.vavr.concurrent.Promise;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.function.*;
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.FinalFields;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Identity;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.method.GetSet;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 @Independent(absent = true)
 public class IoVavrConcurrent {
     public static final String PACKAGE_NAME = "io.vavr.concurrent";

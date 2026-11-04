@@ -17,16 +17,12 @@
 
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+
 import java.io.File;
 import java.nio.charset.Charset;
 import java.util.List;
-
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
-import kotlin.io.FileTreeWalk;
-import kotlin.io.FileWalkDirection;
-import kotlin.jvm.functions.Function1;
-import kotlin.sequences.Sequence;
 
 /**
  * The annotated API for {@code kotlin.io}: reading a file through a {@link File} leaves the File object as it
@@ -70,14 +66,14 @@ public class KotlinIo {
         }
 
         static <T> T useLines(@NotModified File receiver, @NotModified Charset charset,
-                              Function1<? super Sequence<String>, ? extends T> block) {
+                              kotlin.jvm.functions.Function1<? super kotlin.sequences.Sequence<String>, ? extends T> block) {
             return null;
         }
     }
 
     class FilesKt__FileTreeWalkKt$ {
         @NotNull
-        static FileTreeWalk walk(@NotModified File receiver, @NotModified FileWalkDirection direction) {
+        static kotlin.io.FileTreeWalk walk(@NotModified File receiver, @NotModified kotlin.io.FileWalkDirection direction) {
             return null;
         }
     }

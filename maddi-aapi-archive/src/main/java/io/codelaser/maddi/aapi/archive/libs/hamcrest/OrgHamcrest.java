@@ -17,21 +17,6 @@
 
 package io.codelaser.maddi.aapi.archive.libs.hamcrest;
 
-import java.math.BigDecimal;
-import java.util.Collection;
-import java.util.EventObject;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Pattern;
-
-import javax.xml.namespace.NamespaceContext;
-
-import org.hamcrest.Matcher;
-import org.hamcrest.collection.IsArray;
-import org.hamcrest.core.AnyOf;
-import org.hamcrest.core.CombinableMatcher;
-import org.w3c.dom.Node;
-
 import io.codelaser.maddi.annotation.NotModified;
 
 /**
@@ -49,177 +34,177 @@ public class OrgHamcrest {
 
     //public class org.hamcrest.MatcherAssert
     class MatcherAssert$ {
-        static <T> void assertThat(@NotModified T arg0, @NotModified Matcher<? super T> arg1) { }
-        static <T> void assertThat(String arg0, @NotModified T arg1, @NotModified Matcher<? super T> arg2) { }
-        static void assertThat(String arg0, boolean arg1) { }
+        static <T> void assertThat(@NotModified T arg0, @NotModified org.hamcrest.Matcher<? super T> arg1) { }
+        static <T> void assertThat(java.lang.String arg0, @NotModified T arg1, @NotModified org.hamcrest.Matcher<? super T> arg2) { }
+        static void assertThat(java.lang.String arg0, boolean arg1) { }
     }
 
     //public class org.hamcrest.Matchers
     class Matchers$ {
-        static <T> Matcher<T> allOf(@NotModified Iterable<Matcher<? super T>> arg0) { return null; }
-        static <T> Matcher<T> allOf(@NotModified Matcher<? super T>... arg0) { return null; }
-        static <T> Matcher<T> allOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1) { return null; }
-        static <T> Matcher<T> allOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1, @NotModified Matcher<? super T> arg2) { return null; }
-        static <T> Matcher<T> allOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1, @NotModified Matcher<? super T> arg2, @NotModified Matcher<? super T> arg3) { return null; }
-        static <T> Matcher<T> allOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1, @NotModified Matcher<? super T> arg2, @NotModified Matcher<? super T> arg3, @NotModified Matcher<? super T> arg4) { return null; }
-        static <T> Matcher<T> allOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1, @NotModified Matcher<? super T> arg2, @NotModified Matcher<? super T> arg3, @NotModified Matcher<? super T> arg4, @NotModified Matcher<? super T> arg5) { return null; }
-        static <T> AnyOf<T> anyOf(@NotModified Iterable<Matcher<? super T>> arg0) { return null; }
-        static <T> AnyOf<T> anyOf(@NotModified Matcher<? super T>... arg0) { return null; }
-        static <T> AnyOf<T> anyOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1) { return null; }
-        static <T> AnyOf<T> anyOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1, @NotModified Matcher<? super T> arg2) { return null; }
-        static <T> AnyOf<T> anyOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1, @NotModified Matcher<? super T> arg2, @NotModified Matcher<? super T> arg3) { return null; }
-        static <T> AnyOf<T> anyOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1, @NotModified Matcher<? super T> arg2, @NotModified Matcher<? super T> arg3, @NotModified Matcher<? super T> arg4) { return null; }
-        static <T> AnyOf<T> anyOf(@NotModified Matcher<? super T> arg0, @NotModified Matcher<? super T> arg1, @NotModified Matcher<? super T> arg2, @NotModified Matcher<? super T> arg3, @NotModified Matcher<? super T> arg4, @NotModified Matcher<? super T> arg5) { return null; }
-        static <LHS> CombinableMatcher.CombinableBothMatcher<LHS> both(@NotModified Matcher<? super LHS> arg0) { return null; }
-        static <LHS> CombinableMatcher.CombinableEitherMatcher<LHS> either(@NotModified Matcher<? super LHS> arg0) { return null; }
-        static <T> Matcher<T> describedAs(String arg0, @NotModified Matcher<T> arg1, @NotModified Object... arg2) { return null; }
-        static <U> Matcher<Iterable<? extends U>> everyItem(@NotModified Matcher<U> arg0) { return null; }
-        static <T> Matcher<T> is(@NotModified Matcher<T> arg0) { return null; }
-        static <T> Matcher<T> is(@NotModified T arg0) { return null; }
-        static <T> Matcher<T> isA(@NotModified Class<?> arg0) { return null; }
-        static Matcher<Object> anything() { return null; }
-        static Matcher<Object> anything(String arg0) { return null; }
-        static <T> Matcher<Iterable<? super T>> hasItem(@NotModified Matcher<? super T> arg0) { return null; }
-        static <T> Matcher<Iterable<? super T>> hasItem(@NotModified T arg0) { return null; }
-        static <T> Matcher<Iterable<T>> hasItems(@NotModified Matcher<? super T>... arg0) { return null; }
-        static <T> Matcher<Iterable<T>> hasItems(@NotModified T... arg0) { return null; }
-        static <T> Matcher<T> equalTo(@NotModified T arg0) { return null; }
-        static Matcher<Object> equalToObject(@NotModified Object arg0) { return null; }
-        static <T> Matcher<T> any(@NotModified Class<T> arg0) { return null; }
-        static <T> Matcher<T> instanceOf(@NotModified Class<?> arg0) { return null; }
-        static <T> Matcher<T> not(@NotModified Matcher<T> arg0) { return null; }
-        static <T> Matcher<T> not(@NotModified T arg0) { return null; }
-        static Matcher<Object> notNullValue() { return null; }
-        static <T> Matcher<T> notNullValue(@NotModified Class<T> arg0) { return null; }
-        static Matcher<Object> nullValue() { return null; }
-        static <T> Matcher<T> nullValue(@NotModified Class<T> arg0) { return null; }
-        static <T> Matcher<T> sameInstance(@NotModified T arg0) { return null; }
-        static <T> Matcher<T> theInstance(@NotModified T arg0) { return null; }
-        static Matcher<String> containsString(String arg0) { return null; }
-        static Matcher<String> containsStringIgnoringCase(String arg0) { return null; }
-        static Matcher<String> startsWith(String arg0) { return null; }
-        static Matcher<String> startsWithIgnoringCase(String arg0) { return null; }
-        static Matcher<String> endsWith(String arg0) { return null; }
-        static Matcher<String> endsWithIgnoringCase(String arg0) { return null; }
-        static Matcher<String> matchesRegex(@NotModified Pattern arg0) { return null; }
-        static Matcher<String> matchesRegex(String arg0) { return null; }
-        static <T> IsArray<T> array(@NotModified Matcher<? super T>... arg0) { return null; }
-        static <T> Matcher<T[]> hasItemInArray(@NotModified Matcher<? super T> arg0) { return null; }
-        static <T> Matcher<T[]> hasItemInArray(@NotModified T arg0) { return null; }
-        static <E> Matcher<E[]> arrayContaining(@NotModified E... arg0) { return null; }
-        static <E> Matcher<E[]> arrayContaining(@NotModified Matcher<? super E>... arg0) { return null; }
-        static <E> Matcher<E[]> arrayContaining(@NotModified List<Matcher<? super E>> arg0) { return null; }
-        static <E> Matcher<E[]> arrayContainingInAnyOrder(@NotModified Matcher<? super E>... arg0) { return null; }
-        static <E> Matcher<E[]> arrayContainingInAnyOrder(@NotModified Collection<Matcher<? super E>> arg0) { return null; }
-        static <E> Matcher<E[]> arrayContainingInAnyOrder(@NotModified E... arg0) { return null; }
-        static <E> Matcher<E[]> arrayWithSize(@NotModified Matcher<? super Integer> arg0) { return null; }
-        static <E> Matcher<E[]> arrayWithSize(int arg0) { return null; }
-        static <E> Matcher<E[]> emptyArray() { return null; }
-        static <K, V> Matcher<Map<? extends K, ? extends V>> aMapWithSize(@NotModified Matcher<? super Integer> arg0) { return null; }
-        static <K, V> Matcher<Map<? extends K, ? extends V>> aMapWithSize(int arg0) { return null; }
-        static <K, V> Matcher<Map<? extends K, ? extends V>> anEmptyMap() { return null; }
-        static <E> Matcher<Collection<? extends E>> hasSize(@NotModified Matcher<? super Integer> arg0) { return null; }
-        static <E> Matcher<Collection<? extends E>> hasSize(int arg0) { return null; }
-        static <E> Matcher<Collection<? extends E>> empty() { return null; }
-        static <E> Matcher<Collection<E>> emptyCollectionOf(@NotModified Class<E> arg0) { return null; }
-        static <E> Matcher<Iterable<? extends E>> emptyIterable() { return null; }
-        static <E> Matcher<Iterable<E>> emptyIterableOf(@NotModified Class<E> arg0) { return null; }
-        static <E> Matcher<Iterable<? extends E>> contains(@NotModified E... arg0) { return null; }
-        static <E> Matcher<Iterable<? extends E>> contains(@NotModified Matcher<? super E> arg0) { return null; }
-        static <E> Matcher<Iterable<? extends E>> contains(@NotModified Matcher<? super E>... arg0) { return null; }
-        static <E> Matcher<Iterable<? extends E>> contains(@NotModified List<Matcher<? super E>> arg0) { return null; }
-        static <T> Matcher<Iterable<? extends T>> containsInAnyOrder(@NotModified Matcher<? super T>... arg0) { return null; }
-        static <T> Matcher<Iterable<? extends T>> containsInAnyOrder(@NotModified T... arg0) { return null; }
-        static <T> Matcher<Iterable<? extends T>> containsInAnyOrder(@NotModified Collection<Matcher<? super T>> arg0) { return null; }
-        static <E> Matcher<Iterable<? extends E>> containsInRelativeOrder(@NotModified E... arg0) { return null; }
-        static <E> Matcher<Iterable<? extends E>> containsInRelativeOrder(@NotModified Matcher<? super E>... arg0) { return null; }
-        static <E> Matcher<Iterable<? extends E>> containsInRelativeOrder(@NotModified List<Matcher<? super E>> arg0) { return null; }
-        static <E> Matcher<Iterable<E>> iterableWithSize(@NotModified Matcher<? super Integer> arg0) { return null; }
-        static <E> Matcher<Iterable<E>> iterableWithSize(int arg0) { return null; }
-        static <K, V> Matcher<Map<? extends K, ? extends V>> hasEntry(@NotModified Matcher<? super K> arg0, @NotModified Matcher<? super V> arg1) { return null; }
-        static <K, V> Matcher<Map<? extends K, ? extends V>> hasEntry(@NotModified K arg0, @NotModified V arg1) { return null; }
-        static <K> Matcher<Map<? extends K, ?>> hasKey(@NotModified Matcher<? super K> arg0) { return null; }
-        static <K> Matcher<Map<? extends K, ?>> hasKey(@NotModified K arg0) { return null; }
-        static <V> Matcher<Map<?, ? extends V>> hasValue(@NotModified Matcher<? super V> arg0) { return null; }
-        static <V> Matcher<Map<?, ? extends V>> hasValue(@NotModified V arg0) { return null; }
-        static <T> Matcher<T> in(@NotModified Collection<T> arg0) { return null; }
-        static <T> Matcher<T> in(@NotModified T[] arg0) { return null; }
-        static <T> Matcher<T> isIn(@NotModified Collection<T> arg0) { return null; }
-        static <T> Matcher<T> isIn(@NotModified T[] arg0) { return null; }
-        static <T> Matcher<T> isOneOf(@NotModified T... arg0) { return null; }
-        static <T> Matcher<T> oneOf(@NotModified T... arg0) { return null; }
-        static Matcher<Double> closeTo(double arg0, double arg1) { return null; }
-        static Matcher<Double> notANumber() { return null; }
-        static Matcher<BigDecimal> closeTo(@NotModified BigDecimal arg0, @NotModified BigDecimal arg1) { return null; }
-        static <T extends Comparable<T>> Matcher<T> comparesEqualTo(@NotModified T arg0) { return null; }
-        static <T extends Comparable<T>> Matcher<T> greaterThan(@NotModified T arg0) { return null; }
-        static <T extends Comparable<T>> Matcher<T> greaterThanOrEqualTo(@NotModified T arg0) { return null; }
-        static <T extends Comparable<T>> Matcher<T> lessThan(@NotModified T arg0) { return null; }
-        static <T extends Comparable<T>> Matcher<T> lessThanOrEqualTo(@NotModified T arg0) { return null; }
-        static Matcher<String> equalToIgnoringCase(String arg0) { return null; }
-        static Matcher<String> equalToIgnoringWhiteSpace(String arg0) { return null; }
-        static Matcher<String> equalToCompressingWhiteSpace(String arg0) { return null; }
-        static Matcher<String> emptyOrNullString() { return null; }
-        static Matcher<String> emptyString() { return null; }
-        static Matcher<String> isEmptyOrNullString() { return null; }
-        static Matcher<String> isEmptyString() { return null; }
-        static Matcher<String> blankOrNullString() { return null; }
-        static Matcher<String> blankString() { return null; }
-        static Matcher<String> matchesPattern(@NotModified Pattern arg0) { return null; }
-        static Matcher<String> matchesPattern(String arg0) { return null; }
-        static Matcher<String> stringContainsInOrder(@NotModified Iterable<String> arg0) { return null; }
-        static Matcher<String> stringContainsInOrder(@NotModified String... arg0) { return null; }
-        static Matcher<CharSequence> hasLength(int arg0) { return null; }
-        static <T> Matcher<T> hasToString(@NotModified Matcher<? super String> arg0) { return null; }
-        static <T> Matcher<T> hasToString(String arg0) { return null; }
-        static <T> Matcher<Class<?>> typeCompatibleWith(@NotModified Class<T> arg0) { return null; }
-        static Matcher<EventObject> eventFrom(@NotModified Class<? extends EventObject> arg0, @NotModified Object arg1) { return null; }
-        static Matcher<EventObject> eventFrom(@NotModified Object arg0) { return null; }
-        static <T> Matcher<T> hasProperty(String arg0) { return null; }
-        static <T> Matcher<T> hasProperty(String arg0, @NotModified Matcher<?> arg1) { return null; }
-        static <B> Matcher<B> samePropertyValuesAs(@NotModified B arg0, @NotModified String... arg1) { return null; }
-        static Matcher<Node> hasXPath(String arg0, @NotModified Matcher<String> arg1) { return null; }
-        static Matcher<Node> hasXPath(String arg0, @NotModified NamespaceContext arg1, @NotModified Matcher<String> arg2) { return null; }
-        static Matcher<Node> hasXPath(String arg0) { return null; }
-        static Matcher<Node> hasXPath(String arg0, @NotModified NamespaceContext arg1) { return null; }
+        static <T> org.hamcrest.Matcher<T> allOf(@NotModified java.lang.Iterable<org.hamcrest.Matcher<? super T>> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> allOf(@NotModified org.hamcrest.Matcher<? super T>... arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> allOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1) { return null; }
+        static <T> org.hamcrest.Matcher<T> allOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1, @NotModified org.hamcrest.Matcher<? super T> arg2) { return null; }
+        static <T> org.hamcrest.Matcher<T> allOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1, @NotModified org.hamcrest.Matcher<? super T> arg2, @NotModified org.hamcrest.Matcher<? super T> arg3) { return null; }
+        static <T> org.hamcrest.Matcher<T> allOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1, @NotModified org.hamcrest.Matcher<? super T> arg2, @NotModified org.hamcrest.Matcher<? super T> arg3, @NotModified org.hamcrest.Matcher<? super T> arg4) { return null; }
+        static <T> org.hamcrest.Matcher<T> allOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1, @NotModified org.hamcrest.Matcher<? super T> arg2, @NotModified org.hamcrest.Matcher<? super T> arg3, @NotModified org.hamcrest.Matcher<? super T> arg4, @NotModified org.hamcrest.Matcher<? super T> arg5) { return null; }
+        static <T> org.hamcrest.core.AnyOf<T> anyOf(@NotModified java.lang.Iterable<org.hamcrest.Matcher<? super T>> arg0) { return null; }
+        static <T> org.hamcrest.core.AnyOf<T> anyOf(@NotModified org.hamcrest.Matcher<? super T>... arg0) { return null; }
+        static <T> org.hamcrest.core.AnyOf<T> anyOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1) { return null; }
+        static <T> org.hamcrest.core.AnyOf<T> anyOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1, @NotModified org.hamcrest.Matcher<? super T> arg2) { return null; }
+        static <T> org.hamcrest.core.AnyOf<T> anyOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1, @NotModified org.hamcrest.Matcher<? super T> arg2, @NotModified org.hamcrest.Matcher<? super T> arg3) { return null; }
+        static <T> org.hamcrest.core.AnyOf<T> anyOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1, @NotModified org.hamcrest.Matcher<? super T> arg2, @NotModified org.hamcrest.Matcher<? super T> arg3, @NotModified org.hamcrest.Matcher<? super T> arg4) { return null; }
+        static <T> org.hamcrest.core.AnyOf<T> anyOf(@NotModified org.hamcrest.Matcher<? super T> arg0, @NotModified org.hamcrest.Matcher<? super T> arg1, @NotModified org.hamcrest.Matcher<? super T> arg2, @NotModified org.hamcrest.Matcher<? super T> arg3, @NotModified org.hamcrest.Matcher<? super T> arg4, @NotModified org.hamcrest.Matcher<? super T> arg5) { return null; }
+        static <LHS> org.hamcrest.core.CombinableMatcher.CombinableBothMatcher<LHS> both(@NotModified org.hamcrest.Matcher<? super LHS> arg0) { return null; }
+        static <LHS> org.hamcrest.core.CombinableMatcher.CombinableEitherMatcher<LHS> either(@NotModified org.hamcrest.Matcher<? super LHS> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> describedAs(java.lang.String arg0, @NotModified org.hamcrest.Matcher<T> arg1, @NotModified java.lang.Object... arg2) { return null; }
+        static <U> org.hamcrest.Matcher<java.lang.Iterable<? extends U>> everyItem(@NotModified org.hamcrest.Matcher<U> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> is(@NotModified org.hamcrest.Matcher<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> is(@NotModified T arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> isA(@NotModified java.lang.Class<?> arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> anything() { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> anything(java.lang.String arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<? super T>> hasItem(@NotModified org.hamcrest.Matcher<? super T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<? super T>> hasItem(@NotModified T arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<T>> hasItems(@NotModified org.hamcrest.Matcher<? super T>... arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<T>> hasItems(@NotModified T... arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> equalTo(@NotModified T arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> equalToObject(@NotModified java.lang.Object arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> any(@NotModified java.lang.Class<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> instanceOf(@NotModified java.lang.Class<?> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> not(@NotModified org.hamcrest.Matcher<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> not(@NotModified T arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> notNullValue() { return null; }
+        static <T> org.hamcrest.Matcher<T> notNullValue(@NotModified java.lang.Class<T> arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> nullValue() { return null; }
+        static <T> org.hamcrest.Matcher<T> nullValue(@NotModified java.lang.Class<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> sameInstance(@NotModified T arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> theInstance(@NotModified T arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> containsString(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> containsStringIgnoringCase(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> startsWith(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> startsWithIgnoringCase(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> endsWith(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> endsWithIgnoringCase(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> matchesRegex(@NotModified java.util.regex.Pattern arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> matchesRegex(java.lang.String arg0) { return null; }
+        static <T> org.hamcrest.collection.IsArray<T> array(@NotModified org.hamcrest.Matcher<? super T>... arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T[]> hasItemInArray(@NotModified org.hamcrest.Matcher<? super T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T[]> hasItemInArray(@NotModified T arg0) { return null; }
+        static <E> org.hamcrest.Matcher<E[]> arrayContaining(@NotModified E... arg0) { return null; }
+        static <E> org.hamcrest.Matcher<E[]> arrayContaining(@NotModified org.hamcrest.Matcher<? super E>... arg0) { return null; }
+        static <E> org.hamcrest.Matcher<E[]> arrayContaining(@NotModified java.util.List<org.hamcrest.Matcher<? super E>> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<E[]> arrayContainingInAnyOrder(@NotModified org.hamcrest.Matcher<? super E>... arg0) { return null; }
+        static <E> org.hamcrest.Matcher<E[]> arrayContainingInAnyOrder(@NotModified java.util.Collection<org.hamcrest.Matcher<? super E>> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<E[]> arrayContainingInAnyOrder(@NotModified E... arg0) { return null; }
+        static <E> org.hamcrest.Matcher<E[]> arrayWithSize(@NotModified org.hamcrest.Matcher<? super java.lang.Integer> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<E[]> arrayWithSize(int arg0) { return null; }
+        static <E> org.hamcrest.Matcher<E[]> emptyArray() { return null; }
+        static <K, V> org.hamcrest.Matcher<java.util.Map<? extends K, ? extends V>> aMapWithSize(@NotModified org.hamcrest.Matcher<? super java.lang.Integer> arg0) { return null; }
+        static <K, V> org.hamcrest.Matcher<java.util.Map<? extends K, ? extends V>> aMapWithSize(int arg0) { return null; }
+        static <K, V> org.hamcrest.Matcher<java.util.Map<? extends K, ? extends V>> anEmptyMap() { return null; }
+        static <E> org.hamcrest.Matcher<java.util.Collection<? extends E>> hasSize(@NotModified org.hamcrest.Matcher<? super java.lang.Integer> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.util.Collection<? extends E>> hasSize(int arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.util.Collection<? extends E>> empty() { return null; }
+        static <E> org.hamcrest.Matcher<java.util.Collection<E>> emptyCollectionOf(@NotModified java.lang.Class<E> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<? extends E>> emptyIterable() { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<E>> emptyIterableOf(@NotModified java.lang.Class<E> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<? extends E>> contains(@NotModified E... arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<? extends E>> contains(@NotModified org.hamcrest.Matcher<? super E> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<? extends E>> contains(@NotModified org.hamcrest.Matcher<? super E>... arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<? extends E>> contains(@NotModified java.util.List<org.hamcrest.Matcher<? super E>> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<? extends T>> containsInAnyOrder(@NotModified org.hamcrest.Matcher<? super T>... arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<? extends T>> containsInAnyOrder(@NotModified T... arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<? extends T>> containsInAnyOrder(@NotModified java.util.Collection<org.hamcrest.Matcher<? super T>> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<? extends E>> containsInRelativeOrder(@NotModified E... arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<? extends E>> containsInRelativeOrder(@NotModified org.hamcrest.Matcher<? super E>... arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<? extends E>> containsInRelativeOrder(@NotModified java.util.List<org.hamcrest.Matcher<? super E>> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<E>> iterableWithSize(@NotModified org.hamcrest.Matcher<? super java.lang.Integer> arg0) { return null; }
+        static <E> org.hamcrest.Matcher<java.lang.Iterable<E>> iterableWithSize(int arg0) { return null; }
+        static <K, V> org.hamcrest.Matcher<java.util.Map<? extends K, ? extends V>> hasEntry(@NotModified org.hamcrest.Matcher<? super K> arg0, @NotModified org.hamcrest.Matcher<? super V> arg1) { return null; }
+        static <K, V> org.hamcrest.Matcher<java.util.Map<? extends K, ? extends V>> hasEntry(@NotModified K arg0, @NotModified V arg1) { return null; }
+        static <K> org.hamcrest.Matcher<java.util.Map<? extends K, ?>> hasKey(@NotModified org.hamcrest.Matcher<? super K> arg0) { return null; }
+        static <K> org.hamcrest.Matcher<java.util.Map<? extends K, ?>> hasKey(@NotModified K arg0) { return null; }
+        static <V> org.hamcrest.Matcher<java.util.Map<?, ? extends V>> hasValue(@NotModified org.hamcrest.Matcher<? super V> arg0) { return null; }
+        static <V> org.hamcrest.Matcher<java.util.Map<?, ? extends V>> hasValue(@NotModified V arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> in(@NotModified java.util.Collection<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> in(@NotModified T[] arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> isIn(@NotModified java.util.Collection<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> isIn(@NotModified T[] arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> isOneOf(@NotModified T... arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> oneOf(@NotModified T... arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.Double> closeTo(double arg0, double arg1) { return null; }
+        static org.hamcrest.Matcher<java.lang.Double> notANumber() { return null; }
+        static org.hamcrest.Matcher<java.math.BigDecimal> closeTo(@NotModified java.math.BigDecimal arg0, @NotModified java.math.BigDecimal arg1) { return null; }
+        static <T extends java.lang.Comparable<T>> org.hamcrest.Matcher<T> comparesEqualTo(@NotModified T arg0) { return null; }
+        static <T extends java.lang.Comparable<T>> org.hamcrest.Matcher<T> greaterThan(@NotModified T arg0) { return null; }
+        static <T extends java.lang.Comparable<T>> org.hamcrest.Matcher<T> greaterThanOrEqualTo(@NotModified T arg0) { return null; }
+        static <T extends java.lang.Comparable<T>> org.hamcrest.Matcher<T> lessThan(@NotModified T arg0) { return null; }
+        static <T extends java.lang.Comparable<T>> org.hamcrest.Matcher<T> lessThanOrEqualTo(@NotModified T arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> equalToIgnoringCase(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> equalToIgnoringWhiteSpace(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> equalToCompressingWhiteSpace(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> emptyOrNullString() { return null; }
+        static org.hamcrest.Matcher<java.lang.String> emptyString() { return null; }
+        static org.hamcrest.Matcher<java.lang.String> isEmptyOrNullString() { return null; }
+        static org.hamcrest.Matcher<java.lang.String> isEmptyString() { return null; }
+        static org.hamcrest.Matcher<java.lang.String> blankOrNullString() { return null; }
+        static org.hamcrest.Matcher<java.lang.String> blankString() { return null; }
+        static org.hamcrest.Matcher<java.lang.String> matchesPattern(@NotModified java.util.regex.Pattern arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> matchesPattern(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> stringContainsInOrder(@NotModified java.lang.Iterable<java.lang.String> arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> stringContainsInOrder(@NotModified java.lang.String... arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.CharSequence> hasLength(int arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> hasToString(@NotModified org.hamcrest.Matcher<? super java.lang.String> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> hasToString(java.lang.String arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Class<?>> typeCompatibleWith(@NotModified java.lang.Class<T> arg0) { return null; }
+        static org.hamcrest.Matcher<java.util.EventObject> eventFrom(@NotModified java.lang.Class<? extends java.util.EventObject> arg0, @NotModified java.lang.Object arg1) { return null; }
+        static org.hamcrest.Matcher<java.util.EventObject> eventFrom(@NotModified java.lang.Object arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> hasProperty(java.lang.String arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> hasProperty(java.lang.String arg0, @NotModified org.hamcrest.Matcher<?> arg1) { return null; }
+        static <B> org.hamcrest.Matcher<B> samePropertyValuesAs(@NotModified B arg0, @NotModified java.lang.String... arg1) { return null; }
+        static org.hamcrest.Matcher<org.w3c.dom.Node> hasXPath(java.lang.String arg0, @NotModified org.hamcrest.Matcher<java.lang.String> arg1) { return null; }
+        static org.hamcrest.Matcher<org.w3c.dom.Node> hasXPath(java.lang.String arg0, @NotModified javax.xml.namespace.NamespaceContext arg1, @NotModified org.hamcrest.Matcher<java.lang.String> arg2) { return null; }
+        static org.hamcrest.Matcher<org.w3c.dom.Node> hasXPath(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<org.w3c.dom.Node> hasXPath(java.lang.String arg0, @NotModified javax.xml.namespace.NamespaceContext arg1) { return null; }
     }
 
     //public class org.hamcrest.CoreMatchers
     class CoreMatchers$ {
-        static <T> Matcher<T> allOf(@NotModified Iterable<Matcher<? super T>> arg0) { return null; }
-        static <T> Matcher<T> allOf(@NotModified Matcher<? super T>... arg0) { return null; }
-        static <T> AnyOf<T> anyOf(@NotModified Iterable<Matcher<? super T>> arg0) { return null; }
-        static <T> AnyOf<T> anyOf(@NotModified Matcher<? super T>... arg0) { return null; }
-        static <LHS> CombinableMatcher.CombinableBothMatcher<LHS> both(@NotModified Matcher<? super LHS> arg0) { return null; }
-        static <LHS> CombinableMatcher.CombinableEitherMatcher<LHS> either(@NotModified Matcher<? super LHS> arg0) { return null; }
-        static <T> Matcher<T> describedAs(String arg0, @NotModified Matcher<T> arg1, @NotModified Object... arg2) { return null; }
-        static <U> Matcher<Iterable<? extends U>> everyItem(@NotModified Matcher<U> arg0) { return null; }
-        static <T> Matcher<T> is(@NotModified Matcher<T> arg0) { return null; }
-        static <T> Matcher<T> is(@NotModified T arg0) { return null; }
-        static <T> Matcher<T> isA(@NotModified Class<T> arg0) { return null; }
-        static Matcher<Object> anything() { return null; }
-        static Matcher<Object> anything(String arg0) { return null; }
-        static <T> Matcher<Iterable<? super T>> hasItem(@NotModified Matcher<? super T> arg0) { return null; }
-        static <T> Matcher<Iterable<? super T>> hasItem(@NotModified T arg0) { return null; }
-        static <T> Matcher<Iterable<T>> hasItems(@NotModified Matcher<? super T>... arg0) { return null; }
-        static <T> Matcher<Iterable<T>> hasItems(@NotModified T... arg0) { return null; }
-        static <T> Matcher<T> equalTo(@NotModified T arg0) { return null; }
-        static Matcher<Object> equalToObject(@NotModified Object arg0) { return null; }
-        static <T> Matcher<T> any(@NotModified Class<T> arg0) { return null; }
-        static <T> Matcher<T> instanceOf(@NotModified Class<?> arg0) { return null; }
-        static <T> Matcher<T> not(@NotModified Matcher<T> arg0) { return null; }
-        static <T> Matcher<T> not(@NotModified T arg0) { return null; }
-        static Matcher<Object> notNullValue() { return null; }
-        static <T> Matcher<T> notNullValue(@NotModified Class<T> arg0) { return null; }
-        static Matcher<Object> nullValue() { return null; }
-        static <T> Matcher<T> nullValue(@NotModified Class<T> arg0) { return null; }
-        static <T> Matcher<T> sameInstance(@NotModified T arg0) { return null; }
-        static <T> Matcher<T> theInstance(@NotModified T arg0) { return null; }
-        static Matcher<String> containsString(String arg0) { return null; }
-        static Matcher<String> containsStringIgnoringCase(String arg0) { return null; }
-        static Matcher<String> startsWith(String arg0) { return null; }
-        static Matcher<String> startsWithIgnoringCase(String arg0) { return null; }
-        static Matcher<String> endsWith(String arg0) { return null; }
-        static Matcher<String> endsWithIgnoringCase(String arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> allOf(@NotModified java.lang.Iterable<org.hamcrest.Matcher<? super T>> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> allOf(@NotModified org.hamcrest.Matcher<? super T>... arg0) { return null; }
+        static <T> org.hamcrest.core.AnyOf<T> anyOf(@NotModified java.lang.Iterable<org.hamcrest.Matcher<? super T>> arg0) { return null; }
+        static <T> org.hamcrest.core.AnyOf<T> anyOf(@NotModified org.hamcrest.Matcher<? super T>... arg0) { return null; }
+        static <LHS> org.hamcrest.core.CombinableMatcher.CombinableBothMatcher<LHS> both(@NotModified org.hamcrest.Matcher<? super LHS> arg0) { return null; }
+        static <LHS> org.hamcrest.core.CombinableMatcher.CombinableEitherMatcher<LHS> either(@NotModified org.hamcrest.Matcher<? super LHS> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> describedAs(java.lang.String arg0, @NotModified org.hamcrest.Matcher<T> arg1, @NotModified java.lang.Object... arg2) { return null; }
+        static <U> org.hamcrest.Matcher<java.lang.Iterable<? extends U>> everyItem(@NotModified org.hamcrest.Matcher<U> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> is(@NotModified org.hamcrest.Matcher<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> is(@NotModified T arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> isA(@NotModified java.lang.Class<T> arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> anything() { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> anything(java.lang.String arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<? super T>> hasItem(@NotModified org.hamcrest.Matcher<? super T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<? super T>> hasItem(@NotModified T arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<T>> hasItems(@NotModified org.hamcrest.Matcher<? super T>... arg0) { return null; }
+        static <T> org.hamcrest.Matcher<java.lang.Iterable<T>> hasItems(@NotModified T... arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> equalTo(@NotModified T arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> equalToObject(@NotModified java.lang.Object arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> any(@NotModified java.lang.Class<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> instanceOf(@NotModified java.lang.Class<?> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> not(@NotModified org.hamcrest.Matcher<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> not(@NotModified T arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> notNullValue() { return null; }
+        static <T> org.hamcrest.Matcher<T> notNullValue(@NotModified java.lang.Class<T> arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.Object> nullValue() { return null; }
+        static <T> org.hamcrest.Matcher<T> nullValue(@NotModified java.lang.Class<T> arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> sameInstance(@NotModified T arg0) { return null; }
+        static <T> org.hamcrest.Matcher<T> theInstance(@NotModified T arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> containsString(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> containsStringIgnoringCase(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> startsWith(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> startsWithIgnoringCase(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> endsWith(java.lang.String arg0) { return null; }
+        static org.hamcrest.Matcher<java.lang.String> endsWithIgnoringCase(java.lang.String arg0) { return null; }
     }
 }

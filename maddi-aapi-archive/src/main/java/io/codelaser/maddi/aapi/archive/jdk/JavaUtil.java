@@ -16,30 +16,13 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.io.Reader;
-import java.io.Writer;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.nio.LongBuffer;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.charset.Charset;
-import java.nio.file.Path;
-import java.security.Permission;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.function.*;
 import java.util.random.RandomGenerator;
-import java.util.regex.MatchResult;
-import java.util.regex.Pattern;
 import java.util.stream.*;
 
 import io.codelaser.maddi.annotation.*;
@@ -296,7 +279,7 @@ public class JavaUtil {
     @Container
     class AbstractQueue$<E> { 
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified boolean addAll(@NotNull Collection<? extends E> p0) { return false; }
+        @Modified boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified E remove() { return null; }
@@ -306,7 +289,7 @@ public class JavaUtil {
     @Container
     class AbstractSequentialList$<E> { 
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified boolean addAll(int p0, @NotNull Collection<? extends E> p1) { return false; }
+        @Modified boolean addAll(int p0, @NotNull java.util.Collection<? extends E> p1) { return false; }
     }
 
     //public abstract class AbstractSet extends AbstractCollection<E> implements Set<E>
@@ -330,21 +313,21 @@ public class JavaUtil {
         ArrayDeque$(@NotNull @Independent(hc = true) @NotModified Collection<? extends E> c) { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified boolean addAll(@NotNull Collection<? extends E> p0) { return false; }
-        boolean contains(@Nullable Object p0) { return false; }
-        void forEach(@NotNull Consumer<? super E> p0) { }
+        @Modified boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
+        boolean contains(@Nullable java.lang.Object p0) { return false; }
+        void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
         @Nullable E peek() { return null; }
         @Nullable E peekFirst() { return null; }
         @Nullable E peekLast() { return null; }
         @Modified @Nullable E poll() { return null; }
         @Modified @Nullable E pollFirst() { return null; }
         @Modified @Nullable E pollLast() { return null; }
-        @Modified boolean remove(@Nullable Object p0) { return false; }
-        @Modified boolean removeAll(@NotNull Collection<?> p0) { return false; }
-        @Modified boolean removeFirstOccurrence(@Nullable Object p0) { return false; }
-        @Modified boolean removeIf(@NotNull Predicate<? super E> p0) { return false; }
-        @Modified boolean removeLastOccurrence(@Nullable Object p0) { return false; }
-        @Modified boolean retainAll(@NotNull Collection<?> p0) { return false; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeFirstOccurrence(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean removeLastOccurrence(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
@@ -1590,14 +1573,14 @@ public class JavaUtil {
         @NotModified IntStream stream() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void and(@NotNull BitSet p0) { }
-        void andNot(@NotNull BitSet p0) { }
-        void or(@NotNull BitSet p0) { }
-        static BitSet valueOf(@NotNull ByteBuffer p0) { return null; }
-        static BitSet valueOf(@NotNull LongBuffer p0) { return null; }
-        static BitSet valueOf(@NotNull byte[] p0) { return null; }
-        static BitSet valueOf(@NotNull long[] p0) { return null; }
-        void xor(@NotNull BitSet p0) { }
+        void and(@NotNull java.util.BitSet p0) { }
+        void andNot(@NotNull java.util.BitSet p0) { }
+        void or(@NotNull java.util.BitSet p0) { }
+        static java.util.BitSet valueOf(@NotNull java.nio.ByteBuffer p0) { return null; }
+        static java.util.BitSet valueOf(@NotNull java.nio.LongBuffer p0) { return null; }
+        static java.util.BitSet valueOf(@NotNull byte[] p0) { return null; }
+        static java.util.BitSet valueOf(@NotNull long[] p0) { return null; }
+        void xor(@NotNull java.util.BitSet p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void clear() { }
@@ -2069,10 +2052,10 @@ public class JavaUtil {
     @ImmutableContainer
     class Currency$ { 
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        String getDisplayName(@NotNull Locale p0) { return null; }
-        @Nullable static Currency getInstance(@NotNull Locale p0) { return null; }
-        static Currency getInstance(@NotNull String p0) { return null; }
-        String getSymbol(@NotNull Locale p0) { return null; }
+        java.lang.String getDisplayName(@NotNull java.util.Locale p0) { return null; }
+        @Nullable static java.util.Currency getInstance(@NotNull java.util.Locale p0) { return null; }
+        static java.util.Currency getInstance(@NotNull java.lang.String p0) { return null; }
+        java.lang.String getSymbol(@NotNull java.util.Locale p0) { return null; }
     }
 
     //public class Date implements Serializable, Cloneable, Comparable<Date>
@@ -2145,12 +2128,12 @@ public class JavaUtil {
         @NotModified @Independent(hc = true, except = "remove") Iterator<E> descendingIterator() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified boolean addAll(@NotNull Collection<? extends E> p0) { return false; }
-        boolean contains(@Nullable Object p0) { return false; }
+        @Modified boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
+        boolean contains(@Nullable java.lang.Object p0) { return false; }
         @Modified @Nullable E poll() { return null; }
-        @Modified boolean remove(@Nullable Object p0) { return false; }
-        @Modified boolean removeFirstOccurrence(@Nullable Object p0) { return false; }
-        @Modified boolean removeLastOccurrence(@Nullable Object p0) { return false; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeFirstOccurrence(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeLastOccurrence(@Nullable java.lang.Object p0) { return false; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -2172,7 +2155,7 @@ public class JavaUtil {
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Modified @Nullable V put(K p0, V p1) { return null; }
-        @Modified @Nullable V remove(@NotNull Object p0) { return null; }
+        @Modified @Nullable V remove(@NotNull java.lang.Object p0) { return null; }
     }
 
     //public class EnumMap<K extends Enum<K>, V> extends AbstractMap<K, V> implements Cloneable, Serializable
@@ -2181,26 +2164,26 @@ public class JavaUtil {
         EnumMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<K, ? extends V> m) { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        EnumMap$(@NotNull Class<K> p0) { }
-        EnumMap$(@NotNull EnumMap<K, ? extends V> p0) { }
-        boolean containsKey(@Nullable Object p0) { return false; }
-        boolean containsValue(@Nullable Object p0) { return false; }
-        @Nullable V get(@Nullable Object p0) { return null; }
+        EnumMap$(@NotNull java.lang.Class<K> p0) { }
+        EnumMap$(@NotNull java.util.EnumMap<K, ? extends V> p0) { }
+        boolean containsKey(@Nullable java.lang.Object p0) { return false; }
+        boolean containsValue(@Nullable java.lang.Object p0) { return false; }
+        @Nullable V get(@Nullable java.lang.Object p0) { return null; }
         @Modified @Nullable V put(K p0, V p1) { return null; }
-        @Modified void putAll(@NotNull Map<? extends K, ? extends V> p0) { }
-        @Modified @Nullable V remove(@Nullable Object p0) { return null; }
+        @Modified void putAll(@NotNull java.util.Map<? extends K, ? extends V> p0) { }
+        @Modified @Nullable V remove(@Nullable java.lang.Object p0) { return null; }
     }
 
     //public abstract class EnumSet<E extends Enum<E>> extends AbstractSet<E> implements Cloneable, Serializable
     @Container
     class EnumSet$<E> { 
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static <E extends Enum<E>> EnumSet<E> allOf(@NotNull Class<E> p0) { return null; }
-        static <E extends Enum<E>> EnumSet<E> complementOf(@NotNull EnumSet<E> p0) { return null; }
-        static <E extends Enum<E>> EnumSet<E> copyOf(@NotNull Collection<E> p0) { return null; }
-        static <E extends Enum<E>> EnumSet<E> copyOf(@NotNull EnumSet<E> p0) { return null; }
-        static <E extends Enum<E>> EnumSet<E> noneOf(@NotNull Class<E> p0) { return null; }
-        static <E extends Enum<E>> EnumSet<E> of(E p0, @NotNull E... p1) { return null; }
+        static <E extends java.lang.Enum<E>> java.util.EnumSet<E> allOf(@NotNull java.lang.Class<E> p0) { return null; }
+        static <E extends java.lang.Enum<E>> java.util.EnumSet<E> complementOf(@NotNull java.util.EnumSet<E> p0) { return null; }
+        static <E extends java.lang.Enum<E>> java.util.EnumSet<E> copyOf(@NotNull java.util.Collection<E> p0) { return null; }
+        static <E extends java.lang.Enum<E>> java.util.EnumSet<E> copyOf(@NotNull java.util.EnumSet<E> p0) { return null; }
+        static <E extends java.lang.Enum<E>> java.util.EnumSet<E> noneOf(@NotNull java.lang.Class<E> p0) { return null; }
+        static <E extends java.lang.Enum<E>> java.util.EnumSet<E> of(E p0, @NotNull E... p1) { return null; }
     }
 
     //public interface Enumeration<E>
@@ -2211,7 +2194,7 @@ public class JavaUtil {
         @Modified E nextElement() { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified Iterator<E> asIterator() { return null; }
+        @NotModified java.util.Iterator<E> asIterator() { return null; }
 
         // a contract for every implementation, as Iterator.hasNext: a lazy one computes the next element here
         @Modified boolean hasMoreElements() { return false; }
@@ -2409,22 +2392,22 @@ public class JavaUtil {
         }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified V compute(K p0, @NotNull(nullableArguments = {1, 2}) BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
-        @Modified V computeIfAbsent(K p0, @NotNull Function<? super K, ? extends V> p1) { return null; }
-        @Modified @Nullable V computeIfPresent(K p0, @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
-        boolean containsKey(@NotNull Object p0) { return false; }
-        boolean containsValue(@NotNull Object p0) { return false; }
-        void forEach(@NotNull BiConsumer<? super K, ? super V> p0) { }
-        @Nullable V get(@NotNull Object p0) { return null; }
-        V getOrDefault(@NotNull Object p0, @Nullable V p1) { return null; }
-        @Modified V merge(K p0, V p1, @NotNull(nullableArguments = 2) BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
+        @Modified V compute(K p0, @NotNull(nullableArguments = {1, 2}) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        @Modified V computeIfAbsent(K p0, @NotNull java.util.function.Function<? super K, ? extends V> p1) { return null; }
+        @Modified @Nullable V computeIfPresent(K p0, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        boolean containsKey(@NotNull java.lang.Object p0) { return false; }
+        boolean containsValue(@NotNull java.lang.Object p0) { return false; }
+        void forEach(@NotNull java.util.function.BiConsumer<? super K, ? super V> p0) { }
+        @Nullable V get(@NotNull java.lang.Object p0) { return null; }
+        V getOrDefault(@NotNull java.lang.Object p0, @Nullable V p1) { return null; }
+        @Modified V merge(K p0, V p1, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
         @Modified @Nullable V put(K p0, V p1) { return null; }
-        @Modified void putAll(@NotNull Map<? extends K, ? extends V> p0) { }
+        @Modified void putAll(@NotNull java.util.Map<? extends K, ? extends V> p0) { }
         @Modified @Nullable V putIfAbsent(K p0, V p1) { return null; }
-        @Modified @Nullable V remove(@NotNull Object p0) { return null; }
-        @Modified boolean remove(@NotNull Object p0, @NotNull Object p1) { return false; }
+        @Modified @Nullable V remove(@NotNull java.lang.Object p0) { return null; }
+        @Modified boolean remove(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return false; }
         @Modified @Nullable V replace(K p0, V p1) { return null; }
-        @Modified void replaceAll(@NotNull BiFunction<? super K, ? super V, ? extends V> p0) { }
+        @Modified void replaceAll(@NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p0) { }
     }
 
     //public class IdentityHashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Serializable, Cloneable
@@ -2433,15 +2416,15 @@ public class JavaUtil {
         IdentityHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        boolean containsKey(@Nullable Object p0) { return false; }
-        boolean containsValue(@Nullable Object p0) { return false; }
-        void forEach(@NotNull BiConsumer<? super K, ? super V> p0) { }
-        @Nullable V get(@Nullable Object p0) { return null; }
+        boolean containsKey(@Nullable java.lang.Object p0) { return false; }
+        boolean containsValue(@Nullable java.lang.Object p0) { return false; }
+        void forEach(@NotNull java.util.function.BiConsumer<? super K, ? super V> p0) { }
+        @Nullable V get(@Nullable java.lang.Object p0) { return null; }
         @Modified @Nullable V put(K p0, V p1) { return null; }
-        @Modified void putAll(@NotNull Map<? extends K, ? extends V> p0) { }
-        @Modified @Nullable V remove(@Nullable Object p0) { return null; }
-        @Modified boolean remove(@Nullable Object p0, @Nullable Object p1) { return false; }
-        @Modified void replaceAll(@NotNull BiFunction<? super K, ? super V, ? extends V> p0) { }
+        @Modified void putAll(@NotNull java.util.Map<? extends K, ? extends V> p0) { }
+        @Modified @Nullable V remove(@Nullable java.lang.Object p0) { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0, @Nullable java.lang.Object p1) { return false; }
+        @Modified void replaceAll(@NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p0) { }
     }
 
     //public interface Iterator
@@ -2463,14 +2446,14 @@ public class JavaUtil {
         LinkedHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        boolean containsValue(@Nullable Object p0) { return false; }
-        void forEach(@NotNull BiConsumer<? super K, ? super V> p0) { }
-        @Nullable V get(@Nullable Object p0) { return null; }
-        V getOrDefault(@Nullable Object p0, @Nullable V p1) { return null; }
+        boolean containsValue(@Nullable java.lang.Object p0) { return false; }
+        void forEach(@NotNull java.util.function.BiConsumer<? super K, ? super V> p0) { }
+        @Nullable V get(@Nullable java.lang.Object p0) { return null; }
+        V getOrDefault(@Nullable java.lang.Object p0, @Nullable V p1) { return null; }
         @Modified @Nullable V putFirst(K p0, V p1) { return null; }
         @Modified @Nullable V putLast(K p0, V p1) { return null; }
-        boolean removeEldestEntry(@NotNull Map.Entry<K, V> p0) { return false; }
-        @Modified void replaceAll(@NotNull BiFunction<? super K, ? super V, ? extends V> p0) { }
+        boolean removeEldestEntry(@NotNull java.util.Map.Entry<K, V> p0) { return false; }
+        @Modified void replaceAll(@NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p0) { }
     }
 
     //public class LinkedHashSet<E> extends HashSet<E> implements SequencedSet<E>, Cloneable, Serializable
@@ -2855,7 +2838,7 @@ public class JavaUtil {
         }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static <E> List<E> ofLazy(int p0, @NotNull IntFunction<? extends E> p1) { return null; }
+        static <E> java.util.List<E> ofLazy(int p0, @NotNull java.util.function.IntFunction<? extends E> p1) { return null; }
     }
 
     //public interface ListIterator<E> extends Iterator<E>
@@ -3396,7 +3379,7 @@ public class JavaUtil {
             /*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> map) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static <K, V> Map<K, V> ofLazy(@NotNull Set<? extends K> p0, @NotNull Function<? super K, ? extends V> p1) { return null; }
+        static <K, V> java.util.Map<K, V> ofLazy(@NotNull java.util.Set<? extends K> p0, @NotNull java.util.function.Function<? super K, ? extends V> p1) { return null; }
     }
 
     //public interface NavigableMap implements SortedMap<K,V>
@@ -3825,18 +3808,18 @@ public class JavaUtil {
         @Nullable @NotModified Comparator<? super E> comparator() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PriorityQueue$(@Nullable Comparator<? super E> p0) { }
-        PriorityQueue$(@NotNull @Independent(hc = true) @NotModified PriorityQueue<? extends E> p0) { }
-        PriorityQueue$(@NotNull @Independent(hc = true) @NotModified SortedSet<? extends E> p0) { }
-        PriorityQueue$(int p0, @Nullable Comparator<? super E> p1) { }
-        boolean contains(@Nullable Object p0) { return false; }
-        void forEach(@NotNull Consumer<? super E> p0) { }
+        PriorityQueue$(@Nullable java.util.Comparator<? super E> p0) { }
+        PriorityQueue$(@NotNull @Independent(hc = true) @NotModified java.util.PriorityQueue<? extends E> p0) { }
+        PriorityQueue$(@NotNull @Independent(hc = true) @NotModified java.util.SortedSet<? extends E> p0) { }
+        PriorityQueue$(int p0, @Nullable java.util.Comparator<? super E> p1) { }
+        boolean contains(@Nullable java.lang.Object p0) { return false; }
+        void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
         @Nullable E peek() { return null; }
         @Modified @Nullable E poll() { return null; }
-        @Modified boolean remove(@Nullable Object p0) { return false; }
-        @Modified boolean removeAll(@NotNull Collection<?> p0) { return false; }
-        @Modified boolean removeIf(@NotNull Predicate<? super E> p0) { return false; }
-        @Modified boolean retainAll(@NotNull Collection<?> p0) { return false; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
@@ -3851,37 +3834,37 @@ public class JavaUtil {
         String getProperty(/*@Independent[M] @NotModified[O]*/ @NotNull String key, @Nullable String defaultValue) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Properties$(@Nullable Properties p0) { }
-        @Modified Object compute(@NotNull Object p0, @NotNull(nullableArguments = 1) BiFunction<? super Object, ? super Object, ?> p1) { return null; }
-        @Modified Object computeIfAbsent(@NotNull Object p0, @NotNull Function<? super Object, ?> p1) { return null; }
-        @Modified @Nullable Object computeIfPresent(@NotNull Object p0, @NotNull BiFunction<? super Object, ? super Object, ?> p1) { return null; }
-        boolean contains(@NotNull Object p0) { return false; }
-        boolean containsKey(@NotNull Object p0) { return false; }
-        boolean containsValue(@NotNull Object p0) { return false; }
-        void forEach(@NotNull BiConsumer<? super Object, ? super Object> p0) { }
-        @Nullable Object get(@NotNull Object p0) { return null; }
-        Object getOrDefault(@NotNull Object p0, @Nullable Object p1) { return null; }
-        void list(@NotNull PrintStream p0) { }
-        void list(@NotNull PrintWriter p0) { }
-        @Modified void load(@NotNull InputStream p0) { }
-        @Modified void load(@NotNull Reader p0) { }
-        @Modified void loadFromXML(@NotNull InputStream p0) { }
-        @Modified Object merge(@NotNull Object p0, @NotNull Object p1, @NotNull BiFunction<? super Object, ? super Object, ?> p2) { return null; }
-        @Modified @Nullable Object put(@NotNull Object p0, @NotNull Object p1) { return null; }
-        @Modified void putAll(@NotNull Map<?, ?> p0) { }
-        @Modified @Nullable Object putIfAbsent(@NotNull Object p0, @NotNull Object p1) { return null; }
-        @Modified @Nullable Object remove(@NotNull Object p0) { return null; }
-        @Modified boolean remove(@NotNull Object p0, @NotNull Object p1) { return false; }
-        @Modified @Nullable Object replace(@NotNull Object p0, @NotNull Object p1) { return null; }
-        @Modified boolean replace(@NotNull Object p0, @NotNull Object p1, @NotNull Object p2) { return false; }
-        @Modified void replaceAll(@NotNull BiFunction<? super Object, ? super Object, ?> p0) { }
-        void save(@NotNull OutputStream p0, @Nullable String p1) { }
-        @Modified @Nullable Object setProperty(@NotNull String p0, @NotNull String p1) { return null; }
-        void store(@NotNull OutputStream p0, @Nullable String p1) { }
-        void store(@NotNull Writer p0, @Nullable String p1) { }
-        @Modified void storeToXML(@NotNull OutputStream p0, @Nullable String p1) { }
-        @Modified void storeToXML(@NotNull OutputStream p0, @Nullable String p1, @NotNull Charset p2) { }
-        @Modified void storeToXML(@NotNull OutputStream p0, @Nullable String p1, @NotNull String p2) { }
+        Properties$(@Nullable java.util.Properties p0) { }
+        @Modified java.lang.Object compute(@NotNull java.lang.Object p0, @NotNull(nullableArguments = 1) java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p1) { return null; }
+        @Modified java.lang.Object computeIfAbsent(@NotNull java.lang.Object p0, @NotNull java.util.function.Function<? super java.lang.Object, ?> p1) { return null; }
+        @Modified @Nullable java.lang.Object computeIfPresent(@NotNull java.lang.Object p0, @NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p1) { return null; }
+        boolean contains(@NotNull java.lang.Object p0) { return false; }
+        boolean containsKey(@NotNull java.lang.Object p0) { return false; }
+        boolean containsValue(@NotNull java.lang.Object p0) { return false; }
+        void forEach(@NotNull java.util.function.BiConsumer<? super java.lang.Object, ? super java.lang.Object> p0) { }
+        @Nullable java.lang.Object get(@NotNull java.lang.Object p0) { return null; }
+        java.lang.Object getOrDefault(@NotNull java.lang.Object p0, @Nullable java.lang.Object p1) { return null; }
+        void list(@NotNull java.io.PrintStream p0) { }
+        void list(@NotNull java.io.PrintWriter p0) { }
+        @Modified void load(@NotNull java.io.InputStream p0) { }
+        @Modified void load(@NotNull java.io.Reader p0) { }
+        @Modified void loadFromXML(@NotNull java.io.InputStream p0) { }
+        @Modified java.lang.Object merge(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1, @NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p2) { return null; }
+        @Modified @Nullable java.lang.Object put(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return null; }
+        @Modified void putAll(@NotNull java.util.Map<?, ?> p0) { }
+        @Modified @Nullable java.lang.Object putIfAbsent(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return null; }
+        @Modified @Nullable java.lang.Object remove(@NotNull java.lang.Object p0) { return null; }
+        @Modified boolean remove(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return false; }
+        @Modified @Nullable java.lang.Object replace(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return null; }
+        @Modified boolean replace(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1, @NotNull java.lang.Object p2) { return false; }
+        @Modified void replaceAll(@NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p0) { }
+        void save(@NotNull java.io.OutputStream p0, @Nullable java.lang.String p1) { }
+        @Modified @Nullable java.lang.Object setProperty(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { return null; }
+        void store(@NotNull java.io.OutputStream p0, @Nullable java.lang.String p1) { }
+        void store(@NotNull java.io.Writer p0, @Nullable java.lang.String p1) { }
+        @Modified void storeToXML(@NotNull java.io.OutputStream p0, @Nullable java.lang.String p1) { }
+        @Modified void storeToXML(@NotNull java.io.OutputStream p0, @Nullable java.lang.String p1, @NotNull java.nio.charset.Charset p2) { }
+        @Modified void storeToXML(@NotNull java.io.OutputStream p0, @Nullable java.lang.String p1, @NotNull java.lang.String p2) { }
     }
 
     //public interface Queue<E> extends Collection<E>
@@ -4191,7 +4174,7 @@ public class JavaUtil {
         static <E> Set<E> copyOf(/*@NotModified[O]*/ @NotNull @Independent(hc = true) Collection<? extends E> coll) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static <E> Set<E> ofLazy(@NotNull Set<? extends E> p0, @NotNull Predicate<? super E> p1) { return null; }
+        static <E> java.util.Set<E> ofLazy(@NotNull java.util.Set<? extends E> p0, @NotNull java.util.function.Predicate<? super E> p1) { return null; }
     }
 
     //public interface SortedMap implements SequencedMap<K,V>
@@ -4268,43 +4251,43 @@ public class JavaUtil {
         //public java.util.Spliterator.OfDouble (shadow created for its nullability, generated)
         class OfDouble {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            void forEachRemaining(@NotNull Consumer<? super Double> p0) { }
-            void forEachRemaining(@NotNull DoubleConsumer p0) { }
-            boolean tryAdvance(@NotNull Consumer<? super Double> p0) { return false; }
-            boolean tryAdvance(@NotNull DoubleConsumer p0) { return false; }
-            @Nullable Spliterator.OfDouble trySplit() { return null; }
+            void forEachRemaining(@NotNull java.util.function.Consumer<? super java.lang.Double> p0) { }
+            void forEachRemaining(@NotNull java.util.function.DoubleConsumer p0) { }
+            boolean tryAdvance(@NotNull java.util.function.Consumer<? super java.lang.Double> p0) { return false; }
+            boolean tryAdvance(@NotNull java.util.function.DoubleConsumer p0) { return false; }
+            @Nullable java.util.Spliterator.OfDouble trySplit() { return null; }
         }
 
         //public java.util.Spliterator.OfInt (shadow created for its nullability, generated)
         class OfInt {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            void forEachRemaining(@NotNull Consumer<? super Integer> p0) { }
-            void forEachRemaining(@NotNull IntConsumer p0) { }
-            boolean tryAdvance(@NotNull Consumer<? super Integer> p0) { return false; }
-            boolean tryAdvance(@NotNull IntConsumer p0) { return false; }
-            @Nullable Spliterator.OfInt trySplit() { return null; }
+            void forEachRemaining(@NotNull java.util.function.Consumer<? super java.lang.Integer> p0) { }
+            void forEachRemaining(@NotNull java.util.function.IntConsumer p0) { }
+            boolean tryAdvance(@NotNull java.util.function.Consumer<? super java.lang.Integer> p0) { return false; }
+            boolean tryAdvance(@NotNull java.util.function.IntConsumer p0) { return false; }
+            @Nullable java.util.Spliterator.OfInt trySplit() { return null; }
         }
 
         //public java.util.Spliterator.OfLong (shadow created for its nullability, generated)
         class OfLong {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            void forEachRemaining(@NotNull Consumer<? super Long> p0) { }
-            void forEachRemaining(@NotNull LongConsumer p0) { }
-            boolean tryAdvance(@NotNull Consumer<? super Long> p0) { return false; }
-            boolean tryAdvance(@NotNull LongConsumer p0) { return false; }
-            @Nullable Spliterator.OfLong trySplit() { return null; }
+            void forEachRemaining(@NotNull java.util.function.Consumer<? super java.lang.Long> p0) { }
+            void forEachRemaining(@NotNull java.util.function.LongConsumer p0) { }
+            boolean tryAdvance(@NotNull java.util.function.Consumer<? super java.lang.Long> p0) { return false; }
+            boolean tryAdvance(@NotNull java.util.function.LongConsumer p0) { return false; }
+            @Nullable java.util.Spliterator.OfLong trySplit() { return null; }
         }
 
         //public java.util.Spliterator.OfPrimitive (shadow created for its nullability, generated)
-        class OfPrimitive<T, T_CONS, T_SPLITR extends Spliterator.OfPrimitive<T, T_CONS, T_SPLITR>> {
+        class OfPrimitive<T, T_CONS, T_SPLITR extends java.util.Spliterator.OfPrimitive<T, T_CONS, T_SPLITR>> {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
             @Nullable T_SPLITR trySplit() { return null; }
         }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void forEachRemaining(@NotNull Consumer<? super T> p0) { }
-        boolean tryAdvance(@NotNull Consumer<? super T> p0) { return false; }
-        @Nullable Spliterator<T> trySplit() { return null; }
+        void forEachRemaining(@NotNull java.util.function.Consumer<? super T> p0) { }
+        boolean tryAdvance(@NotNull java.util.function.Consumer<? super T> p0) { return false; }
+        @Nullable java.util.Spliterator<T> trySplit() { return null; }
     }
 
     //public class Stack<E> extends Vector<E>
@@ -4329,11 +4312,11 @@ public class JavaUtil {
         @NotModified public String toString() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        StringJoiner$(@NotNull CharSequence p0) { }
-        StringJoiner$(@NotNull CharSequence p0, @NotNull CharSequence p1, @NotNull CharSequence p2) { }
-        @Modified StringJoiner add(@Nullable CharSequence p0) { return null; }
-        @Modified StringJoiner merge(@NotNull StringJoiner p0) { return null; }
-        @Modified StringJoiner setEmptyValue(@NotNull CharSequence p0) { return null; }
+        StringJoiner$(@NotNull java.lang.CharSequence p0) { }
+        StringJoiner$(@NotNull java.lang.CharSequence p0, @NotNull java.lang.CharSequence p1, @NotNull java.lang.CharSequence p2) { }
+        @Modified java.util.StringJoiner add(@Nullable java.lang.CharSequence p0) { return null; }
+        @Modified java.util.StringJoiner merge(@NotNull java.util.StringJoiner p0) { return null; }
+        @Modified java.util.StringJoiner setEmptyValue(@NotNull java.lang.CharSequence p0) { return null; }
     }
 
     //public class StringTokenizer implements Enumeration<Object>
@@ -4345,10 +4328,10 @@ public class JavaUtil {
         @NotModified boolean hasMoreElements() { return false; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        StringTokenizer$(@NotNull String p0) { }
-        StringTokenizer$(@NotNull String p0, @Nullable String p1) { }
-        StringTokenizer$(@NotNull String p0, @Nullable String p1, boolean p2) { }
-        @Modified String nextToken(@NotNull String p0) { return null; }
+        StringTokenizer$(@NotNull java.lang.String p0) { }
+        StringTokenizer$(@NotNull java.lang.String p0, @Nullable java.lang.String p1) { }
+        StringTokenizer$(@NotNull java.lang.String p0, @Nullable java.lang.String p1, boolean p2) { }
+        @Modified java.lang.String nextToken(@NotNull java.lang.String p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified Object nextElement() { return null; }
@@ -4584,7 +4567,7 @@ public class JavaUtil {
         @Modified void replaceAll(/*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> function) { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        TreeMap$(@Nullable Comparator<? super K> p0) { }
+        TreeMap$(@Nullable java.util.Comparator<? super K> p0) { }
     }
 
     //public class TreeSet<E> extends AbstractSet<E> implements NavigableSet<E>, Cloneable, Serializable
@@ -4593,18 +4576,18 @@ public class JavaUtil {
         TreeSet$(@NotNull @Independent(hc = true) @NotModified Collection<? extends E> c) { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        TreeSet$(@Nullable Comparator<? super E> p0) { }
-        TreeSet$(@NotNull @Independent(hc = true) @NotModified SortedSet<E> p0) { }
-        @Modified boolean addAll(@NotNull Collection<? extends E> p0) { return false; }
+        TreeSet$(@Nullable java.util.Comparator<? super E> p0) { }
+        TreeSet$(@NotNull @Independent(hc = true) @NotModified java.util.SortedSet<E> p0) { }
+        @Modified boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
         @Nullable E ceiling(E p0) { return null; }
-        @Nullable Comparator<? super E> comparator() { return null; }
-        boolean contains(@Nullable Object p0) { return false; }
+        @Nullable java.util.Comparator<? super E> comparator() { return null; }
+        boolean contains(@Nullable java.lang.Object p0) { return false; }
         @Nullable E floor(E p0) { return null; }
         @Nullable E higher(E p0) { return null; }
         @Nullable E lower(E p0) { return null; }
         @Modified @Nullable E pollFirst() { return null; }
         @Modified @Nullable E pollLast() { return null; }
-        @Modified boolean remove(@Nullable Object p0) { return false; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
     }
 
     //public final class UUID implements Serializable, Comparable<UUID>
@@ -4814,39 +4797,39 @@ public class JavaUtil {
         WeakHashMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<? extends K, ? extends V> m) { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        boolean containsKey(@Nullable Object p0) { return false; }
-        boolean containsValue(@Nullable Object p0) { return false; }
-        void forEach(@NotNull BiConsumer<? super K, ? super V> p0) { }
-        @Nullable V get(@Nullable Object p0) { return null; }
+        boolean containsKey(@Nullable java.lang.Object p0) { return false; }
+        boolean containsValue(@Nullable java.lang.Object p0) { return false; }
+        void forEach(@NotNull java.util.function.BiConsumer<? super K, ? super V> p0) { }
+        @Nullable V get(@Nullable java.lang.Object p0) { return null; }
         @Modified @Nullable V put(K p0, V p1) { return null; }
-        @Modified void putAll(@NotNull Map<? extends K, ? extends V> p0) { }
-        @Modified @Nullable V remove(@Nullable Object p0) { return null; }
-        @Modified void replaceAll(@NotNull BiFunction<? super K, ? super V, ? extends V> p0) { }
+        @Modified void putAll(@NotNull java.util.Map<? extends K, ? extends V> p0) { }
+        @Modified @Nullable V remove(@Nullable java.lang.Object p0) { return null; }
+        @Modified void replaceAll(@NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p0) { }
     }
 
     //public java.util.Calendar (shadow created for its nullability, generated)
     class Calendar$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Calendar$(@NotNull TimeZone p0, @NotNull Locale p1) { }
-        boolean after(@NotNull Object p0) { return false; }
-        boolean before(@NotNull Object p0) { return false; }
-        int compareTo(@NotNull Calendar p0) { return 0; }
-        @NotModified @Nullable String getDisplayName(int p0, int p1, @NotNull Locale p2) { return null; }
-        @NotModified @Nullable Map<String, Integer> getDisplayNames(int p0, int p1, @NotNull Locale p2) { return null; }
-        static Calendar getInstance(@NotNull Locale p0) { return null; }
-        static Calendar getInstance(@NotNull TimeZone p0) { return null; }
-        static Calendar getInstance(@NotNull TimeZone p0, @NotNull Locale p1) { return null; }
-        @Modified void setTime(@NotNull Date p0) { }
-        @Modified void setTimeZone(@NotNull TimeZone p0) { }
+        Calendar$(@NotNull java.util.TimeZone p0, @NotNull java.util.Locale p1) { }
+        boolean after(@NotNull java.lang.Object p0) { return false; }
+        boolean before(@NotNull java.lang.Object p0) { return false; }
+        int compareTo(@NotNull java.util.Calendar p0) { return 0; }
+        @NotModified @Nullable java.lang.String getDisplayName(int p0, int p1, @NotNull java.util.Locale p2) { return null; }
+        @NotModified @Nullable java.util.Map<java.lang.String, java.lang.Integer> getDisplayNames(int p0, int p1, @NotNull java.util.Locale p2) { return null; }
+        static java.util.Calendar getInstance(@NotNull java.util.Locale p0) { return null; }
+        static java.util.Calendar getInstance(@NotNull java.util.TimeZone p0) { return null; }
+        static java.util.Calendar getInstance(@NotNull java.util.TimeZone p0, @NotNull java.util.Locale p1) { return null; }
+        @Modified void setTime(@NotNull java.util.Date p0) { }
+        @Modified void setTimeZone(@NotNull java.util.TimeZone p0) { }
 
         //public java.util.Calendar.Builder (shadow created for its nullability, generated)
         class Builder {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Modified Calendar.Builder setCalendarType(@NotNull String p0) { return null; }
-            @Modified Calendar.Builder setFields(@NotNull int... p0) { return null; }
-            @Modified Calendar.Builder setInstant(@NotNull Date p0) { return null; }
-            @Modified Calendar.Builder setLocale(@NotNull Locale p0) { return null; }
-            @Modified Calendar.Builder setTimeZone(@NotNull TimeZone p0) { return null; }
+            @Modified java.util.Calendar.Builder setCalendarType(@NotNull java.lang.String p0) { return null; }
+            @Modified java.util.Calendar.Builder setFields(@NotNull int... p0) { return null; }
+            @Modified java.util.Calendar.Builder setInstant(@NotNull java.util.Date p0) { return null; }
+            @Modified java.util.Calendar.Builder setLocale(@NotNull java.util.Locale p0) { return null; }
+            @Modified java.util.Calendar.Builder setTimeZone(@NotNull java.util.TimeZone p0) { return null; }
         }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
@@ -4874,21 +4857,21 @@ public class JavaUtil {
         @NotModified int getMaximum(int p0) { return 0; }
         @NotModified int getMinimalDaysInFirstWeek() { return 0; }
         @NotModified int getMinimum(int p0) { return 0; }
-        @NotModified Date getTime() { return null; }
+        @NotModified java.util.Date getTime() { return null; }
         @NotModified long getTimeInMillis() { return 0; }
-        @NotModified TimeZone getTimeZone() { return null; }
+        @NotModified java.util.TimeZone getTimeZone() { return null; }
         @NotModified int getWeekYear() { return 0; }
         @NotModified int getWeeksInWeekYear() { return 0; }
         @NotModified boolean isLenient() { return false; }
         @NotModified boolean isSet(int p0) { return false; }
         @NotModified boolean isWeekDateSupported() { return false; }
-        @NotModified Instant toInstant() { return null; }
+        @NotModified java.time.Instant toInstant() { return null; }
     }
 
     //public java.util.DoubleSummaryStatistics (shadow created for its nullability, generated)
     class DoubleSummaryStatistics$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void combine(@NotNull DoubleSummaryStatistics p0) { }
+        void combine(@NotNull java.util.DoubleSummaryStatistics p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified double getAverage() { return 0; }
@@ -4901,7 +4884,7 @@ public class JavaUtil {
     //public java.util.EventObject (shadow created for its nullability, generated)
     class EventObject$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        EventObject$(@NotNull Object p0) { }
+        EventObject$(@NotNull java.lang.Object p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified Object getSource() { return null; }
@@ -4910,32 +4893,32 @@ public class JavaUtil {
     //public java.util.Formattable (shadow created for its nullability, generated)
     class Formattable$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void formatTo(@NotNull Formatter p0, int p1, int p2, int p3) { }
+        void formatTo(@NotNull java.util.Formatter p0, int p1, int p2, int p3) { }
     }
 
     //public java.util.Formatter (shadow created for its nullability, generated)
     class Formatter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Formatter$(@Nullable Appendable p0) { }
-        Formatter$(@Nullable Appendable p0, @Nullable Locale p1) { }
-        Formatter$(@NotNull File p0) { }
-        Formatter$(@NotNull File p0, @NotNull Charset p1, @Nullable Locale p2) { }
-        Formatter$(@NotNull File p0, @NotNull String p1) { }
-        Formatter$(@NotNull File p0, @NotNull String p1, @Nullable Locale p2) { }
-        Formatter$(@Nullable Locale p0) { }
-        Formatter$(@NotNull OutputStream p0) { }
-        Formatter$(@NotNull OutputStream p0, @NotNull Charset p1, @Nullable Locale p2) { }
-        Formatter$(@NotNull OutputStream p0, @NotNull String p1) { }
-        Formatter$(@NotNull OutputStream p0, @NotNull String p1, @Nullable Locale p2) { }
-        Formatter$(@NotNull PrintStream p0) { }
-        Formatter$(@NotNull String p0) { }
-        Formatter$(@NotNull String p0, @NotNull Charset p1, @Nullable Locale p2) { }
-        Formatter$(@NotNull String p0, @NotNull String p1) { }
-        Formatter$(@NotNull String p0, @NotNull String p1, @Nullable Locale p2) { }
-        Formatter format(@Nullable Locale p0, @NotNull String p1, @NotNull(nullableArguments = 0) Object... p2) { return null; }
-        Formatter format(@NotNull String p0, @NotNull(nullableArguments = 0) Object... p1) { return null; }
-        @Nullable IOException ioException() { return null; }
-        @Nullable Locale locale() { return null; }
+        Formatter$(@Nullable java.lang.Appendable p0) { }
+        Formatter$(@Nullable java.lang.Appendable p0, @Nullable java.util.Locale p1) { }
+        Formatter$(@NotNull java.io.File p0) { }
+        Formatter$(@NotNull java.io.File p0, @NotNull java.nio.charset.Charset p1, @Nullable java.util.Locale p2) { }
+        Formatter$(@NotNull java.io.File p0, @NotNull java.lang.String p1) { }
+        Formatter$(@NotNull java.io.File p0, @NotNull java.lang.String p1, @Nullable java.util.Locale p2) { }
+        Formatter$(@Nullable java.util.Locale p0) { }
+        Formatter$(@NotNull java.io.OutputStream p0) { }
+        Formatter$(@NotNull java.io.OutputStream p0, @NotNull java.nio.charset.Charset p1, @Nullable java.util.Locale p2) { }
+        Formatter$(@NotNull java.io.OutputStream p0, @NotNull java.lang.String p1) { }
+        Formatter$(@NotNull java.io.OutputStream p0, @NotNull java.lang.String p1, @Nullable java.util.Locale p2) { }
+        Formatter$(@NotNull java.io.PrintStream p0) { }
+        Formatter$(@NotNull java.lang.String p0) { }
+        Formatter$(@NotNull java.lang.String p0, @NotNull java.nio.charset.Charset p1, @Nullable java.util.Locale p2) { }
+        Formatter$(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { }
+        Formatter$(@NotNull java.lang.String p0, @NotNull java.lang.String p1, @Nullable java.util.Locale p2) { }
+        java.util.Formatter format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
+        java.util.Formatter format(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
+        @Nullable java.io.IOException ioException() { return null; }
+        @Nullable java.util.Locale locale() { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void flush() { }
@@ -4944,12 +4927,12 @@ public class JavaUtil {
     //public java.util.GregorianCalendar (shadow created for its nullability, generated)
     class GregorianCalendar$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        GregorianCalendar$(@NotNull Locale p0) { }
-        GregorianCalendar$(@NotNull TimeZone p0) { }
-        GregorianCalendar$(@NotNull TimeZone p0, @NotNull Locale p1) { }
-        static GregorianCalendar from(@NotNull ZonedDateTime p0) { return null; }
-        @Modified void setGregorianChange(@NotNull Date p0) { }
-        @Modified void setTimeZone(@NotNull TimeZone p0) { }
+        GregorianCalendar$(@NotNull java.util.Locale p0) { }
+        GregorianCalendar$(@NotNull java.util.TimeZone p0) { }
+        GregorianCalendar$(@NotNull java.util.TimeZone p0, @NotNull java.util.Locale p1) { }
+        static java.util.GregorianCalendar from(@NotNull java.time.ZonedDateTime p0) { return null; }
+        @Modified void setGregorianChange(@NotNull java.util.Date p0) { }
+        @Modified void setTimeZone(@NotNull java.util.TimeZone p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void add(int p0, int p1) { }
@@ -4960,16 +4943,16 @@ public class JavaUtil {
         @NotModified int getActualMinimum(int p0) { return 0; }
         @NotModified String getCalendarType() { return null; }
         @NotModified int getGreatestMinimum(int p0) { return 0; }
-        @NotModified Date getGregorianChange() { return null; }
+        @NotModified java.util.Date getGregorianChange() { return null; }
         @NotModified int getLeastMaximum(int p0) { return 0; }
         @NotModified int getMaximum(int p0) { return 0; }
         @NotModified int getMinimum(int p0) { return 0; }
-        @NotModified TimeZone getTimeZone() { return null; }
+        @NotModified java.util.TimeZone getTimeZone() { return null; }
         @NotModified int getWeekYear() { return 0; }
         @NotModified int getWeeksInWeekYear() { return 0; }
         @NotModified boolean isLeapYear(int p0) { return false; }
         @NotModified boolean isWeekDateSupported() { return false; }
-        @NotModified ZonedDateTime toZonedDateTime() { return null; }
+        @NotModified java.time.ZonedDateTime toZonedDateTime() { return null; }
     }
 
     //public java.util.HexFormat (shadow created for its nullability, generated)
@@ -4977,27 +4960,27 @@ public class JavaUtil {
     @Immutable
     class HexFormat$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        <A extends Appendable> A formatHex(A p0, @NotNull byte[] p1) { return null; }
-        <A extends Appendable> A formatHex(A p0, @NotNull byte[] p1, int p2, int p3) { return null; }
-        String formatHex(@NotNull byte[] p0) { return null; }
-        String formatHex(@NotNull byte[] p0, int p1, int p2) { return null; }
-        static int fromHexDigits(@NotNull CharSequence p0) { return 0; }
-        static int fromHexDigits(@NotNull CharSequence p0, int p1, int p2) { return 0; }
-        static long fromHexDigitsToLong(@NotNull CharSequence p0) { return 0; }
-        static long fromHexDigitsToLong(@NotNull CharSequence p0, int p1, int p2) { return 0; }
-        static HexFormat ofDelimiter(@NotNull String p0) { return null; }
-        byte[] parseHex(@NotNull CharSequence p0) { return null; }
-        byte[] parseHex(@NotNull CharSequence p0, int p1, int p2) { return null; }
+        <A extends java.lang.Appendable> A formatHex(A p0, @NotNull byte[] p1) { return null; }
+        <A extends java.lang.Appendable> A formatHex(A p0, @NotNull byte[] p1, int p2, int p3) { return null; }
+        java.lang.String formatHex(@NotNull byte[] p0) { return null; }
+        java.lang.String formatHex(@NotNull byte[] p0, int p1, int p2) { return null; }
+        static int fromHexDigits(@NotNull java.lang.CharSequence p0) { return 0; }
+        static int fromHexDigits(@NotNull java.lang.CharSequence p0, int p1, int p2) { return 0; }
+        static long fromHexDigitsToLong(@NotNull java.lang.CharSequence p0) { return 0; }
+        static long fromHexDigitsToLong(@NotNull java.lang.CharSequence p0, int p1, int p2) { return 0; }
+        static java.util.HexFormat ofDelimiter(@NotNull java.lang.String p0) { return null; }
+        byte[] parseHex(@NotNull java.lang.CharSequence p0) { return null; }
+        byte[] parseHex(@NotNull java.lang.CharSequence p0, int p1, int p2) { return null; }
         byte[] parseHex(@NotNull char[] p0, int p1, int p2) { return null; }
-        HexFormat withDelimiter(@NotNull String p0) { return null; }
-        HexFormat withPrefix(@NotNull String p0) { return null; }
-        HexFormat withSuffix(@NotNull String p0) { return null; }
+        java.util.HexFormat withDelimiter(@NotNull java.lang.String p0) { return null; }
+        java.util.HexFormat withPrefix(@NotNull java.lang.String p0) { return null; }
+        java.util.HexFormat withSuffix(@NotNull java.lang.String p0) { return null; }
     }
 
     //public java.util.IntSummaryStatistics (shadow created for its nullability, generated)
     class IntSummaryStatistics$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void combine(@NotNull IntSummaryStatistics p0) { }
+        void combine(@NotNull java.util.IntSummaryStatistics p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified double getAverage() { return 0; }
@@ -5010,16 +4993,16 @@ public class JavaUtil {
     //public java.util.ListResourceBundle (shadow created for its nullability, generated)
     class ListResourceBundle$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable Object handleGetObject(@Nullable String p0) { return null; }
+        @Nullable java.lang.Object handleGetObject(@Nullable java.lang.String p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified Enumeration<String> getKeys() { return null; }
+        @NotModified java.util.Enumeration<String> getKeys() { return null; }
     }
 
     //public java.util.LongSummaryStatistics (shadow created for its nullability, generated)
     class LongSummaryStatistics$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void combine(@NotNull LongSummaryStatistics p0) { }
+        void combine(@NotNull java.util.LongSummaryStatistics p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified double getAverage() { return 0; }
@@ -5032,9 +5015,9 @@ public class JavaUtil {
     //public java.util.Observable (shadow created for its nullability, generated)
     class Observable$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified void addObserver(@NotNull Observer p0) { }
-        @Modified void deleteObserver(@Nullable Observer p0) { }
-        void notifyObservers(@Nullable Object p0) { }
+        @Modified void addObserver(@NotNull java.util.Observer p0) { }
+        @Modified void deleteObserver(@Nullable java.util.Observer p0) { }
+        void notifyObservers(@Nullable java.lang.Object p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void deleteObservers() { }
@@ -5047,24 +5030,24 @@ public class JavaUtil {
     //public java.util.Observer (shadow created for its nullability, generated)
     class Observer$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Modified void update(@NotNull Observable p0, @Nullable Object p1) { }
+        @Modified void update(@NotNull java.util.Observable p0, @Nullable java.lang.Object p1) { }
     }
 
     //public java.util.OptionalLong (shadow created for its nullability, generated)
     @ImmutableContainer
     class OptionalLong$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void ifPresent(@NotNull LongConsumer p0) { }
-        void ifPresentOrElse(@NotNull LongConsumer p0, @NotNull Runnable p1) { }
-        long orElseGet(@NotNull LongSupplier p0) { return 0; }
-        <X extends Throwable> long orElseThrow(@NotNull Supplier<? extends X> p0) { return 0; }
+        void ifPresent(@NotNull java.util.function.LongConsumer p0) { }
+        void ifPresentOrElse(@NotNull java.util.function.LongConsumer p0, @NotNull java.lang.Runnable p1) { }
+        long orElseGet(@NotNull java.util.function.LongSupplier p0) { return 0; }
+        <X extends java.lang.Throwable> long orElseThrow(@NotNull java.util.function.Supplier<? extends X> p0) { return 0; }
     }
 
     //public java.util.PropertyPermission (shadow created for its nullability, generated)
     class PropertyPermission$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PropertyPermission$(@NotNull String p0, @Nullable String p1) { }
-        boolean implies(@NotNull Permission p0) { return false; }
+        PropertyPermission$(@NotNull java.lang.String p0, @Nullable java.lang.String p1) { }
+        boolean implies(@NotNull java.security.Permission p0) { return false; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified String getActions() { return null; }
@@ -5073,81 +5056,81 @@ public class JavaUtil {
     //public java.util.ResourceBundle (shadow created for its nullability, generated)
     class ResourceBundle$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static void clearCache(@NotNull ClassLoader p0) { }
-        @NotModified boolean containsKey(@NotNull String p0) { return false; }
-        @NotModified @Nullable String getBaseBundleName() { return null; }
-        static ResourceBundle getBundle(@NotNull String p0) { return null; }
-        static ResourceBundle getBundle(@NotNull String p0, @NotNull ResourceBundle.Control p1) { return null; }
-        static ResourceBundle getBundle(@NotNull String p0, @NotNull Locale p1) { return null; }
-        static ResourceBundle getBundle(@NotNull String p0, @NotNull Locale p1, @NotNull ClassLoader p2) { return null; }
-        static ResourceBundle getBundle(@NotNull String p0, @NotNull Locale p1, @NotNull ClassLoader p2, @NotNull ResourceBundle.Control p3) { return null; }
-        static ResourceBundle getBundle(@NotNull String p0, @NotNull Locale p1, @NotNull ResourceBundle.Control p2) { return null; }
-        static ResourceBundle getBundle(@NotNull String p0, @NotNull Locale p1, @NotNull Module p2) { return null; }
-        static ResourceBundle getBundle(@NotNull String p0, @NotNull Module p1) { return null; }
-        @NotModified Object getObject(@NotNull String p0) { return null; }
-        @NotModified String getString(@NotNull String p0) { return null; }
-        @NotModified String[] getStringArray(@NotNull String p0) { return null; }
-        @Nullable Object handleGetObject(@NotNull String p0) { return null; }
-        void setParent(@Nullable ResourceBundle p0) { }
+        static void clearCache(@NotNull java.lang.ClassLoader p0) { }
+        @NotModified boolean containsKey(@NotNull java.lang.String p0) { return false; }
+        @NotModified @Nullable java.lang.String getBaseBundleName() { return null; }
+        static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0) { return null; }
+        static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.ResourceBundle.Control p1) { return null; }
+        static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
+        static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.lang.ClassLoader p2) { return null; }
+        static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.lang.ClassLoader p2, @NotNull java.util.ResourceBundle.Control p3) { return null; }
+        static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.util.ResourceBundle.Control p2) { return null; }
+        static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.lang.Module p2) { return null; }
+        static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return null; }
+        @NotModified java.lang.Object getObject(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.lang.String getString(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.lang.String[] getStringArray(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.lang.Object handleGetObject(@NotNull java.lang.String p0) { return null; }
+        void setParent(@Nullable java.util.ResourceBundle p0) { }
 
         //public java.util.ResourceBundle.Control (shadow created for its nullability, generated)
         class Control {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @NotModified List<Locale> getCandidateLocales(@NotNull String p0, @NotNull Locale p1) { return null; }
-            static ResourceBundle.Control getControl(@NotNull List<String> p0) { return null; }
-            @NotModified @Nullable Locale getFallbackLocale(@NotNull String p0, @NotNull Locale p1) { return null; }
-            @NotModified List<String> getFormats(@NotNull String p0) { return null; }
-            static ResourceBundle.Control getNoFallbackControl(@NotNull List<String> p0) { return null; }
-            @NotModified long getTimeToLive(@NotNull String p0, @NotNull Locale p1) { return 0; }
-            boolean needsReload(@NotNull String p0, @NotNull Locale p1, @NotNull String p2, @NotNull ClassLoader p3, @NotNull ResourceBundle p4, long p5) { return false; }
-            @Nullable ResourceBundle newBundle(@NotNull String p0, @NotNull Locale p1, @NotNull String p2, @NotNull ClassLoader p3, boolean p4) { return null; }
-            @NotModified String toBundleName(@NotNull String p0, @NotNull Locale p1) { return null; }
-            @NotModified String toResourceName(@NotNull String p0, @NotNull String p1) { return null; }
+            @NotModified java.util.List<java.util.Locale> getCandidateLocales(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
+            static java.util.ResourceBundle.Control getControl(@NotNull java.util.List<java.lang.String> p0) { return null; }
+            @NotModified @Nullable java.util.Locale getFallbackLocale(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
+            @NotModified java.util.List<java.lang.String> getFormats(@NotNull java.lang.String p0) { return null; }
+            static java.util.ResourceBundle.Control getNoFallbackControl(@NotNull java.util.List<java.lang.String> p0) { return null; }
+            @NotModified long getTimeToLive(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return 0; }
+            boolean needsReload(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.lang.String p2, @NotNull java.lang.ClassLoader p3, @NotNull java.util.ResourceBundle p4, long p5) { return false; }
+            @Nullable java.util.ResourceBundle newBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.lang.String p2, @NotNull java.lang.ClassLoader p3, boolean p4) { return null; }
+            @NotModified java.lang.String toBundleName(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
+            @NotModified java.lang.String toResourceName(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { return null; }
         }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified Enumeration<String> getKeys() { return null; }
-        @NotModified Locale getLocale() { return null; }
+        @NotModified java.util.Enumeration<String> getKeys() { return null; }
+        @NotModified java.util.Locale getLocale() { return null; }
     }
 
     //public java.util.Scanner (shadow created for its nullability, generated)
     class Scanner$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Scanner$(@NotNull File p0) { }
-        Scanner$(@NotNull File p0, @NotNull Charset p1) { }
-        Scanner$(@NotNull File p0, @NotNull String p1) { }
-        Scanner$(@NotNull InputStream p0) { }
-        Scanner$(@NotNull InputStream p0, @NotNull Charset p1) { }
-        Scanner$(@NotNull InputStream p0, @NotNull String p1) { }
-        Scanner$(@NotNull Path p0) { }
-        Scanner$(@NotNull Path p0, @NotNull Charset p1) { }
-        Scanner$(@NotNull Path p0, @NotNull String p1) { }
-        Scanner$(@NotNull Readable p0) { }
-        Scanner$(@NotNull ReadableByteChannel p0) { }
-        Scanner$(@NotNull ReadableByteChannel p0, @NotNull Charset p1) { }
-        Scanner$(@NotNull ReadableByteChannel p0, @NotNull String p1) { }
-        Scanner$(@NotNull String p0) { }
-        Stream<MatchResult> findAll(@NotNull Pattern p0) { return null; }
-        Stream<MatchResult> findAll(@NotNull String p0) { return null; }
-        @Nullable String findInLine(@NotNull Pattern p0) { return null; }
-        @Nullable String findInLine(@NotNull String p0) { return null; }
-        @Nullable String findWithinHorizon(@NotNull Pattern p0, int p1) { return null; }
-        @Nullable String findWithinHorizon(@NotNull String p0, int p1) { return null; }
-        @NotModified boolean hasNext(@NotNull Pattern p0) { return false; }
-        @NotModified boolean hasNext(@NotNull String p0) { return false; }
-        @Nullable IOException ioException() { return null; }
-        @Modified String next(@NotNull Pattern p0) { return null; }
-        @Modified String next(@NotNull String p0) { return null; }
-        @Modified Scanner skip(@NotNull Pattern p0) { return null; }
-        @Modified Scanner skip(@NotNull String p0) { return null; }
-        Scanner useDelimiter(@NotNull Pattern p0) { return null; }
-        Scanner useDelimiter(@NotNull String p0) { return null; }
-        Scanner useLocale(@NotNull Locale p0) { return null; }
+        Scanner$(@NotNull java.io.File p0) { }
+        Scanner$(@NotNull java.io.File p0, @NotNull java.nio.charset.Charset p1) { }
+        Scanner$(@NotNull java.io.File p0, @NotNull java.lang.String p1) { }
+        Scanner$(@NotNull java.io.InputStream p0) { }
+        Scanner$(@NotNull java.io.InputStream p0, @NotNull java.nio.charset.Charset p1) { }
+        Scanner$(@NotNull java.io.InputStream p0, @NotNull java.lang.String p1) { }
+        Scanner$(@NotNull java.nio.file.Path p0) { }
+        Scanner$(@NotNull java.nio.file.Path p0, @NotNull java.nio.charset.Charset p1) { }
+        Scanner$(@NotNull java.nio.file.Path p0, @NotNull java.lang.String p1) { }
+        Scanner$(@NotNull java.lang.Readable p0) { }
+        Scanner$(@NotNull java.nio.channels.ReadableByteChannel p0) { }
+        Scanner$(@NotNull java.nio.channels.ReadableByteChannel p0, @NotNull java.nio.charset.Charset p1) { }
+        Scanner$(@NotNull java.nio.channels.ReadableByteChannel p0, @NotNull java.lang.String p1) { }
+        Scanner$(@NotNull java.lang.String p0) { }
+        java.util.stream.Stream<java.util.regex.MatchResult> findAll(@NotNull java.util.regex.Pattern p0) { return null; }
+        java.util.stream.Stream<java.util.regex.MatchResult> findAll(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.lang.String findInLine(@NotNull java.util.regex.Pattern p0) { return null; }
+        @Nullable java.lang.String findInLine(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.lang.String findWithinHorizon(@NotNull java.util.regex.Pattern p0, int p1) { return null; }
+        @Nullable java.lang.String findWithinHorizon(@NotNull java.lang.String p0, int p1) { return null; }
+        @NotModified boolean hasNext(@NotNull java.util.regex.Pattern p0) { return false; }
+        @NotModified boolean hasNext(@NotNull java.lang.String p0) { return false; }
+        @Nullable java.io.IOException ioException() { return null; }
+        @Modified java.lang.String next(@NotNull java.util.regex.Pattern p0) { return null; }
+        @Modified java.lang.String next(@NotNull java.lang.String p0) { return null; }
+        @Modified java.util.Scanner skip(@NotNull java.util.regex.Pattern p0) { return null; }
+        @Modified java.util.Scanner skip(@NotNull java.lang.String p0) { return null; }
+        java.util.Scanner useDelimiter(@NotNull java.util.regex.Pattern p0) { return null; }
+        java.util.Scanner useDelimiter(@NotNull java.lang.String p0) { return null; }
+        java.util.Scanner useLocale(@NotNull java.util.Locale p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified BigDecimal nextBigDecimal() { return null; }
-        @Modified BigInteger nextBigInteger() { return null; }
-        @Modified BigInteger nextBigInteger(int p0) { return null; }
+        @Modified java.math.BigDecimal nextBigDecimal() { return null; }
+        @Modified java.math.BigInteger nextBigInteger() { return null; }
+        @Modified java.math.BigInteger nextBigInteger(int p0) { return null; }
         @Modified boolean nextBoolean() { return false; }
         @Modified byte nextByte() { return 0; }
         @Modified byte nextByte(int p0) { return 0; }
@@ -5160,7 +5143,7 @@ public class JavaUtil {
         @Modified long nextLong(int p0) { return 0; }
         @Modified short nextShort() { return 0; }
         @Modified short nextShort(int p0) { return 0; }
-        @Modified Scanner reset() { return null; }
+        @Modified java.util.Scanner reset() { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified boolean hasNext() { return false; }
@@ -5184,21 +5167,21 @@ public class JavaUtil {
     //public java.util.ServiceLoader (shadow created for its nullability, generated)
     class ServiceLoader$<S> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static <S> ServiceLoader<S> load(@NotNull Class<S> p0) { return null; }
-        static <S> ServiceLoader<S> load(@NotNull Class<S> p0, @Nullable ClassLoader p1) { return null; }
-        static <S> ServiceLoader<S> load(@NotNull ModuleLayer p0, @NotNull Class<S> p1) { return null; }
-        static <S> ServiceLoader<S> loadInstalled(@NotNull Class<S> p0) { return null; }
+        static <S> java.util.ServiceLoader<S> load(@NotNull java.lang.Class<S> p0) { return null; }
+        static <S> java.util.ServiceLoader<S> load(@NotNull java.lang.Class<S> p0, @Nullable java.lang.ClassLoader p1) { return null; }
+        static <S> java.util.ServiceLoader<S> load(@NotNull java.lang.ModuleLayer p0, @NotNull java.lang.Class<S> p1) { return null; }
+        static <S> java.util.ServiceLoader<S> loadInstalled(@NotNull java.lang.Class<S> p0) { return null; }
     }
 
     //public java.util.SimpleTimeZone (shadow created for its nullability, generated)
     class SimpleTimeZone$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        SimpleTimeZone$(int p0, @NotNull String p1) { }
-        SimpleTimeZone$(int p0, @NotNull String p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, int p9) { }
-        SimpleTimeZone$(int p0, @NotNull String p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, int p9, int p10) { }
-        SimpleTimeZone$(int p0, @NotNull String p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, int p9, int p10, int p11, int p12) { }
-        @NotModified boolean hasSameRules(@NotNull TimeZone p0) { return false; }
-        boolean inDaylightTime(@NotNull Date p0) { return false; }
+        SimpleTimeZone$(int p0, @NotNull java.lang.String p1) { }
+        SimpleTimeZone$(int p0, @NotNull java.lang.String p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, int p9) { }
+        SimpleTimeZone$(int p0, @NotNull java.lang.String p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, int p9, int p10) { }
+        SimpleTimeZone$(int p0, @NotNull java.lang.String p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, int p9, int p10, int p11, int p12) { }
+        @NotModified boolean hasSameRules(@NotNull java.util.TimeZone p0) { return false; }
+        boolean inDaylightTime(@NotNull java.util.Date p0) { return false; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setDSTSavings(int p0) { }
@@ -5221,61 +5204,61 @@ public class JavaUtil {
     //public java.util.Spliterators (shadow created for its nullability, generated)
     class Spliterators$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static PrimitiveIterator.OfDouble iterator(@NotNull Spliterator.OfDouble p0) { return null; }
-        static PrimitiveIterator.OfInt iterator(@NotNull Spliterator.OfInt p0) { return null; }
-        static PrimitiveIterator.OfLong iterator(@NotNull Spliterator.OfLong p0) { return null; }
-        static <T> Iterator<T> iterator(@NotNull Spliterator<? extends T> p0) { return null; }
-        static <T> Spliterator<T> spliterator(@NotNull Collection<? extends T> p0, int p1) { return null; }
-        static <T> Spliterator<T> spliterator(@NotNull Iterator<? extends T> p0, long p1, int p2) { return null; }
-        static <T> Spliterator<T> spliterator(@NotNull(nullableArguments = 0) Object[] p0, int p1) { return null; }
-        static <T> Spliterator<T> spliterator(@NotNull(nullableArguments = 0) Object[] p0, int p1, int p2, int p3) { return null; }
-        static Spliterator.OfDouble spliterator(@NotNull PrimitiveIterator.OfDouble p0, long p1, int p2) { return null; }
-        static Spliterator.OfInt spliterator(@NotNull PrimitiveIterator.OfInt p0, long p1, int p2) { return null; }
-        static Spliterator.OfLong spliterator(@NotNull PrimitiveIterator.OfLong p0, long p1, int p2) { return null; }
-        static Spliterator.OfDouble spliterator(@NotNull double[] p0, int p1) { return null; }
-        static Spliterator.OfDouble spliterator(@NotNull double[] p0, int p1, int p2, int p3) { return null; }
-        static Spliterator.OfInt spliterator(@NotNull int[] p0, int p1) { return null; }
-        static Spliterator.OfInt spliterator(@NotNull int[] p0, int p1, int p2, int p3) { return null; }
-        static Spliterator.OfLong spliterator(@NotNull long[] p0, int p1) { return null; }
-        static Spliterator.OfLong spliterator(@NotNull long[] p0, int p1, int p2, int p3) { return null; }
-        static <T> Spliterator<T> spliteratorUnknownSize(@NotNull Iterator<? extends T> p0, int p1) { return null; }
-        static Spliterator.OfDouble spliteratorUnknownSize(@NotNull PrimitiveIterator.OfDouble p0, int p1) { return null; }
-        static Spliterator.OfInt spliteratorUnknownSize(@NotNull PrimitiveIterator.OfInt p0, int p1) { return null; }
-        static Spliterator.OfLong spliteratorUnknownSize(@NotNull PrimitiveIterator.OfLong p0, int p1) { return null; }
+        static java.util.PrimitiveIterator.OfDouble iterator(@NotNull java.util.Spliterator.OfDouble p0) { return null; }
+        static java.util.PrimitiveIterator.OfInt iterator(@NotNull java.util.Spliterator.OfInt p0) { return null; }
+        static java.util.PrimitiveIterator.OfLong iterator(@NotNull java.util.Spliterator.OfLong p0) { return null; }
+        static <T> java.util.Iterator<T> iterator(@NotNull java.util.Spliterator<? extends T> p0) { return null; }
+        static <T> java.util.Spliterator<T> spliterator(@NotNull java.util.Collection<? extends T> p0, int p1) { return null; }
+        static <T> java.util.Spliterator<T> spliterator(@NotNull java.util.Iterator<? extends T> p0, long p1, int p2) { return null; }
+        static <T> java.util.Spliterator<T> spliterator(@NotNull(nullableArguments = 0) java.lang.Object[] p0, int p1) { return null; }
+        static <T> java.util.Spliterator<T> spliterator(@NotNull(nullableArguments = 0) java.lang.Object[] p0, int p1, int p2, int p3) { return null; }
+        static java.util.Spliterator.OfDouble spliterator(@NotNull java.util.PrimitiveIterator.OfDouble p0, long p1, int p2) { return null; }
+        static java.util.Spliterator.OfInt spliterator(@NotNull java.util.PrimitiveIterator.OfInt p0, long p1, int p2) { return null; }
+        static java.util.Spliterator.OfLong spliterator(@NotNull java.util.PrimitiveIterator.OfLong p0, long p1, int p2) { return null; }
+        static java.util.Spliterator.OfDouble spliterator(@NotNull double[] p0, int p1) { return null; }
+        static java.util.Spliterator.OfDouble spliterator(@NotNull double[] p0, int p1, int p2, int p3) { return null; }
+        static java.util.Spliterator.OfInt spliterator(@NotNull int[] p0, int p1) { return null; }
+        static java.util.Spliterator.OfInt spliterator(@NotNull int[] p0, int p1, int p2, int p3) { return null; }
+        static java.util.Spliterator.OfLong spliterator(@NotNull long[] p0, int p1) { return null; }
+        static java.util.Spliterator.OfLong spliterator(@NotNull long[] p0, int p1, int p2, int p3) { return null; }
+        static <T> java.util.Spliterator<T> spliteratorUnknownSize(@NotNull java.util.Iterator<? extends T> p0, int p1) { return null; }
+        static java.util.Spliterator.OfDouble spliteratorUnknownSize(@NotNull java.util.PrimitiveIterator.OfDouble p0, int p1) { return null; }
+        static java.util.Spliterator.OfInt spliteratorUnknownSize(@NotNull java.util.PrimitiveIterator.OfInt p0, int p1) { return null; }
+        static java.util.Spliterator.OfLong spliteratorUnknownSize(@NotNull java.util.PrimitiveIterator.OfLong p0, int p1) { return null; }
 
         //public java.util.Spliterators.AbstractDoubleSpliterator (shadow created for its nullability, generated)
         class AbstractDoubleSpliterator {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable Spliterator.OfDouble trySplit() { return null; }
+            @Nullable java.util.Spliterator.OfDouble trySplit() { return null; }
         }
         //public java.util.Spliterators.AbstractIntSpliterator (shadow created for its nullability, generated)
         class AbstractIntSpliterator {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable Spliterator.OfInt trySplit() { return null; }
+            @Nullable java.util.Spliterator.OfInt trySplit() { return null; }
         }
         //public java.util.Spliterators.AbstractLongSpliterator (shadow created for its nullability, generated)
         class AbstractLongSpliterator {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable Spliterator.OfLong trySplit() { return null; }
+            @Nullable java.util.Spliterator.OfLong trySplit() { return null; }
         }
         //public java.util.Spliterators.AbstractSpliterator (shadow created for its nullability, generated)
         class AbstractSpliterator<T> {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable Spliterator<T> trySplit() { return null; }
+            @Nullable java.util.Spliterator<T> trySplit() { return null; }
         }
     }
 
     //public java.util.TimeZone (shadow created for its nullability, generated)
     class TimeZone$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @NotModified String getDisplayName(@NotNull Locale p0) { return null; }
-        @NotModified String getDisplayName(boolean p0, int p1, @NotNull Locale p2) { return null; }
-        static TimeZone getTimeZone(@NotNull String p0) { return null; }
-        static TimeZone getTimeZone(@NotNull ZoneId p0) { return null; }
-        @NotModified boolean hasSameRules(@Nullable TimeZone p0) { return false; }
-        boolean inDaylightTime(@NotNull Date p0) { return false; }
-        static void setDefault(@Nullable TimeZone p0) { }
-        @Modified void setID(@NotNull String p0) { }
+        @NotModified java.lang.String getDisplayName(@NotNull java.util.Locale p0) { return null; }
+        @NotModified java.lang.String getDisplayName(boolean p0, int p1, @NotNull java.util.Locale p2) { return null; }
+        static java.util.TimeZone getTimeZone(@NotNull java.lang.String p0) { return null; }
+        static java.util.TimeZone getTimeZone(@NotNull java.time.ZoneId p0) { return null; }
+        @NotModified boolean hasSameRules(@Nullable java.util.TimeZone p0) { return false; }
+        boolean inDaylightTime(@NotNull java.util.Date p0) { return false; }
+        static void setDefault(@Nullable java.util.TimeZone p0) { }
+        @Modified void setID(@NotNull java.lang.String p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setRawOffset(int p0) { }
@@ -5288,20 +5271,20 @@ public class JavaUtil {
         @NotModified int getOffset(int p0, int p1, int p2, int p3, int p4, int p5) { return 0; }
         @NotModified int getOffset(long p0) { return 0; }
         @NotModified int getRawOffset() { return 0; }
-        @NotModified ZoneId toZoneId() { return null; }
+        @NotModified java.time.ZoneId toZoneId() { return null; }
     }
 
     //public java.util.Timer (shadow created for its nullability, generated)
     class Timer$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Timer$(@NotNull String p0) { }
-        Timer$(@NotNull String p0, boolean p1) { }
-        @Modified void schedule(@NotNull TimerTask p0, @NotNull Date p1) { }
-        @Modified void schedule(@NotNull TimerTask p0, @NotNull Date p1, long p2) { }
-        @Modified void schedule(@NotNull TimerTask p0, long p1) { }
-        @Modified void schedule(@NotNull TimerTask p0, long p1, long p2) { }
-        @Modified void scheduleAtFixedRate(@NotNull TimerTask p0, @NotNull Date p1, long p2) { }
-        @Modified void scheduleAtFixedRate(@NotNull TimerTask p0, long p1, long p2) { }
+        Timer$(@NotNull java.lang.String p0) { }
+        Timer$(@NotNull java.lang.String p0, boolean p1) { }
+        @Modified void schedule(@NotNull java.util.TimerTask p0, @NotNull java.util.Date p1) { }
+        @Modified void schedule(@NotNull java.util.TimerTask p0, @NotNull java.util.Date p1, long p2) { }
+        @Modified void schedule(@NotNull java.util.TimerTask p0, long p1) { }
+        @Modified void schedule(@NotNull java.util.TimerTask p0, long p1, long p2) { }
+        @Modified void scheduleAtFixedRate(@NotNull java.util.TimerTask p0, @NotNull java.util.Date p1, long p2) { }
+        @Modified void scheduleAtFixedRate(@NotNull java.util.TimerTask p0, long p1, long p2) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void cancel() { }
@@ -5312,20 +5295,20 @@ public class JavaUtil {
         //public java.util.PrimitiveIterator.OfDouble (shadow created for its nullability, generated)
         class OfDouble {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            void forEachRemaining(@NotNull Consumer<? super Double> p0) { }
-            void forEachRemaining(@NotNull DoubleConsumer p0) { }
+            void forEachRemaining(@NotNull java.util.function.Consumer<? super java.lang.Double> p0) { }
+            void forEachRemaining(@NotNull java.util.function.DoubleConsumer p0) { }
         }
         //public java.util.PrimitiveIterator.OfInt (shadow created for its nullability, generated)
         class OfInt {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            void forEachRemaining(@NotNull Consumer<? super Integer> p0) { }
-            void forEachRemaining(@NotNull IntConsumer p0) { }
+            void forEachRemaining(@NotNull java.util.function.Consumer<? super java.lang.Integer> p0) { }
+            void forEachRemaining(@NotNull java.util.function.IntConsumer p0) { }
         }
         //public java.util.PrimitiveIterator.OfLong (shadow created for its nullability, generated)
         class OfLong {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            void forEachRemaining(@NotNull Consumer<? super Long> p0) { }
-            void forEachRemaining(@NotNull LongConsumer p0) { }
+            void forEachRemaining(@NotNull java.util.function.Consumer<? super java.lang.Long> p0) { }
+            void forEachRemaining(@NotNull java.util.function.LongConsumer p0) { }
         }
     }
 }

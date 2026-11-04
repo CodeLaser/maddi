@@ -17,11 +17,9 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 import java.util.random.RandomGenerator;
-import java.util.random.RandomGeneratorFactory;
 import java.util.stream.*;
-
-import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotNull;
 public class JavaUtilRandom {
     public static final String PACKAGE_NAME = "java.util.random";
@@ -146,10 +144,10 @@ public class JavaUtilRandom {
     }
 
     //public java.util.random.RandomGeneratorFactory (shadow created for its nullability, generated)
-    class RandomGeneratorFactory$<T extends RandomGenerator> {
+    class RandomGeneratorFactory$<T extends java.util.random.RandomGenerator> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         T create(@NotNull byte[] p0) { return null; }
-        static <T extends RandomGenerator> RandomGeneratorFactory<T> of(@NotNull String p0) { return null; }
+        static <T extends java.util.random.RandomGenerator> java.util.random.RandomGeneratorFactory<T> of(@NotNull java.lang.String p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified boolean isArbitrarilyJumpable() { return false; }
