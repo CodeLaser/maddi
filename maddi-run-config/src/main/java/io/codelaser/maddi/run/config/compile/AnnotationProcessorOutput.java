@@ -16,6 +16,7 @@
  */
 package io.codelaser.maddi.run.config.compile;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.FileVisitResult;
@@ -365,10 +366,10 @@ public class AnnotationProcessorOutput {
     /** {@code p/q/Foo$Bar$1.class} -> {@code p/q/Foo}: a nested class is decided by its top-level name. */
     private static String topLevelOf(String relative) {
         String withoutSuffix = relative.substring(0, relative.length() - ".class".length());
-        int separator = withoutSuffix.lastIndexOf(java.io.File.separatorChar);
+        int separator = withoutSuffix.lastIndexOf(File.separatorChar);
         int dollar = withoutSuffix.indexOf('$', separator + 1);
         return (dollar < 0 ? withoutSuffix : withoutSuffix.substring(0, dollar))
-                .replace(java.io.File.separatorChar, '/');
+                .replace(File.separatorChar, '/');
     }
 
     private static boolean exists(List<Path> roots, String relative) {

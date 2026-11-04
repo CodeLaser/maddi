@@ -26,6 +26,8 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,9 +36,11 @@ import java.util.TreeSet;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -48,11 +52,16 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.info.TypeInfoImpl;
+import io.codelaser.maddi.cst.io.CodecImpl;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnce;
+import io.codelaser.maddi.util.GetSetNames;
 
 /**
  * Mechanical enforcement of the four cst-impl idioms that eventual immutability rests on, so that a
@@ -147,41 +156,41 @@ public class TestEventualConformance {
         Path maddiAnnotationSrc = Path.of("../maddi-annotation/src/main/java");
         SourceSet maddiAnnotation = new SourceSetImpl.Builder().setName("maddi-annotation")
                 .setSourceDirectories(List.of(maddiAnnotationSrc))
-                .setUri(artifactOf(io.codelaser.maddi.annotation.Container.class))
+                .setUri(artifactOf(Container.class))
                 .setLibrary(true).setModule(true).build();
 
         Path maddiSupportSrc = Path.of("../maddi-support/src/main/java");
         SourceSet maddiSupport = new SourceSetImpl.Builder().setName("maddi-support")
                 .setSourceDirectories(List.of(maddiSupportSrc))
-                .setUri(artifactOf(io.codelaser.maddi.support.SetOnce.class))
+                .setUri(artifactOf(SetOnce.class))
                 .setLibrary(true).setModule(true)
                 .setDependencies(List.of(maddiAnnotation)).build();
 
         Path maddiUtilSrc = Path.of("../maddi-util/src/main/java");
         maddiUtil = new SourceSetImpl.Builder().setName("maddi-util")
                 .setSourceDirectories(List.of(maddiUtilSrc))
-                .setUri(artifactOf(io.codelaser.maddi.util.GetSetNames.class))
+                .setUri(artifactOf(GetSetNames.class))
                 .setLibrary(true).setModule(true)
                 .setDependencies(List.of(maddiAnnotation, maddiSupport, orgSlf4jApi)).build();
 
         Path cstApiSrc = Path.of("../maddi-cst-api/src/main/java");
         SourceSet cstApi = new SourceSetImpl.Builder().setName("maddi-cst-api")
                 .setSourceDirectories(List.of(cstApiSrc))
-                .setUri(artifactOf(io.codelaser.maddi.cst.api.element.Element.class))
+                .setUri(artifactOf(Element.class))
                 .setLibrary(true).setModule(true)
                 .setDependencies(List.of(maddiAnnotation, maddiSupport, annotations)).build();
 
         Path cstAnalysisSrc = Path.of("../maddi-cst-analysis/src/main/java");
         SourceSet cstAnalysis = new SourceSetImpl.Builder().setName("maddi-cst-analysis")
                 .setSourceDirectories(List.of(cstAnalysisSrc))
-                .setUri(artifactOf(io.codelaser.maddi.cst.impl.analysis.ValueImpl.class))
+                .setUri(artifactOf(ValueImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, maddiAnnotation, maddiSupport, orgSlf4jApi)).build();
 
         Path cstImplSrc = Path.of("../maddi-cst-impl/src/main/java");
         cstImpl = new SourceSetImpl.Builder().setName("maddi-cst-impl")
                 .setSourceDirectories(List.of(cstImplSrc))
-                .setUri(artifactOf(io.codelaser.maddi.cst.impl.info.TypeInfoImpl.class))
+                .setUri(artifactOf(TypeInfoImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, cstAnalysis, maddiAnnotation, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
                 .build();
@@ -192,12 +201,12 @@ public class TestEventualConformance {
         Path cstIoSrc = Path.of("../maddi-cst-io/src/main/java");
         SourceSet cstIo = new SourceSetImpl.Builder().setName("maddi-cst-io")
                 .setSourceDirectories(List.of(cstIoSrc))
-                .setUri(artifactOf(io.codelaser.maddi.cst.io.CodecImpl.class))
+                .setUri(artifactOf(CodecImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, cstAnalysis, maddiAnnotation, maddiSupport, orgSlf4jApi, annotations)).build();
 
         SourceSet junitJupiter = externalJar(Test.class);
-        SourceSet openTest = SourceSetImpl.sourceSetOf(org.opentest4j.AssertionFailedError.class);
+        SourceSet openTest = SourceSetImpl.sourceSetOf(AssertionFailedError.class);
 
         for (Path p : List.of(maddiAnnotationSrc, maddiSupportSrc, maddiUtilSrc, cstApiSrc, cstAnalysisSrc, cstImplSrc, cstIoSrc)) {
             assertTrue(Files.isDirectory(p), "Expected maddi source directory " + p.toAbsolutePath());
@@ -279,14 +288,14 @@ public class TestEventualConformance {
      * of {@code TypeInspectionImpl}.
      */
     private static Set<TypeInfo> immutabilityRelevantTypes(List<TypeInfo> cstImplTypes) {
-        Map<TypeInfo, List<TypeInfo>> implementors = new java.util.HashMap<>();
+        Map<TypeInfo, List<TypeInfo>> implementors = new HashMap<>();
         for (TypeInfo typeInfo : cstImplTypes) {
             if (!typeInfo.hasBeenInspected()) continue;
             for (TypeInfo superType : typeInfo.superTypesExcludingJavaLangObject()) {
                 implementors.computeIfAbsent(superType, _ -> new ArrayList<>()).add(typeInfo);
             }
         }
-        Set<TypeInfo> inScope = new java.util.LinkedHashSet<>();
+        Set<TypeInfo> inScope = new LinkedHashSet<>();
         List<TypeInfo> worklist = new ArrayList<>();
         for (TypeInfo typeInfo : cstImplTypes) {
             if (implementsElement(typeInfo) && inScope.add(typeInfo)) worklist.add(typeInfo);

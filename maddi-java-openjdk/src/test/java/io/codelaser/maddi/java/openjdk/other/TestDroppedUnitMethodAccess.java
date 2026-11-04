@@ -172,7 +172,7 @@ public class TestDroppedUnitMethodAccess extends CommonTest {
     public void commitThrowsToo() {
         // ⚠ Up to JDK 26 completing the type threw on 'later(Gone g)'. JDK 27's javac stubs Gone, so the commit
         // succeeds and every member must come out committed: the failed-commit branch has no fixture on 27.
-        check(COMMIT_THROWS_TOO, java.lang.Runtime.version().feature() >= 27);
+        check(COMMIT_THROWS_TOO, Runtime.version().feature() >= 27);
     }
 
     private void check(String source, boolean commitSucceeds) {

@@ -2,7 +2,9 @@ package io.codelaser.maddi.inspection.openjdk;
 
 import java.net.URI;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BiFunction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,8 +24,8 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     // read and written from parallel analyzer worker threads (getOrLoad during PARALLEL analysis):
     // these must be concurrent, and the lazy-load slow path below must additionally serialize access
     // to the (thread-hostile) javac task behind the loader
-    private final Map<String, TypeInfo> typesLoaded = new java.util.concurrent.ConcurrentHashMap<>();
-    private final Set<String> packageParts = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Map<String, TypeInfo> typesLoaded = new ConcurrentHashMap<>();
+    private final Set<String> packageParts = ConcurrentHashMap.newKeySet();
     // the scan's own registry. This class is a second, flatter cache of the same types, so invalidating or rewiring
     // a type has to reach both: leaving the type in InfoByFqn would have the next scan resolve references to the
     // stale object.
@@ -34,7 +36,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     // asked for it. Passing only the FQN left the driver free to answer from whichever source set it happened to
     // have a javac task for -- in practice the one scanned last -- so in a multi-source-set configuration the
     // answer depended on scan order (see JavaInspectorImpl.unitsForCompiledTypeLoading).
-    private java.util.function.BiFunction<String, SourceSet, TypeInfo> lazyLoader;
+    private BiFunction<String, SourceSet, TypeInfo> lazyLoader;
 
     // Once the javac AST is dropped (JavaInspectorImpl.invalidateAllSources on a heavy-analysis run, DROP_AST),
     // the lazy loader can no longer serve any compiled type it had not already cached. A getOrLoad miss then
@@ -43,9 +45,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     // The flag mirrors "no live javac task" and is flipped by JavaInspectorImpl as the task is dropped/re-scanned.
     private volatile boolean lazyLoaderDisabled;
     private volatile boolean strictOnDisabledMiss; // throw instead of log-and-null; a run-level policy, set once
-    private final Set<String> distinctMissesAfterDrop = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<String> distinctMissesAfterDrop = ConcurrentHashMap.newKeySet();
     private final LongAdder totalMissesAfterDrop = new LongAdder();
-    private final Set<String> warnedDisambiguations = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<String> warnedDisambiguations = ConcurrentHashMap.newKeySet();
     private final LongAdder disambiguations = new LongAdder();
 
     public CompiledTypesManagerImpl(SourceSet javaBase, InfoByFqn infoByFqn) {
@@ -53,7 +55,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         this.infoByFqn = infoByFqn;
     }
 
-    public void setLazyLoader(java.util.function.BiFunction<String, SourceSet, TypeInfo> lazyLoader) {
+    public void setLazyLoader(BiFunction<String, SourceSet, TypeInfo> lazyLoader) {
         this.lazyLoader = lazyLoader;
     }
 

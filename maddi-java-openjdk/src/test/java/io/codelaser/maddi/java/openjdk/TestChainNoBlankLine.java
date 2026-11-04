@@ -1,5 +1,6 @@
 package io.codelaser.maddi.java.openjdk;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -47,7 +48,7 @@ public class TestChainNoBlankLine extends CommonTest {
             String[] lines = out.split("\n", -1);
             for (int i = 1; i < lines.length; i++) {
                 if (lines[i - 1].isBlank() && lines[i].strip().startsWith(".")) {
-                    org.junit.jupiter.api.Assertions.fail(
+                    Assertions.fail(
                             "blank line before a chain continuation at width " + width + ":\n" + out);
                 }
             }

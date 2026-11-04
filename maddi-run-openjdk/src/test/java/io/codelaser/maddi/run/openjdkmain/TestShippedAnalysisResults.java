@@ -19,6 +19,7 @@ package io.codelaser.maddi.run.openjdkmain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.cli.CommandLine;
@@ -61,7 +62,7 @@ public class TestShippedAnalysisResults {
 
     @Test
     public void defaultNamesTheShippedResultsInAList() throws ParseException {
-        List<String> expected = new java.util.ArrayList<>(Main.SHIPPED_ANALYSIS_RESULTS);
+        List<String> expected = new ArrayList<>(Main.SHIPPED_ANALYSIS_RESULTS);
         expected.add("my/results");
         assertEquals(expected, preload("--source", "src", "--preload-analysis-results-dirs", "default,my/results"));
     }

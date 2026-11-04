@@ -30,6 +30,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+
 public class ProjectConfiguratorTest {
 
     /* a store of another tool's own, in memory */
@@ -159,8 +161,8 @@ public class ProjectConfiguratorTest {
 
     @Test
     public void defaultRegenerate(@TempDir Path dir) {
-        var gradle = new io.codelaser.maddi.inspection.api.resource.BuildFiles(
-                io.codelaser.maddi.inspection.api.resource.BuildFiles.GRADLE_PLUGIN, dir.toString(), List.of(),
+        var gradle = new BuildFiles(
+                BuildFiles.GRADLE_PLUGIN, dir.toString(), List.of(),
                 Map.of(), "now");
         Regenerate r = Regenerate.defaultFor(gradle, dir.resolve("a/build/inputConfiguration.json"));
         assertEquals(List.of("gradle", "-q", "-p", dir.resolve("a").toString(), Regenerate.GRADLE_TASK), r.command());

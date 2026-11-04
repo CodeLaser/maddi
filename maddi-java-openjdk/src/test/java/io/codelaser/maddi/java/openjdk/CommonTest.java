@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import com.sun.source.util.JavacTask;
 
 import ch.qos.logback.classic.Level;
+import ch.qos.logback.core.util.CloseUtil;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.SourceSet;
@@ -111,7 +112,7 @@ public class CommonTest {
 
             SourceSet orgSlf4j = sourceSetOf(Logger.class, javaBase);
             SourceSet logBackClassic = sourceSetOf(Level.class);
-            SourceSet logBackCore = sourceSetOf(ch.qos.logback.core.util.CloseUtil.class);
+            SourceSet logBackCore = sourceSetOf(CloseUtil.class);
             SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
             // maddi-annotation split out of maddi-support at 0.9.1; `annotations` above is JetBrains'
             // @NotNull, not maddi's. Without this part every test that names a maddi annotation fails.

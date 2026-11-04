@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import org.junit.jupiter.api.DisplayName;
@@ -56,10 +57,10 @@ public class TestCodecSetOfMethodInfo extends CommonTest {
 
         Value.SetOfMethodInfo decoded = ValueImpl.SetOfMethodInfoImpl.from(codec, context, encoded);
         assertEquals(Set.of(alpha), StreamSupport.stream(decoded.methodInfoSet().spliterator(), false)
-                .collect(java.util.stream.Collectors.toSet()));
+                .collect(Collectors.toSet()));
         // the add that used to throw
         assertTrue(decoded.add(beta));
         assertEquals(Set.of(alpha, beta), StreamSupport.stream(decoded.methodInfoSet().spliterator(), false)
-                .collect(java.util.stream.Collectors.toSet()));
+                .collect(Collectors.toSet()));
     }
 }

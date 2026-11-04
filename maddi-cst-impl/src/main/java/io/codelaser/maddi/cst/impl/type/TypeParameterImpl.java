@@ -212,7 +212,7 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     }
 
     @Override
-    public io.codelaser.maddi.cst.api.info.Variance variance() {
+    public Variance variance() {
         return inspection.get().variance();
     }
 

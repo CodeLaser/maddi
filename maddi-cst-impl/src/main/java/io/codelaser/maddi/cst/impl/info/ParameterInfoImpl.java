@@ -35,6 +35,7 @@ import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
@@ -252,8 +253,8 @@ public class ParameterInfoImpl implements ParameterInfo {
 
     @Override
     public PropertyValueMap analysis() {
-        if (io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
-            io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.record(this);
+        if (ConsumptionEdgeRecorder.ENABLED) {
+            ConsumptionEdgeRecorder.record(this);
         }
         return analysis;
     }

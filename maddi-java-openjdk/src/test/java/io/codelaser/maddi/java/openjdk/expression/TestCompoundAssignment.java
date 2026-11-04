@@ -10,6 +10,7 @@ import io.codelaser.maddi.cst.api.expression.BinaryOperator;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
@@ -85,7 +86,7 @@ public class TestCompoundAssignment extends CommonTest {
         TypeInfo typeInfo = scan("a.b.X", STRING_INPUT);
         MethodInfo plain = typeInfo.findUniqueMethod("plain", 1);
         // return s + "y";
-        var ret = (io.codelaser.maddi.cst.api.statement.ReturnStatement) plain.methodBody().statements().get(0);
+        var ret = (ReturnStatement) plain.methodBody().statements().get(0);
         BinaryOperator binary = (BinaryOperator) ret.expression();
         assertSame(runtime.plusOperatorString(), binary.operator(), "plain String '+' is concatenation");
     }

@@ -16,11 +16,13 @@
  */
 package io.codelaser.maddi.run.config.compile;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.jar.Manifest;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -264,7 +266,7 @@ public class TypeUseAnnotationClosure {
         try (Stream<Path> walk = Files.walk(path)) {
             for (Path file : walk.filter(p -> p.toString().endsWith(".class")).toList()) {
                 String binaryName = path.relativize(file).toString()
-                        .replace(java.io.File.separatorChar, '.');
+                        .replace(File.separatorChar, '.');
                 binaryName = binaryName.substring(0, binaryName.length() - 6);
                 if (isNotAType(binaryName)) {
                     if (binaryName.endsWith("module-info")) modular.add(location);
@@ -286,7 +288,7 @@ public class TypeUseAnnotationClosure {
         ZipEntry manifest = zip.getEntry("META-INF/MANIFEST.MF");
         if (manifest == null) return false;
         try (var in = zip.getInputStream(manifest)) {
-            return new java.util.jar.Manifest(in).getMainAttributes().getValue("Automatic-Module-Name") != null;
+            return new Manifest(in).getMainAttributes().getValue("Automatic-Module-Name") != null;
         }
     }
 

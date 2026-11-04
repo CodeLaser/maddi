@@ -18,16 +18,22 @@
 package io.codelaser.maddi.run.openjdkmain;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,9 +49,11 @@ import io.codelaser.maddi.analysis.api.ModificationRequest;
 import io.codelaser.maddi.analysis.api.NullabilityTarget;
 import io.codelaser.maddi.analysis.api.PrepOutcome;
 import io.codelaser.maddi.analysis.api.PrepRequest;
+import io.codelaser.maddi.callgraph.CallGraphContributions;
 import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -60,6 +68,7 @@ import io.codelaser.maddi.cst.print.kotlin.KotlinTranslator;
 import io.codelaser.maddi.cst.print.kotlin.KotlinWorld;
 import io.codelaser.maddi.cst.print.rust.RustFacts;
 import io.codelaser.maddi.cst.print.rust.RustTranslator;
+import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
@@ -101,16 +110,16 @@ public class RunAnalyzer implements Runnable {
                 false, false, null, false, null);
         return new RunRewireTests.WarmAnalysis() {
             @Override
-            public void analyze(JavaInspector inspector, ParseResult parseResult, io.codelaser.maddi.graph.G<Info> graph,
+            public void analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph,
                                 Set<TypeInfo> seedTypes) {
                 List<Info> order = new ComputeAnalysisOrder().go(graph, parallel);
                 Set<Info> seed = null;
                 if (seedTypes != null) {
-                    Set<TypeInfo> types = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+                    Set<TypeInfo> types = Collections.newSetFromMap(new IdentityHashMap<>());
                     types.addAll(seedTypes);
-                    seed = new java.util.HashSet<>();
+                    seed = new HashSet<>();
                     for (Info info : order) {
-                        if (info instanceof io.codelaser.maddi.cst.api.element.ModuleInfo) continue;
+                        if (info instanceof ModuleInfo) continue;
                         TypeInfo type = info instanceof TypeInfo ti ? ti : info.typeInfo();
                         if (type != null && types.contains(type.primaryType())) seed.add(info);
                     }
@@ -118,8 +127,8 @@ public class RunAnalyzer implements Runnable {
                 try {
                     engine().modification(new ModificationRequest(inspector, order, graph,
                             parseResult.primaryTypes(), options, null, seed));
-                } catch (java.io.IOException e) {
-                    throw new java.io.UncheckedIOException(e);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
                 }
             }
 
@@ -173,7 +182,7 @@ public class RunAnalyzer implements Runnable {
     // is left as configured.
     private static void setLogbackRootLevelToInfoIfPresent() {
         try {
-            org.slf4j.Logger root = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+            Logger root = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
             Class<?> logbackLogger = Class.forName("ch.qos.logback.classic.Logger");
             if (logbackLogger.isInstance(root)) {
                 Class<?> level = Class.forName("ch.qos.logback.classic.Level");
@@ -313,20 +322,20 @@ public class RunAnalyzer implements Runnable {
                 int oracleEvery = Integer.getInteger("maddi.rewire.oracleEvery", 0);
                 // the warm inspector's preps keep their per-type call graph from one re-parse to the next; the
                 // oracle's cold inspector walks its own in full
-                io.codelaser.maddi.callgraph.CallGraphContributions contributions =
-                        new io.codelaser.maddi.callgraph.CallGraphContributions();
-                java.util.function.BiFunction<JavaInspector, ParseResult, io.codelaser.maddi.graph.G<Info>> prepFn =
+                CallGraphContributions contributions =
+                        new CallGraphContributions();
+                BiFunction<JavaInspector, ParseResult, G<Info>> prepFn =
                         (inspector, pr) -> engine().prep(new PrepRequest(inspector.runtime(),
                                 Set.copyOf(pr.primaryTypes()), pr.sourceSetToModuleInfoMap().values(),
                                 externalsToAccept, parseOptions.parallel(), true,
                                 inspector == javaInspector ? contributions : null)).callGraph().graph();
-                java.util.function.Supplier<JavaInspector> coldInspector = () -> {
+                Supplier<JavaInspector> coldInspector = () -> {
                     JavaInspector cold = new JavaInspectorImpl(true, false);
                     cold.setJdkInternals(configuration.generalConfiguration().jdkInternals());
                     try {
                         cold.initialize(inputConfiguration);
-                    } catch (java.io.IOException e) {
-                        throw new java.io.UncheckedIOException(e);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
                     }
                     cold.preload("java.base::java.util");
                     return cold;

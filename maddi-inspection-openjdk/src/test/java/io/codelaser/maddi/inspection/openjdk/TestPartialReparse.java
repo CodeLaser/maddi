@@ -4,6 +4,7 @@ import static io.codelaser.maddi.inspection.api.integration.JavaInspector.Invali
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -432,11 +433,11 @@ public class TestPartialReparse {
         JavaInspector inspector = inspector(set);
         // the cold parse's Doc too: it is rewired in round 1, and nothing may keep the original (the scanner's setup
         // claim did, InfoByFqn.replaceType)
-        java.lang.ref.WeakReference<TypeInfo> doc0 = new java.lang.ref.WeakReference<>(parse(inspector).findType("c.Doc"));
+        WeakReference<TypeInfo> doc0 = new WeakReference<>(parse(inspector).findType("c.Doc"));
         write(cSrc, "c/Other.java", "// round 1\n" + OTHER);
         ParseResult pr1 = reparse(inspector, Map.of("c.Other", INVALID, "c.Doc", REWIRE));
-        java.lang.ref.WeakReference<TypeInfo> doc1 = new java.lang.ref.WeakReference<>(pr1.findType("c.Doc"));
-        java.lang.ref.WeakReference<TypeInfo> other1 = new java.lang.ref.WeakReference<>(pr1.findType("c.Other"));
+        WeakReference<TypeInfo> doc1 = new WeakReference<>(pr1.findType("c.Doc"));
+        WeakReference<TypeInfo> other1 = new WeakReference<>(pr1.findType("c.Other"));
         pr1 = null;
         for (int round = 2; round <= 4; round++) {
             write(cSrc, "c/Other.java", "// round " + round + "\n" + OTHER);

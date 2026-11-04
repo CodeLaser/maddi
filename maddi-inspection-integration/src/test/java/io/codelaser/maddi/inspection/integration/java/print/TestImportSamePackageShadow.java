@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Map;
 
 import org.intellij.lang.annotations.Language;
@@ -66,7 +67,7 @@ public class TestImportSamePackageShadow extends CommonTest2 {
         TypeInfo typeInfo = parseResult.findType(fqn);
         ImportComputer ic = javaInspector.importComputer(Integer.MAX_VALUE, typeInfo.compilationUnit().sourceSet());
         // as a CST-built reference to java.util.Iterator would: no written qualifier, so an import candidate
-        ic.add(javaInspector.compiledTypesManager().type(java.util.Iterator.class));
+        ic.add(javaInspector.compiledTypesManager().type(Iterator.class));
         return javaInspector.print2(typeInfo.compilationUnit(), (Qualification.Decorator) null, ic);
     }
 

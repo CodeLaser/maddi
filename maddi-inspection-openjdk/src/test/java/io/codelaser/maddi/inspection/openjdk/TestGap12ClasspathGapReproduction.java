@@ -146,7 +146,7 @@ public class TestGap12ClasspathGapReproduction {
     @Test
     public void withTheGapTheTypeIsDroppedAndTheParseStillSucceeds() throws Exception {
         Observation o = run(true);
-        if (java.lang.Runtime.version().feature() >= 27) {
+        if (Runtime.version().feature() >= 27) {
             // JDK 27's javac recovers from the unresolvable annotation and maddi stubs it: the gap no longer costs
             // the type, which parses exactly as in the control
             assertEquals("[3-arg, 1-arg]", o.cfgConstructors(), "JDK 27 keeps the whole type");

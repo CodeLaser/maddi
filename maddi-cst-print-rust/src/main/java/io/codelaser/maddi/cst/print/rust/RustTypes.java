@@ -20,6 +20,7 @@ package io.codelaser.maddi.cst.print.rust;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -371,7 +372,7 @@ final class RustTypes {
             // impl's, so that a static method returning one says what it borrows from
             if (context.borrows.hasLifetime(ti)) {
                 String lifetime = ti == context.type ? RustBorrows.LIFETIME : "'_";
-                return base + "<" + java.util.stream.Stream.concat(java.util.stream.Stream.of(lifetime),
+                return base + "<" + Stream.concat(Stream.of(lifetime),
                         type.parameters().stream().map(p -> owned(p, context, where))).collect(Collectors.joining(", ")) + ">";
             }
         }

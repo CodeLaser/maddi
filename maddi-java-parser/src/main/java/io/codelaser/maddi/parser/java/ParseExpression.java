@@ -30,6 +30,7 @@ import org.parsers.java.ast.*;
 import org.parsers.java.ast.ArrayInitializer;
 import org.parsers.java.ast.MethodCall;
 import org.parsers.java.ast.MethodReference;
+import org.parsers.java.ast.SwitchExpression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -139,7 +140,7 @@ public class ParseExpression extends CommonParse {
             case TernaryExpression _ -> inlineConditional(context, index, forwardType, comments, source, node);
             case ArrayInitializer _, MemberValueArrayInitializer _ ->
                     arrayInitializer(context, index, forwardType, comments, source, node);
-            case org.parsers.java.ast.SwitchExpression _ ->
+            case SwitchExpression _ ->
                     parseSwitchExpression(context, index, forwardType, comments, source, node.getFirst());
             case InstanceOfExpression ioe -> parseInstanceOf(context, index, forwardType, comments, source, ioe);
             case ObjectType ot -> {

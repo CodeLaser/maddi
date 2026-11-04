@@ -176,7 +176,7 @@ public class JavaUtilRegex {
     //public java.util.regex.PatternSyntaxException (shadow created for its nullability, generated)
     class PatternSyntaxException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        PatternSyntaxException$(@NotNull java.lang.String p0, @NotNull java.lang.String p1, int p2) { }
+        PatternSyntaxException$(@NotNull String p0, @NotNull String p1, int p2) { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified String getDescription() { return null; }

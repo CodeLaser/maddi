@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -362,10 +363,10 @@ public class RunMixedPrepAnalyzer {
     private static void writeMemberVerdicts(List<TypeInfo> types) throws IOException {
         String target = System.getProperty("maddi.memberVerdictDump");
         if (target == null || target.isBlank()) return;
-        List<String> lines = new java.util.ArrayList<>();
+        List<String> lines = new ArrayList<>();
         Map<Object, Boolean> seen = new IdentityHashMap<>();
         for (TypeInfo type : types) memberVerdicts(type, lines, seen);
-        java.util.Collections.sort(lines);
+        Collections.sort(lines);
         Path path = Path.of(target);
         if (path.getParent() != null) Files.createDirectories(path.getParent());
         Files.write(path, lines);

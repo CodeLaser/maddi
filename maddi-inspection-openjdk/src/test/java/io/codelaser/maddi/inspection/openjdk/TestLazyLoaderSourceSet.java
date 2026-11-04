@@ -12,6 +12,8 @@ import java.net.URI;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
+import org.slf4j.Logger;
 
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -57,8 +59,8 @@ public class TestLazyLoaderSourceSet {
 
     private static Fixture parse() throws IOException {
         SourceSet javaBase = SourceSetImpl.javaBase();
-        SourceSet slf4jJar = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class, javaBase);
-        SourceSet opentest4jJar = SourceSetImpl.sourceSetOf(org.opentest4j.AssertionFailedError.class, javaBase);
+        SourceSet slf4jJar = SourceSetImpl.sourceSetOf(Logger.class, javaBase);
+        SourceSet opentest4jJar = SourceSetImpl.sourceSetOf(AssertionFailedError.class, javaBase);
         SourceSet withSlf4j = new SourceSetImpl.Builder()
                 .setName("with-slf4j").setUri(URI.create("file:/"))
                 .setDependencies(List.of(javaBase, slf4jJar))

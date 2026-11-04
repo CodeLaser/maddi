@@ -111,7 +111,7 @@ public class JavaInspectorImpl implements JavaInspector {
      */
     public JavaInspectorImpl setEvalOptions(EvalOptions evalOptions) {
         if (runtime != null) throw new IllegalStateException("setEvalOptions after initialize has no effect");
-        this.evalOptions = java.util.Objects.requireNonNull(evalOptions);
+        this.evalOptions = Objects.requireNonNull(evalOptions);
         return this;
     }
 
@@ -434,7 +434,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private FingerPrint runtimeImageFingerPrint(String moduleName) {
         if (!computeFingerPrints) return MD5FingerPrint.NO_FINGERPRINT;
         return MD5FingerPrint.compute((java.lang.Runtime.version().toString() + ":" + moduleName)
-                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                .getBytes(StandardCharsets.UTF_8));
     }
 
 

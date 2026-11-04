@@ -19,6 +19,7 @@ package io.codelaser.maddi.run.config.util;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -88,7 +89,7 @@ public class PluginInputConfiguration {
                 // touched neither.
                 // ⚠ The same guard, for the same reason, is already stated in CompileListToInputConfiguration
                 // over the jmod parts; the plugin path never had it.
-                dependencies.sort(java.util.Comparator.comparing(SourceSet::name));
+                dependencies.sort(Comparator.comparing(SourceSet::name));
             }
             SourceSet sourceSet = allByName.get(name);
             if (sourceSet == null) {

@@ -23,7 +23,7 @@ public class TestPreload {
     @Test
     public void test() throws IOException {
         SourceSet slf4j = SourceSetImpl.sourceSetOf(Logger.class);
-        JavaInspector javaInspector = new io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl();
+        JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.preload("java.base::java.util.");
         javaInspector.preload("org.slf4j");
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()

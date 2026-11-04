@@ -19,6 +19,7 @@ package io.codelaser.maddi.run.kotlinmain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -102,7 +103,7 @@ public class TestSuperCallTargets {
     }
 
     private static String jar(String classPath, String pattern) {
-        return Stream.of(classPath.split(java.io.File.pathSeparator))
+        return Stream.of(classPath.split(File.pathSeparator))
                 .filter(p -> Path.of(p).getFileName().toString().matches(pattern)).findFirst().orElseThrow();
     }
 

@@ -88,7 +88,7 @@ public interface Node extends List<Node> {
         }
 
         default List<Node> children() { 
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
     }
 
@@ -457,7 +457,7 @@ public interface Node extends List<Node> {
     }
 
     default <T> List<T> childrenOfType(Class<T> clazz, Predicate<? super T> pred) { 
-        List<T> result = new java.util.ArrayList<>();
+        List<T> result = new ArrayList<>();
         for (int i = 0; i < size(); i++) { 
             Node child = get(i);
             if (clazz.isInstance(child)) { 
@@ -485,7 +485,7 @@ public interface Node extends List<Node> {
     }
 
     default List<Node> childrenOfType(NodeType type, Predicate<? super Node> pred) { 
-        List<Node> result = new java.util.ArrayList<>();
+        List<Node> result = new ArrayList<>();
         for (int i = 0; i < size(); i++) { 
             Node child = get(i);
             if (child.getType() == type) { 

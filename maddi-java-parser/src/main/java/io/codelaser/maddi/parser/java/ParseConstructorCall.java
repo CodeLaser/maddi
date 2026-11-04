@@ -55,7 +55,7 @@ public class ParseConstructorCall extends CommonParse {
     public Expression parse(Context context,
                             String index,
                             ForwardType forwardType,
-                            org.parsers.java.ast.AllocationExpression aeIn) {
+                            AllocationExpression aeIn) {
         AllocationExpression ae;
         Node unparsedObject;
         Context newContext;

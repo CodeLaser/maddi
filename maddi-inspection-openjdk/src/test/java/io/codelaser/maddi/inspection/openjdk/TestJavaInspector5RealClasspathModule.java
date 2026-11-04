@@ -18,6 +18,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -40,7 +41,7 @@ public class TestJavaInspector5RealClasspathModule {
 
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet annotations = sourceSetModuleOf(NotNull.class, javaBase);
-        SourceSet maddiAnnotation = sourceSetModuleOf(io.codelaser.maddi.annotation.Immutable.class, javaBase);
+        SourceSet maddiAnnotation = sourceSetModuleOf(Immutable.class, javaBase);
         SourceSet maddiSupport = sourceSetModuleOf(SetOnce.class, javaBase, maddiAnnotation);
         SourceSet maddiUtil = sourceSetModuleOf(StringUtil.class, javaBase);
 

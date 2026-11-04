@@ -31,6 +31,7 @@ import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -339,7 +340,7 @@ public interface JavaInspector {
      * type's analysis onto its new object <em>outside</em> the reload, via the {@code rewire(InfoMapView, …)} path —
      * see {@code docs/design/analysis-rewiring.md}. Valid until the next parse.
      */
-    default io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
+    default InfoMapView lastRewireInfoMap() {
         return null;
     }
 }

@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -194,7 +195,7 @@ public class TestByNameReferences extends CommonTest {
                 a.b.Holder.ambiguousMember() -> a.b.Target#overloaded (FIELD)""",
                 ccg.byNameReferences().stream().map(Object::toString).sorted(
                         // source order is the member order of the fixture, which is what a reader expects
-                        java.util.Comparator.comparingInt(s -> HOLDER.indexOf(s.substring(9, s.indexOf('(')))))
+                        Comparator.comparingInt(s -> HOLDER.indexOf(s.substring(9, s.indexOf('(')))))
                         .reduce((a, b) -> a + "\n" + b).orElse(""));
 
         // ⛔ the blind spot is a NUMBER: a concatenation and a parameter, both calls to a declared sink whose name
@@ -242,7 +243,7 @@ public class TestByNameReferences extends CommonTest {
     public void members() throws IOException {
         ParseResult parseResult = parse();
         Map<String, ByNameReference> byMember = compute(parseResult, SINKS).byNameReferences().stream()
-                .collect(java.util.stream.Collectors.toMap(r -> r.from().simpleName(), r -> r));
+                .collect(Collectors.toMap(r -> r.from().simpleName(), r -> r));
 
         TypeInfo target = parseResult.findType("a.b.Target");
         assertSame(target.getFieldByName("instance", true), byMember.get("literal").targetMember());
@@ -259,7 +260,7 @@ public class TestByNameReferences extends CommonTest {
     public void theSiteIsWhereTheLiteralIsWritten() throws IOException {
         ParseResult parseResult = parse();
         Map<String, ByNameReference> byMember = compute(parseResult, SINKS).byNameReferences().stream()
-                .collect(java.util.stream.Collectors.toMap(r -> r.from().simpleName(), r -> r));
+                .collect(Collectors.toMap(r -> r.from().simpleName(), r -> r));
 
         ByNameReference literal = byMember.get("literal");
         assertEquals(false, literal.viaConstant());

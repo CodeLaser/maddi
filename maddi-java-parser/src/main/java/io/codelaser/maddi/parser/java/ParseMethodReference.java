@@ -23,6 +23,7 @@ import java.util.Set;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.Identifier;
+import org.parsers.java.ast.MethodReference;
 import org.parsers.java.ast.ObjectType;
 import org.parsers.java.ast.Type;
 
@@ -46,7 +47,7 @@ public class ParseMethodReference extends CommonParse {
 
     public Expression parse(Context context, List<Comment> comments, Source source, String index,
                             ForwardType forwardType,
-                            org.parsers.java.ast.MethodReference mr) {
+                            MethodReference mr) {
         Expression scope;
         DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
         Node n0 = mr.getFirst();

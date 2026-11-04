@@ -19,6 +19,7 @@ package io.codelaser.maddi.cst.impl.analysis;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -55,7 +56,7 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
 
     // filtered carry (docs/design/analysis-rewiring.md): the fingerprint-gated skip passes the analyzer-output predicate
     @Override
-    public synchronized PropertyValueMap rewire(InfoMapView infoMap, java.util.function.Predicate<Property> filter) {
+    public synchronized PropertyValueMap rewire(InfoMapView infoMap, Predicate<Property> filter) {
         PropertyValueMapImpl rewiredMap = new PropertyValueMapImpl();
         map.forEach((key, value) -> {
             if (filter.test(key)) rewiredMap.set(key, value.rewire(infoMap));
@@ -162,7 +163,7 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
     }
 
     @Override
-    public synchronized void removeIf(java.util.function.Predicate<Property> filter) {
+    public synchronized void removeIf(Predicate<Property> filter) {
         if (AnalysisAccessRecorder.active()) {
             map.keySet().removeIf(p -> {
                 boolean remove = filter.test(p);

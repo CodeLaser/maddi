@@ -17,7 +17,9 @@
 
 package io.codelaser.maddi.cst.impl.translate;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -397,7 +399,7 @@ public class TranslationMapImpl implements TranslationMap {
 
     // by identity, for the life of this map; see TranslationMap.translatedLocalVariable
     private final Map<LocalVariable, LocalVariable> translatedLocalVariables =
-            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+            Collections.synchronizedMap(new IdentityHashMap<>());
 
     @Override
     public LocalVariable translatedLocalVariable(LocalVariable original) {

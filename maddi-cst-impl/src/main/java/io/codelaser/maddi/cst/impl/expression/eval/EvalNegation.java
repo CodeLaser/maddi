@@ -20,6 +20,7 @@ package io.codelaser.maddi.cst.impl.expression.eval;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
@@ -74,8 +75,8 @@ public class EvalNegation {
     // scale; the degraded-result guard above keeps the memoized values canonical, so the mutation is
     // observationally invisible. The last never-forms holdout of the eventual cluster (2026-08-01).
     @IgnoreModifications
-    private final java.util.concurrent.ConcurrentHashMap<Expression, Expression> negationCache =
-            new java.util.concurrent.ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Expression, Expression> negationCache =
+            new ConcurrentHashMap<>();
 
     private boolean mentionsLocalVariable(Expression v) {
         return v.variables(runtime.descendModeYes()).anyMatch(x -> x instanceof LocalVariable);

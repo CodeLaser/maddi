@@ -13,9 +13,11 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.*;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -39,6 +41,7 @@ import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
@@ -83,7 +86,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private final Map<SourceFile, List<TypeInfo>> sourceFiles = new HashMap<>();
     private CompiledTypesManager compiledTypesManager;
     private InputConfiguration inputConfiguration; // kept for tests
-    private io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
+    private InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
     private final boolean computeFingerPrints;
     private final JavaCompiler javaCompiler;
     private final InfoByFqn infoByFqn = new InfoByFqn();
@@ -130,7 +133,7 @@ public class JavaInspectorImpl implements JavaInspector {
     // that is actually asking.
     private boolean strictSourceSetLoading;
     // census for the strict-mode audit; see recordFallBack. Concurrent: getOrLoad runs on parallel analyzer threads.
-    private final Set<String> fallBackResolutions = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<String> fallBackResolutions = ConcurrentHashMap.newKeySet();
 
     /**
      * How to stand up a {@link #loaderUnits} equivalent to the scan task that generation destroyed: the same source
@@ -181,7 +184,7 @@ public class JavaInspectorImpl implements JavaInspector {
      */
     public JavaInspectorImpl setEvalOptions(EvalOptions evalOptions) {
         if (runtime != null) throw new IllegalStateException("setEvalOptions after initialize has no effect");
-        this.evalOptions = java.util.Objects.requireNonNull(evalOptions);
+        this.evalOptions = Objects.requireNonNull(evalOptions);
         return this;
     }
 
@@ -1903,8 +1906,8 @@ public class JavaInspectorImpl implements JavaInspector {
         reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(), problem.toString(),
                 Summary.ClassOutputProblem.Kind.MISSING_OR_STALE, parsed.size(), missing.stream().sorted().toList(),
                 stale.stream().sorted().toList(),
-                newestClassFile == 0L ? null : java.time.Instant.ofEpochMilli(newestClassFile),
-                stale.isEmpty() ? null : java.time.Instant.ofEpochMilli(oldestStaleSource));
+                newestClassFile == 0L ? null : Instant.ofEpochMilli(newestClassFile),
+                stale.isEmpty() ? null : Instant.ofEpochMilli(oldestStaleSource));
     }
 
     private static List<String> fullyQualifiedNames(List<TypeInfo> types) {
@@ -1914,7 +1917,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private void reportClassOutputProblem(Summary summary, SourceSet sourceSet, SourceSet dependency, URI uri,
                                           String problem, Summary.ClassOutputProblem.Kind kind, int parsedTypes,
                                           List<String> missing, List<String> stale,
-                                          java.time.Instant newestClassFile, java.time.Instant oldestStaleSource) {
+                                          Instant newestClassFile, Instant oldestStaleSource) {
         String detail = "Source set '" + sourceSet.name() + "' resolves its references into '" + dependency.name()
                         + "' through class files, and " + problem
                         + ". Those references will not resolve, and the compilation units holding them are dropped."
@@ -2269,7 +2272,7 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
+    public InfoMapView lastRewireInfoMap() {
         return lastRewireInfoMap;
     }
 

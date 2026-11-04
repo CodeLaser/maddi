@@ -382,7 +382,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
      */
     private Stream<Element.TypeReference> annotationsReferenced() {
         return annotations.stream()
-                .map(io.codelaser.maddi.cst.api.expression.AnnotationExpression::typeInfo)
+                .map(AnnotationExpression::typeInfo)
                 .filter(Objects::nonNull)
                 .map(ti -> new ElementImpl.TypeReference(ti, Element.TypeReferenceNature.EXPLICIT, ti));
     }
@@ -736,7 +736,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         return WILDCARD_PARAMETERIZED_TYPE;
     }
 
-    private boolean bestOwnTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+    private boolean bestOwnTypeParameter(TypeParameter typeParameter) {
         TypeInfo best = bestTypeInfo();
         return best != null && typeParameter.getOwner() != null && typeParameter.getOwner().isLeft()
                && typeParameter.getOwner().getLeft() == best;

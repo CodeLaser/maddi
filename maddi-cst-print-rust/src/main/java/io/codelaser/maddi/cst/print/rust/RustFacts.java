@@ -163,7 +163,7 @@ public interface RustFacts extends NullabilityFacts {
         }
 
         @Override
-        public java.util.Set<String> marks(MethodInfo method) {
+        public Set<String> marks(MethodInfo method) {
             return method.analysis().getOrDefault(PropertyImpl.EVENTUAL_METHOD,
                     ValueImpl.EventualImpl.NOT_EVENTUAL).fields();
         }
@@ -280,7 +280,7 @@ public interface RustFacts extends NullabilityFacts {
             }
 
             @Override
-            public java.util.Set<String> marks(MethodInfo method) {
+            public Set<String> marks(MethodInfo method) {
                 return ownership.marks(method);
             }
 
@@ -371,8 +371,8 @@ public interface RustFacts extends NullabilityFacts {
     }
 
     /** The fields of the transition {@link #side} refers to: the label of {@code @Mark} and {@code @Only}. */
-    default java.util.Set<String> marks(MethodInfo method) {
-        return java.util.Set.of();
+    default Set<String> marks(MethodInfo method) {
+        return Set.of();
     }
 
     /** The method returns its receiver ({@code return this}): a borrow of it, {@code &Self} or {@code &mut Self}. */

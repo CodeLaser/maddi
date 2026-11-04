@@ -26,6 +26,7 @@ import java.net.URISyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
@@ -74,7 +75,7 @@ public class TestPreloadOffClasspath {
         // SourceSetImpl.sourceSetOf(ImmutableContainer.class) here would name it correctly and attribute fine.
         SourceSet misnamed = new SourceSetImpl.Builder()
                 .setName("maddi-annotation")
-                .setUri(artifactOf(io.codelaser.maddi.annotation.ImmutableContainer.class))
+                .setUri(artifactOf(ImmutableContainer.class))
                 .setExternalLibrary(true).build();
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()

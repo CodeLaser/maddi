@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -72,7 +73,7 @@ final class RustUnsafety {
     private boolean touches(MethodInfo method, RustContext context, Set<MethodInfo> path, boolean[] cycle) {
         if (method.methodBody() == null) return false;
         boolean[] found = {false};
-        java.util.function.Predicate<Element> visitor = e -> {
+        Predicate<Element> visitor = e -> {
             if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
                 && RustTypePrinter.mutableStaticValue(fr.fieldInfo(), context) != null) {
                 found[0] = true;

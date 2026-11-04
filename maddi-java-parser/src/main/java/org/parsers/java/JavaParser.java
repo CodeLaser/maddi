@@ -47,6 +47,7 @@ import org.parsers.java.ast.ArrayInitializer;
 import org.parsers.java.ast.AssertStatement;
 import org.parsers.java.ast.AssignmentExpression;
 import org.parsers.java.ast.BasicForStatement;
+import org.parsers.java.ast.BooleanLiteral;
 import org.parsers.java.ast.BreakStatement;
 import org.parsers.java.ast.CasePattern;
 import org.parsers.java.ast.CastExpression;
@@ -119,6 +120,7 @@ import org.parsers.java.ast.Name;
 import org.parsers.java.ast.NewCaseStatement;
 import org.parsers.java.ast.NewSwitchLabel;
 import org.parsers.java.ast.NormalAnnotation;
+import org.parsers.java.ast.NumericalLiteral;
 import org.parsers.java.ast.ObjectArrayInitialization;
 import org.parsers.java.ast.ObjectCastExpression;
 import org.parsers.java.ast.ObjectInstantiation;
@@ -6468,12 +6470,12 @@ public class JavaParser {
                 fail("Assertion at: Java.ccc:936:4 failed. " + "A method reference cannot be derereferenced.", getToken(1));
             }
             // Code for Assertion specified at Java.ccc:937:4
-            if (!(!(getToken(0) instanceof org.parsers.java.ast.NumericalLiteral))) { 
+            if (!(!(getToken(0) instanceof NumericalLiteral))) { 
                 pushOntoCallStack("PrimaryExpression", "Java.ccc", 937, 4);
                 fail("Assertion at: Java.ccc:937:4 failed. " + "A numerical literal cannot be derereferenced.", getToken(1));
             }
             // Code for Assertion specified at Java.ccc:938:4
-            if (!(!(getToken(0) instanceof org.parsers.java.ast.BooleanLiteral))) { 
+            if (!(!(getToken(0) instanceof BooleanLiteral))) { 
                 pushOntoCallStack("PrimaryExpression", "Java.ccc", 938, 4);
                 fail("Assertion at: Java.ccc:938:4 failed. " + "A boolean literal cannot be derereferenced.", getToken(1));
             }

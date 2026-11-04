@@ -25,6 +25,8 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -142,7 +144,7 @@ public class TestConcurrentClassFileLoad {
                     }));
                 }
                 start.countDown();
-                Set<TypeInfo> winners = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+                Set<TypeInfo> winners = Collections.newSetFromMap(new IdentityHashMap<>());
                 for (Future<TypeInfo> f : futures) winners.add(f.get()); // an AssertionError surfaces here
                 assertEquals(1, winners.size(), "every loader must get the same instance");
                 assertSame(winners.iterator().next(), registry.getType("a.b.Api", task("set0")));

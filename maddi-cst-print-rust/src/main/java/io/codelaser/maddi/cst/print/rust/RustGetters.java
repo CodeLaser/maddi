@@ -18,6 +18,7 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -82,7 +83,7 @@ final class RustGetters {
         for (MethodInfo m : Set.copyOf(out)) {
             m.overrides().stream().filter(RustGetters::abstractGetter).forEach(out::add);
         }
-        List<MethodInfo> all = new java.util.ArrayList<>();
+        List<MethodInfo> all = new ArrayList<>();
         for (TypeInfo type : types) collect(type, all);
         for (MethodInfo a : Set.copyOf(out)) {
             if (!abstractGetter(a)) continue;

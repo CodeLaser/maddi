@@ -49,7 +49,7 @@ public class ExpressionCodec {
         map.put(Cast.NAME, new CastCodec());
         map.put(BooleanConstant.NAME, new BooleanConstantCodec());
         map.put(IntConstant.NAME, new IntConstantCodec());
-        map.put(io.codelaser.maddi.cst.api.expression.TypeExpression.NAME, new TypeExpressionCodec());
+        map.put(TypeExpression.NAME, new TypeExpressionCodec());
     }
 
     private interface ECodec {
@@ -204,8 +204,8 @@ public class ExpressionCodec {
 
         @Override
         public List<Codec.EncodedValue> encode(Expression e) {
-            io.codelaser.maddi.cst.api.expression.TypeExpression te =
-                    (io.codelaser.maddi.cst.api.expression.TypeExpression) e;
+            TypeExpression te =
+                    (TypeExpression) e;
             return List.of(codec.encodeType(context, te.parameterizedType()));
         }
 

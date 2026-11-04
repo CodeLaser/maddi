@@ -19,6 +19,7 @@ package io.codelaser.maddi.callgraph;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.ArrayList;
 import java.util.Map;
 
 import org.intellij.lang.annotations.Language;
@@ -125,7 +126,7 @@ public class TestCallGraphExplicitConstructorInvocation extends CommonTest {
         TypeInfo l = X.findSubType("L");
         MethodInfo constructor = constructor(l, 1, "int");
         MethodInfo arrayListConstructor = javaInspector.compiledTypesManager()
-                .typeIfLoaded(java.util.ArrayList.class).constructors().stream()
+                .typeIfLoaded(ArrayList.class).constructors().stream()
                 .filter(c -> c.parameters().size() == 1
                              && "int".equals(c.parameters().getFirst().parameterizedType()
                         .typeInfo().fullyQualifiedName()))

@@ -20,6 +20,7 @@ package io.codelaser.maddi.cst.impl.element;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,7 @@ public class TestModuleInfoPrint {
 
     private static final Runtime RUNTIME = new RuntimeImpl();
 
-    private static ModuleInfo build(java.util.function.Consumer<ModuleInfo.Builder> directives) {
+    private static ModuleInfo build(Consumer<ModuleInfo.Builder> directives) {
         ModuleInfo.Builder builder = RUNTIME.newModuleInfoBuilder().setName("m.example");
         directives.accept(builder);
         return builder.build();

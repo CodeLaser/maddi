@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,7 +74,7 @@ public class TestReloadPrerequisites {
         ParseResult pr = parse();
         assertEquals(2, pr.primaryTypes().size());
 
-        java.util.Set<SourceFile> files = javaInspector.sourceFiles();
+        Set<SourceFile> files = javaInspector.sourceFiles();
         assertEquals(2, files.size(), "expected one SourceFile per compilation unit, have: " + files);
         for (SourceFile sf : files) {
             assertSame(sourceSet, sf.sourceSet());
@@ -114,8 +115,8 @@ public class TestReloadPrerequisites {
 
         // exactly as the parse does it: newInfoMap over the types to rewire, rewireAll, then register every type the
         // map built -- setRewiredType registers the one type it is given, and the map is what knows the full list
-        InfoMap infoMap = javaInspector.runtime().newInfoMap(java.util.Set.of(x));
-        java.util.Set<TypeInfo> rewiredSet = infoMap.rewireAll();
+        InfoMap infoMap = javaInspector.runtime().newInfoMap(Set.of(x));
+        Set<TypeInfo> rewiredSet = infoMap.rewireAll();
         assertEquals(1, rewiredSet.size(), "rewireAll returns the primary types");
         TypeInfo rewired = rewiredSet.iterator().next();
         assertNotSame(x, rewired);

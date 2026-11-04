@@ -20,6 +20,7 @@ package io.codelaser.maddi.java.openjdk.other;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Map;
 
 import org.intellij.lang.annotations.Language;
@@ -81,7 +82,7 @@ public class TestIntersectionBoundPrinting extends CommonTest {
         Map<String, TypeInfo> types = scan(false, "a.b.A", TYPES, "a.b.B", B, "a.b.Pair", PAIR);
         ParameterizedType a = runtime.newParameterizedType(types.get("a.b.A"), 0);
         ParameterizedType b = runtime.newParameterizedType(types.get("a.b.B"), 0);
-        ParameterizedType intersection = runtime.newIntersectionType(null, java.util.List.of(a, b));
+        ParameterizedType intersection = runtime.newIntersectionType(null, List.of(a, b));
         assertTrue(intersection.isIntersectionType(), "fixture must be an intersection: " + intersection);
         return intersection;
     }

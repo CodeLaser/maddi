@@ -1,10 +1,12 @@
 package io.codelaser.maddi.java.openjdk;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
@@ -40,7 +42,7 @@ public class TestFormatterRoundTripStable extends CommonTest {
             }
             """;
 
-    private String printAt(TypeInfo ti, io.codelaser.maddi.cst.api.runtime.Runtime rt, int width,
+    private String printAt(TypeInfo ti, Runtime rt, int width,
                            FormattingOptions.WrapStyle style) {
         OutputBuilder ob = rt.newCompilationUnitPrinter(ti.compilationUnit(), true)
                 .print(new ImportComputerImpl(), rt.qualificationQualifyFromPrimaryType());
@@ -82,7 +84,7 @@ public class TestFormatterRoundTripStable extends CommonTest {
             }
         }
         if (!problems.isEmpty()) {
-            org.junit.jupiter.api.Assertions.fail(problems.toString());
+            Assertions.fail(problems.toString());
         }
     }
 }

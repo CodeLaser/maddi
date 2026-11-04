@@ -178,7 +178,7 @@ public class TestPrivateNestedTypeInClassFile {
         // not take a class directory: User.java was DROPPED with an UnresolvedSymbolException, summary.types()
         // was empty, and "the parse has no errors" passed on nothing at all.
         assertEquals(List.of("c.d.User"), summary.types().stream()
-                .map(io.codelaser.maddi.cst.api.info.TypeInfo::fullyQualifiedName).sorted().toList(),
+                .map(TypeInfo::fullyQualifiedName).sorted().toList(),
                 "the source set must actually have parsed");
         assertTrue(summary.parseWarnings().isEmpty(),
                 "and resolved its references: " + summary.parseWarnings().stream()

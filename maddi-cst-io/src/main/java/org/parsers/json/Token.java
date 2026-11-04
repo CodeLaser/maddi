@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import org.parsers.json.ast.*;
 
@@ -244,7 +245,7 @@ public class Token implements CharSequence, Node.TerminalNode {
 
             public Token next() {
                 Token previous = currentPoint.previousCachedToken();
-                if (previous == null) throw new java.util.NoSuchElementException("No previous token!");
+                if (previous == null) throw new NoSuchElementException("No previous token!");
                 return currentPoint = previous;
             }
 
@@ -269,7 +270,7 @@ public class Token implements CharSequence, Node.TerminalNode {
     * @return An iterator of the (cached) tokens that follow this one.
     */
     public Iterator<Token> followingTokens() {
-        return new java.util.Iterator<Token>() {
+        return new Iterator<Token>() {
             Token currentPoint = Token.this;
 
             public boolean hasNext() {
@@ -278,7 +279,7 @@ public class Token implements CharSequence, Node.TerminalNode {
 
             public Token next() {
                 Token next = currentPoint.nextCachedToken();
-                if (next == null) throw new java.util.NoSuchElementException("No next token!");
+                if (next == null) throw new NoSuchElementException("No next token!");
                 return currentPoint = next;
             }
 
