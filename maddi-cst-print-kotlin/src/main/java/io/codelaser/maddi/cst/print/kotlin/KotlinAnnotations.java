@@ -27,6 +27,7 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.IntConstant;
 import io.codelaser.maddi.cst.api.expression.LongConstant;
 import io.codelaser.maddi.cst.api.expression.UnaryOperator;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -112,7 +113,7 @@ final class KotlinAnnotations {
     }
 
     /** The element's type, when it is a primitive other than the value's: a widening the value needs. */
-    private static ParameterizedType primitiveElement(io.codelaser.maddi.cst.api.info.TypeInfo annotationType,
+    private static ParameterizedType primitiveElement(TypeInfo annotationType,
                                                       AnnotationExpression.KV kv) {
         String key = kv.keyIsDefault() ? "value" : kv.key();
         ParameterizedType type = annotationType.methods().stream()
@@ -125,7 +126,7 @@ final class KotlinAnnotations {
         return type;
     }
 
-    private static boolean arrayElement(io.codelaser.maddi.cst.api.info.TypeInfo annotationType, AnnotationExpression.KV kv) {
+    private static boolean arrayElement(TypeInfo annotationType, AnnotationExpression.KV kv) {
         String key = kv.keyIsDefault() ? "value" : kv.key();
         return annotationType.methods().stream().anyMatch(m -> m.name().equals(key) && m.parameters().isEmpty()
                                                                && m.returnType().arrays() > 0);
@@ -135,9 +136,9 @@ final class KotlinAnnotations {
      * A member annotation type is named through its enclosing type, {@code JsonSubTypes.Type}: bare, {@code Type}
      * resolves to whatever else the file imports by that name ({@code java.lang.reflect.Type}).
      */
-    private static String annotationName(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, Qualification q) {
+    private static String annotationName(TypeInfo typeInfo, Qualification q) {
         String name = KotlinTypeName.name(typeInfo, q);
-        io.codelaser.maddi.cst.api.info.TypeInfo primary = typeInfo.primaryType();
+        TypeInfo primary = typeInfo.primaryType();
         if (name.contains(".") || typeInfo.isPrimaryType() || primary == null) return name;
         return KotlinTypeName.name(primary, q) + typeInfo.fullyQualifiedName().substring(primary.fullyQualifiedName().length());
     }

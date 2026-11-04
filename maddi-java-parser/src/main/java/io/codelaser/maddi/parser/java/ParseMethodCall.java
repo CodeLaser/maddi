@@ -45,7 +45,7 @@ public class ParseMethodCall extends CommonParse {
     }
 
     public Expression parse(Context context, List<Comment> comments, Source source,
-                            String index, ForwardType forwardType, org.parsers.java.ast.MethodCall mc) {
+                            String index, ForwardType forwardType, MethodCall mc) {
         List<Object> unparsedArguments = new ArrayList<>();
         Node name = mc.getFirst();
         assert name instanceof Name || name instanceof DotName || name instanceof SuperDotName;

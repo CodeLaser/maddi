@@ -758,8 +758,8 @@ public class JavaAwt {
 
     class ItemSelectable$ {
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified void addItemListener(java.awt.event.ItemListener p0) { }
-        @Modified void removeItemListener(java.awt.event.ItemListener p0) { }
+        @Modified void addItemListener(ItemListener p0) { }
+        @Modified void removeItemListener(ItemListener p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified Object[] getSelectedObjects() { return null; }
@@ -767,10 +767,10 @@ public class JavaAwt {
 
     class MenuContainer$ {
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified void remove(java.awt.MenuComponent p0) { }
+        @Modified void remove(MenuComponent p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.awt.Font getFont() { return null; }
+        @NotModified Font getFont() { return null; }
     }
 
     class Transparency$ {

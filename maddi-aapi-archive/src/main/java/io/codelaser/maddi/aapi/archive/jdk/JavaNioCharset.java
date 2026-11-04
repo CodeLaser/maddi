@@ -73,6 +73,6 @@ public class JavaNioCharset {
         public String toString() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        Charset$(@NotNull java.lang.String p0, @Nullable java.lang.String[] p1) { }
+        Charset$(@NotNull String p0, @Nullable String[] p1) { }
     }
 }

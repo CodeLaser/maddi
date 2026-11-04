@@ -17,13 +17,17 @@
 package io.codelaser.maddi.cst.print.translate;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.BinaryOperator;
 import io.codelaser.maddi.cst.api.expression.EnclosedExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.UnaryOperator;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -169,10 +173,10 @@ public final class CstQueries {
      * Kotlin's {@code const val}, C#'s {@code const}.
      */
     public static boolean constantInitializer(FieldInfo fieldInfo) {
-        return constantInitializer(fieldInfo, new java.util.HashSet<>());
+        return constantInitializer(fieldInfo, new HashSet<>());
     }
 
-    private static boolean constantInitializer(FieldInfo fieldInfo, java.util.Set<FieldInfo> visiting) {
+    private static boolean constantInitializer(FieldInfo fieldInfo, Set<FieldInfo> visiting) {
         ParameterizedType t = fieldInfo.type();
         if (fieldInfo.initializer() == null || fieldInfo.initializer().isEmpty() || t.arrays() != 0
             || !(t.isPrimitiveExcludingVoid() || t.isJavaLangString()) || !visiting.add(fieldInfo)) return false;
@@ -185,13 +189,13 @@ public final class CstQueries {
      * {@code String ENDPOINT_PLACEHOLDER = "${" + PREFIX + ENDPOINT + ":}"}, an annotation parameter's default). A
      * String one concatenates Strings only: Kotlin folds {@code "a" + 1} at no compile time.
      */
-    private static boolean constantExpression(Expression e, boolean string, java.util.Set<FieldInfo> visiting) {
+    private static boolean constantExpression(Expression e, boolean string, Set<FieldInfo> visiting) {
         while (e instanceof EnclosedExpression ee) e = ee.inner();
         if (e.isConstant()) return !string || e.parameterizedType() != null && e.parameterizedType().isJavaLangString();
-        if (e instanceof io.codelaser.maddi.cst.api.expression.BinaryOperator bo) {
+        if (e instanceof BinaryOperator bo) {
             return constantExpression(bo.lhs(), string, visiting) && constantExpression(bo.rhs(), string, visiting);
         }
-        if (!string && e instanceof io.codelaser.maddi.cst.api.expression.UnaryOperator uo) {
+        if (!string && e instanceof UnaryOperator uo) {
             return constantExpression(uo.expression(), false, visiting);
         }
         if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {

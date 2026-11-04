@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -84,7 +85,7 @@ final class KotlinInheritedDefaults {
     }
 
     /** The superclass method's parameter name: a library default's may be {@code arg0}. */
-    private static String name(MethodInfo fromSuper, io.codelaser.maddi.cst.api.info.ParameterInfo p) {
+    private static String name(MethodInfo fromSuper, ParameterInfo p) {
         return fromSuper.parameters().get(p.index()).name();
     }
 

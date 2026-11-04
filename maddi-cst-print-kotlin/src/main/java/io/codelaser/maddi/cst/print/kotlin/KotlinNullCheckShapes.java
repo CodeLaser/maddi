@@ -17,9 +17,11 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ArrayLength;
 import io.codelaser.maddi.cst.api.expression.BinaryOperator;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.InlineConditional;
+import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -72,7 +74,7 @@ final class KotlinNullCheckShapes {
         // jenkins's ProxyConfiguration: jenkins != null ? jenkins.proxy : null, jenkins?.proxy
         Expression scope = nonNull instanceof VariableExpression fv && fv.variable() instanceof FieldReference fr
                            && !fr.fieldInfo().isStatic() && fr.scope() != null ? fr.scope()
-                : nonNull instanceof io.codelaser.maddi.cst.api.expression.ArrayLength al ? al.scope() : null;
+                : nonNull instanceof ArrayLength al ? al.scope() : null;
         if (scope != null) {
             return unwrap(scope) instanceof VariableExpression sv && sv.variable().equals(tested.variable().variable())
                     ? new SafeCall(scope, nonNull) : null;
@@ -117,7 +119,7 @@ final class KotlinNullCheckShapes {
         boolean[] blocked = {false};
         body.visit((Element e) -> {
             if (e instanceof VariableExpression v && v.variable().equals(variable)) mentions[0] = true;
-            if (e instanceof io.codelaser.maddi.cst.api.expression.Lambda
+            if (e instanceof Lambda
                 || e instanceof InlineConditional nested && nested != ic && let(nested) != null) {
                 blocked[0] = true;
             }

@@ -19,6 +19,7 @@ package io.codelaser.maddi.java.openjdk.other;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -52,7 +53,7 @@ public class TestParseResult extends CommonTest {
     @DisplayName("basics of findMostLikelyType")
     @Test
     public void test1() {
-        ParseResult parseResult = new ParseResultImpl(new java.util.HashSet<>(scan(false, "a.b.X", A_B_X).values()), Map.of(), Map.of());
+        ParseResult parseResult = new ParseResultImpl(new HashSet<>(scan(false, "a.b.X", A_B_X).values()), Map.of(), Map.of());
         List<TypeInfo> testR = parseResult.findMostLikelyType("r");
         assertEquals(1, testR.size());
         assertEquals("a.b.X.R", testR.getFirst().fullyQualifiedName());
@@ -88,7 +89,7 @@ public class TestParseResult extends CommonTest {
     @DisplayName("findMostLikelyType, partial name")
     @Test
     public void test2() {
-        ParseResult parseResult = new ParseResultImpl(new java.util.HashSet<>(scan(false, "a.b.X", A_B_X_2).values()), Map.of(), Map.of());
+        ParseResult parseResult = new ParseResultImpl(new HashSet<>(scan(false, "a.b.X", A_B_X_2).values()), Map.of(), Map.of());
         assertEquals(3, parseResult.findMostLikelyType("r").size());
         assertEquals(3, parseResult.findMostLikelyType(".r").size());
         assertEquals(3, parseResult.findMostLikelyType("r.").size());
@@ -127,7 +128,7 @@ public class TestParseResult extends CommonTest {
     @DisplayName("findMostLikelyMethod")
     @Test
     public void test3() {
-        ParseResult parseResult = new ParseResultImpl(new java.util.HashSet<>(scan(false, "a.b.X", A_B_X_3).values()), Map.of(), Map.of());
+        ParseResult parseResult = new ParseResultImpl(new HashSet<>(scan(false, "a.b.X", A_B_X_3).values()), Map.of(), Map.of());
         assertEquals(1, parseResult.findMostLikelyMethod("X").size());
         assertEquals(0, parseResult.findMostLikelyMethod("Y").size());
         assertEquals(4, parseResult.findMostLikelyMethod("method").size());
@@ -157,7 +158,7 @@ public class TestParseResult extends CommonTest {
     @DisplayName("findMostLikelyField")
     @Test
     public void test4() {
-        ParseResult parseResult = new ParseResultImpl(new java.util.HashSet<>(scan(false, "a.b.X", A_B_X_4).values()), Map.of(), Map.of());
+        ParseResult parseResult = new ParseResultImpl(new HashSet<>(scan(false, "a.b.X", A_B_X_4).values()), Map.of(), Map.of());
         assertEquals(2, parseResult.findMostLikelyField("i").size());
         assertEquals(1, parseResult.findMostLikelyField("x.i").size());
         assertEquals(1, parseResult.findMostLikelyField("y.i").size());

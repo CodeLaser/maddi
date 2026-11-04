@@ -209,7 +209,7 @@ public class TestAnnotatedArrayReturnType extends CommonTest {
     @Test
     public void unresolvedAnnotation() {
         Map<String, TypeInfo> types = scan(true, "a.b.Factory", FACTORY, "a.b.Unresolved", UNRESOLVED_ANNOTATION);
-        if (java.lang.Runtime.version().feature() < 27) {
+        if (Runtime.version().feature() < 27) {
             assertNull(types.get("a.b.Unresolved"), "the unit is dropped, not repaired: " + types.keySet());
             return;
         }

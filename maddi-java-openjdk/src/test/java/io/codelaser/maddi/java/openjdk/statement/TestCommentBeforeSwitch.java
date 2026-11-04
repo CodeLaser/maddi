@@ -27,6 +27,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.Block;
@@ -143,7 +144,7 @@ public class TestCommentBeforeSwitch extends CommonTest {
                 () -> "the switch's comment was printed more than once:\n" + printed);
     }
 
-    private static List<String> comments(io.codelaser.maddi.cst.api.element.Element element) {
+    private static List<String> comments(Element element) {
         return element.comments().stream().map(c -> c.comment().strip()).toList();
     }
 }

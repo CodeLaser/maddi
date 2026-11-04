@@ -17,13 +17,21 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 
 /**
@@ -104,7 +112,7 @@ public class KotlinTypeName {
     }
 
     /** java.lang types Kotlin's default imports shadow by a type of the same simple name, whose statics it lacks. */
-    private static final java.util.Set<String> STATICS_SHADOWED = java.util.Set.of("java.lang.Enum");
+    private static final Set<String> STATICS_SHADOWED = Set.of("java.lang.Enum");
 
     private static final Map<String, String> PRIMITIVE_ARRAY = Map.of("int", "IntArray", "long", "LongArray",
             "short", "ShortArray", "byte", "ByteArray", "char", "CharArray", "boolean", "BooleanArray",
@@ -139,12 +147,12 @@ public class KotlinTypeName {
     private static final ThreadLocal<Boolean> IN_SIGNATURE = ThreadLocal.withInitial(() -> false);
 
     /** {@code print}, without {@code E & Any}: a parameter's type, a type parameter's bound. */
-    static String inSignature(java.util.function.Supplier<String> print) {
+    static String inSignature(Supplier<String> print) {
         return inSignature(false, print);
     }
 
     /** As {@link #inSignature(java.util.function.Supplier)}; {@code ownSignature}: one no override repeats. */
-    static String inSignature(boolean ownSignature, java.util.function.Supplier<String> print) {
+    static String inSignature(boolean ownSignature, Supplier<String> print) {
         boolean previous = IN_SIGNATURE.get();
         boolean previousOwn = IN_OWN_SIGNATURE.get();
         IN_SIGNATURE.set(true);
@@ -173,7 +181,7 @@ public class KotlinTypeName {
     static boolean definitelyNonNull(ParameterizedType t) {
         return KotlinContext.translatingJava() && !IN_SIGNATURE.get() && t.isTypeParameter() && t.arrays() == 0 && t.wildcard() == null
                && t.nullable() != NullableState.NULLABLE && t.annotations().stream()
-                       .anyMatch(ae -> io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NON_NULL
+                       .anyMatch(ae -> NullAnnotations.NON_NULL
                                .contains(ae.typeInfo().simpleName()))
                && nullableBound(t.typeParameter(), 0);
     }
@@ -189,16 +197,16 @@ public class KotlinTypeName {
      * io.codelaser.maddi.cst.impl.analysis.NullabilityFacts#nonNullTypeParameter}), with no bound of its own: Kotlin's
      * {@code K : Any}. A class's, or a method's that flows into one (langchain4j's {@code <T> Response<T> from(T)}).
      */
-    static boolean nonNullClassTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+    static boolean nonNullClassTypeParameter(TypeParameter tp) {
         return KotlinContext.translatingJava()
                && tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject)
                && KotlinNullability.verdicts().nonNullTypeParameter(tp);
     }
 
-    private static boolean nullableBound(io.codelaser.maddi.cst.api.info.TypeParameter tp, int depth) {
-        java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+    private static boolean nullableBound(TypeParameter tp, int depth) {
+        List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
         // langchain4j's Utils.firstNotNull: the printer bounds its own <T> by Any (KotlinMethodPrinter.nonNullBound)
-        io.codelaser.maddi.cst.api.info.MethodInfo current = KotlinContext.currentMethod();
+        MethodInfo current = KotlinContext.currentMethod();
         if (bounds.isEmpty() && current != null && current.typeParameters().contains(tp)
             && KotlinMethodPrinter.nonNullBound(current, tp)) {
             return false;
@@ -264,7 +272,7 @@ public class KotlinTypeName {
                     || pt.typeInfo().fullyQualifiedName().startsWith("java.util.concurrent.")
                        && !pt.typeInfo().fullyQualifiedName().contains("Map")
                     || argument.annotations().stream().anyMatch(ae -> ae.typeInfo() != null
-                        && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName())))) {
+                        && NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName())))) {
                 argument = argument.withNullable(NullableState.NONNULL);
             }
             sb.append(of(argument, q));
@@ -318,11 +326,11 @@ public class KotlinTypeName {
         TypeInfo t = pt.typeInfo();
         int end = pt.parameters().size();
         if (!t.isInnerClass() || end <= t.typeParameters().size()) return null;
-        java.util.List<String> segments = new java.util.ArrayList<>();
+        List<String> segments = new ArrayList<>();
         while (true) {
             int own = t.typeParameters().size();
             if (own > end) return null;
-            java.util.List<ParameterizedType> args = pt.parameters().subList(end - own, end);
+            List<ParameterizedType> args = pt.parameters().subList(end - own, end);
             end -= own;
             TypeInfo outer = t.enclosingTypeStream().skip(1).findFirst().orElse(null);
             boolean first = end == 0 || !t.isInnerClass() || outer == null;
@@ -347,7 +355,7 @@ public class KotlinTypeName {
         int lt = name.indexOf('<');
         if (lt > 0) name = name.substring(0, lt);
         StringBuilder sb = new StringBuilder(name).append('<');
-        java.util.List<io.codelaser.maddi.cst.api.info.TypeParameter> tps = raw.typeInfo().typeParameters();
+        List<TypeParameter> tps = raw.typeInfo().typeParameters();
         for (int i = 0; i < tps.size(); i++) {
             if (i > 0) sb.append(", ");
             ParameterizedType bound = tps.get(i).typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst()
@@ -405,7 +413,7 @@ public class KotlinTypeName {
         return infer ? name(pt.typeInfo(), q) : withoutNullable(of(pt, q));
     }
 
-    private static boolean inScope(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+    private static boolean inScope(TypeParameter tp) {
         return KotlinContext.typeParameterInScope(tp);
     }
 
@@ -417,8 +425,8 @@ public class KotlinTypeName {
      * A type parameter's declaration: {@code T : MutableCollection<E>} for {@code <T extends Collection<E>>}, or the
      * members of its bound do not resolve on a T. Only a single bound: more than one needs a {@code where} clause.
      */
-    static String typeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp, Qualification q) {
-        java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+    static String typeParameter(TypeParameter tp, Qualification q) {
+        List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
         String name = KotlinNames.name(tp.simpleName());
         // <S extends @Nullable T> S reverse(): the bound's type-use annotation, which an override must repeat; more
         // than one bound goes to the where clause
@@ -430,11 +438,11 @@ public class KotlinTypeName {
      * guava's ToDoubleRounder<X extends Number & Comparable<X>>: {@code where X : Number, X : Comparable<X>}, after a
      * class's supertypes or a function's result, for the type parameters with more than one bound; empty if none has.
      */
-    static String whereClause(java.util.List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters,
+    static String whereClause(List<TypeParameter> typeParameters,
                               Qualification q) {
-        java.util.List<String> constraints = new java.util.ArrayList<>();
-        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
-            java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+        List<String> constraints = new ArrayList<>();
+        for (TypeParameter tp : typeParameters) {
+            List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
             if (bounds.size() < 2) continue;
             for (ParameterizedType b : bounds) {
                 constraints.add(KotlinNames.name(tp.simpleName()) + " : "
@@ -450,7 +458,7 @@ public class KotlinTypeName {
      * and is written qualified: guava's {@code import java.lang.reflect.Array} would make each {@code Array<V?>} the
      * reflection class, which takes no type arguments.
      */
-    static final java.util.Set<String> KOTLIN_BUILT_IN_NAMES = java.util.Set.of("Array", "Any", "Unit", "Nothing");
+    static final Set<String> KOTLIN_BUILT_IN_NAMES = Set.of("Array", "Any", "Unit", "Nothing");
 
     /** A Java type whose simple name is one of {@link #KOTLIN_BUILT_IN_NAMES}: always written qualified. */
     static boolean shadowsKotlinBuiltIn(String fullyQualifiedName) {
@@ -482,7 +490,7 @@ public class KotlinTypeName {
         TypeInfo outer = outer(typeInfo);
         if (outer == null) return false;
         for (TypeInfo t = KotlinContext.currentType(); t != null; t = outer(t)) {
-            if (t == outer || t == typeInfo || inherits(t, outer, new java.util.HashSet<>())) return false;
+            if (t == outer || t == typeInfo || inherits(t, outer, new HashSet<>())) return false;
         }
         return true;
     }
@@ -495,7 +503,7 @@ public class KotlinTypeName {
         return primary.recursiveSubTypeStream().filter(t -> t.subTypes().contains(nested)).findFirst().orElse(null);
     }
 
-    private static boolean inherits(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {
+    private static boolean inherits(TypeInfo sub, TypeInfo sup, Set<TypeInfo> visited) {
         if (sub == null || !visited.add(sub)) return false;
         if (sub == sup) return true;
         if (sub.parentClass() != null && inherits(sub.parentClass().typeInfo(), sup, visited)) return true;

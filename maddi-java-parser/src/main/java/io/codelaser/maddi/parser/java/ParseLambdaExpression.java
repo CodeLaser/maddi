@@ -37,6 +37,7 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -162,7 +163,7 @@ public class ParseLambdaExpression extends CommonParse {
     private ParameterizedType mostSpecificReturnType(TypeInfo primaryType, Block methodBody) {
         AtomicReference<ParameterizedType> mostSpecific = new AtomicReference<>();
         methodBody.visit(statement -> {
-            if (statement instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement returnStatement) {
+            if (statement instanceof ReturnStatement returnStatement) {
                 Expression expression = returnStatement.expression();
                 if (expression.isEmpty()) {
                     mostSpecific.set(runtime.voidParameterizedType());

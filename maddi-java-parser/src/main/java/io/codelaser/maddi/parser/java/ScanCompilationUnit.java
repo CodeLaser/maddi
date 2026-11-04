@@ -28,6 +28,7 @@ import org.parsers.java.ast.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
 import io.codelaser.maddi.cst.api.element.ImportStatement;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -81,7 +82,7 @@ public class ScanCompilationUnit extends CommonParse {
         String packageName;
         Source s1 = source(cu);
         Source source;
-        List<io.codelaser.maddi.cst.api.element.Comment> comments;
+        List<Comment> comments;
         if (packageDeclaration == null) {
             source = s1;
             packageName = "";

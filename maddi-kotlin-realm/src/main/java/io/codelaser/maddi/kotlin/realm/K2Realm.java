@@ -17,8 +17,10 @@
 
 package io.codelaser.maddi.kotlin.realm;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -30,6 +32,7 @@ import org.codehaus.plexus.classworlds.realm.ClassRealm;
 import org.codehaus.plexus.classworlds.realm.DuplicateRealmException;
 
 import io.codelaser.maddi.kotlin.api.KotlinFrontEnd;
+import io.codelaser.maddi.kotlin.api.KotlinFrontEnds;
 
 /**
  * <b>A classloader of its own for the Kotlin front end.</b> {@code kotlin-compiler-2.4.0.jar} is 61.9 MB and
@@ -130,12 +133,12 @@ public final class K2Realm {
      * compiler is genuinely absent it would fail later, deeper, and less legibly.
      */
     public static void install() throws IOException {
-        io.codelaser.maddi.kotlin.api.KotlinFrontEnds.install(create(discover()));
+        KotlinFrontEnds.install(create(discover()));
     }
 
     /** {@link #install}, unless a front end is already installed. Safe to call on every entry point. */
     public static void installIfAbsent() throws IOException {
-        if (!io.codelaser.maddi.kotlin.api.KotlinFrontEnds.isInstalled()) install();
+        if (!KotlinFrontEnds.isInstalled()) install();
     }
 
     /** Where this JVM's K2 jars are; see {@link #install}. */
@@ -175,7 +178,7 @@ public final class K2Realm {
 
     private static List<Path> split(String classpath) {
         List<Path> jars = new ArrayList<>();
-        for (String entry : classpath.split(java.io.File.pathSeparator)) {
+        for (String entry : classpath.split(File.pathSeparator)) {
             if (!entry.isBlank()) jars.add(Path.of(entry));
         }
         return jars;
@@ -186,7 +189,7 @@ public final class K2Realm {
         return create(split(classpath));
     }
 
-    private static java.net.URL toUrl(Path jar) throws MalformedURLException {
+    private static URL toUrl(Path jar) throws MalformedURLException {
         return jar.toUri().toURL();
     }
 }

@@ -22,6 +22,7 @@ import java.util.function.BiConsumer;
 
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
@@ -248,7 +249,7 @@ public interface DetailedSources {
      * instance the rewired element holds. Names, markers and positions are kept. A key the map cannot place is dropped
      * rather than kept: kept, it would answer no lookup and hold on to the previous generation.
      */
-    DetailedSources rewire(io.codelaser.maddi.cst.api.info.InfoMapView infoMap);
+    DetailedSources rewire(InfoMapView infoMap);
 
     /**
      * Returns the object associated with {@code object} via a put-with-association call,

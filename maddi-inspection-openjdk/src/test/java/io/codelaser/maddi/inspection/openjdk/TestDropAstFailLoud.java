@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +21,7 @@ import io.codelaser.maddi.inspection.resource.SourceSetImpl;
  */
 public class TestDropAstFailLoud {
 
-    private static CompiledTypesManagerImpl newCtm(java.util.function.Function<String, TypeInfo> loader) {
+    private static CompiledTypesManagerImpl newCtm(Function<String, TypeInfo> loader) {
         SourceSet javaBase = new SourceSetImpl.Builder().setName("java.base").setUri(URI.create("file:/")).build();
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(javaBase, new InfoByFqn());
         // the loader takes the requesting source set too; these tests are about surfacing misses after the AST

@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -76,7 +77,7 @@ public class TestBuildFiles {
         assertNotEquals(first.sha256().get("a/build.gradle.kts"), third.sha256().get("a/build.gradle.kts"));
         assertEquals(first.sha256().get("settings.gradle.kts"), third.sha256().get("settings.gradle.kts"));
         assertEquals(root.toAbsolutePath().normalize().toString(), third.root());
-        assertNotNull(java.time.Instant.parse(third.capturedAt()));
+        assertNotNull(Instant.parse(third.capturedAt()));
     }
 
     @Test

@@ -23,6 +23,7 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
@@ -101,7 +102,7 @@ public class ForwardingNullabilityFacts implements NullabilityFacts {
     }
 
     @Override
-    public boolean nonNullTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+    public boolean nonNullTypeParameter(TypeParameter typeParameter) {
         return delegate.nonNullTypeParameter(typeParameter);
     }
 

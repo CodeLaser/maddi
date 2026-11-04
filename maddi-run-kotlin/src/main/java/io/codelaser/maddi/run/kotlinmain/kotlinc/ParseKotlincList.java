@@ -1,6 +1,7 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -189,6 +190,6 @@ public class ParseKotlincList {
 
     private static List<String> splitPath(String path) {
         if (path.isBlank()) return List.of();
-        return Arrays.stream(path.split(java.io.File.pathSeparator)).filter(s -> !s.isBlank()).toList();
+        return Arrays.stream(path.split(File.pathSeparator)).filter(s -> !s.isBlank()).toList();
     }
 }

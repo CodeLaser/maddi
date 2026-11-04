@@ -28,24 +28,30 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
+import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnce;
 
 /**
  * Java parsed by the openjdk front end, printed as Rust, and compiled by rustc when one is on the {@code PATH}. The
@@ -62,8 +68,8 @@ public abstract class CommonJavaToRust {
         javaInspector = new JavaInspectorImpl();
         SourceSet sourceSet = new SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL)
                 .setUri(URI.create("file:/")).build();
-        SourceSet annotation = SourceSetImpl.sourceSetOf(io.codelaser.maddi.annotation.Immutable.class);
-        SourceSet support = SourceSetImpl.sourceSetOf(io.codelaser.maddi.support.SetOnce.class, annotation);
+        SourceSet annotation = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet support = SourceSetImpl.sourceSetOf(SetOnce.class, annotation);
         javaInspector.initialize(new InputConfigurationImpl.Builder().addSourceSets(sourceSet)
                 .addClassPath("jmod:java.base").addClassPathParts(annotation, support).build());
         javaInspector.onlyPreload();
@@ -89,20 +95,20 @@ public abstract class CommonJavaToRust {
     }
 
     /** The stored ownership verdicts, with the fields, parameters and methods named in {@code nullable} nullable. */
-    protected static RustFacts nullable(java.util.Set<String> nullable) {
-        return RustFacts.of(new io.codelaser.maddi.cst.impl.analysis.NullabilityFacts() {
+    protected static RustFacts nullable(Set<String> nullable) {
+        return RustFacts.of(new NullabilityFacts() {
             @Override
-            public io.codelaser.maddi.cst.api.type.ParameterizedType field(io.codelaser.maddi.cst.api.info.FieldInfo f) {
+            public ParameterizedType field(FieldInfo f) {
                 return nullable.contains(f.name()) ? f.type().withNullable(NullableState.NULLABLE) : null;
             }
 
             @Override
-            public io.codelaser.maddi.cst.api.type.ParameterizedType parameter(ParameterInfo p) {
+            public ParameterizedType parameter(ParameterInfo p) {
                 return nullable.contains(p.name()) ? p.parameterizedType().withNullable(NullableState.NULLABLE) : null;
             }
 
             @Override
-            public io.codelaser.maddi.cst.api.type.ParameterizedType returnType(MethodInfo m) {
+            public ParameterizedType returnType(MethodInfo m) {
                 return nullable.contains(m.name() + "()") ? m.returnType().withNullable(NullableState.NULLABLE) : null;
             }
         }, RustFacts.STORED);
@@ -207,12 +213,12 @@ public abstract class CommonJavaToRust {
     /** {@code @Mark}, {@code @Only(before/after)} of the transition of {@code label}. */
     protected static void mark(TypeInfo type, String name, String label) {
         method(type, name).analysis().set(PropertyImpl.EVENTUAL_METHOD,
-                new ValueImpl.EventualImpl(java.util.Set.of(label), true, null, null));
+                new ValueImpl.EventualImpl(Set.of(label), true, null, null));
     }
 
     protected static void only(TypeInfo type, String name, String label, boolean after) {
         method(type, name).analysis().set(PropertyImpl.EVENTUAL_METHOD,
-                new ValueImpl.EventualImpl(java.util.Set.of(label), false, after, null));
+                new ValueImpl.EventualImpl(Set.of(label), false, after, null));
     }
 
     protected static void ignoreModifications(TypeInfo type, String name) {
@@ -230,7 +236,7 @@ public abstract class CommonJavaToRust {
     protected static void throughPassedFunction(ParameterInfo parameter, String... entries) {
         borrowed(parameter);
         parameter.analysis().set(PropertyImpl.MODIFIED_THROUGH_PASSED_FUNCTION,
-                new ValueImpl.SetOfStringsImpl(java.util.Set.of(entries)));
+                new ValueImpl.SetOfStringsImpl(Set.of(entries)));
     }
 
     /** The method returns {@code this}. */

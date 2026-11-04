@@ -21,6 +21,7 @@ import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_P
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +68,7 @@ public class TestSharedJdkRelease {
 
     @DisplayName("two releases in one configuration: the shared java.util.List is the HIGHER band's")
     @Test
-    public void sharedJdkIsTheHighestBandTheConfigurationStates() throws java.io.IOException {
+    public void sharedJdkIsTheHighestBandTheConfigurationStates() throws IOException {
         int running = Runtime.version().feature();
         Assumptions.assumeTrue(running >= 21, "the probe is List.getFirst(), added in Java 21 (running on "
                                               + running + ")");
@@ -115,7 +116,7 @@ public class TestSharedJdkRelease {
      */
     @DisplayName("a set that states no release counts as the running JDK for the shared java.util.List")
     @Test
-    public void aSilentSetCountsAsTheRunningJdk() throws java.io.IOException {
+    public void aSilentSetCountsAsTheRunningJdk() throws IOException {
         int running = Runtime.version().feature();
         Assumptions.assumeTrue(running >= 21, "the probe is List.getFirst(), added in Java 21 (running on "
                                               + running + ")");
@@ -156,7 +157,7 @@ public class TestSharedJdkRelease {
      */
     @DisplayName("a platform type first touched lazily by a lower-release set is the shared band's, not that set's")
     @Test
-    public void lazilyTouchedPlatformTypeIsTheSharedBands() throws java.io.IOException {
+    public void lazilyTouchedPlatformTypeIsTheSharedBands() throws IOException {
         int running = Runtime.version().feature();
         Assumptions.assumeTrue(running >= 21, "the probe is List.getFirst(), added in Java 21 (running on "
                                               + running + ")");
@@ -202,7 +203,7 @@ public class TestSharedJdkRelease {
      */
     @DisplayName("the per-set release still reaches javac for the set's own sources")
     @Test
-    public void perSetReleaseSurvivesThePreloadPass() throws java.io.IOException {
+    public void perSetReleaseSurvivesThePreloadPass() throws IOException {
         int running = Runtime.version().feature();
         Assumptions.assumeTrue(running >= 26,
                 "the probe is java.applet.Applet, removed in JDK 26 (running on " + running + ")");
@@ -240,7 +241,7 @@ public class TestSharedJdkRelease {
      */
     @DisplayName("a nested type in a lazily loaded platform type's signature is the member type, not a flat-named primary")
     @Test
-    public void nestedTypeOfALazilyLoadedPlatformTypeIsTheMemberType() throws java.io.IOException {
+    public void nestedTypeOfALazilyLoadedPlatformTypeIsTheMemberType() throws IOException {
         int running = Runtime.version().feature();
         Assumptions.assumeTrue(running >= 21, "the shared task needs a release below the running JDK's ("
                                               + running + ")");

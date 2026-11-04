@@ -19,6 +19,7 @@ package io.codelaser.maddi.project.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -76,7 +77,7 @@ public class MavenCaptureTest {
     }
 
     private static boolean onPath(String tool) {
-        for (String dir : System.getenv().getOrDefault("PATH", "").split(java.io.File.pathSeparator)) {
+        for (String dir : System.getenv().getOrDefault("PATH", "").split(File.pathSeparator)) {
             if (Files.isExecutable(Path.of(dir, tool))) return true;
         }
         return false;

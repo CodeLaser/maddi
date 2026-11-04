@@ -388,8 +388,8 @@ public abstract class CommonParse {
                                        ForwardType selectorTypeFwd,
                                        Context enumContext) {
         Context newContext = Objects.requireNonNullElse(enumContext, context);
-        io.codelaser.maddi.cst.api.expression.Expression whenExpression = runtime.newEmptyExpression();
-        List<io.codelaser.maddi.cst.api.expression.Expression> conditions = new ArrayList<>();
+        Expression whenExpression = runtime.newEmptyExpression();
+        List<Expression> conditions = new ArrayList<>();
         // 'case A _, B _ ->' (JEP 456): the first pattern is the entry's pattern variable, the others go to
         // SwitchEntry.otherPatterns. Setting each one as THE pattern variable kept only the last.
         boolean havePattern = false;

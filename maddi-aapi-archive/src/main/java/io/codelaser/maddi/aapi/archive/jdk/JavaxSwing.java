@@ -19,8 +19,10 @@ package io.codelaser.maddi.aapi.archive.jdk;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.print.Printable;
+import java.beans.VetoableChangeListener;
 import java.text.MessageFormat;
 import java.util.Collection;
+import java.util.EventListener;
 import java.util.EventObject;
 import java.util.Vector;
 
@@ -28,6 +30,7 @@ import javax.accessibility.AccessibleContext;
 import javax.print.PrintService;
 import javax.print.attribute.PrintRequestAttributeSet;
 import javax.swing.*;
+import javax.swing.border.Border;
 import javax.swing.event.*;
 import javax.swing.plaf.*;
 import javax.swing.table.*;
@@ -579,12 +582,12 @@ public class JavaxSwing {
 
     class AbstractListModel$<E> {
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified void addListDataListener(javax.swing.event.ListDataListener p0) { }
-        @Modified void removeListDataListener(javax.swing.event.ListDataListener p0) { }
+        @Modified void addListDataListener(ListDataListener p0) { }
+        @Modified void removeListDataListener(ListDataListener p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified javax.swing.event.ListDataListener[] getListDataListeners() { return null; }
-        @NotModified <T extends java.util.EventListener> T[] getListeners(Class<T> p0) { return null; }
+        @NotModified ListDataListener[] getListDataListeners() { return null; }
+        @NotModified <T extends EventListener> T[] getListeners(Class<T> p0) { return null; }
     }
 
     class ComboBoxModel$<E> {
@@ -597,65 +600,65 @@ public class JavaxSwing {
 
     class JComponent$ {
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified void addAncestorListener(javax.swing.event.AncestorListener p0) { }
-        @Modified void addVetoableChangeListener(java.beans.VetoableChangeListener p0) { }
-        @Modified void computeVisibleRect(java.awt.Rectangle p0) { }
+        @Modified void addAncestorListener(AncestorListener p0) { }
+        @Modified void addVetoableChangeListener(VetoableChangeListener p0) { }
+        @Modified void computeVisibleRect(Rectangle p0) { }
         @Modified void putClientProperty(Object p0, Object p1) { }
-        @Modified void registerKeyboardAction(java.awt.event.ActionListener p0, String p1, javax.swing.KeyStroke p2, int p3) { }
-        @Modified void registerKeyboardAction(java.awt.event.ActionListener p0, javax.swing.KeyStroke p1, int p2) { }
-        @Modified void removeAncestorListener(javax.swing.event.AncestorListener p0) { }
-        @Modified void removeVetoableChangeListener(java.beans.VetoableChangeListener p0) { }
+        @Modified void registerKeyboardAction(ActionListener p0, String p1, KeyStroke p2, int p3) { }
+        @Modified void registerKeyboardAction(ActionListener p0, KeyStroke p1, int p2) { }
+        @Modified void removeAncestorListener(AncestorListener p0) { }
+        @Modified void removeVetoableChangeListener(VetoableChangeListener p0) { }
         @Modified void resetKeyboardActions() { }
-        @Modified void setActionMap(javax.swing.ActionMap p0) { }
+        @Modified void setActionMap(ActionMap p0) { }
         @Modified void setAlignmentX(float p0) { }
         @Modified void setAlignmentY(float p0) { }
         @Modified void setAutoscrolls(boolean p0) { }
-        @Modified void setBorder(javax.swing.border.Border p0) { }
-        @Modified void setComponentPopupMenu(javax.swing.JPopupMenu p0) { }
+        @Modified void setBorder(Border p0) { }
+        @Modified void setComponentPopupMenu(JPopupMenu p0) { }
         @Modified void setDebugGraphicsOptions(int p0) { }
         @Modified void setDoubleBuffered(boolean p0) { }
         @Modified void setInheritsPopupMenu(boolean p0) { }
-        @Modified void setInputMap(int p0, javax.swing.InputMap p1) { }
-        @Modified void setInputVerifier(javax.swing.InputVerifier p0) { }
-        @Modified void setNextFocusableComponent(java.awt.Component p0) { }
+        @Modified void setInputMap(int p0, InputMap p1) { }
+        @Modified void setInputVerifier(InputVerifier p0) { }
+        @Modified void setNextFocusableComponent(Component p0) { }
         @Modified void setOpaque(boolean p0) { }
         @Modified void setRequestFocusEnabled(boolean p0) { }
         @Modified void setToolTipText(String p0) { }
-        @Modified void setTransferHandler(javax.swing.TransferHandler p0) { }
+        @Modified void setTransferHandler(TransferHandler p0) { }
         @Modified void setVerifyInputWhenFocusTarget(boolean p0) { }
-        @Modified void unregisterKeyboardAction(javax.swing.KeyStroke p0) { }
+        @Modified void unregisterKeyboardAction(KeyStroke p0) { }
         @Modified void updateUI() { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified boolean contains(int p0, int p1) { return false; }
-        @NotModified java.awt.event.ActionListener getActionForKeyStroke(javax.swing.KeyStroke p0) { return null; }
-        @NotModified javax.swing.ActionMap getActionMap() { return null; }
-        @NotModified javax.swing.event.AncestorListener[] getAncestorListeners() { return null; }
+        @NotModified ActionListener getActionForKeyStroke(KeyStroke p0) { return null; }
+        @NotModified ActionMap getActionMap() { return null; }
+        @NotModified AncestorListener[] getAncestorListeners() { return null; }
         @NotModified boolean getAutoscrolls() { return false; }
-        @NotModified javax.swing.border.Border getBorder() { return null; }
+        @NotModified Border getBorder() { return null; }
         @NotModified Object getClientProperty(Object p0) { return null; }
-        @NotModified javax.swing.JPopupMenu getComponentPopupMenu() { return null; }
-        @NotModified int getConditionForKeyStroke(javax.swing.KeyStroke p0) { return 0; }
+        @NotModified JPopupMenu getComponentPopupMenu() { return null; }
+        @NotModified int getConditionForKeyStroke(KeyStroke p0) { return 0; }
         @NotModified int getDebugGraphicsOptions() { return 0; }
         @NotModified boolean getInheritsPopupMenu() { return false; }
-        @NotModified javax.swing.InputMap getInputMap() { return null; }
-        @NotModified javax.swing.InputMap getInputMap(int p0) { return null; }
-        @NotModified javax.swing.InputVerifier getInputVerifier() { return null; }
-        @NotModified java.awt.Insets getInsets(java.awt.Insets p0) { return null; }
-        @NotModified java.awt.Component getNextFocusableComponent() { return null; }
-        @NotModified java.awt.Point getPopupLocation(java.awt.event.MouseEvent p0) { return null; }
-        @NotModified javax.swing.KeyStroke[] getRegisteredKeyStrokes() { return null; }
-        @NotModified javax.swing.JRootPane getRootPane() { return null; }
-        @NotModified java.awt.Point getToolTipLocation(java.awt.event.MouseEvent p0) { return null; }
+        @NotModified InputMap getInputMap() { return null; }
+        @NotModified InputMap getInputMap(int p0) { return null; }
+        @NotModified InputVerifier getInputVerifier() { return null; }
+        @NotModified Insets getInsets(Insets p0) { return null; }
+        @NotModified Component getNextFocusableComponent() { return null; }
+        @NotModified Point getPopupLocation(MouseEvent p0) { return null; }
+        @NotModified KeyStroke[] getRegisteredKeyStrokes() { return null; }
+        @NotModified JRootPane getRootPane() { return null; }
+        @NotModified Point getToolTipLocation(MouseEvent p0) { return null; }
         @NotModified String getToolTipText() { return null; }
-        @NotModified String getToolTipText(java.awt.event.MouseEvent p0) { return null; }
-        @NotModified java.awt.Container getTopLevelAncestor() { return null; }
-        @NotModified javax.swing.TransferHandler getTransferHandler() { return null; }
-        @NotModified javax.swing.plaf.ComponentUI getUI() { return null; }
+        @NotModified String getToolTipText(MouseEvent p0) { return null; }
+        @NotModified Container getTopLevelAncestor() { return null; }
+        @NotModified TransferHandler getTransferHandler() { return null; }
+        @NotModified ComponentUI getUI() { return null; }
         @NotModified String getUIClassID() { return null; }
         @NotModified boolean getVerifyInputWhenFocusTarget() { return false; }
-        @NotModified java.beans.VetoableChangeListener[] getVetoableChangeListeners() { return null; }
-        @NotModified java.awt.Rectangle getVisibleRect() { return null; }
+        @NotModified VetoableChangeListener[] getVetoableChangeListeners() { return null; }
+        @NotModified Rectangle getVisibleRect() { return null; }
         @NotModified boolean isManagingFocus() { return false; }
         @NotModified boolean isOptimizedDrawingEnabled() { return false; }
         @NotModified boolean isPaintingForPrint() { return false; }
@@ -665,8 +668,8 @@ public class JavaxSwing {
 
     class ListModel$<E> {
         // a modifying method, declared so (generated from the assumed-defaults list)
-        @Modified void addListDataListener(javax.swing.event.ListDataListener p0) { }
-        @Modified void removeListDataListener(javax.swing.event.ListDataListener p0) { }
+        @Modified void addListDataListener(ListDataListener p0) { }
+        @Modified void removeListDataListener(ListDataListener p0) { }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified E getElementAt(int p0) { return null; }
@@ -683,10 +686,10 @@ public class JavaxSwing {
 
     class Scrollable$ {
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified java.awt.Dimension getPreferredScrollableViewportSize() { return null; }
-        @NotModified int getScrollableBlockIncrement(java.awt.Rectangle p0, int p1, int p2) { return 0; }
+        @NotModified Dimension getPreferredScrollableViewportSize() { return null; }
+        @NotModified int getScrollableBlockIncrement(Rectangle p0, int p1, int p2) { return 0; }
         @NotModified boolean getScrollableTracksViewportHeight() { return false; }
         @NotModified boolean getScrollableTracksViewportWidth() { return false; }
-        @NotModified int getScrollableUnitIncrement(java.awt.Rectangle p0, int p1, int p2) { return 0; }
+        @NotModified int getScrollableUnitIncrement(Rectangle p0, int p1, int p2) { return 0; }
     }
 }

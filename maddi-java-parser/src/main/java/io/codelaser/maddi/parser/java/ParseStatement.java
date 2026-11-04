@@ -49,6 +49,7 @@ import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.statement.ForStatement;
 import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
@@ -333,7 +334,7 @@ public class ParseStatement extends CommonParse {
         }
 
         if (statement instanceof BasicForStatement) {
-            io.codelaser.maddi.cst.api.statement.ForStatement.Builder builder = runtime.newForBuilder();
+            ForStatement.Builder builder = runtime.newForBuilder();
             Context newContext = context.newVariableContext("for-loop");
 
             // initializers

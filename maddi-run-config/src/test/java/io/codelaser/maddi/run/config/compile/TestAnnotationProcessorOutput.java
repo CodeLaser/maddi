@@ -19,6 +19,7 @@ package io.codelaser.maddi.run.config.compile;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -110,7 +111,7 @@ public class TestAnnotationProcessorOutput {
     private static List<String> relativeClassFiles(Path directory) throws IOException {
         try (Stream<Path> walk = Files.walk(directory)) {
             return walk.filter(p -> p.toString().endsWith(".class"))
-                    .map(p -> directory.relativize(p).toString().replace(java.io.File.separatorChar, '/'))
+                    .map(p -> directory.relativize(p).toString().replace(File.separatorChar, '/'))
                     .sorted().toList();
         }
     }

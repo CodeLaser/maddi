@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
@@ -77,8 +78,8 @@ public class TestCompileLogCli {
         assertEquals(Main.EXIT_OK, Main.execute(new String[]{
                 "--" + Main.COMPILE_LOG, COMPILE_LOG,
                 "--" + Main.WRITE_INPUT_CONFIGURATION, none.getAbsolutePath()}));
-        io.codelaser.maddi.inspection.api.resource.BuildFiles nothing = read(none).buildFiles();
-        assertEquals(io.codelaser.maddi.inspection.api.resource.BuildFiles.NONE, nothing.declaredBy());
+        BuildFiles nothing = read(none).buildFiles();
+        assertEquals(BuildFiles.NONE, nothing.declaredBy());
         // only the module-infos of the log's source directories (none where the log's tree is absent), never a
         // root-wide glob, and each hashed
         assertTrue(nothing.globs().stream().allMatch(g -> g.endsWith("/module-info.java") && !g.contains("*")),
@@ -91,8 +92,8 @@ public class TestCompileLogCli {
                 "--" + Main.BUILD_FILES, "**/pom.xml",
                 "--" + Main.BUILD_FILES, ".mvn/**",
                 "--" + Main.WRITE_INPUT_CONFIGURATION, declared.getAbsolutePath()}));
-        io.codelaser.maddi.inspection.api.resource.BuildFiles buildFiles = read(declared).buildFiles();
-        assertEquals(io.codelaser.maddi.inspection.api.resource.BuildFiles.COMPILE_LOG, buildFiles.declaredBy());
+        BuildFiles buildFiles = read(declared).buildFiles();
+        assertEquals(BuildFiles.COMPILE_LOG, buildFiles.declaredBy());
         assertEquals(List.of("**/pom.xml", ".mvn/**"), buildFiles.globs().subList(0, 2));
         assertTrue(Path.of(buildFiles.root()).isAbsolute(), buildFiles.root());
     }

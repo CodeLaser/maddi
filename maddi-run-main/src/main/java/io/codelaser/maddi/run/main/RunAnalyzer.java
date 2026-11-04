@@ -109,7 +109,7 @@ public class RunAnalyzer implements Runnable {
     }
 
     private void runAnalyzer() throws IOException {
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
 
         JavaInspector javaInspector = new JavaInspectorImpl(true, true);
         InputConfiguration inputConfiguration = configuration.inputConfiguration();

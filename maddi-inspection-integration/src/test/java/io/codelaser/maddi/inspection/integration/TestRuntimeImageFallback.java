@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ public class TestRuntimeImageFallback {
         // a real member proves actual bytecode was read, not a stub
         assertNotNull(string.findUniqueMethod("length", 0));
 
-        TypeInfo list = javaInspector.compiledTypesManager().type(java.util.List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().type(List.class);
         assertNotNull(list);
         assertTrue(list.hasBeenInspected());
     }

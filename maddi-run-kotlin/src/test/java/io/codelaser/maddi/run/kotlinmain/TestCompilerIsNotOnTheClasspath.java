@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 import io.codelaser.maddi.kotlin.api.KotlinFrontEnds;
@@ -77,7 +79,7 @@ public class TestCompilerIsNotOnTheClasspath {
      */
     @Test
     public void nothingOnThisClasspathIsServedByTheCompilerJar() {
-        for (String fqn : java.util.List.of(
+        for (String fqn : List.of(
                 "org.antlr.v4.runtime.CharStreams",
                 "com.google.common.collect.ImmutableList",
                 "com.sun.jna.Native",

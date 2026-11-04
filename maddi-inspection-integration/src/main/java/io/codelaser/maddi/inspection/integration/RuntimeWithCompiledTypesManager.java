@@ -72,7 +72,7 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
     }
 
     @Override
-    public java.util.List<TypeInfo> loadedCopies(String fullyQualifiedName) {
+    public List<TypeInfo> loadedCopies(String fullyQualifiedName) {
         return compiledTypesManager.typesIfLoaded(fullyQualifiedName);
     }
 

@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
@@ -35,7 +36,7 @@ public class TestJavaInspector4RealClasspath {
 
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
-        SourceSet maddiAnnotation = sourceSetOf(io.codelaser.maddi.annotation.Immutable.class, javaBase);
+        SourceSet maddiAnnotation = sourceSetOf(Immutable.class, javaBase);
         SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase, maddiAnnotation);
 
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");

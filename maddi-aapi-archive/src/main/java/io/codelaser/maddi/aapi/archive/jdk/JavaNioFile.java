@@ -21,6 +21,7 @@ import java.net.URI;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.Charset;
 import java.nio.file.*;
+import java.nio.file.FileSystem;
 import java.nio.file.attribute.*;
 import java.util.*;
 import java.util.function.BiPredicate;
@@ -411,29 +412,29 @@ public class JavaNioFile {
     //public java.nio.file.DirectoryIteratorException (shadow created for its nullability, generated)
     class DirectoryIteratorException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        DirectoryIteratorException$(@NotNull java.io.IOException p0) { }
+        DirectoryIteratorException$(@NotNull IOException p0) { }
     }
 
     //public java.nio.file.FileSystemException (shadow created for its nullability, generated)
     class FileSystemException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        FileSystemException$(@Nullable java.lang.String p0) { }
-        FileSystemException$(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2) { }
-        @NotModified @Nullable java.lang.String getFile() { return null; }
-        @Nullable java.lang.String getMessage() { return null; }
-        @NotModified @Nullable java.lang.String getOtherFile() { return null; }
-        @NotModified @Nullable java.lang.String getReason() { return null; }
+        FileSystemException$(@Nullable String p0) { }
+        FileSystemException$(@Nullable String p0, @Nullable String p1, @Nullable String p2) { }
+        @NotModified @Nullable String getFile() { return null; }
+        @Nullable String getMessage() { return null; }
+        @NotModified @Nullable String getOtherFile() { return null; }
+        @NotModified @Nullable String getReason() { return null; }
     }
 
     //public java.nio.file.FileSystems (shadow created for its nullability, generated)
     class FileSystems$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static java.nio.file.FileSystem getFileSystem(@NotNull java.net.URI p0) { return null; }
-        static java.nio.file.FileSystem newFileSystem(@NotNull java.nio.file.Path p0) { return null; }
-        static java.nio.file.FileSystem newFileSystem(@NotNull java.nio.file.Path p0, @Nullable java.lang.ClassLoader p1) { return null; }
-        static java.nio.file.FileSystem newFileSystem(@NotNull java.nio.file.Path p0, @NotNull java.util.Map<java.lang.String, ?> p1) { return null; }
-        static java.nio.file.FileSystem newFileSystem(@NotNull java.nio.file.Path p0, @NotNull java.util.Map<java.lang.String, ?> p1, @Nullable java.lang.ClassLoader p2) { return null; }
-        static java.nio.file.FileSystem newFileSystem(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, ?> p1) { return null; }
-        static java.nio.file.FileSystem newFileSystem(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, ?> p1, @Nullable java.lang.ClassLoader p2) { return null; }
+        static FileSystem getFileSystem(@NotNull URI p0) { return null; }
+        static FileSystem newFileSystem(@NotNull Path p0) { return null; }
+        static FileSystem newFileSystem(@NotNull Path p0, @Nullable ClassLoader p1) { return null; }
+        static FileSystem newFileSystem(@NotNull Path p0, @NotNull Map<String, ?> p1) { return null; }
+        static FileSystem newFileSystem(@NotNull Path p0, @NotNull Map<String, ?> p1, @Nullable ClassLoader p2) { return null; }
+        static FileSystem newFileSystem(@NotNull URI p0, @NotNull Map<String, ?> p1) { return null; }
+        static FileSystem newFileSystem(@NotNull URI p0, @NotNull Map<String, ?> p1, @Nullable ClassLoader p2) { return null; }
     }
 }

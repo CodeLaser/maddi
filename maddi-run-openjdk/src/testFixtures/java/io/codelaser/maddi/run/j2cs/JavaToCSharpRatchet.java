@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -33,6 +35,7 @@ import org.slf4j.LoggerFactory;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.print.csharp.CSharpCompat;
 import io.codelaser.maddi.cst.print.csharp.CSharpLibraries;
+import io.codelaser.maddi.cst.print.csharp.CSharpMappingFile;
 import io.codelaser.maddi.cst.print.csharp.CSharpPrintCode;
 import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
 import io.codelaser.maddi.cst.print.csharp.CSharpTranslator;
@@ -83,11 +86,11 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
     public JavaToCSharpRatchet withMapping(String resource) {
         try (var in = JavaToCSharpRatchet.class.getResourceAsStream(resource)) {
             if (in == null) throw new IllegalStateException("no " + resource + " beside " + JavaToCSharpRatchet.class);
-            var mapping = io.codelaser.maddi.cst.print.csharp.CSharpMappingFile.parse(
-                    new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), resource);
+            var mapping = CSharpMappingFile.parse(
+                    new String(in.readAllBytes(), StandardCharsets.UTF_8), resource);
             return new JavaToCSharpRatchet(name, ratchetFile, policy.withLibraries(policy.libraries().withFirst(mapping)));
         } catch (IOException e) {
-            throw new java.io.UncheckedIOException(e);
+            throw new UncheckedIOException(e);
         }
     }
 

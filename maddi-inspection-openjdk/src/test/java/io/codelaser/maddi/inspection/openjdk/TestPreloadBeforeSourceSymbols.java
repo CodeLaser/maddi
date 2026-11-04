@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -123,7 +124,7 @@ public class TestPreloadBeforeSourceSymbols {
         sources.put("a.b.Impl", IMPL);
         sources.put("p.Used", USED);
         sources.put("p.User", USER);
-        List<String> files = new java.util.ArrayList<>();
+        List<String> files = new ArrayList<>();
         for (Map.Entry<String, String> e : sources.entrySet()) {
             Path javaFile = src.resolve(e.getKey().replace('.', '/') + ".java");
             Files.createDirectories(javaFile.getParent());
@@ -132,7 +133,7 @@ public class TestPreloadBeforeSourceSymbols {
         }
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         assertNotNull(compiler, "this test needs a JDK, not a JRE");
-        List<String> args = new java.util.ArrayList<>(List.of("-d", classes.toString()));
+        List<String> args = new ArrayList<>(List.of("-d", classes.toString()));
         args.addAll(files);
         int rc = compiler.run(null, null, null, args.toArray(String[]::new));
         assertEquals(0, rc, "the class-path artifact must compile");

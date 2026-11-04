@@ -18,6 +18,7 @@ package io.codelaser.maddi.run.kotlinmain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -67,7 +68,7 @@ public class TestDestructuring {
         SourceSet kotlinSet = new SourceSetImpl.Builder().setName("kotlin/main")
                 .setSourceDirectories(List.of(kDir)).setUri(kDir.toUri()).setDependencies(List.of(javaSet)).build();
         String cp = System.getProperty("maddi.k2.classpath", "");
-        String stdlib = Stream.of(cp.split(java.io.File.pathSeparator))
+        String stdlib = Stream.of(cp.split(File.pathSeparator))
                 .filter(p -> Path.of(p).getFileName().toString().matches("kotlin-stdlib-\\d[^-]*\\.jar")).findFirst().orElseThrow();
         MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(new InputConfigurationImpl.Builder()
                 .addSourceSets(javaSet).addSourceSets(kotlinSet).addClassPath(stdlib).build());

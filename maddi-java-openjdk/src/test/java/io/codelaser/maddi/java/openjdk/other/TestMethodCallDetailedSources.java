@@ -24,6 +24,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -58,7 +59,7 @@ public class TestMethodCallDetailedSources extends CommonTest {
 
     private static MethodCall firstCall(MethodInfo methodInfo) {
         Statement s = methodInfo.methodBody().statements().getFirst();
-        io.codelaser.maddi.cst.api.expression.Expression e =
+        Expression e =
                 s instanceof ReturnStatement rs ? rs.expression() : s.expression();
         return (MethodCall) e;
     }

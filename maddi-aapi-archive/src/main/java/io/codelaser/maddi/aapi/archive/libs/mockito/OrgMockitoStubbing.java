@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.aapi.archive.libs.mockito;
 
+import org.mockito.stubbing.Answer;
+import org.mockito.stubbing.OngoingStubbing;
+import org.mockito.stubbing.Stubber;
+
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
@@ -29,16 +33,16 @@ public class OrgMockitoStubbing {
 
     //public interface OngoingStubbing<T>
     class OngoingStubbing$<T> {
-        org.mockito.stubbing.OngoingStubbing<T> thenReturn(T value, @NotModified T... values) { return null; }
-        org.mockito.stubbing.OngoingStubbing<T> thenThrow(@NotModified java.lang.Throwable... throwables) { return null; }
-        org.mockito.stubbing.OngoingStubbing<T> thenAnswer(@IgnoreModifications org.mockito.stubbing.Answer<?> answer) { return null; }
-        org.mockito.stubbing.OngoingStubbing<T> then(@IgnoreModifications org.mockito.stubbing.Answer<?> answer) { return null; }
+        OngoingStubbing<T> thenReturn(T value, @NotModified T... values) { return null; }
+        OngoingStubbing<T> thenThrow(@NotModified Throwable... throwables) { return null; }
+        OngoingStubbing<T> thenAnswer(@IgnoreModifications Answer<?> answer) { return null; }
+        OngoingStubbing<T> then(@IgnoreModifications Answer<?> answer) { return null; }
     }
 
     //public interface BaseStubber
     class BaseStubber$ {
-        org.mockito.stubbing.Stubber doThrow(@NotModified java.lang.Throwable... toBeThrown) { return null; }
-        org.mockito.stubbing.Stubber doAnswer(@IgnoreModifications org.mockito.stubbing.Answer answer) { return null; }
-        org.mockito.stubbing.Stubber doReturn(java.lang.Object toBeReturned, @NotModified java.lang.Object... nextToBeReturned) { return null; }
+        Stubber doThrow(@NotModified Throwable... toBeThrown) { return null; }
+        Stubber doAnswer(@IgnoreModifications Answer answer) { return null; }
+        Stubber doReturn(Object toBeReturned, @NotModified Object... nextToBeReturned) { return null; }
     }
 }

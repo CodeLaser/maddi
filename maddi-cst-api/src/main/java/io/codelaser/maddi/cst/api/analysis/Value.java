@@ -20,6 +20,7 @@ package io.codelaser.maddi.cst.api.analysis;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.*;
@@ -285,7 +286,7 @@ public interface Value extends Comparable<Value> {
 
         /** the {@code value=}/{@code before=}/{@code after=} string of the annotation */
         default String markLabel() {
-            return fields().stream().sorted().collect(java.util.stream.Collectors.joining(","));
+            return fields().stream().sorted().collect(Collectors.joining(","));
         }
 
         /** two eventual values belong to the same state transition */

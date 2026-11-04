@@ -3,6 +3,7 @@ package io.codelaser.maddi.java.openjdk;
 import java.io.File;
 import java.io.IOException;
 import java.lang.module.ModuleFinder;
+import java.lang.module.ModuleReference;
 import java.net.JarURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -1029,7 +1030,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
      */
     private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+("
             + SourceSetImpl.ARCHIVE_EXTENSIONS.stream().sorted().map(Pattern::quote)
-                    .collect(java.util.stream.Collectors.joining("|"))
+                    .collect(Collectors.joining("|"))
             + "))!/.*");
 
     // javac's authoritative source-vs-binary provenance of a type. NOTE: cs.sourcefile is NOT reliable here, as
@@ -1128,9 +1129,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     private static final class SystemPackages {
         static final Map<String, String> MODULE_BY_PACKAGE = ModuleFinder.ofSystem().findAll().stream()
-                .map(java.lang.module.ModuleReference::descriptor)
+                .map(ModuleReference::descriptor)
                 .flatMap(d -> d.packages().stream().map(p -> Map.entry(p, d.name())))
-                .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue,
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue,
                         (a, b) -> a));
     }
 

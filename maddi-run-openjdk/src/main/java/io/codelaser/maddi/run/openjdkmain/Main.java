@@ -20,6 +20,7 @@ package io.codelaser.maddi.run.openjdkmain;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -597,7 +598,7 @@ public class Main {
         AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
 
         String[] analyzedDirs = cmd.getOptionValues(PRELOAD_ANALYSIS_RESULTS_DIRS);
-        List<String> stated = new java.util.ArrayList<>();
+        List<String> stated = new ArrayList<>();
         splitAndAdd(analyzedDirs, ",", stated::add);
         boolean producesHints = cmd.hasOption(ANALYSIS_RESULTS_TARGET_DIR) || cmd.hasOption(UPDATED_HINTS_DIR);
         ShippedAnalysisResults.resolve(stated, producesHints, Main.class).forEach(builder::addPreloadAnalysisResultsDirs);

@@ -20,22 +20,41 @@ package io.codelaser.maddi.cst.print.kotlin;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.IfElseStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.ModificationFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * The printer's side of nullability: verdicts (here by hand, in production maddi-mod's NullabilityPass) put the
@@ -60,17 +79,17 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
 
         /** In a call that is an operand of {@code &&}, as {@code v.m()} in {@code v != null && v.m()}. */
         @Override
-        public boolean nonNullAt(io.codelaser.maddi.cst.api.expression.Expression expression,
-                                 io.codelaser.maddi.cst.api.variable.Variable variable) {
+        public boolean nonNullAt(Expression expression,
+                                 Variable variable) {
             return checked.contains("&&" + variable.simpleName());
         }
 
         /** Known non-null in every statement but the one that checks it, as after {@code if (v == null) return;}. */
         @Override
-        public boolean nonNullAt(io.codelaser.maddi.cst.api.statement.Statement statement,
-                                 io.codelaser.maddi.cst.api.variable.Variable variable) {
+        public boolean nonNullAt(Statement statement,
+                                 Variable variable) {
             return checked.contains(variable.simpleName())
-                   && !(statement instanceof io.codelaser.maddi.cst.api.statement.IfElseStatement);
+                   && !(statement instanceof IfElseStatement);
         }
 
         /**
@@ -86,15 +105,15 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             for (int i = 0; i < 2; i++) {
                 if (!nullable.contains(name + (i == 0 ? "<>" : "<,>"))) continue;
                 ParameterizedType generic = verdict != null ? verdict : type;
-                java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(generic.parameters());
+                List<ParameterizedType> arguments = new ArrayList<>(generic.parameters());
                 arguments.set(i, arguments.get(i).withNullable(NullableState.NULLABLE));
                 verdict = generic.withParameters(arguments);
             }
             if (nullable.contains(name + "<<>>")) {
                 ParameterizedType generic = verdict != null ? verdict : type;
-                java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(generic.parameters());
+                List<ParameterizedType> arguments = new ArrayList<>(generic.parameters());
                 ParameterizedType inner = arguments.getFirst();
-                java.util.List<ParameterizedType> innerArguments = new java.util.ArrayList<>(inner.parameters());
+                List<ParameterizedType> innerArguments = new ArrayList<>(inner.parameters());
                 innerArguments.set(0, innerArguments.getFirst().withNullable(NullableState.NULLABLE));
                 arguments.set(0, inner.withParameters(innerArguments));
                 verdict = generic.withParameters(arguments);
@@ -121,7 +140,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         @Override
         public ParameterizedType reassignedParameter(ParameterInfo parameterInfo) {
             return checked.contains("=" + parameterInfo.name())
-                    ? parameterInfo.parameterizedType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
+                    ? parameterInfo.parameterizedType().withNullable(NullableState.NULLABLE)
                     : null;
         }
 
@@ -142,12 +161,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
 
         /** {@code "super:C"}: class C's superclass with a nullable first type argument. */
         @Override
-        public ParameterizedType parentClass(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo) {
+        public ParameterizedType parentClass(TypeInfo typeInfo) {
             ParameterizedType parent = typeInfo.parentClass();
             if (!nullable.contains("super:" + typeInfo.simpleName()) || parent == null || parent.parameters().isEmpty()) {
                 return null;
             }
-            java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(parent.parameters());
+            List<ParameterizedType> arguments = new ArrayList<>(parent.parameters());
             arguments.set(0, arguments.getFirst().withNullable(NullableState.NULLABLE));
             return parent.withParameters(arguments);
         }
@@ -160,7 +179,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
 
         /** {@code "<K>"} in checked: class type parameter K is non-null. */
         @Override
-        public boolean nonNullTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+        public boolean nonNullTypeParameter(TypeParameter typeParameter) {
             return checked.contains("<" + typeParameter.simpleName() + ">");
         }
 
@@ -333,7 +352,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      * {@code Strings.repeat(string, count)} stands in for the library.
      */
     @Test
-    public void nullableIntoNullMarkedLibraryParameter() throws java.io.IOException {
+    public void nullableIntoNullMarkedLibraryParameter() throws IOException {
         String kotlin = kotlinWithLibrary("""
                 package a;
                 import com.google.common.base.Strings;
@@ -351,7 +370,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      * a {@code MutableList<String>}: asserted at the add. Guava's {@code @Nullable String emptyToNull(…)} stands in.
      */
     @Test
-    public void nullableLibraryResultIntoNonNullSlot() throws java.io.IOException {
+    public void nullableLibraryResultIntoNonNullSlot() throws IOException {
         String kotlin = kotlinWithLibrary("""
                 package a;
                 import com.google.common.base.Strings;
@@ -882,7 +901,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         List<PrintMessage<KotlinPrintCode>> messages = messages(PRECONDITION.replace("class P {", "class P2 {"), options);
         List<PrintMessage<KotlinPrintCode>> preconditions = messages.stream()
                 .filter(m -> m.code() == KotlinPrintCode.PRECONDITION_NON_NULL).toList();
-        org.junit.jupiter.api.Assertions.assertEquals(List.of(3, 5), preconditions.stream().map(PrintMessage::line).distinct().sorted().toList(),
+        Assertions.assertEquals(List.of(3, 5), preconditions.stream().map(PrintMessage::line).distinct().sorted().toList(),
                 messages.toString());
         assertTrue(preconditions.stream().allMatch(m -> m.severity() == PrintMessage.Severity.BEHAVIOUR_CHANGE
                 && m.detail().equals("the NPE moves from visit's body to the call")), preconditions.toString());
@@ -2572,7 +2591,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 new KotlinPrintOptions(new ByName(Set.of(), Set.of("%text")), KotlinPrintOptions.NullCheck.ASSERT));
         List<PrintMessage<KotlinPrintCode>> replaced = messages.stream()
                 .filter(m -> m.code() == KotlinPrintCode.NULL_REJECTION_REPLACED).toList();
-        org.junit.jupiter.api.Assertions.assertEquals(1, replaced.size(), messages.toString());
+        Assertions.assertEquals(1, replaced.size(), messages.toString());
         assertTrue(replaced.getFirst().severity() == PrintMessage.Severity.BEHAVIOUR_CHANGE
                    && replaced.getFirst().line() == 4, replaced.toString());
         contains(kotlin(REJECTS_NULL.replace("class Doc", "class Doc2"),
@@ -3019,12 +3038,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      * infer X from {@code null!!}, a Nothing, and nothing else fixes it: the call writes Java's X, Object.
      */
     @Test
-    public void testSourceNullIntoTypeVariableSlotAndGenericType() throws java.io.IOException {
-        javaInspector = new io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl();
-        io.codelaser.maddi.cst.api.element.SourceSet testSourceSet = new io.codelaser.maddi.inspection.resource.SourceSetImpl.Builder()
-                .setName(io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL)
-                .setUri(java.net.URI.create("file:/")).setTest(true).build();
-        javaInspector.initialize(new io.codelaser.maddi.inspection.resource.InputConfigurationImpl.Builder()
+    public void testSourceNullIntoTypeVariableSlotAndGenericType() throws IOException {
+        javaInspector = new JavaInspectorImpl();
+        SourceSet testSourceSet = new SourceSetImpl.Builder()
+                .setName(JavaInspector.TEST_PROTOCOL)
+                .setUri(URI.create("file:/")).setTest(true).build();
+        javaInspector.initialize(new InputConfigurationImpl.Builder()
                 .addSourceSets(testSourceSet).addClassPath("jmod:java.base").build());
         javaInspector.onlyPreload();
         KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT);
@@ -3089,7 +3108,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      * its argument, {@code UnmodifiableIterator<T?>}: the null filter is Java's unchecked narrowing, cast here.
      */
     @Test
-    public void libraryNullFilterIntoNonNullElements() throws java.io.IOException {
+    public void libraryNullFilterIntoNonNullElements() throws IOException {
         String kotlin = kotlinWithLibrary("""
                 package a.b;
                 import java.util.Iterator;
@@ -3353,10 +3372,10 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 """;
         KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("items", "name", "label", "getItems()", "getName()", "next()")),
                 KotlinPrintOptions.NullCheck.ASSERT);
-        java.util.function.Consumer<io.codelaser.maddi.cst.api.info.TypeInfo> nonModifying = type -> type.methodStream()
+        Consumer<TypeInfo> nonModifying = type -> type.methodStream()
                 .filter(m -> m.name().startsWith("get"))
-                .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+                .forEach(m -> m.analysis().set(PropertyImpl.NON_MODIFYING_METHOD,
+                        ValueImpl.BoolImpl.TRUE));
         String kotlin = kotlin(source, options, nonModifying);
         contains(kotlin, "!getItems().isNullOrEmpty()");
         contains(kotlin, "other.getItems().isNullOrEmpty()");
@@ -3369,7 +3388,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "next() != null && !next()!!.isEmpty()");
         compiles(kotlin);
         // without the modification analysis, Java's two calls (the same class in a package of its own: a second parse)
-        String without = kotlin(source.replace("package a.b;", "package a.c;"), options.withModification(io.codelaser.maddi.cst.impl.analysis.ModificationFacts.NONE),
+        String without = kotlin(source.replace("package a.b;", "package a.c;"), options.withModification(ModificationFacts.NONE),
                 nonModifying);
         contains(without, "getName() != null && getName()!!.startsWith(n)");
         contains(without, "label?.contains(n) == true");
@@ -3637,10 +3656,10 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("exprents", "label", "getExprents()",
                 "getLabel()", "later()")), KotlinPrintOptions.NullCheck.ASSERT);
         String kotlin = kotlin(source, options, type -> type.recursiveSubTypeStream()
-                .flatMap(io.codelaser.maddi.cst.api.info.TypeInfo::methodStream)
+                .flatMap(TypeInfo::methodStream)
                 .filter(m -> m.name().startsWith("get"))
-                .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+                .forEach(m -> m.analysis().set(PropertyImpl.NON_MODIFYING_METHOD,
+                        ValueImpl.BoolImpl.TRUE)));
         contains(kotlin, "val exprents = stat.getExprents()\nif (exprents != null)");
         contains(kotlin, "for (e in exprents)");
         contains(kotlin, "val label = stat.getLabel()\nif (label != null)");
@@ -3694,10 +3713,10 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("constructor", "value", "getConstructor()",
                 "getValue()")), KotlinPrintOptions.NullCheck.ASSERT);
         String kotlin = kotlin(source, options, type -> type.recursiveSubTypeStream()
-                .flatMap(io.codelaser.maddi.cst.api.info.TypeInfo::methodStream)
+                .flatMap(TypeInfo::methodStream)
                 .filter(m -> !m.name().startsWith("set"))
-                .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+                .forEach(m -> m.analysis().set(PropertyImpl.NON_MODIFYING_METHOD,
+                        ValueImpl.BoolImpl.TRUE)));
         assertTrue(kotlin.indexOf("val constructor") > kotlin.indexOf("if (expected is X"), kotlin);
         // exactly: this file's contains() ignores indentation
         assertTrue(kotlin.contains("""

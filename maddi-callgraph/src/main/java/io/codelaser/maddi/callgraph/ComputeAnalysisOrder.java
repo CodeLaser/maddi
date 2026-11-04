@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.callgraph;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -73,7 +74,7 @@ public class ComputeAnalysisOrder {
         G<Info> subGraph = callGraph.subGraph(subSet, l -> l >= ComputeCallGraph.REFERENCES);
         Linearize.Result<Info> result = Linearize.linearize(subGraph, Linearize.LinearizationMode.ALL);
         Comparator<Info> cmp = Comparator.comparing(Info::fullyQualifiedName);
-        List<List<List<Info>>> waves = new java.util.ArrayList<>();
+        List<List<List<Info>>> waves = new ArrayList<>();
         for (Set<V<Info>> stratum : result.linearized().list()) {
             if (!stratum.isEmpty()) {
                 waves.add(stratum.stream().map(V::t).sorted(cmp).map(i -> (List<Info>) List.of(i)).toList());

@@ -20,6 +20,7 @@ package io.codelaser.maddi.inspection.openjdk;
 import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +56,7 @@ public class TestPerSourceSetAddExports {
             }
             """;
 
-    private static ParseResult parse(List<String> addExports) throws java.io.IOException {
+    private static ParseResult parse(List<String> addExports) throws IOException {
         JavaInspector javaInspector = new JavaInspectorImpl();
         SourceSet sourceSet = new SourceSetImpl.Builder()
                 .setName(TEST_PROTOCOL)
@@ -73,7 +74,7 @@ public class TestPerSourceSetAddExports {
 
     @DisplayName("a set that opens com.sun.tools.javac.code resolves javac's Types")
     @Test
-    public void theSetsOwnExportsReachJavac() throws java.io.IOException {
+    public void theSetsOwnExportsReachJavac() throws IOException {
         // the build's spelling, naming its own module as well: the parse compiles unnamed, so it must re-target
         ParseResult parseResult = parse(List.of("jdk.compiler/com.sun.tools.javac.code=my.module,ALL-UNNAMED"));
         TypeInfo usesTypes = parseResult.findType("p.UsesJavacTypes");
@@ -84,7 +85,7 @@ public class TestPerSourceSetAddExports {
 
     @DisplayName("CONTROL: without the export, the same unit does not resolve")
     @Test
-    public void withoutTheExportTheUnitIsDropped() throws java.io.IOException {
+    public void withoutTheExportTheUnitIsDropped() throws IOException {
         ParseResult parseResult;
         try {
             parseResult = parse(List.of());
@@ -92,7 +93,7 @@ public class TestPerSourceSetAddExports {
             return; // a refused parse is the other way of saying the same thing
         }
         TypeInfo usesTypes = parseResult.findType("p.UsesJavacTypes");
-        if (java.lang.Runtime.version().feature() < 27) {
+        if (Runtime.version().feature() < 27) {
             assertNull(usesTypes, "com.sun.tools.javac.code is not exported to the unnamed module; if this resolves,"
                                   + " the test above proves nothing");
             return;

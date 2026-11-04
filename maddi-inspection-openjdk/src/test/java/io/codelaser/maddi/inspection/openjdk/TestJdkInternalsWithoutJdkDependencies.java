@@ -3,6 +3,7 @@ package io.codelaser.maddi.inspection.openjdk;
 import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -92,7 +93,7 @@ public class TestJdkInternalsWithoutJdkDependencies {
                     .map(e -> String.valueOf(e.getMessage())).toList();
             TypeInfo t = summary.parseResult().findType("a.b.UsesInternal");
             return new Outcome(messages.isEmpty(), messages, warnings, t != null);
-        } catch (RuntimeException | java.io.IOException re) {
+        } catch (RuntimeException | IOException re) {
             return new Outcome(false, List.of(re.getClass().getSimpleName() + ": " + re.getMessage()),
                     List.of(), false);
         }

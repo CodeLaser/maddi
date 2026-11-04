@@ -20,10 +20,14 @@ package io.codelaser.maddi.cst.print.kotlin;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 /**
  * Calls and types that Kotlin writes differently: varargs given an array, raw types, type arguments a constructor
@@ -1568,7 +1572,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     static <C> int find(List<Range<C>> ranges, C c) { return Search.search(ranges, Range::lowerBound, c); }
                     static <C> Function<Range<C>, C> lower() { return Range::lowerBound; }
                 }
-                """, java.util.Map.of("b.Fn", """
+                """, Map.of("b.Fn", """
                 package b;
                 public interface Fn<F, T> { T apply(F input); }
                 """, "b.Function", """
@@ -1706,8 +1710,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(
-                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                p -> p.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER,
+                        ValueImpl.BoolImpl.TRUE))));
         contains(kotlin, "fun join(parts: Array<out Any>)");
         contains(kotlin, "fun disallow(types: Array<out java.lang.reflect.Type>)");
         contains(kotlin, "fun makeHash(hashes: Array<Any>)");

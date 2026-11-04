@@ -6,10 +6,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
@@ -238,12 +241,12 @@ public class TestReloadAddedRemoved {
 
     // ---- helpers
 
-    private static Set<String> names(java.util.Collection<TypeInfo> types) {
+    private static Set<String> names(Collection<TypeInfo> types) {
         return types.stream().map(TypeInfo::fullyQualifiedName).collect(Collectors.toSet());
     }
 
     private static Set<String> errorFiles(Summary summary) {
-        return java.util.stream.Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
+        return Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
                 .map(pe -> pe.uri() == null ? "?" : Path.of(pe.uri().getPath())
                 .getFileName().toString()).collect(Collectors.toSet());
     }
@@ -314,7 +317,7 @@ public class TestReloadAddedRemoved {
 
     private static void deleteRecursively(Path dir) throws IOException {
         try (var walk = Files.walk(dir)) {
-            walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+            walk.sorted(Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
         }
     }
 

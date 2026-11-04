@@ -22,22 +22,28 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.And;
 import io.codelaser.maddi.cst.api.expression.BinaryOperator;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.InlineConditional;
 import io.codelaser.maddi.cst.api.expression.InstanceOf;
 import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.Negation;
+import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.expression.Or;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
+import io.codelaser.maddi.cst.api.expression.UnaryOperator;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.statement.AssertStatement;
 import io.codelaser.maddi.cst.api.statement.ForStatement;
@@ -46,6 +52,7 @@ import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
 
 /**
@@ -68,7 +75,7 @@ final class KotlinSmartCasts {
      * @param scope for a {@code var}: the body it was asserted in. Kotlin does not smart-cast a var inside a lambda
      *              (which may run after an assignment); null for a val, which it smart-casts there too
      */
-    private record Fact(Statement statement, io.codelaser.maddi.cst.api.element.Source at, Object scope) {
+    private record Fact(Statement statement, Source at, Object scope) {
 
         /**
          * After the statement, or later in it than the assertion: Java evaluates left to right, and a second print of
@@ -77,7 +84,7 @@ final class KotlinSmartCasts {
         boolean holdsAt(Expression use) {
             if (scope != null && scope != KotlinContext.currentScope()) return false;
             if (statement != KotlinContext.currentStatement()) return true;
-            io.codelaser.maddi.cst.api.element.Source u = use == null ? null : use.source();
+            Source u = use == null ? null : use.source();
             if (u == null || at == null || u.isNoSource() || at.isNoSource()) return false;
             return u.beginLine() > at.endLine() || u.beginLine() == at.endLine() && u.beginPos() > at.endPos();
         }
@@ -92,9 +99,9 @@ final class KotlinSmartCasts {
      * @param statementOnly the copy prints the calls in its statement only, not those after it: the getter's field
      *                      can change, though not in the statement (CodeLaser/maddi#164)
      */
-    record Copy(String name, io.codelaser.maddi.cst.api.info.MethodInfo getter, Object receiver, ParameterizedType type,
+    record Copy(String name, MethodInfo getter, Object receiver, ParameterizedType type,
                 boolean statementOnly) {
-        boolean copies(io.codelaser.maddi.cst.api.expression.MethodCall call) {
+        boolean copies(MethodCall call) {
             return call.methodInfo() == getter && call.parameterExpressions().isEmpty() && receiver.equals(receiverKey(call));
         }
     }
@@ -103,11 +110,11 @@ final class KotlinSmartCasts {
     static final Object THIS = new Object();
 
     /** The receiver of a call as a key: its variable, {@link #THIS}, or null when it is any other expression. */
-    static Object receiverKey(io.codelaser.maddi.cst.api.expression.MethodCall call) {
+    static Object receiverKey(MethodCall call) {
         if (call.object() == null || call.objectIsImplicit()) return THIS;
         Expression object = KotlinExpressionPrinter.unwrap(call.object());
         if (object instanceof VariableExpression ve) {
-            if (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.This) return THIS;
+            if (ve.variable() instanceof This) return THIS;
             return ve.variable();
         }
         return null;
@@ -129,7 +136,7 @@ final class KotlinSmartCasts {
                          Map<Variable, ParameterizedType> types, Map<Variable, Statement> typeSources,
                          Map<Object, Statement> nonNull, Map<Copy, Statement> copies) {
         Frame(List<Statement> statements) {
-            this(statements, new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new java.util.LinkedHashMap<>());
+            this(statements, new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new LinkedHashMap<>());
         }
 
         /**
@@ -198,7 +205,7 @@ final class KotlinSmartCasts {
     }
 
     /** The copy that prints this getter call, if one was declared for the statement or before it in its block. */
-    static Copy copy(io.codelaser.maddi.cst.api.expression.MethodCall call) {
+    static Copy copy(MethodCall call) {
         if (call.methodInfo() == null || !call.parameterExpressions().isEmpty()) return null;
         for (Frame frame : FRAMES.get()) {
             for (Copy copy : frame.copies().keySet()) {
@@ -298,18 +305,18 @@ final class KotlinSmartCasts {
             case BinaryOperator bo when bo.operator() != null
                                         && (truth ? "!=" : "==").equals(bo.operator().name()) -> {
                 // x != null holds: a stable x, or a copied getter, is known non-null where it does
-                Expression tested = KotlinExpressionPrinter.unwrap(bo.rhs()) instanceof io.codelaser.maddi.cst.api.expression.NullConstant
-                        ? bo.lhs() : KotlinExpressionPrinter.unwrap(bo.lhs()) instanceof io.codelaser.maddi.cst.api.expression.NullConstant
+                Expression tested = KotlinExpressionPrinter.unwrap(bo.rhs()) instanceof NullConstant
+                        ? bo.lhs() : KotlinExpressionPrinter.unwrap(bo.lhs()) instanceof NullConstant
                         ? bo.rhs() : null;
                 Expression t = tested == null ? null : KotlinExpressionPrinter.unwrap(tested);
                 if (t instanceof VariableExpression ve && stable(ve.variable())) result.nonNull().add(ve.variable());
-                if (t instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc) {
+                if (t instanceof MethodCall mc) {
                     Copy copy = copy(mc);
                     if (copy != null) result.nonNull().add(copy);
                 }
             }
             case Negation neg -> tests(neg.expression(), !truth, result);
-            case io.codelaser.maddi.cst.api.expression.UnaryOperator uo when uo.operator() != null
+            case UnaryOperator uo when uo.operator() != null
                                                                           && "!".equals(uo.operator().name()) ->
                     tests(uo.expression(), !truth, result);
             case BinaryOperator bo when bo.operator() != null
@@ -333,7 +340,7 @@ final class KotlinSmartCasts {
     static void assertedAt(Expression e) {
         Deque<Frame> frames = FRAMES.get();
         if (frames.isEmpty() || !KotlinContext.translatingJava()) return;
-        if (KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc) {
+        if (KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc) {
             // a copy is a val: after copy!! it is non-null where the assertion dominates
             Copy copy = copy(mc);
             Statement statement = KotlinContext.currentStatement();
@@ -410,17 +417,17 @@ final class KotlinSmartCasts {
                     return false;
                 }
                 // a conjunction or disjunction in canonical order, not the evaluation's: none of it is certain
-                case io.codelaser.maddi.cst.api.expression.And and -> {
+                case And and -> {
                     return false;
                 }
-                case io.codelaser.maddi.cst.api.expression.Or or -> {
+                case Or or -> {
                     return false;
                 }
                 case VariableExpression ve -> {
                     result.add(ve);
                     return true;
                 }
-                case io.codelaser.maddi.cst.api.expression.MethodCall mc -> {
+                case MethodCall mc -> {
                     result.add(mc);
                     return true;
                 }

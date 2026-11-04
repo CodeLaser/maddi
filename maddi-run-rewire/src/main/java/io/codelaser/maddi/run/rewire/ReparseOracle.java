@@ -23,11 +23,21 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -35,6 +45,8 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
@@ -99,7 +111,7 @@ public final class ReparseOracle {
                     mi.parameters().forEach(pi -> putPrep(map, "P " + m + "#" + pi.index(), pi.analysis()));
                     if (mi.methodBody() != null) {
                         mi.methodBody().visit(e -> {
-                            if (e instanceof io.codelaser.maddi.cst.api.statement.Statement st && st.source() != null) {
+                            if (e instanceof Statement st && st.source() != null) {
                                 putPrep(map, "S " + m + "@" + st.source().index(), st.analysis());
                             }
                             return true;
@@ -116,11 +128,11 @@ public final class ReparseOracle {
     }
 
     private static void putPrep(Map<String, String> map, String key,
-                                io.codelaser.maddi.cst.api.analysis.PropertyValueMap analysis) {
+                                PropertyValueMap analysis) {
         String described = analysis.propertyValueStream()
                 .filter(pv -> pv.property().carryOnRewire()
                               || pv.property().analysisTier()
-                                 == io.codelaser.maddi.cst.api.analysis.Property.AnalysisTier.INTRINSIC)
+                                 == Property.AnalysisTier.INTRINSIC)
                 .map(pv -> pv.property().key() + "=" + pv.value())
                 .sorted().collect(Collectors.joining(", "));
         if (!described.isEmpty()) map.put(key, described);
@@ -129,9 +141,9 @@ public final class ReparseOracle {
     private static <T> void compare(String what, Map<String, T> cold, Map<String, T> warm, List<String> differences) {
         if (!cold.keySet().equals(warm.keySet())) {
             Set<String> onlyCold = cold.keySet().stream().filter(k -> !warm.containsKey(k))
-                    .collect(Collectors.toCollection(java.util.TreeSet::new));
+                    .collect(Collectors.toCollection(TreeSet::new));
             Set<String> onlyWarm = warm.keySet().stream().filter(k -> !cold.containsKey(k))
-                    .collect(Collectors.toCollection(java.util.TreeSet::new));
+                    .collect(Collectors.toCollection(TreeSet::new));
             differences.add(what + ": only in the cold parse " + onlyCold + ", only in the incremental one " + onlyWarm);
         }
         for (Map.Entry<String, T> e : cold.entrySet()) {
@@ -154,7 +166,7 @@ public final class ReparseOracle {
      TypeInfo.typesReferenced concatenates, asked one by one. Only computed for a reference found stale.
      */
     private static String whereReferenced(TypeInfo primaryType, TypeInfo reached) {
-        java.util.function.Predicate<java.util.stream.Stream<io.codelaser.maddi.cst.api.element.Element.TypeReference>>
+        Predicate<Stream<Element.TypeReference>>
                 has = stream -> stream.anyMatch(tr -> tr.typeInfo() == reached);
         List<String> where = new ArrayList<>();
         primaryType.recursiveSubTypeStream().forEach(type -> {
@@ -185,7 +197,7 @@ public final class ReparseOracle {
                     parts.add("parameters");
                 }
                 if (has.test(mi.exceptionTypes().stream().flatMap(et -> et.typesReferenced(
-                        io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT, null)))) {
+                        Element.TypeReferenceNature.EXPLICIT, null)))) {
                     parts.add("exception types");
                 }
                 where.add(m + " " + (parts.isEmpty() ? "elsewhere" : parts));
@@ -212,16 +224,16 @@ public final class ReparseOracle {
      The type every resolved javadoc tag reaches, in the javadoc and in each JavaDoc among the comments (a declaration
      holds it both ways). TypeInfo.typesReferenced does not walk the comments.
      */
-    private static void javaDocTargets(io.codelaser.maddi.cst.api.element.JavaDoc javaDoc,
-                                       List<io.codelaser.maddi.cst.api.element.Comment> comments,
-                                       java.util.function.Consumer<TypeInfo> consumer) {
-        List<io.codelaser.maddi.cst.api.element.JavaDoc> all = new ArrayList<>();
+    private static void javaDocTargets(JavaDoc javaDoc,
+                                       List<Comment> comments,
+                                       Consumer<TypeInfo> consumer) {
+        List<JavaDoc> all = new ArrayList<>();
         if (javaDoc != null) all.add(javaDoc);
-        for (io.codelaser.maddi.cst.api.element.Comment comment : comments) {
-            if (comment instanceof io.codelaser.maddi.cst.api.element.JavaDoc jd) all.add(jd);
+        for (Comment comment : comments) {
+            if (comment instanceof JavaDoc jd) all.add(jd);
         }
-        for (io.codelaser.maddi.cst.api.element.JavaDoc jd : all) {
-            for (io.codelaser.maddi.cst.api.element.JavaDoc.Tag tag : jd.tags()) {
+        for (JavaDoc jd : all) {
+            for (JavaDoc.Tag tag : jd.tags()) {
                 Object target = tag.resolvedReference();
                 if (target instanceof TypeInfo ti) consumer.accept(ti);
                 else if (target instanceof MethodInfo mi) consumer.accept(mi.typeInfo());
@@ -235,7 +247,7 @@ public final class ReparseOracle {
         Set<String> ours = parseResult.primaryTypes().stream().map(TypeInfo::fullyQualifiedName)
                 .collect(Collectors.toUnmodifiableSet());
         for (TypeInfo primaryType : parseResult.primaryTypes()) {
-            java.util.function.BiConsumer<TypeInfo, String> check = (reached, where) -> {
+            BiConsumer<TypeInfo, String> check = (reached, where) -> {
                 if (reached == null) return;
                 TypeInfo primary = reached.primaryType();
                 if (primary != null && ours.contains(primary.fullyQualifiedName())
@@ -317,11 +329,11 @@ public final class ReparseOracle {
         return map;
     }
 
-    private static String declaration(List<io.codelaser.maddi.cst.api.element.Comment> comments,
-                                      List<io.codelaser.maddi.cst.api.expression.AnnotationExpression> annotations,
-                                      io.codelaser.maddi.cst.api.element.JavaDoc javaDoc,
-                                      io.codelaser.maddi.cst.api.type.ParameterizedType type,
-                                      io.codelaser.maddi.cst.api.element.Source source) {
+    private static String declaration(List<Comment> comments,
+                                      List<AnnotationExpression> annotations,
+                                      JavaDoc javaDoc,
+                                      ParameterizedType type,
+                                      Source source) {
         StringBuilder sb = new StringBuilder();
         sb.append(comments.size()).append(" comment(s); annotations ")
                 .append(annotations.stream().map(a -> a.typeInfo().fullyQualifiedName()).toList());
@@ -335,7 +347,7 @@ public final class ReparseOracle {
          nothing here (InfoMapView#rewired).
          */
         if (type != null && source != null && source.detailedSources() != null) {
-            io.codelaser.maddi.cst.api.element.Source typeSource = source.detailedSources().detail(type);
+            Source typeSource = source.detailedSources().detail(type);
             sb.append("; type at ").append(typeSource == null ? "-" : typeSource.compact2());
         }
         if (javaDoc == null) {

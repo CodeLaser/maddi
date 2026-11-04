@@ -17,6 +17,7 @@
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
 import io.codelaser.maddi.annotation.NotModified;
+import kotlin.reflect.KClass;
 
 /**
  * The annotated API for {@code kotlin.jvm}: the bridge between a {@code KClass} and its {@code java.lang.Class}.
@@ -35,11 +36,11 @@ public class KotlinJvm {
     public val <T : Any> Class<T>.kotlin: KClass<T>      @get:JvmName("getKotlinClass")
     */
     class JvmClassMappingKt$ {
-        static <T> Class<T> getJavaClass(@NotModified kotlin.reflect.KClass<T> receiver) {
+        static <T> Class<T> getJavaClass(@NotModified KClass<T> receiver) {
             return null;
         }
 
-        static <T> kotlin.reflect.KClass<T> getKotlinClass(@NotModified Class<T> receiver) {
+        static <T> KClass<T> getKotlinClass(@NotModified Class<T> receiver) {
             return null;
         }
     }

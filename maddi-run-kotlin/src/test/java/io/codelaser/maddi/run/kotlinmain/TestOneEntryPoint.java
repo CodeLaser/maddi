@@ -25,11 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -49,7 +51,7 @@ import io.codelaser.maddi.run.config.util.JsonStreaming;
  */
 public class TestOneEntryPoint {
 
-    private static Set<String> longOptions(org.apache.commons.cli.Options options) {
+    private static Set<String> longOptions(Options options) {
         return options.getOptions().stream().map(Option::getLongOpt).collect(Collectors.toUnmodifiableSet());
     }
 
@@ -171,7 +173,7 @@ public class TestOneEntryPoint {
     }
 
     private static String[] concat(String[] first, String... rest) {
-        String[] all = java.util.Arrays.copyOf(first, first.length + rest.length);
+        String[] all = Arrays.copyOf(first, first.length + rest.length);
         System.arraycopy(rest, 0, all, first.length, rest.length);
         return all;
     }
