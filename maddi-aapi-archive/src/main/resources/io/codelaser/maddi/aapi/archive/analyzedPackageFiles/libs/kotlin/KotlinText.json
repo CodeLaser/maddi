@@ -119,7 +119,7 @@
   {"name": "P$this$equals(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pother(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PignoreCase(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MgetCASE_INSENSITIVE_ORDER(15,kotlin.jvm.internal.StringCompanionObject)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MgetCASE_INSENSITIVE_ORDER(15,kotlin.jvm.internal.StringCompanionObject)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$CASE_INSENSITIVE_ORDER(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
  {"name": "MregionMatches(16,java.lang.CharSequence,int,java.lang.CharSequence,int,int,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$regionMatches(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},

@@ -293,7 +293,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}}]},
 
 {"name": "Tjava.time.chrono.HijrahDate", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
- {"name": "MatTime(0,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MatTime(0,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mequals(1,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
@@ -340,7 +340,7 @@
   {"name": "Parg0(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}}}]},
 
 {"name": "Tjava.time.chrono.JapaneseDate", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
- {"name": "MatTime(0,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MatTime(0,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mequals(1,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
@@ -391,7 +391,7 @@
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}]},
 
 {"name": "Tjava.time.chrono.MinguoDate", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
- {"name": "MatTime(0,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MatTime(0,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mequals(1,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
@@ -434,7 +434,7 @@
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}]},
 
 {"name": "Tjava.time.chrono.ThaiBuddhistDate", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
- {"name": "MatTime(0,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MatTime(0,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mequals(1,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
