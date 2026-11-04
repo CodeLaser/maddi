@@ -18,9 +18,6 @@
 package io.codelaser.maddi.cst.impl.output;
 
 
-import io.codelaser.maddi.cst.api.output.OutputBuilder;
-import io.codelaser.maddi.cst.api.output.OutputElement;
-
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -30,6 +27,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.OutputElement;
 
 public class OutputBuilderImpl implements OutputBuilder {
 

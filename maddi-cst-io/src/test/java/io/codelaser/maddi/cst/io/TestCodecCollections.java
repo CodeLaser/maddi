@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.cst.io;
 
-import io.codelaser.maddi.cst.api.analysis.Codec;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.analysis.Codec;
 
 /**
  * Robustness tests for the structural layer of {@link CodecImpl}: list / set / map / mapAsList encoding and

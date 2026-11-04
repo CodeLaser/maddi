@@ -1,17 +1,18 @@
 package io.codelaser.maddi.inspection.openjdk;
 
+import java.net.URI;
+import java.util.*;
+import java.util.concurrent.atomic.LongAdder;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.net.URI;
-import java.util.*;
-import java.util.concurrent.atomic.LongAdder;
 
 // important: this class should not retain any references to OpenJDK structures
 public class CompiledTypesManagerImpl implements CompiledTypesManager {

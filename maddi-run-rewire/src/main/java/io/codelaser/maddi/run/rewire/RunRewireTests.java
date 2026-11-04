@@ -17,6 +17,18 @@
 
 package io.codelaser.maddi.run.rewire;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.callgraph.PrimaryTypeUseGraph;
 import io.codelaser.maddi.cst.api.info.Info;
@@ -26,17 +38,6 @@ import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.Supplier;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 
 /**
  * The rewire driver: edit a randomly chosen source file on disk, ask the inspector what changed, re-parse with the

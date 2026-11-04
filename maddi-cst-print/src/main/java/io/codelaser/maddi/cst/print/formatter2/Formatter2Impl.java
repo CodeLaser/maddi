@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.print.formatter2;
 
+import java.util.*;
+
 import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.OutputElement;
 import io.codelaser.maddi.cst.api.output.element.Guide;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
-
-import java.util.*;
 
 /*
  Block structure: fully recursive

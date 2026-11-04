@@ -17,6 +17,15 @@
 
 package io.codelaser.maddi.parser.java;
 
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -33,14 +42,6 @@ import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.inspection.api.parser.*;
 import io.codelaser.maddi.parser.java.erasure.LambdaErasure;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class ParseLambdaExpression extends CommonParse {
     private static final Logger LOGGER = LoggerFactory.getLogger(ParseLambdaExpression.class);

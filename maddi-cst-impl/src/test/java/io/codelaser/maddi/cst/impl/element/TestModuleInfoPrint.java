@@ -17,17 +17,17 @@
 
 package io.codelaser.maddi.cst.impl.element;
 
-import io.codelaser.maddi.cst.api.element.ModuleInfo;
-import io.codelaser.maddi.cst.api.output.Qualification;
-import io.codelaser.maddi.cst.impl.output.QualificationImpl;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.output.QualificationImpl;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 
 /**
  * Every module directive used to answer {@code print(Qualification)} with {@code null}, so the only way to produce

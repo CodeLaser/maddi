@@ -17,7 +17,9 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
+import java.util.*;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
@@ -35,9 +37,7 @@ import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
-
-import java.util.*;
-import java.util.stream.Stream;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 /**
  * Prints a {@link Statement} as Kotlin: no semicolons, {@code val}/{@code var}, and every Java statement form

@@ -1,8 +1,8 @@
 package io.codelaser.maddi.inspection.integration;
 
-import io.codelaser.maddi.inspection.resource.AnalyzedApiClassPath;
-
 import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
+
+import io.codelaser.maddi.inspection.resource.AnalyzedApiClassPath;
 
 public class ToolChain {
 

@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -24,7 +30,6 @@ import io.codelaser.maddi.cst.api.element.Visitor;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Precedence;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -41,12 +46,6 @@ import io.codelaser.maddi.cst.impl.output.GuideImpl;
 import io.codelaser.maddi.cst.impl.output.KeywordImpl;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class SwitchExpressionImpl extends ExpressionImpl implements SwitchExpression {
     private final Expression selector;

@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.element;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
+
+import org.jetbrains.annotations.NotNull;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.SingleLineComment;
@@ -27,11 +33,6 @@ import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.output.QualificationImpl;
 import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Stream;
 
 public abstract class ElementImpl implements Element {
 

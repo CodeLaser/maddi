@@ -16,13 +16,14 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.NotModified;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.zip.ZipEntry;
-import io.codelaser.maddi.annotation.Nullable;
+
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaUtilZip {
     public static final String PACKAGE_NAME = "java.util.zip";

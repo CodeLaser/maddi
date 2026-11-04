@@ -17,12 +17,17 @@
 
 package io.codelaser.maddi.cst.api.type;
 
-import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
@@ -30,13 +35,6 @@ import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.runtime.Predefined;
 import io.codelaser.maddi.cst.api.runtime.PredefinedWithoutParameterizedType;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Stream;
 
 public interface ParameterizedType {
 

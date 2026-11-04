@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
 import io.codelaser.maddi.cst.api.expression.ClassExpression;
@@ -31,9 +34,6 @@ import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.List;
-import java.util.Set;
 
 /**
  * A declaration's Java annotations, as Kotlin writes them: {@code @Timeout(value = 60, unit = TimeUnit.SECONDS)},

@@ -1,7 +1,8 @@
 package io.codelaser.maddi.java.openjdk;
 
-import javax.tools.SimpleJavaFileObject;
 import java.net.URI;
+
+import javax.tools.SimpleJavaFileObject;
 
 public class InMemoryJavaFileObject extends SimpleJavaFileObject {
     private final String source;

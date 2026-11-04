@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.info.Variance;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.type.TypeParameterImpl;
-
-import java.util.ArrayList;
-import java.util.List;
 
 // Note: we store the bounds as separate types, rather than as an intersection type
 public class TypeParameterInspectionImpl extends InspectionImpl implements TypeParameterInspection {

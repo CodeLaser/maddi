@@ -20,11 +20,11 @@ import java.io.InputStream;
 import java.net.*;
 import java.nio.charset.Charset;
 
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.ImmutableContainer;
-import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaNet {
     public static final String PACKAGE_NAME = "java.net";

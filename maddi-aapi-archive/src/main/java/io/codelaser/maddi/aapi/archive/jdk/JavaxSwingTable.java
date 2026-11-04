@@ -16,13 +16,14 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.Commutable;
-
 import java.beans.PropertyChangeListener;
+
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
+
+import io.codelaser.maddi.annotation.Commutable;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
 
 public class JavaxSwingTable {
     public static final String PACKAGE_NAME = "javax.swing.table";

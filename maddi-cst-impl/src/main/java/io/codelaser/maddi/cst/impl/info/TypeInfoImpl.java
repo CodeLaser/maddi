@@ -17,7 +17,15 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
-import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -33,21 +41,13 @@ import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
 import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.translate.TranslationMapImpl;
 import io.codelaser.maddi.cst.impl.type.ParameterizedTypeImpl;
 import io.codelaser.maddi.cst.impl.type.TypeParameterImpl;
 import io.codelaser.maddi.support.Either;
 import io.codelaser.maddi.support.EventuallyFinalOnDemand;
-
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
 
 public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     public static final String JAVA_LANG_OBJECT = "java.lang.Object";

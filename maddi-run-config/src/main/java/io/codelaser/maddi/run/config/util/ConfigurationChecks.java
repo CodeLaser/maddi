@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.run.config.util;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
 
 /**
  * What must be true of an {@link io.codelaser.maddi.inspection.api.resource.InputConfiguration} before anything

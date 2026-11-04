@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.api.runtime;
 
-import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.variable.Variable;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 /*
 All recursion takes place in sortAndSimplify, when required.

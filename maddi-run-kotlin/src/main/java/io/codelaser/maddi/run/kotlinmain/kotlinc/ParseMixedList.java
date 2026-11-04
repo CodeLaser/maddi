@@ -1,12 +1,5 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import io.codelaser.maddi.run.config.compile.CompileInvocation;
-import io.codelaser.maddi.run.config.javac.Javac;
-import io.codelaser.maddi.run.config.javac.ParseJavacList;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -16,6 +9,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
+import io.codelaser.maddi.run.config.javac.Javac;
+import io.codelaser.maddi.run.config.javac.ParseJavacList;
 
 /**
  * Phase 5 — one build log, both compilers. Reads a single log that contains {@code javac} <i>and</i>

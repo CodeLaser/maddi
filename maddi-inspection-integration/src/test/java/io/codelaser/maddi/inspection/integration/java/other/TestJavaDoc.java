@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.inspection.integration.java.other;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.List;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -24,12 +31,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestJavaDoc extends CommonTest {
     @Language("java")

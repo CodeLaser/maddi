@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.cst.impl.element;
 
-import io.codelaser.maddi.cst.api.element.DetailedSources;
-import io.codelaser.maddi.cst.api.element.Source;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
 
 /**
  * A built {@link DetailedSources} owns its state (#51): before, {@code build()} handed over the builder's maps and

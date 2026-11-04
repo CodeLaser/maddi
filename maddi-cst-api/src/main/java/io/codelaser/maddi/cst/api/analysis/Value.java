@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.cst.api.analysis;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
@@ -24,10 +28,6 @@ import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.util.ParSeq;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public interface Value extends Comparable<Value> {
     Codec.EncodedValue encode(Codec codec, Codec.Context context);

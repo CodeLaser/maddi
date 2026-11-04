@@ -17,17 +17,17 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
-import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
-import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
-import io.codelaser.maddi.cst.api.info.*;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.impl.statement.BlockImpl;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
+import io.codelaser.maddi.cst.impl.statement.BlockImpl;
 
 /*
 BASIC RULE OF REWIRING: the fqn stays the same, as does the (name of the) source set.

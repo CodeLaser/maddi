@@ -17,11 +17,12 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.kotlin.realm.K2Realm;
+import java.io.UncheckedIOException;
+
 import org.junit.platform.launcher.LauncherSession;
 import org.junit.platform.launcher.LauncherSessionListener;
 
-import java.io.UncheckedIOException;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
 
 /**
  * <b>Installs the K2 realm once, for every test in this module.</b> The Kotlin compiler is not on this JVM's

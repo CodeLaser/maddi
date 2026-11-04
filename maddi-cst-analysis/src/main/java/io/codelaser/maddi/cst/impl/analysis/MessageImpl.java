@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.Info;
-
-import java.util.List;
 
 public record MessageImpl(Source source, Info info, Level level, String message, String category,
                           List<Message> causes) implements Message {

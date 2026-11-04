@@ -16,14 +16,15 @@
  */
 package io.codelaser.maddi.run.openjdkmain;
 
-import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 
 /*
  The KotlinConf scoreboard (CodeLaser/maddi-mod#36): a Java -> Kotlin translation made elsewhere, IntelliJ J2K's,

@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
@@ -35,10 +38,6 @@ import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.analysis.LinkFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 

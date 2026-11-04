@@ -17,13 +17,6 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
-import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
-import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,6 +24,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
 /**
  * Java to Kotlin for a list of types: each compilation unit as a {@code .kt} file under a directory, by package. What

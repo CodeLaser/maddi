@@ -17,15 +17,6 @@
 
 package io.codelaser.maddi.callgraph;
 
-import io.codelaser.maddi.cst.api.info.Info;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
-import io.codelaser.maddi.inspection.api.byname.ByNameReference;
-import io.codelaser.maddi.inspection.api.byname.ByNameSink;
-import io.codelaser.maddi.inspection.api.parser.ParseResult;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +26,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
+
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
+import io.codelaser.maddi.inspection.api.byname.ByNameReference;
+import io.codelaser.maddi.inspection.api.byname.ByNameSink;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
 
 /**
  * The call graph kept per primary type, across runs: each primary type's vertices, edges and recursive methods are

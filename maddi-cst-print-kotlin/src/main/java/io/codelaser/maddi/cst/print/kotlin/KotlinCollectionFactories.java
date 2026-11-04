@@ -16,6 +16,10 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -23,10 +27,6 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Java's immutable collection factories as Kotlin's (CodeLaser/maddi#141): {@code List.of(a, b)} is

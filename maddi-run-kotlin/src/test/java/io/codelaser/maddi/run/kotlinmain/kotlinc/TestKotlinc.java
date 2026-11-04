@@ -1,16 +1,17 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
 
 /**
  * Phase 1–3 coverage for the kotlinc source-set reconstruction: the {@link Kotlinc} tokenizer, the shared

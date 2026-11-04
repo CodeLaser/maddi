@@ -17,15 +17,13 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.run.config.Configuration;
-import io.codelaser.maddi.run.config.report.ErrorReport;
-import io.codelaser.maddi.run.config.report.ExitCode;
-import io.codelaser.maddi.run.config.util.JsonStreaming;
-import io.codelaser.maddi.run.kotlinmain.kotlinc.ParseMixedList;
-import io.codelaser.maddi.run.openjdkmain.RunAnalyzer;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
-import io.codelaser.maddi.kotlin.realm.K2Realm;
+import static io.codelaser.maddi.run.openjdkmain.Main.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -34,12 +32,15 @@ import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
-import static io.codelaser.maddi.run.openjdkmain.Main.*;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.report.ErrorReport;
+import io.codelaser.maddi.run.config.report.ExitCode;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.run.kotlinmain.kotlinc.ParseMixedList;
+import io.codelaser.maddi.run.openjdkmain.RunAnalyzer;
 
 /**
  * <b>The mixed Java+Kotlin CLI — one entry point, not a second tool.</b> It takes the <i>same</i> command line

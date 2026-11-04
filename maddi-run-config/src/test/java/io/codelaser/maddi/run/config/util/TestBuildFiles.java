@@ -17,20 +17,22 @@
 
 package io.codelaser.maddi.run.config.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.codelaser.maddi.inspection.api.resource.BuildFiles;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 
 /** The build files an input configuration declares, hashed at capture time, and their JSON ({@link BuildFiles}). */
 public class TestBuildFiles {

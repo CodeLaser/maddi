@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.cst.api.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
-
-import java.util.List;
 
 /**
  * Boolean conjunction of two or more operands ({@code a && b && ...}). Modelled as a flat list rather

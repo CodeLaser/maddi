@@ -16,11 +16,26 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.And;
 import io.codelaser.maddi.cst.api.expression.BinaryOperator;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.InlineConditional;
+import io.codelaser.maddi.cst.api.expression.InstanceOf;
 import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.Negation;
+import io.codelaser.maddi.cst.api.expression.Or;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -29,25 +44,9 @@ import io.codelaser.maddi.cst.api.statement.ForStatement;
 import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.TryStatement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import io.codelaser.maddi.cst.api.expression.And;
-import io.codelaser.maddi.cst.api.expression.InstanceOf;
-import io.codelaser.maddi.cst.api.expression.Negation;
-import io.codelaser.maddi.cst.api.expression.Or;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.ArrayDeque;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Supplier;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Set;
 
 /**
  * Kotlin smart-casts a {@code val} to non-null after {@code x!!}, in all the code that assertion dominates: the

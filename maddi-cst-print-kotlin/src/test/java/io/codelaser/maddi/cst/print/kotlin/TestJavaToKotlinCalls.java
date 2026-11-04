@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
 
 /**
  * Calls and types that Kotlin writes differently: varargs given an array, raw types, type arguments a constructor

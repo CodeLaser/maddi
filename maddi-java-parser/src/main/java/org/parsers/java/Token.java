@@ -20,11 +20,12 @@
 */
 package org.parsers.java;
 
-import org.parsers.java.ast.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+
+import org.parsers.java.ast.*;
 
 public class Token implements CharSequence, Node.TerminalNode { 
 

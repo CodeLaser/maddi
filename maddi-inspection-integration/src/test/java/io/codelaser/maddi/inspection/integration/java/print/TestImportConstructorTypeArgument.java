@@ -17,18 +17,19 @@
 
 package io.codelaser.maddi.inspection.integration.java.print;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.util.Map;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.integration.java.CommonTest2;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The type arguments written in a constructor call, {@code new Box<Sol>(4)}, are printed, so they need their imports

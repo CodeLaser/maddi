@@ -18,6 +18,15 @@
 package io.codelaser.maddi.inspection.api.integration;
 
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
@@ -31,15 +40,6 @@ import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
-
-import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
 
 /*
 Unless you have very good reasons not to, please use the openjdk implementation of the JavaInspector.

@@ -17,21 +17,21 @@
 
 package io.codelaser.maddi.graph.op;
 
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.ImmutableGraph;
-import io.codelaser.maddi.graph.V;
-import io.codelaser.maddi.graph.analyzer.TypeGraphIO;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
+import io.codelaser.maddi.graph.V;
+import io.codelaser.maddi.graph.analyzer.TypeGraphIO;
 
 public class TestShortestCycleDijkstra {
 

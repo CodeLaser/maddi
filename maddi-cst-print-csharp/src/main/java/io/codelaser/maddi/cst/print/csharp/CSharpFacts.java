@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.function.Predicate;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -25,8 +27,6 @@ import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
-
-import java.util.function.Predicate;
 
 /**
  * What the analysis knows about the program, for the C# the printer chooses: the modification analysis's verdicts

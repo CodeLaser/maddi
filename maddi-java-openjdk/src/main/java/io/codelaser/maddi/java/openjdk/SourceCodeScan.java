@@ -1,9 +1,9 @@
 package io.codelaser.maddi.java.openjdk;
 
-import io.codelaser.maddi.cst.api.element.Comment;
-import io.codelaser.maddi.cst.api.element.DetailedSources;
-import io.codelaser.maddi.cst.api.element.Source;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
+import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import org.jetbrains.annotations.Nullable;
 import org.parsers.java.JavaParser;
 import org.parsers.java.Node;
@@ -12,9 +12,10 @@ import org.parsers.java.ast.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 
 public final class SourceCodeScan {
     private static final Logger LOGGER = LoggerFactory.getLogger(SourceCodeScan.class);

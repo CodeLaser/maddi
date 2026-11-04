@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 
 /**
  * The whole-program policies ({@link CSharpProgram.Policy}) besides the default: functional interfaces as adapters,

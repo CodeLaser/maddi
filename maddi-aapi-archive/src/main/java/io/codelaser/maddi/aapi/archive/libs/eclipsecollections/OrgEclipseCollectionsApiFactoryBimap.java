@@ -1,8 +1,10 @@
 package io.codelaser.maddi.aapi.archive.libs.eclipsecollections;
 import java.util.Map;
+
 import org.eclipse.collections.api.bimap.ImmutableBiMap;
 import org.eclipse.collections.api.bimap.MutableBiMap;
 import org.eclipse.collections.api.map.ImmutableMap;
+
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;

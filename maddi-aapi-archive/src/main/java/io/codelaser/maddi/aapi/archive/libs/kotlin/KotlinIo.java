@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
-
 import java.io.File;
 import java.nio.charset.Charset;
 import java.util.List;
+
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
 
 /**
  * The annotated API for {@code kotlin.io}: reading a file through a {@link File} leaves the File object as it

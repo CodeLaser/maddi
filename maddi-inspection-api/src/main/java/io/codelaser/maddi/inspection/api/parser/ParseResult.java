@@ -17,15 +17,15 @@
 
 package io.codelaser.maddi.inspection.api.parser;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /*
 result of successful parsing.

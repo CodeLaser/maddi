@@ -2,6 +2,7 @@ package io.codelaser.maddi.aapi.archive.libs.eclipsecollections;
 import java.util.Collection;
 import java.util.Spliterator;
 import java.util.stream.Stream;
+
 import org.eclipse.collections.api.bag.ImmutableBag;
 import org.eclipse.collections.api.bag.MutableBag;
 import org.eclipse.collections.api.block.function.*;
@@ -25,15 +26,12 @@ import org.eclipse.collections.api.partition.PartitionImmutableCollection;
 import org.eclipse.collections.api.partition.PartitionMutableCollection;
 import org.eclipse.collections.api.tuple.Pair;
 import org.eclipse.collections.api.tuple.Twin;
+
 import io.codelaser.maddi.annotation.Container;
-import io.codelaser.maddi.annotation.FinalFields;
-import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
 @Independent(absent = true)
 public class OrgEclipseCollectionsApiCollection {
     public static final String PACKAGE_NAME = "org.eclipse.collections.api.collection";

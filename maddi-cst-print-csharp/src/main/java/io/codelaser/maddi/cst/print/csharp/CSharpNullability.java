@@ -38,8 +38,6 @@ import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 
-import java.util.List;
-
 /**
  * Where C#'s nullable reference types need a {@code !}: when the analysis's facts say the program's nullability is
  * known ({@link CSharpFacts#nullabilityAnalysed}), a dereference of a value that may be null is {@code x!.m()}. Java

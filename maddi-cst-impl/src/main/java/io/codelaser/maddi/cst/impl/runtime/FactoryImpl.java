@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.cst.impl.runtime;
 
+import java.util.*;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collector;
+
+import org.jetbrains.annotations.Nullable;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.*;
@@ -47,13 +55,6 @@ import io.codelaser.maddi.cst.impl.type.*;
 import io.codelaser.maddi.cst.impl.variable.*;
 import io.codelaser.maddi.support.Either;
 import io.codelaser.maddi.util.IntUtil;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.*;
-import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collector;
 
 public class FactoryImpl extends PredefinedImpl implements Factory {
 

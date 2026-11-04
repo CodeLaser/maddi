@@ -17,6 +17,15 @@
 
 package io.codelaser.maddi.parser.java;
 
+import java.util.List;
+import java.util.Set;
+
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.Identifier;
+import org.parsers.java.ast.ObjectType;
+import org.parsers.java.ast.Type;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -28,14 +37,6 @@ import io.codelaser.maddi.inspection.api.parser.ForwardType;
 import io.codelaser.maddi.inspection.api.parser.MethodResolution;
 import io.codelaser.maddi.parser.java.erasure.LambdaErasure;
 import io.codelaser.maddi.support.Either;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.Identifier;
-import org.parsers.java.ast.ObjectType;
-import org.parsers.java.ast.Type;
-
-import java.util.List;
-import java.util.Set;
 
 public class ParseMethodReference extends CommonParse {
 

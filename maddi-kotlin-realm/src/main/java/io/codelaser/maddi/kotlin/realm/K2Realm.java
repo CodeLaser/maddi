@@ -17,11 +17,6 @@
 
 package io.codelaser.maddi.kotlin.realm;
 
-import io.codelaser.maddi.kotlin.api.KotlinFrontEnd;
-import org.codehaus.plexus.classworlds.ClassWorld;
-import org.codehaus.plexus.classworlds.realm.ClassRealm;
-import org.codehaus.plexus.classworlds.realm.DuplicateRealmException;
-
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
@@ -29,6 +24,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.codehaus.plexus.classworlds.ClassWorld;
+import org.codehaus.plexus.classworlds.realm.ClassRealm;
+import org.codehaus.plexus.classworlds.realm.DuplicateRealmException;
+
+import io.codelaser.maddi.kotlin.api.KotlinFrontEnd;
 
 /**
  * <b>A classloader of its own for the Kotlin front end.</b> {@code kotlin-compiler-2.4.0.jar} is 61.9 MB and

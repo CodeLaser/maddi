@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.expression.eval;
 
+import java.util.Arrays;
+
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.util.IntUtil;
-
-import java.util.Arrays;
 
 public class EvalInequality {
     private final Runtime runtime;

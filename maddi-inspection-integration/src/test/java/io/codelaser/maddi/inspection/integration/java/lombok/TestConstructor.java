@@ -17,18 +17,19 @@
 
 package io.codelaser.maddi.inspection.integration.java.lombok;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.NoSuchElementException;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.util.NoSuchElementException;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestConstructor extends CommonTest {
 

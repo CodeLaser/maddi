@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.expression.DoubleConstant;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.GreaterThanZero;
 import io.codelaser.maddi.cst.api.expression.IntConstant;
 import io.codelaser.maddi.util.IntUtil;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestInequality extends CommonTest {
 

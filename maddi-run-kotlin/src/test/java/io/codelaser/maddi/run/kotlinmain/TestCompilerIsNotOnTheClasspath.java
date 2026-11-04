@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.kotlin.api.KotlinFrontEnds;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
+import io.codelaser.maddi.kotlin.api.KotlinFrontEnds;
 
 /**
  * ⭐ <b>What makes every other test in this module evidence for the isolation.</b> The corpus runs here parse

@@ -17,15 +17,15 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
-import io.codelaser.maddi.cst.api.element.Comment;
-import io.codelaser.maddi.cst.api.info.*;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.api.type.TypeNature;
-
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.TypeNature;
 
 public interface TypeInspection extends Inspection {
 

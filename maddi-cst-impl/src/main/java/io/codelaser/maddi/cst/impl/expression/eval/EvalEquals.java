@@ -17,14 +17,13 @@
 
 package io.codelaser.maddi.cst.impl.expression.eval;
 
-import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.expression.EqualsImpl;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.expression.EqualsImpl;
 
 public class EvalEquals {
     private final Runtime runtime;

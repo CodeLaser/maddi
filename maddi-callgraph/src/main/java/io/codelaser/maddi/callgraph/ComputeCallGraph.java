@@ -18,6 +18,19 @@
 package io.codelaser.maddi.callgraph;
 
 
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.RECURSIVE_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
@@ -35,25 +48,12 @@ import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
 import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
 import io.codelaser.maddi.inspection.api.byname.ByNameReference;
 import io.codelaser.maddi.inspection.api.byname.ByNameSink;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.ImmutableGraph;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Predicate;
-
-import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.RECURSIVE_METHOD;
-import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 
 /*
 call & reference graphs.

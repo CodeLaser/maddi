@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -27,10 +31,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
-
-import java.util.List;
-import java.util.Set;
-import java.util.function.Function;
 
 /**
  * What the SOURCE says about nullability: the null annotations written on a declaration and on the type arguments

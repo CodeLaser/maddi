@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.api.info;
 
-import io.codelaser.maddi.cst.api.type.NamedType;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 public interface ComputeMethodOverrides {
     /*

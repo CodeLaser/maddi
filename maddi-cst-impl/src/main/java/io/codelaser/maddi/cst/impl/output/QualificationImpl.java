@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.output;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -25,11 +30,6 @@ import io.codelaser.maddi.cst.api.output.TypeNameRequired;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 public class QualificationImpl implements Qualification {
     public static final Qualification FULLY_QUALIFIED_NAMES = new QualificationImpl(false, TypeNameImpl.Required.FQN, null);

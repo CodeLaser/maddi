@@ -17,6 +17,19 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.function.BooleanSupplier;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.InstanceOf;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -26,18 +39,6 @@ import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.impl.expression.eval.EvalSwitches;
 import io.codelaser.maddi.cst.impl.expression.util.AndOrSorter;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
-import java.util.function.BooleanSupplier;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * The structural answer to isNegationOf for an And against an Or (gate NOSTRUCTNEG), the per-operation negation

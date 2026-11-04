@@ -16,9 +16,6 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import io.codelaser.maddi.annotation.*;
-import io.codelaser.maddi.annotation.method.GetSet;
-
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -35,6 +32,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.BiPredicate;
 import java.util.function.Supplier;
+
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.method.GetSet;
 
 public class JavaNetHttp {
     public static final String PACKAGE_NAME = "java.net.http";

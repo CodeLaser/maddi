@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.cst.impl.expression.eval;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Objects;
+
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.expression.*;
@@ -24,10 +28,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.impl.expression.NegationImpl;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
 
 public class EvalNegation {
     private final Runtime runtime;

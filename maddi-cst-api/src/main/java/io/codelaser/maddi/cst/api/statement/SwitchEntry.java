@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
+import java.util.Collection;
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
-
-import java.util.Collection;
-import java.util.List;
 
 /**
  * One arm of an arrow-form switch ({@link SwitchStatementNewStyle}): the labels on the left of the

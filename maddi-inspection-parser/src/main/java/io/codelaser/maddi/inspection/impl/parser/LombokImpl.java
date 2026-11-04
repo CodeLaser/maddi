@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.inspection.impl.parser;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.*;
@@ -30,13 +38,6 @@ import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.inspection.api.parser.Lombok;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.util.GetSetNames;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesManager) implements Lombok {
     private static final String LOMBOK_DOT = "lombok.";

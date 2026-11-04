@@ -16,13 +16,13 @@
  */
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
-
 import java.nio.charset.Charset;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
+
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
 
 /**
  * The annotated API for {@code kotlin.io.path}: like {@link KotlinIo}, a Path only names a file, and writing or

@@ -1,9 +1,9 @@
 package io.codelaser.maddi.java.openjdk;
 
+import java.util.function.Function;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-
-import java.util.function.Function;
 
 /**
  * A second front end's share of the parse of ONE source set, when that set's Java sources and another language's

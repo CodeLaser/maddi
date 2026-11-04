@@ -17,16 +17,15 @@
 
 package io.codelaser.maddi.parser.java.util;
 
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
-import org.parsers.java.ast.StringLiteral;
-
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public record TextBlockParser(Runtime runtime) {
     private static final Pattern START = Pattern.compile("^\"\"\"[\t ]*\n", Pattern.MULTILINE);

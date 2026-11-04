@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.element.Comment;
@@ -24,7 +29,6 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.element.Visitor;
 import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -43,11 +47,6 @@ import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
 import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.type.DiamondEnum;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class MethodCallImpl extends ExpressionImpl implements MethodCall {
     private final Expression object;

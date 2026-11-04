@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.inspection.integration.java.example;
 
+import static io.codelaser.maddi.inspection.integration.java.example.Annotations_2.XX;
+
 import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resource;
 import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resources;
-
-import static io.codelaser.maddi.inspection.integration.java.example.Annotations_2.XX;
 
 // this file is here only to show that we can use a static import for XX!
 // see TestAnnotations, INPUT3

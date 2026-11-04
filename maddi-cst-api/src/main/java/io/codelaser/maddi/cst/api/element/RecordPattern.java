@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.api.element;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
-
-import java.util.List;
 
 /**
  * Represents a pattern used in an {@code instanceof} type test or a {@code switch} entry.

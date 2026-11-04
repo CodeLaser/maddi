@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.api.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -27,8 +29,6 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
 
 /**
  * A lambda expression, {@code (params) -> body}. It is represented through a synthetic

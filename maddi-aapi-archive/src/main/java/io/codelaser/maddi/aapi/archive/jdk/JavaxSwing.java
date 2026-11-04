@@ -16,10 +16,6 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.Commutable;
-
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.print.Printable;
@@ -27,6 +23,7 @@ import java.text.MessageFormat;
 import java.util.Collection;
 import java.util.EventObject;
 import java.util.Vector;
+
 import javax.accessibility.AccessibleContext;
 import javax.print.PrintService;
 import javax.print.attribute.PrintRequestAttributeSet;
@@ -34,6 +31,10 @@ import javax.swing.*;
 import javax.swing.event.*;
 import javax.swing.plaf.*;
 import javax.swing.table.*;
+
+import io.codelaser.maddi.annotation.Commutable;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
 
 public class JavaxSwing {
     public static final String PACKAGE_NAME = "javax.swing";

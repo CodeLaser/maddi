@@ -32,12 +32,14 @@ import java.text.AttributedCharacterIterator;
 import java.util.EventListener;
 import java.util.Locale;
 import java.util.Set;
+
 import javax.accessibility.AccessibleContext;
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.NotModified;
+
 import io.codelaser.maddi.annotation.Commutable;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.method.GetSet;
 
 public class JavaAwt {

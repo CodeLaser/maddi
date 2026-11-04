@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.inspection.api.resource;
 
-import io.codelaser.maddi.cst.api.element.FingerPrint;
-
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Objects;
+
+import io.codelaser.maddi.cst.api.element.FingerPrint;
 
 public class MD5FingerPrint implements FingerPrint {
 

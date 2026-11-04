@@ -16,15 +16,9 @@
  */
 package io.codelaser.maddi.run.config.compile;
 
-import io.codelaser.maddi.run.config.util.ConfigurationChecks;
-import io.codelaser.maddi.run.config.util.JavaModules;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-
+import java.util.ArrayList;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,6 +27,12 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.util.ConfigurationChecks;
+import io.codelaser.maddi.run.config.util.JavaModules;
 
 /**
  * Assembles a {@link CompileListToSourceSets.Result} into an {@link InputConfiguration}: the JDK module closure,

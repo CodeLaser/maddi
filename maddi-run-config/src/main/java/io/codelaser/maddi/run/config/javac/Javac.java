@@ -1,10 +1,5 @@
 package io.codelaser.maddi.run.config.javac;
 
-import io.codelaser.maddi.run.config.compile.CompileInvocation;
-import io.codelaser.maddi.run.config.util.PluginSourceSets;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,6 +7,12 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
+import io.codelaser.maddi.run.config.util.PluginSourceSets;
 
 public record Javac(int sourceRelease,
                     int targetRelease,

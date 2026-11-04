@@ -17,13 +17,12 @@
 
 package io.codelaser.maddi.cst.api.info;
 
+import java.util.List;
+import java.util.Objects;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.output.Qualification;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 
 public interface ImportComputer {
     record ImportDetails(String importString, List<Comment> comments) {

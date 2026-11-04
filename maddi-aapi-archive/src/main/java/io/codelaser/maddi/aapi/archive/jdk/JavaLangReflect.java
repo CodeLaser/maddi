@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.Nullable;
 import java.lang.reflect.Method;
+
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.type.UtilityClass;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.type.UtilityClass;
 
 public class JavaLangReflect {
     public static final String PACKAGE_NAME = "java.lang.reflect";

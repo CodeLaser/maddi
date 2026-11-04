@@ -1,11 +1,4 @@
 package io.codelaser.maddi.aapi.archive.libs.guava;
-import com.google.common.base.Converter;
-import com.google.common.base.Equivalence;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.*;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -51,6 +44,15 @@ import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 import java.util.function.UnaryOperator;
 import java.util.stream.*;
+
+import com.google.common.base.Converter;
+import com.google.common.base.Equivalence;
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.*;
+
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.FinalFields;
 import io.codelaser.maddi.annotation.Fluent;

@@ -1,8 +1,37 @@
 package io.codelaser.maddi.java.openjdk;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.module.ModuleFinder;
+import java.net.JarURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.util.Elements;
+import javax.tools.JavaFileObject;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.tree.JCTree;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -19,32 +48,6 @@ import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
 import io.codelaser.maddi.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.Optional;
-import java.lang.module.ModuleFinder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.util.Elements;
-import javax.tools.JavaFileObject;
-import java.io.File;
-import java.io.IOException;
-import java.net.JarURLConnection;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class ClassSymbolScanner implements ConvertType, TypeData {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassSymbolScanner.class);

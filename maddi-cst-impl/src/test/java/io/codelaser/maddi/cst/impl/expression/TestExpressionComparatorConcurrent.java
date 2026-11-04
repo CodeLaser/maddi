@@ -17,10 +17,8 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
-import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -29,8 +27,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
 
 /**
  * The comparator's SINGLETON is shared by every thread that sorts expressions; its memoization cache was one

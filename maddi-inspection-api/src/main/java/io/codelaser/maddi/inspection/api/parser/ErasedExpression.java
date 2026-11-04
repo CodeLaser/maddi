@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.inspection.api.parser;
 
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.Set;
 
 public interface ErasedExpression extends Expression {
     Set<ParameterizedType> erasureTypes();

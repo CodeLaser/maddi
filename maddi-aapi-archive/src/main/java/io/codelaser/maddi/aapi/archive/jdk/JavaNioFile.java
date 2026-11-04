@@ -16,14 +16,6 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.Immutable;
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
-import io.codelaser.maddi.annotation.Nullable;
-import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
-
 import java.io.*;
 import java.net.URI;
 import java.nio.channels.SeekableByteChannel;
@@ -33,6 +25,13 @@ import java.nio.file.attribute.*;
 import java.util.*;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
 
 public class JavaNioFile {
     public static final String PACKAGE_NAME = "java.nio.file";
