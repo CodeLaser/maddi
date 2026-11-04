@@ -142,6 +142,12 @@ public class InfoMapImpl implements InfoMap {
         return registered == null ? result : (T) registered;
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T rewiredIfPresent(T original) {
+        return (T) rewiredObjects.get(original);
+    }
+
     @Override
     public void registerRewired(Object original, Object rewired) {
         rewiredObjects.put(original, rewired);
@@ -277,6 +283,16 @@ public class InfoMapImpl implements InfoMap {
         TypeInfo owner = fieldInfo.owner();
         Map<Info, Info> map = setOfPrimaryTypesToRewire.get(owner.primaryType());
         if (map == null) return fieldInfo;
+        if (owner.fields().stream().noneMatch(f -> f == fieldInfo)) {
+            // a field the analysis made rather than the parser: the link engine's virtual fields (§...) and its
+            // hierarchy translations (a superclass field seen on a subtype, or a copy of a declared one) are FieldInfo
+            // objects owned by a type without being among its fields. Prep's data holds none; the analyzer output a
+            // seeded analysis carries does (CarryDerived). A copy on the rewired owner, made once per rewire like
+            // every other copy. Before the lookup below: the map finds by name, and handing such a copy the declared
+            // field instead changes how the analysis encodes it (Vstats against Fstats(17) on fernflower)
+            return rewired(fieldInfo, () -> new FieldInfoImpl(fieldInfo.name(), fieldInfo.isStatic(),
+                    fieldInfo.type().rewire(this), typeInfo(owner)));
+        }
         FieldInfo result = (FieldInfo) map.get(fieldInfo);
         if (result == null && registerMethodEnclosedOnDemand(owner)) {
             result = (FieldInfo) map.get(fieldInfo);

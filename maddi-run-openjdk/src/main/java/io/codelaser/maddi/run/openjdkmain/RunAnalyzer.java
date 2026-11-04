@@ -103,7 +103,8 @@ public class RunAnalyzer implements Runnable {
         return new RunRewireTests.WarmAnalysis() {
             @Override
             public void analyze(JavaInspector inspector, ParseResult parseResult, io.codelaser.maddi.graph.G<Info> graph,
-                                Set<TypeInfo> seedTypes) {
+                                Set<TypeInfo> seedTypes, Set<TypeInfo> carryFrom,
+                                Set<TypeInfo> seedPrevious) {
                 List<Info> order = new ComputeAnalysisOrder().go(graph, parallel);
                 Set<Info> seed = null;
                 if (seedTypes != null) {
@@ -118,7 +119,7 @@ public class RunAnalyzer implements Runnable {
                 }
                 try {
                     engine().modification(new ModificationRequest(inspector, order, graph,
-                            parseResult.primaryTypes(), options, null, seed));
+                            parseResult.primaryTypes(), options, null, seed, carryFrom, seedPrevious));
                 } catch (java.io.IOException e) {
                     throw new java.io.UncheckedIOException(e);
                 }
