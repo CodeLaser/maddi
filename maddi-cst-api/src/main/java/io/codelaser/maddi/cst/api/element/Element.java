@@ -20,6 +20,7 @@ package io.codelaser.maddi.cst.api.element;
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
@@ -73,7 +74,14 @@ public interface Element {
      * {@link io.codelaser.maddi.cst.api.expression.Expression#translate}. Without it the parameter computes
      * {@code @Dependent} once {@code InfoMapView}'s own independence is honest, and after the mark that caps
      * {@code Element}, and with it the whole {@code Info} family, at {@code @FinalFields} (#51).
+     * <p>
+     * {@code @NotModified}: a rewire builds a copy and leaves this element as it is. Computed, it is a cycle: an
+     * implementation rewires its parts through this abstract method, whose verdict is the union of the
+     * implementations; a part-holder without an after-mark excuse ({@code JavaDocImpl.TagImpl}, rewiring its resolved
+     * reference) kept the whole union modifying, and {@code Element} at {@code @FinalFields} after the mark
+     * (CodeLaser/maddi-mod#91). The contract cuts the cycle; the guard checks the implementations against it.
      */
+    @NotModified
     Element rewire(@Independent(hc = true) InfoMapView infoMap);
 
     /** This element's source for its rewired copy; see {@link Source#rewire}. */
