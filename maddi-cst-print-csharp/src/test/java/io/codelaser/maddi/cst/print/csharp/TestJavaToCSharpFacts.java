@@ -270,6 +270,58 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String PROPERTIES = """
+            package org.example.props;
+            import java.util.List;
+            class Switches {
+                static class Edge { String dest = ""; }
+                static class Switch {
+                    private Edge defaultEdge;
+                    Switch(boolean b) { if (b) defaultEdge = new Edge(); }
+                    Edge getDefaultEdge() { return defaultEdge; }
+                }
+                static String destination(Switch s) { return s.getDefaultEdge().dest; }
+                static boolean has(List<Edge> edges, Switch s) { return edges.contains(s.getDefaultEdge()); }
+                interface Candidate { }
+                static class StringCandidate implements Candidate { }
+                interface Recognizer { Candidate recognize(String s); }
+                static class StringRecognizer implements Recognizer {
+                    public StringCandidate recognize(String s) { return s.isEmpty() ? null : new StringCandidate(); }
+                }
+            }
+            """;
+
+    /**
+     * A getter printed as its field's property is read with the field's verdict, which the property is declared with:
+     * {@code s.DefaultEdge!.dest} (CS8602), {@code Contains(s.DefaultEdge!)} (CS8604), whatever the analysis says of the
+     * getter. A covariant override's bridge to the interface's member returns that member's {@code T?} (CS8603).
+     */
+    @Test
+    public void propertiesAndBridges() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(FieldInfo field) {
+                return "defaultEdge".equals(field.name()) ? NullableState.NULLABLE : NullableState.UNSPECIFIED;
+            }
+
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return "recognize".equals(method.name()) ? NullableState.NULLABLE : NullableState.UNSPECIFIED;
+            }
+        });
+        String cs = translate("Switches", PROPERTIES);
+        contains(cs, "Edge? DefaultEdge");
+        contains(cs, "s.DefaultEdge!.dest");
+        contains(cs, "Contains(s.DefaultEdge!)");
+        contains(cs, "ICandidate? IRecognizer.Recognize(string s) => Recognize(s);");
+    }
+
+    @Language("java")
     private static final String PRECONDITION = """
             package org.example.pre;
             class P {
