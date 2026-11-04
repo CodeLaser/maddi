@@ -37,6 +37,17 @@ import java.util.Set;
  * ({@code ClearDerived.element}); the verification pass and cycle breaking run over that scope, and the elements the
  * worklist never reaches keep their values. Needs {@code callGraph}. MODREACH and the eventual deferral do not run
  * on a seeded analysis yet (docs/design/incremental-and-overlay.md §3 item 3).
+ * <p>
+ * {@code carryFrom}: null, or the previous generation's primary types whose analyzer output carries onto the copies
+ * {@code javaInspector}'s last re-parse made of them ({@code JavaInspector.lastRewireInfoMap()}): the {@code REWIRE}
+ * cone, never the changed types. Carried before the analysis, at every level a seeded analysis clears
+ * ({@code CarryDerived}), so that {@code seed} can be the changed types alone: the worklist wakes a carried element
+ * only when an input it read changed.
+ * <p>
+ * {@code seedPrevious}: null, or the previous generation's objects of the types {@code seed} re-analyses (the changed
+ * types, before the re-parse). Their output is the early cutoff: the seed is analysed to its own certified fixpoint
+ * first; when what its dependents can see of it equals what they saw of these, the carried values stand and the run
+ * ends; otherwise it falls back to the cold analysis of the whole order, every derived value cleared.
  */
 public record ModificationRequest(JavaInspector javaInspector,
                                   List<Info> order,
@@ -44,7 +55,17 @@ public record ModificationRequest(JavaInspector javaInspector,
                                   Collection<TypeInfo> primaryTypes,
                                   ModificationOptions options,
                                   AnalysisValueFeed valueFeed,
-                                  Set<Info> seed) {
+                                  Set<Info> seed,
+                                  Set<TypeInfo> carryFrom,
+                                  Set<TypeInfo> seedPrevious) {
+
+    /** As the canonical constructor, without a carry. */
+    public ModificationRequest(JavaInspector javaInspector, List<Info> order, G<Info> callGraph,
+                               Collection<TypeInfo> primaryTypes, ModificationOptions options,
+                               AnalysisValueFeed valueFeed, Set<Info> seed) {
+        this(javaInspector, order, callGraph, primaryTypes, options, valueFeed, seed, null, null);
+    }
+
 
     /**
      * A cold analysis of {@code order}: {@code seed} is null.
@@ -52,6 +73,6 @@ public record ModificationRequest(JavaInspector javaInspector,
     public ModificationRequest(JavaInspector javaInspector, List<Info> order, G<Info> callGraph,
                                Collection<TypeInfo> primaryTypes, ModificationOptions options,
                                AnalysisValueFeed valueFeed) {
-        this(javaInspector, order, callGraph, primaryTypes, options, valueFeed, null);
+        this(javaInspector, order, callGraph, primaryTypes, options, valueFeed, null, null, null);
     }
 }

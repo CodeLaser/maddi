@@ -89,6 +89,15 @@ public interface InfoMapView {
     <T> T rewired(T original, java.util.function.Supplier<T> rewire);
 
     /**
+     * The copy this rewire made of {@code original} through {@link #rewired}, or {@code null} when it made none. A
+     * lookup only: what carries values onto the copies after the rewire (a seeded analysis carrying the derived tier
+     * of a {@code REWIRE} type's variable data) must not make a copy of its own.
+     */
+    default <T> T rewiredIfPresent(T original) {
+        return null;
+    }
+
+    /**
      * Records {@code rewired} as the copy of {@code original}, for a copy made outside {@link #rewired} (a type's
      * type parameters are built by the rewire phases), or made under construction (a type parameter is entered
      * before its bounds are rewired, so that a self-referential bound terminates).

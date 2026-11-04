@@ -53,6 +53,8 @@ public class RunRewireTests {
     private static final Logger LOGGER = LoggerFactory.getLogger(RunRewireTests.class);
     private static final int ITERATIONS = 200;
     public static final long SEED = 15;
+    // the rewired cone's analyzer output carries, and the seed is the re-parsed types alone; false: the cone is seeded
+    private static final boolean CARRY = !"false".equals(System.getProperty("maddi.rewire.carry"));
 
     /**
      * @param iterations   how many files to edit (each edit is two re-parses: the edit and its restore)
@@ -85,10 +87,15 @@ public class RunRewireTests {
      */
     public interface WarmAnalysis {
         /**
-         * @param seedTypes null: analyse everything; otherwise the primary types to analyse again (the re-parsed and
-         *                  the rewired ones), on the state the previous analysis left
+         * @param seedTypes null: analyse everything; otherwise the primary types to analyse again, on the state the
+         *                  previous analysis left
+         * @param carryFrom null, or the previous generation's primary types whose analyzer output carries onto their
+         *                  rewired copies before the analysis (the REWIRE cone; {@code ModificationRequest.carryFrom})
+         * @param seedPrevious null, or the previous generation's objects of the seed types, for the early cutoff
+         *                  ({@code ModificationRequest.seedPrevious})
          */
-        void analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph, Set<TypeInfo> seedTypes);
+        void analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph, Set<TypeInfo> seedTypes,
+                     Set<TypeInfo> carryFrom, Set<TypeInfo> seedPrevious);
 
         /** The output of one primary type, comparable between two analyses. */
         String dump(JavaInspector inspector, TypeInfo primaryType);
@@ -243,7 +250,7 @@ public class RunRewireTests {
         lastParseResult = parseResult;
         if (options.analysis() != null) {
             long t0 = System.nanoTime();
-            options.analysis().analyze(javaInspector, parseResult, initialGraph, null);
+            options.analysis().analyze(javaInspector, parseResult, initialGraph, null, null, null);
             LOGGER.info("REWIRE ANALYSIS of the parse the run starts from: {} ms", ms(System.nanoTime() - t0));
         }
         for (int i = 0; i < options.iterations(); ++i) {
@@ -299,6 +306,7 @@ public class RunRewireTests {
 
     private G<Info> reloadSources(TypeInfo pt, G<Info> infoGraph, int iteration, boolean restore) throws IOException {
         long t0 = System.nanoTime();
+        ParseResult previousParseResult = lastParseResult;
         LOGGER.info("Calling javaInspector.reloadSources");
         JavaInspector.ReloadResult rr = javaInspector.reloadSources(inputConfiguration, Map.of());
         assert rr.sourceHasChanged().contains(pt);
@@ -322,12 +330,25 @@ public class RunRewireTests {
         long t4 = System.nanoTime();
         long analysisMs = -1;
         if (options.analysis() != null) {
-            // seeded: the re-parsed and the rewired types; the kept ones keep the previous analysis' values
+            // seeded: the re-parsed types, with the rewired cone's analyzer output carried onto the copies, so the
+            // worklist wakes a cone type only when an input it read changed; the kept ones keep their values. Without
+            // the carry (maddi.rewire.carry=false) the cone has no derived values and is seeded with the re-parsed ones
             Set<TypeInfo> seedTypes = new HashSet<>();
             for (TypeInfo t : rr.sourceHasChanged()) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
-            for (TypeInfo t : dependentPrimaryTypes) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
+            Set<TypeInfo> carryFrom = null;
+            Set<TypeInfo> seedPrevious = null;
+            if (CARRY) {
+                // every previous primary type but the changed ones: the REWIRE cone, and what else the re-parse
+                // rebuilt (a source set re-scanned in full); a kept type maps onto itself and is skipped
+                Set<TypeInfo> previous = new HashSet<>(previousParseResult.primaryTypes());
+                previous.removeAll(rr.sourceHasChanged());
+                carryFrom = Set.copyOf(previous);
+                seedPrevious = Set.copyOf(rr.sourceHasChanged());
+            } else {
+                for (TypeInfo t : dependentPrimaryTypes) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
+            }
             seedTypes.remove(null);
-            options.analysis().analyze(javaInspector, parseResult1, graph, seedTypes);
+            options.analysis().analyze(javaInspector, parseResult1, graph, seedTypes, carryFrom, seedPrevious);
             analysisMs = ms(System.nanoTime() - t4);
         }
         InfoMapView view = javaInspector.lastRewireInfoMap();
@@ -369,7 +390,7 @@ public class RunRewireTests {
         List<String> differences = new ArrayList<>(ReparseOracle.differences(javaInspector, lastParseResult, lastGraph,
                 cold, coldResult, coldGraph));
         if (options.analysis() != null) {
-            options.analysis().analyze(cold, coldResult, coldGraph, null);
+            options.analysis().analyze(cold, coldResult, coldGraph, null, null, null);
             differences.addAll(analysisDifferences(cold, coldResult));
         }
         ++oracleChecks;

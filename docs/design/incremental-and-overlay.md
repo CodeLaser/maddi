@@ -138,6 +138,20 @@ Mechanisms are not the gap. Plumbing and three decisions are.
    cheap enough; the contraction is not); scope them to the dirty closure; or declare the incremental result
    `BEST_AVAILABLE` and let a background full run certify it. The last fits the certainty vocabulary the MCP
    already has, and is the proposed start.
+   *Since 2026-11-04, a carry and an early cutoff:* the `REWIRE` types keep the previous analysis' output
+   (`ModificationRequest.carryFrom`, `CarryDerived`: types, methods, lambdas, parameters, fields and every variable's
+   links), and the seed is the changed types alone. The analyzer takes them to their own certified fixpoint (the
+   verification pass and cycle breaking over the seed), then compares what their dependents can see of them
+   (`ElementSummary`) with the previous generation's (`ModificationRequest.seedPrevious`). Equal: the carried output
+   stands and the run ends. Different: it falls back to the cold analysis, every derived value cleared. Waking only
+   what the change reaches was tried and dropped: the woken elements, re-derived from carried values, settle in an
+   order the cold schedule never follows (72 and 87 types differing from cold on fernflower, against 1 with the
+   fall-back). Fernflower, three edits and their restores: 5 of 6 analyses 0.13–1.4 s (cold: about 239 s), one
+   fell back (5.8 min); the oracle finds 1 difference, `findNestedLastStatement`, a known cold-order artifact
+   (`TestWarmAnalysisWithCarry`; the driver's `-Dmaddi.rewire.carry=false` is the old seed of the whole cone).
+   A carried link can name a field the link engine made (a virtual field, a superclass field seen on a subtype);
+   the rewire copies it by identity onto the rewired owner (`InfoMapImpl.fieldInfo`). The terminal passes are
+   still not run on a seeded analysis.
 4. **Per-type rescan within a source set** is cheaper than the July decision assumed (§5: javac does not force
    the whole set, and the plumbing is mostly there), but it still comes after 1–3: the analysis carry absorbs a
    coarse rescan, and for every run but the IDE's the parse is not where the time goes.
