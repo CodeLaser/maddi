@@ -55,10 +55,11 @@ public interface Property {
      *       property opts into {@link #carryOnRewire()} ({@code VARIABLE_DATA}, {@code ALWAYS_ESCAPES}, the prep
      *       marker) is carried onto a rewired type, which prep then skips as it skips a kept one; the rest, the
      *       graph-wide values ({@code PART_OF_CONSTRUCTION}, {@code FINAL_FIELD}, {@code RECURSIVE_METHOD}), is
-     *       recomputed.</li>
+     *       recomputed. So are {@code IMPLEMENTATIONS} and {@code EXTERNAL_IMPLEMENTATIONS}, which prep writes onto
+     *       the overridden methods and repeats on every run.</li>
      *   <li>{@link AnalysisTier#CROSS_TYPE_DERIVED} — derived <em>across types</em> by the link computer and
      *       modification analyzer ({@code IMMUTABLE_*}, {@code INDEPENDENT_*}, {@code LINKS}, {@code METHOD_LINKS},
-     *       {@code IMPLEMENTATIONS}, …). The expensive tier a reload exists to avoid; the early-cutoff skip
+     *       …). A seeded analysis clears this tier on an element before it recomputes it. The expensive tier a reload exists to avoid; the early-cutoff skip
      *       <em>carries</em> these onto a fingerprint-stable rewired type instead of recomputing them.</li>
      * </ul>
      * The default classifies by {@link #carryOnRewire()} (parse-time when true, cross-type-derived otherwise);

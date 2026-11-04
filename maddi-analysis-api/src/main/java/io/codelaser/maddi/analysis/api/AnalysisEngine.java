@@ -102,6 +102,15 @@ public interface AnalysisEngine {
      */
     Set<Property> bookkeepingProperties();
 
+    /**
+     * The analysis output of one primary type, as text that two analyses of the same sources can compare: every
+     * property the analyzer writes on the type and its members, in a canonical order, positions normalised. For an
+     * oracle that compares a warm analysis with a cold one.
+     */
+    default String outputDump(Runtime runtime, TypeInfo primaryType) {
+        throw new UnsupportedOperationException(name() + " does not dump its output");
+    }
+
     // ---- results IO
 
     /** A loader of analysis results (the AAPI archive, a previous run) into the CST of {@code runtime}. */

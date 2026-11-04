@@ -69,7 +69,29 @@ public class RunRewireTests {
                           int oracleEvery,
                           JavaInspector.ParseOptions parseOptions,
                           BiFunction<JavaInspector, ParseResult, G<Info>> prep,
-                          Supplier<JavaInspector> coldInspector) {
+                          Supplier<JavaInspector> coldInspector,
+                          WarmAnalysis analysis) {
+
+        /** Without the analysis. */
+        public Options(int iterations, int oracleEvery, JavaInspector.ParseOptions parseOptions,
+                       BiFunction<JavaInspector, ParseResult, G<Info>> prep, Supplier<JavaInspector> coldInspector) {
+            this(iterations, oracleEvery, parseOptions, prep, coldInspector, null);
+        }
+    }
+
+    /**
+     * The modification analysis after prep: once in full on the parse the run starts from, then seeded after every
+     * re-parse, and in full on the oracle's cold parse, whose output it is compared with.
+     */
+    public interface WarmAnalysis {
+        /**
+         * @param seedTypes null: analyse everything; otherwise the primary types to analyse again (the re-parsed and
+         *                  the rewired ones), on the state the previous analysis left
+         */
+        void analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph, Set<TypeInfo> seedTypes);
+
+        /** The output of one primary type, comparable between two analyses. */
+        String dump(JavaInspector inspector, TypeInfo primaryType);
     }
 
     /**
@@ -114,15 +136,16 @@ public class RunRewireTests {
 
     /** One re-parse: what it touched and what each step took. */
     private record Stats(int iteration, boolean restore, int changed, int cone, int rewiredTypes, int primaryTypes,
-                         long reloadMs, long reparseMs, long prepMs, long callGraphMs, int vertices, long edges,
-                         long heapMb) {
+                         long reloadMs, long reparseMs, long prepMs, long callGraphMs, long analysisMs,
+                         int vertices, long edges, long heapMb) {
         @Override
         public String toString() {
             return String.format("iteration %d%s: %d changed, %d in the REWIRE cone, %d type(s) built by the rewire, of"
                                  + " %d primary types; reload %d ms, re-parse %d ms, prep %d ms (call graph alone %d"
-                                 + " ms); call graph %d vertices, %d edges; heap after GC %d MB", iteration,
+                                 + " ms)%s; call graph %d vertices, %d edges; heap after GC %d MB", iteration,
                     restore ? " (restore)" : "", changed, cone, rewiredTypes, primaryTypes, reloadMs, reparseMs,
-                    prepMs, callGraphMs, vertices, edges, heapMb);
+                    prepMs, callGraphMs, analysisMs < 0 ? "" : ", analysis " + analysisMs + " ms", vertices, edges,
+                    heapMb);
         }
     }
 
@@ -218,6 +241,11 @@ public class RunRewireTests {
         List<TypeInfo> list = parseResult.primaryTypes().stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
         G<Info> infoGraph = initialGraph;
         lastParseResult = parseResult;
+        if (options.analysis() != null) {
+            long t0 = System.nanoTime();
+            options.analysis().analyze(javaInspector, parseResult, initialGraph, null);
+            LOGGER.info("REWIRE ANALYSIS of the parse the run starts from: {} ms", ms(System.nanoTime() - t0));
+        }
         for (int i = 0; i < options.iterations(); ++i) {
             LOGGER.info("Compute primary type use graph, iteration {}", i);
             TypeInfo typeToRewire = list.get(random.nextInt(list.size()));
@@ -292,10 +320,21 @@ public class RunRewireTests {
         // the call graph on its own, to tell prep's two halves apart: per-type work against the whole-graph passes
         new ComputeCallGraph(javaInspector.runtime(), parseResult1, _ -> false).go();
         long t4 = System.nanoTime();
+        long analysisMs = -1;
+        if (options.analysis() != null) {
+            // seeded: the re-parsed and the rewired types; the kept ones keep the previous analysis' values
+            Set<TypeInfo> seedTypes = new HashSet<>();
+            for (TypeInfo t : rr.sourceHasChanged()) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
+            for (TypeInfo t : dependentPrimaryTypes) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
+            seedTypes.remove(null);
+            options.analysis().analyze(javaInspector, parseResult1, graph, seedTypes);
+            analysisMs = ms(System.nanoTime() - t4);
+        }
         InfoMapView view = javaInspector.lastRewireInfoMap();
         Stats s = new Stats(iteration, restore, rr.sourceHasChanged().size(), dependentPrimaryTypes.size(),
                 view == null ? 0 : view.rewiredTypes().size(), parseResult1.primaryTypes().size(),
-                ms(t1 - t0), ms(t2 - t1), ms(t3 - t2), ms(t4 - t3), graph.vertices().size(), graph.edgeStream().count(),
+                ms(t1 - t0), ms(t2 - t1), ms(t3 - t2), ms(t4 - t3), analysisMs, graph.vertices().size(),
+                graph.edgeStream().count(),
                 heapAfterGcMb());
         stats.add(s);
         LOGGER.info("REWIRE STATS {}", s);
@@ -327,28 +366,58 @@ public class RunRewireTests {
         JavaInspector cold = options.coldInspector().get();
         ParseResult coldResult = cold.parse(options.parseOptions()).parseResult();
         G<Info> coldGraph = options.prep().apply(cold, coldResult);
-        List<String> differences = ReparseOracle.differences(javaInspector, lastParseResult, lastGraph, cold,
-                coldResult, coldGraph);
+        List<String> differences = new ArrayList<>(ReparseOracle.differences(javaInspector, lastParseResult, lastGraph,
+                cold, coldResult, coldGraph));
+        if (options.analysis() != null) {
+            options.analysis().analyze(cold, coldResult, coldGraph, null);
+            differences.addAll(analysisDifferences(cold, coldResult));
+        }
         ++oracleChecks;
         if (differences.isEmpty()) {
             LOGGER.info("REWIRE ORACLE iteration {}: as a cold parse ({} ms)", iteration, ms(System.nanoTime() - t0));
         } else {
             LOGGER.error("REWIRE ORACLE iteration {}: {} difference(s) with a cold parse", iteration,
                     differences.size());
-            differences.stream().limit(50).forEach(d -> LOGGER.error("REWIRE ORACLE DIFFERENCE {}", d));
+            // up to 50 of each kind ("prep of", "analysis of", ...): one kind must not hide another
+            differences.stream().collect(java.util.stream.Collectors.groupingBy(
+                            d -> d.substring(0, Math.max(0, d.indexOf(" of "))), java.util.LinkedHashMap::new,
+                            java.util.stream.Collectors.toList()))
+                    .forEach((kind, list) -> {
+                        LOGGER.error("REWIRE ORACLE iteration {}: {} {} difference(s)", iteration, list.size(),
+                                kind.isEmpty() ? "other" : kind);
+                        list.stream().limit(50).forEach(d -> LOGGER.error("REWIRE ORACLE DIFFERENCE {}", d));
+                    });
             differences.forEach(d -> oracleDifferences.add("iteration " + iteration + ": " + d));
         }
+    }
+
+    /* per primary type, the element lines of the analysis output that differ: "-" cold only, "+" warm only */
+    private List<String> analysisDifferences(JavaInspector cold, ParseResult coldResult) {
+        List<String> differences = new ArrayList<>();
+        for (TypeInfo coldType : coldResult.primaryTypes().stream()
+                .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList()) {
+            TypeInfo warmType = lastParseResult.findType(coldType.fullyQualifiedName());
+            if (warmType == null) continue; // ReparseOracle reports it
+            List<String> c = options.analysis().dump(cold, coldType).lines().map(String::strip).toList();
+            List<String> w = options.analysis().dump(javaInspector, warmType).lines().map(String::strip).toList();
+            if (c.equals(w)) continue;
+            StringBuilder sb = new StringBuilder("analysis of " + coldType.fullyQualifiedName() + ":");
+            c.stream().filter(l -> !w.contains(l)).forEach(l -> sb.append("\n  - ").append(l));
+            w.stream().filter(l -> !c.contains(l)).forEach(l -> sb.append("\n  + ").append(l));
+            differences.add(sb.toString());
+        }
+        return differences;
     }
 
     private void logSummary() {
         if (stats.isEmpty()) return;
         LOGGER.info("REWIRE SUMMARY {} re-parse(s) over {} primary types; median cone {}, median rewire-built types {};"
-                    + " median ms: reload {}, re-parse {}, prep {}, call graph alone {}; oracle: {} check(s), {}"
-                    + " difference(s)", stats.size(), stats.getLast().primaryTypes(),
+                    + " median ms: reload {}, re-parse {}, prep {}, call graph alone {}, analysis {}; oracle: {}"
+                    + " check(s), {} difference(s)", stats.size(), stats.getLast().primaryTypes(),
                 median(stats.stream().mapToLong(Stats::cone)), median(stats.stream().mapToLong(Stats::rewiredTypes)),
                 median(stats.stream().mapToLong(Stats::reloadMs)), median(stats.stream().mapToLong(Stats::reparseMs)),
                 median(stats.stream().mapToLong(Stats::prepMs)), median(stats.stream().mapToLong(Stats::callGraphMs)),
-                oracleChecks, oracleDifferences.size());
+                median(stats.stream().mapToLong(Stats::analysisMs)), oracleChecks, oracleDifferences.size());
     }
 
     private static long median(java.util.stream.LongStream values) {

@@ -44,10 +44,14 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
      * anything derived across types is the correct answer rather than a lossy one (see {@code docs/design/rewiring.md}).
      * Applies to expressions as much as to Info: a stale value is no more welcome inside a rewired MethodCall than
      * on a rewired method.
+     * <p>
+     * The intrinsic tier only when the rewire asks for it ({@link InfoMapView#carryIntrinsic()}, a partial re-parse).
      */
     @Override
     public synchronized PropertyValueMap rewire(InfoMapView infoMap) {
-        return rewire(infoMap, Property::carryOnRewire);
+        boolean intrinsic = infoMap.carryIntrinsic();
+        return rewire(infoMap, p -> p.carryOnRewire()
+                                    && (intrinsic || p.analysisTier() != Property.AnalysisTier.INTRINSIC));
     }
 
     // filtered carry (docs/design/analysis-rewiring.md): the fingerprint-gated skip passes the analyzer-output predicate

@@ -733,7 +733,12 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
 
     @Override
     public InfoMap newInfoMap(Set<TypeInfo> primaryTypes, Set<TypeInfo> rebuiltPrimaryTypes) {
-        return new InfoMapImpl(primaryTypes, rebuiltPrimaryTypes);
+        return new InfoMapImpl(primaryTypes, rebuiltPrimaryTypes, false);
+    }
+
+    @Override
+    public InfoMap newInfoMap(Set<TypeInfo> primaryTypes, Set<TypeInfo> rebuiltPrimaryTypes, boolean carryIntrinsic) {
+        return new InfoMapImpl(primaryTypes, rebuiltPrimaryTypes, carryIntrinsic);
     }
 
     @Override

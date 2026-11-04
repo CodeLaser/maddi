@@ -845,7 +845,8 @@ public class JavaInspectorImpl implements JavaInspector {
         rewireNow.addAll(rebuiltToRewire);
         // newInfoMap seeds the rebuilt types (see InfoMapImpl); rewireAll is a no-op when rewireNow is empty, so the
         // seeded mappings are all this map carries in the rescan-only case.
-        InfoMap infoMap = runtime.newInfoMap(rewireNow, rebuilt);
+        // a partial re-parse: the rewired bodies did not change, so prep's output is carried (InfoMapView.carryIntrinsic)
+        InfoMap infoMap = runtime.newInfoMap(rewireNow, rebuilt, true);
         Set<TypeInfo> rewired = infoMap.rewireAll();
         // Handed out only as InfoMapView (read-only lookup facet): the reload consumer can resolve old->new but not
         // put/rewireAll. The map is complete once built (rebuilt seeded in the ctor; rewireAll fills the rewire

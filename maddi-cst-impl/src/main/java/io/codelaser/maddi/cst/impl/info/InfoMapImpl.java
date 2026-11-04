@@ -39,9 +39,14 @@ public class InfoMapImpl implements InfoMap {
     private final Set<TypeInfo> toRewire;
     // see InfoMapView#rewired: one copy per original object, so that identity-keyed DetailedSources find it
     private final java.util.IdentityHashMap<Object, Object> rewiredObjects = new java.util.IdentityHashMap<>();
+    private final boolean carryIntrinsic;
 
     public InfoMapImpl(Set<TypeInfo> setOfPrimaryTypesToRewire) {
-        this(setOfPrimaryTypesToRewire, Set.of());
+        this(setOfPrimaryTypesToRewire, Set.of(), false);
+    }
+
+    public InfoMapImpl(Set<TypeInfo> setOfPrimaryTypesToRewire, Set<TypeInfo> rebuiltPrimaryTypes) {
+        this(setOfPrimaryTypesToRewire, rebuiltPrimaryTypes, false);
     }
 
     /**
@@ -54,8 +59,11 @@ public class InfoMapImpl implements InfoMap {
      *                                  any type whose primary type is not a key here. Seeding each of them under
      *                                  itself is enough, precisely because of the BASIC RULE above — a lookup of the
      *                                  old object finds the new one, equality being fqn + source set.
+     * @param carryIntrinsic            a partial re-parse: carry the intrinsic tier, see {@link #carryIntrinsic()}
      */
-    public InfoMapImpl(Set<TypeInfo> setOfPrimaryTypesToRewire, Set<TypeInfo> rebuiltPrimaryTypes) {
+    public InfoMapImpl(Set<TypeInfo> setOfPrimaryTypesToRewire, Set<TypeInfo> rebuiltPrimaryTypes,
+                       boolean carryIntrinsic) {
+        this.carryIntrinsic = carryIntrinsic;
         Map<TypeInfo, Map<Info, Info>> map = new HashMap<>();
         for (TypeInfo primaryType : setOfPrimaryTypesToRewire) {
             map.put(primaryType, new HashMap<>()); // filled by the rewire phases
@@ -67,6 +75,11 @@ public class InfoMapImpl implements InfoMap {
         }
         this.setOfPrimaryTypesToRewire = Map.copyOf(map);
         this.toRewire = Set.copyOf(setOfPrimaryTypesToRewire);
+    }
+
+    @Override
+    public boolean carryIntrinsic() {
+        return carryIntrinsic;
     }
 
     /** Map every Info of an already-rebuilt type onto itself; the old objects resolve to these by equality. */

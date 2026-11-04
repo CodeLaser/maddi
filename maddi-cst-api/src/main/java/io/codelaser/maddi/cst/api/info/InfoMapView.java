@@ -94,4 +94,16 @@ public interface InfoMapView {
      * before its bounds are rewired, so that a self-referential bound terminates).
      */
     void registerRewired(Object original, Object rewired);
+
+    /**
+     * Whether this rewire carries the intrinsic tier ({@code Property.AnalysisTier.INTRINSIC}, prep's output and the
+     * like) of the properties that opt into {@code carryOnRewire}. Only a partial re-parse does: it rewires types whose
+     * bodies did not change, so what prep computed from them still holds, and prep skips them. Every other rewire
+     * (a transform that builds new bodies from old statements, then rewires and preps the result) must not: the
+     * carried values describe the old bodies, prep then writes them a second time, and rewiring them can already fail
+     * on a type the transform changed. The other tiers carry as before.
+     */
+    default boolean carryIntrinsic() {
+        return false;
+    }
 }

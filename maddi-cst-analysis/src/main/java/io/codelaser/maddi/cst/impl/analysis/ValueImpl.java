@@ -1514,6 +1514,13 @@ public abstract class ValueImpl implements Value {
             return methodInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
         }
 
+        // sorted, as SetOfInfoImpl: the rewire driver's oracle compares the descriptions of a warm and a cold prep,
+        // and IMPLEMENTATIONS is prep's (intrinsic) since 8b4137062; the default printed the object's identity
+        @Override
+        public String toString() {
+            return "SetOfMethodInfoImpl[methodInfoSet=[" + nice() + "]]";
+        }
+
         /*
         Replace rather than insert: MethodInfo equality is structural (fqn + source set), so a rewired method is
         equal to the object it replaces, and Set.add would keep the incumbent -- the stale one -- for ever. This set

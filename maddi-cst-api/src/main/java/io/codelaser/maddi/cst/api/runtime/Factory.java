@@ -306,6 +306,12 @@ public interface Factory {
      */
     InfoMap newInfoMap(Set<TypeInfo> primaryTypes, Set<TypeInfo> rebuiltPrimaryTypes);
 
+    /**
+     * As {@link #newInfoMap(Set, Set)}; {@code carryIntrinsic} is for a partial re-parse only, see
+     * {@link io.codelaser.maddi.cst.api.info.InfoMapView#carryIntrinsic()}.
+     */
+    InfoMap newInfoMap(Set<TypeInfo> primaryTypes, Set<TypeInfo> rebuiltPrimaryTypes, boolean carryIntrinsic);
+
     InlineConditional newInlineConditional(Expression condition, Expression ifTrue, Expression ifFalse);
 
     InlineConditional.Builder newInlineConditionalBuilder();
