@@ -81,6 +81,9 @@ public class JavaInspectorImpl implements JavaInspector {
     private CompiledTypesManager compiledTypesManager;
     private InputConfiguration inputConfiguration; // kept for tests
     private io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
+    // what reloadSources found added and removed since the last parse, for the next re-parse (see reparse)
+    private final Set<SourceFile> addedSinceParse = new LinkedHashSet<>();
+    private final Set<TypeInfo> removedSinceParse = new LinkedHashSet<>();
     private final boolean computeFingerPrints;
     private final JavaCompiler javaCompiler;
     private final InfoByFqn infoByFqn = new InfoByFqn();
@@ -502,7 +505,14 @@ public class JavaInspectorImpl implements JavaInspector {
         // defaults it -- so the default is recognised by identity. It matters: onlyPreload() parses a warmup type,
         // which records its source set, and a subsequent full parse would then find it "known and unchanged" and
         // scan nothing at all.
+        // What a reload found gone: the types of a removed file are forgotten, by name too, before anything is
+        // scanned against them. A type that refers to one is scanned again if the caller made it INVALID (a full parse
+        // scans everything), and then fails to resolve it, as in a cold parse; a type of the same name in another file
+        // or source set is a new one.
+        removedSinceParse.forEach(compiledTypesManager::invalidate);
+        removedSinceParse.clear();
         if (parseOptions.invalidated() == NOT_INVALIDATED) {
+            addedSinceParse.clear(); // a full parse lists every file anyway
             preloadPass(linearization, parseOptions);
             for (SourceSet sourceSet : linearization) {
                 scanSourceSet(summary, sourcesByFqn, sourceSet, parseOptions);
@@ -756,6 +766,14 @@ public class JavaInspectorImpl implements JavaInspector {
                          List<SourceSet> linearization,
                          Invalidated invalidated) {
         this.lastRewireInfoMap = null; // reset: a parse with no rewiring exposes no map
+        // what the reload found new: those files are scanned with their set's changed ones
+        Map<SourceSet, Set<URI>> addedFiles = new HashMap<>();
+        for (SourceFile sourceFile : addedSinceParse) {
+            if (sourceFiles.containsKey(sourceFile)) {
+                addedFiles.computeIfAbsent(sourceFile.sourceSet(), _ -> new HashSet<>()).add(sourceFile.uri());
+            }
+        }
+        addedSinceParse.clear();
         // snapshot: a RESCAN re-records sourceFiles for its own set as it goes
         Map<SourceSet, List<TypeInfo>> typesBySourceSet = typesBySourceSet();
         Set<TypeInfo> toRewire = new LinkedHashSet<>();
@@ -765,7 +783,9 @@ public class JavaInspectorImpl implements JavaInspector {
 
         for (SourceSet sourceSet : linearization) {
             List<TypeInfo> types = typesBySourceSet.getOrDefault(sourceSet, List.of());
-            SourceSetAction action = actionFor(sourceSet, types, invalidated, sourcesByFqn, parseOptions);
+            Set<URI> added = addedFiles.getOrDefault(sourceSet, Set.of());
+            SourceSetAction action = actionFor(sourceSet, types, !added.isEmpty(), invalidated, sourcesByFqn,
+                    parseOptions);
             LOGGER.debug("Re-parse: source set {} -> {} ({} primary type(s))", sourceSet.name(), action, types.size());
             switch (action) {
                 case RESCAN -> {
@@ -783,7 +803,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     rescanned.add(sourceSet);
                 }
                 case PARTIAL -> {
-                    Set<URI> changedFiles = new HashSet<>();
+                    Set<URI> changedFiles = new HashSet<>(added); // a new file is a changed one with no types yet
                     for (TypeInfo typeInfo : types) {
                         if (invalidated.apply(typeInfo) == INVALID) changedFiles.add(typeInfo.compilationUnit().uri());
                     }
@@ -884,13 +904,14 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     /**
-     * A source set holding a type that changed must be re-scanned, partially where that can be trusted, in full
-     * otherwise; a type that vanished forces the full re-scan. Otherwise, if anything in it must be rewired, the
-     * whole set is rewired; if not, it is kept. A source set we have no types for has never been parsed (or is
-     * new), so it is scanned.
+     * A source set holding a type that changed, or a file that is new, must be re-scanned, partially where that can
+     * be trusted, in full otherwise; a type the caller says vanished forces the full re-scan. Otherwise, if anything in
+     * it must be rewired, the whole set is rewired; if not, it is kept. A source set we have no types for has never
+     * been parsed (or is new), so it is scanned.
      */
     private SourceSetAction actionFor(SourceSet sourceSet,
                                       List<TypeInfo> types,
+                                      boolean filesAdded,
                                       Invalidated invalidated,
                                       Map<String, String> sourcesByFqn,
                                       ParseOptions parseOptions) {
@@ -908,7 +929,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 if (state == REWIRE) rewire = true;
             }
         }
-        if (invalid) {
+        if (invalid || filesAdded) {
             return allInvalid || !partialRescanPossible(sourceSet, sourcesByFqn, parseOptions)
                     ? SourceSetAction.RESCAN : SourceSetAction.PARTIAL;
         }
@@ -2273,8 +2294,9 @@ public class JavaInspectorImpl implements JavaInspector {
     /*
     Strategy (the same as the in-house inspector's): re-list the source tree and compare each file's fingerprint
     against the one held by the types we built from it last time.
-    - new files: add to sourceFiles with no types; nothing to report, the code compiles.
-    - removed files: drop from sourceFiles; nothing to report either.
+    - new files: add to sourceFiles with no types, and report them (ReloadResult.added); the next re-parse scans them.
+    - removed files: drop from sourceFiles, and report their types (ReloadResult.removed); the next re-parse forgets
+      them in the registries.
     - changed files: report their types, so the caller's Invalidated can return INVALID for them and compute the
       dependents that need rewiring (see RunRewireTests).
     Nothing is invalidated or re-parsed here: this only answers "what changed?".
@@ -2288,6 +2310,7 @@ public class JavaInspectorImpl implements JavaInspector {
         List<InitializationProblem> problems = new ArrayList<>();
         Set<TypeInfo> changed = new HashSet<>();
         Set<SourceFile> removed = new HashSet<>(this.sourceFiles.keySet());
+        Set<SourceFile> added = new HashSet<>();
         int newSourceFiles = 0;
         int changedSourceFiles = 0;
 
@@ -2296,6 +2319,8 @@ public class JavaInspectorImpl implements JavaInspector {
             List<TypeInfo> types = this.sourceFiles.get(sourceFile);
             if (types == null) {
                 this.sourceFiles.put(sourceFile, List.of()); // NEW
+                addedSinceParse.add(sourceFile);
+                added.add(sourceFile);
                 ++newSourceFiles;
                 continue;
             }
@@ -2312,10 +2337,16 @@ public class JavaInspectorImpl implements JavaInspector {
                 ++changedSourceFiles;
             } // else: UNCHANGED
         }
+        Set<TypeInfo> removedTypes = new HashSet<>();
+        for (SourceFile sourceFile : removed) {
+            removedTypes.addAll(this.sourceFiles.get(sourceFile));
+            addedSinceParse.remove(sourceFile); // new since the parse, and gone again: nothing to scan
+        }
+        removedSinceParse.addAll(removedTypes);
         this.sourceFiles.keySet().removeAll(removed);
         LOGGER.info("Reloaded sources: {} source file(s) removed, {} new, {} of {} remaining changed",
                 removed.size(), newSourceFiles, changedSourceFiles, current.size());
-        return new ReloadResult(List.copyOf(problems), Set.copyOf(changed));
+        return new ReloadResult(List.copyOf(problems), Set.copyOf(changed), Set.copyOf(added), Set.copyOf(removedTypes));
     }
 
     /**

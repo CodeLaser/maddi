@@ -328,7 +328,22 @@ public interface JavaInspector {
 
     Set<SourceFile> sourceFiles();
 
-    record ReloadResult(List<InitializationProblem> problems, Set<TypeInfo> sourceHasChanged) {
+    /**
+     * What {@link #reloadSources} found.
+     *
+     * @param sourceHasChanged the primary types whose file changed: for the caller to make INVALID
+     * @param added            the source files that are new since the last parse. They hold no types yet; the next
+     *                         re-parse scans them, whatever the {@link Invalidated} says about their source set, and
+     *                         their types are in its result
+     * @param removed          the primary types of the files that are gone. The next re-parse forgets them, by name
+     *                         too, before it scans anything: a type that still refers to one fails to resolve, as in a
+     *                         cold parse, provided the caller makes it INVALID (or REWIRE, beyond its source set)
+     */
+    record ReloadResult(List<InitializationProblem> problems, Set<TypeInfo> sourceHasChanged, Set<SourceFile> added,
+                        Set<TypeInfo> removed) {
+        public ReloadResult(List<InitializationProblem> problems, Set<TypeInfo> sourceHasChanged) {
+            this(problems, sourceHasChanged, Set.of(), Set.of());
+        }
     }
 
     ReloadResult reloadSources(InputConfiguration inputConfiguration, Map<String, String> sourcesByTestProtocolURIString) throws IOException;

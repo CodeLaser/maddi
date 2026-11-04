@@ -30,6 +30,7 @@ demonstrated in a test and nowhere else.
 | Capability | State | Where |
 |---|---|---|
 | `reloadSources`: which files changed, by MD5 of the raw text | production code, one production caller (below) | `JavaInspectorImpl.reloadSources` |
+| Added and removed files (since 2026-11-04): `ReloadResult.added()` / `removed()`; the next re-parse scans the added files with their set's changed ones, and forgets the removed types by name before it scans | production code; `TestReloadAddedRemoved` | `JavaInspectorImpl.reparse` |
 | `parse(setInvalidated)`: `UNCHANGED` kept, `INVALID` re-parsed, `REWIRE` copied with references re-pointed | production code; stress-tested by `RunRewireTests` | `JavaInspectorImpl.reparse`, `TypeInfoImpl.rewirePhase0..3`, `InfoMapImpl` |
 | Unit of re-parse | **the whole source set**: a set with one `INVALID` type is rescanned in full | `JavaInspectorImpl.actionFor` |
 | `lastRewireInfoMap()`: old → new, read-only, after a reparse | production code | `JavaInspector` |
