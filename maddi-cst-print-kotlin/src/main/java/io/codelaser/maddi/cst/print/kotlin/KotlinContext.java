@@ -16,18 +16,18 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Supplier;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.print.translate.TranslationState;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Supplier;
 
 /**
  * What a statement needs to know about where it is printed, which the CST does not say: the printers are static

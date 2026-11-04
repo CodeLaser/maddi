@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.expression.eval;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.expression.util.LhsRhs;
-
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class EvalInlineConditional {
     private final Runtime runtime;

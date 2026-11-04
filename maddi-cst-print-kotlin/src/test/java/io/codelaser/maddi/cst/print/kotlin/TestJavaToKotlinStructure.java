@@ -17,15 +17,16 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import org.intellij.lang.annotations.Language;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import org.junit.jupiter.api.Test;
-
-import java.util.stream.Collectors;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.stream.Collectors;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /**
  * Step 3 of the Java-to-Kotlin translation: where Java and Kotlin put things differently. Statics, constructors,

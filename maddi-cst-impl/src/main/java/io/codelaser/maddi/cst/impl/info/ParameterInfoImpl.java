@@ -17,7 +17,13 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.*;
@@ -37,12 +43,6 @@ import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
 import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
 import io.codelaser.maddi.support.EventuallyFinal;
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class ParameterInfoImpl implements ParameterInfo {
     private final int index;

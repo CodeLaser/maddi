@@ -17,9 +17,11 @@
 
 package io.codelaser.maddi.cst.io;
 
+import org.parsers.json.JSONParser;
+import org.parsers.json.Node;
+
 import io.codelaser.maddi.cst.api.analysis.Codec;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
-import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -28,8 +30,6 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.analysis.PropertyProviderImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
-import org.parsers.json.JSONParser;
-import org.parsers.json.Node;
 
 public abstract class CommonTest {
 

@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.cst.impl.expression.util;
 
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
-import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.ExpressionWrapper;
+import java.util.Comparator;
+import java.util.IdentityHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Comparator;
-import java.util.IdentityHashMap;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.ExpressionWrapper;
 
 public class ExpressionComparator implements Comparator<Expression> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExpressionComparator.class);

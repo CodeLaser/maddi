@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.inspection.integration.java.translate;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.nio.file.FileVisitResult;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -29,12 +36,6 @@ import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.FileVisitResult;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestTranslateAnonymousType extends CommonTest {
 

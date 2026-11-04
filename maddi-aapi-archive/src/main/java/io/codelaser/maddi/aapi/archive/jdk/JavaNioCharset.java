@@ -26,8 +26,8 @@ import java.util.Set;
 import java.util.SortedMap;
 
 import io.codelaser.maddi.annotation.Immutable;
-import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaNioCharset {
     public static final String PACKAGE_NAME = "java.nio.charset";

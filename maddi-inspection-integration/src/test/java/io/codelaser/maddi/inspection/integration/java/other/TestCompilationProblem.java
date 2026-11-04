@@ -17,6 +17,15 @@
 
 package io.codelaser.maddi.inspection.integration.java.other;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.parsers.java.ParseException;
+import org.slf4j.LoggerFactory;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
@@ -24,14 +33,6 @@ import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.parsers.java.ParseException;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestCompilationProblem {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(TestCompilationProblem.class);

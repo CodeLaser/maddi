@@ -17,15 +17,14 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.api.type.NullableState;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
-
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Renders a {@link ParameterizedType} as a Kotlin type reference: JVM primitives and common JDK types are

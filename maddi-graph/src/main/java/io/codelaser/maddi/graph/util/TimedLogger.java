@@ -17,9 +17,9 @@
 
 package io.codelaser.maddi.graph.util;
 
-import org.slf4j.Logger;
-
 import java.time.Instant;
+
+import org.slf4j.Logger;
 
 public class TimedLogger {
 

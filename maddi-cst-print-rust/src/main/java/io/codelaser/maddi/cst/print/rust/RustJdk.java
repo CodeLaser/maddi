@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -26,9 +29,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.print.rust.RustBodyPrinter.Held;
 import io.codelaser.maddi.cst.print.rust.RustBodyPrinter.Printed;
-
-import java.util.List;
-import java.util.Set;
 
 /**
  * The JDK's methods as {@code std}'s, for the types {@link RustTypes} maps: {@code String}, the collections,

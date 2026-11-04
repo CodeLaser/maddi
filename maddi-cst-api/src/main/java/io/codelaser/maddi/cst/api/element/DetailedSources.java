@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.api.element;
 
-import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import java.util.List;
+import java.util.function.BiConsumer;
+
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
-import java.util.function.BiConsumer;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
 
 /**
  * A fine-grained map from well-known syntactic positions (keywords, punctuation, comma separators)

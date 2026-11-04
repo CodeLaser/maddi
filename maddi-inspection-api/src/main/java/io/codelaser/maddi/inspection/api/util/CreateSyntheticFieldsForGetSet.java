@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.inspection.api.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.method.GetSet;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -29,8 +32,6 @@ import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.util.GetSetNames;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /*
 this class sits a little out of place in the inspection-api package, but it is currently the only place

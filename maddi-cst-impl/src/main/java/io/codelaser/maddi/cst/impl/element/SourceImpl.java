@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.element;
 
+import java.util.Objects;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
-
-import java.util.Objects;
 
 /*
 we must be a bit memory-conscious: no unnecessary fields because there may be millions of elements

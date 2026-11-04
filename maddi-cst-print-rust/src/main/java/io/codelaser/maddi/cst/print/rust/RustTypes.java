@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Java types as Rust types, in three forms: owned ({@code String}, {@code Vec<T>}, {@code Box<dyn I>}), shared

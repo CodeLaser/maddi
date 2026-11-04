@@ -17,17 +17,8 @@
 
 package io.codelaser.maddi.run.j2cs;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.print.csharp.CSharpCompat;
-import io.codelaser.maddi.cst.print.csharp.CSharpTranslator;
-import io.codelaser.maddi.cst.print.csharp.CSharpLibraries;
-import io.codelaser.maddi.cst.print.csharp.LibraryMapping;
-import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
-import io.codelaser.maddi.cst.print.csharp.CSharpPrintCode;
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,8 +27,18 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.print.csharp.CSharpCompat;
+import io.codelaser.maddi.cst.print.csharp.CSharpLibraries;
+import io.codelaser.maddi.cst.print.csharp.CSharpPrintCode;
+import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
+import io.codelaser.maddi.cst.print.csharp.CSharpTranslator;
+import io.codelaser.maddi.cst.print.csharp.LibraryMapping;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 
 /**
  * ⛔ THE RATCHET FOR JAVA → C# TRANSLATION: a corpus's main sources, parsed by the openjdk front end, printed by

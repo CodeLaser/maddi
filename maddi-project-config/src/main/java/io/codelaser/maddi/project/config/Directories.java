@@ -17,8 +17,8 @@
 
 package io.codelaser.maddi.project.config;
 
-import java.util.List;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * A project named by hand, for a build no capture fits: its main sources and class path, and optionally test sources

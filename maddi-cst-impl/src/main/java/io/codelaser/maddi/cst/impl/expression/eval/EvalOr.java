@@ -17,17 +17,18 @@
 
 package io.codelaser.maddi.cst.impl.expression.eval;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.expression.OrImpl;
 import io.codelaser.maddi.cst.impl.expression.util.AndOrSorter;
 import io.codelaser.maddi.util.IntUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 
 public class EvalOr {
     private static final Logger LOGGER = LoggerFactory.getLogger(EvalOr.class);

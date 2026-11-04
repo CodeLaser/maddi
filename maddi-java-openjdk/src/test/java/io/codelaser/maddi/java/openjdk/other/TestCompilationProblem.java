@@ -17,10 +17,11 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 public class TestCompilationProblem extends CommonTest {
 

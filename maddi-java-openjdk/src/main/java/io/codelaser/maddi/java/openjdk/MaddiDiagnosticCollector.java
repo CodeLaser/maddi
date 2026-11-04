@@ -1,13 +1,15 @@
 package io.codelaser.maddi.java.openjdk;
 
-import com.sun.tools.javac.code.Symbol;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.*;
 
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileObject;
-import java.util.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.sun.tools.javac.code.Symbol;
 
 public class MaddiDiagnosticCollector implements DiagnosticListener<JavaFileObject> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MaddiDiagnosticCollector.class);

@@ -1,7 +1,5 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import io.codelaser.maddi.run.config.compile.CompileInvocation;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -11,6 +9,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
 
 /**
  * A {@code kotlinc} and a {@code javac} invocation that write into ONE output directory, as one invocation.

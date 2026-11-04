@@ -18,10 +18,10 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 
-import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaLangRef {
     public static final String PACKAGE_NAME = "java.lang.ref";

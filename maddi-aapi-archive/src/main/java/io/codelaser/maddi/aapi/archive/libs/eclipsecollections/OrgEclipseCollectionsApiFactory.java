@@ -1,5 +1,6 @@
 package io.codelaser.maddi.aapi.archive.libs.eclipsecollections;
 import java.lang.reflect.Method;
+
 import org.eclipse.collections.api.factory.bag.ImmutableBagFactory;
 import org.eclipse.collections.api.factory.bag.MultiReaderBagFactory;
 import org.eclipse.collections.api.factory.bag.MutableBagFactory;
@@ -18,14 +19,12 @@ import org.eclipse.collections.api.factory.set.sorted.ImmutableSortedSetFactory;
 import org.eclipse.collections.api.factory.set.sorted.MutableSortedSetFactory;
 import org.eclipse.collections.api.factory.stack.ImmutableStackFactory;
 import org.eclipse.collections.api.factory.stack.MutableStackFactory;
+
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.FinalFields;
-import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.Independent;
-import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
 @Independent(absent = true)
 public class OrgEclipseCollectionsApiFactory {
     public static final String PACKAGE_NAME = "org.eclipse.collections.api.factory";

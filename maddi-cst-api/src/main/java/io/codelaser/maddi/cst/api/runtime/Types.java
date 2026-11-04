@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.api.runtime;
 
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-
-import java.util.stream.Stream;
 
 public interface Types {
 

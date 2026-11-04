@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Side;
-
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Eventual immutability ({@code @Mark}, {@code @Only}, road to immutability §060) as Rust's typestate pattern. The

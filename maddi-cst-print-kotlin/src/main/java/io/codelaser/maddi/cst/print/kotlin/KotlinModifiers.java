@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.Optional;
+
 import io.codelaser.maddi.cst.api.info.Access;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.element.Keyword;
 import io.codelaser.maddi.cst.impl.output.KeywordImpl;
-
-import java.util.Optional;
 
 /** Maps CST access/modifiers to Kotlin keywords (public and final are the Kotlin defaults, hence omitted). */
 public class KotlinModifiers {

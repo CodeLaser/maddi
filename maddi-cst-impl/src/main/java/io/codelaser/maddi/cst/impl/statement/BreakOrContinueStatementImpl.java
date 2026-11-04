@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.statement;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -27,11 +32,6 @@ import io.codelaser.maddi.cst.api.statement.BreakOrContinueStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public abstract class BreakOrContinueStatementImpl extends StatementImpl implements BreakOrContinueStatement {
     private final String goToLabel;

@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.graph.op;
 
-import io.codelaser.maddi.graph.V;
-
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.graph.V;
 
 public record Cycles<T>(Set<Cycle<T>> cycles) implements Iterable<Cycle<T>> {
 

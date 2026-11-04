@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.variable.Variable;
@@ -24,9 +27,6 @@ import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
-
-import java.util.stream.Stream;
 
 public abstract class InfoImpl implements Info {
 

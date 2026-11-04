@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.api.output;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.ImportStatement;
@@ -26,8 +28,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.List;
 
 /**
  * This type helps determine how variables and types are qualified.

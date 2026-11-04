@@ -17,9 +17,16 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -34,14 +41,6 @@ import io.codelaser.maddi.cst.impl.expression.util.InternalCompareToException;
 import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.type.ParameterizedTypeImpl;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
-
-import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
 
 public class AnnotationExpressionImpl extends ExpressionImpl implements AnnotationExpression {
     private final TypeInfo typeInfo;

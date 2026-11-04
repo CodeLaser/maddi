@@ -27,13 +27,13 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.stream.Stream;
 
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
 public class JavaIo {
     public static final String PACKAGE_NAME = "java.io";

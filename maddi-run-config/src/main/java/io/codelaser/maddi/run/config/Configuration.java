@@ -19,6 +19,7 @@ package io.codelaser.maddi.run.config;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 import io.codelaser.maddi.cst.api.runtime.LanguageConfiguration;
 import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;

@@ -17,9 +17,10 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.print.translate.Emission;
-import io.codelaser.maddi.cst.print.translate.Literals;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -40,10 +41,9 @@ import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.Emission;
+import io.codelaser.maddi.cst.print.translate.Literals;
 
 /**
  * Prints an {@link Expression} as Kotlin. Every expression form is printed here, recursively, so that a Java-only

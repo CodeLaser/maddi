@@ -1,11 +1,8 @@
 package io.codelaser.maddi.aapi.archive.libs.vavr;
-import io.vavr.*;
-import io.vavr.collection.Iterator;
-import io.vavr.collection.Seq;
-import io.vavr.control.*;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.*;
+
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.FinalFields;
 import io.codelaser.maddi.annotation.Fluent;
@@ -17,7 +14,10 @@ import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.method.GetSet;
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.vavr.*;
+import io.vavr.collection.Iterator;
+import io.vavr.collection.Seq;
+import io.vavr.control.*;
 @Independent(absent = true)
 public class IoVavrControl {
     public static final String PACKAGE_NAME = "io.vavr.control";

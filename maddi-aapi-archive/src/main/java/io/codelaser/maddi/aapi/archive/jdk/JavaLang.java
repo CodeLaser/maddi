@@ -37,7 +37,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import io.codelaser.maddi.annotation.Nullable;
+
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.Immutable;
@@ -46,6 +46,7 @@ import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.annotation.rare.StaticSideEffects;
 import io.codelaser.maddi.annotation.type.UtilityClass;

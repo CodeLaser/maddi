@@ -16,15 +16,15 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.Map;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * Members of the JDK types that Kotlin maps to its own (String, the collections, Number, Throwable, Enum, Object):

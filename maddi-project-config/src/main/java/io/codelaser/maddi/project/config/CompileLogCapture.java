@@ -17,13 +17,6 @@
 
 package io.codelaser.maddi.project.config;
 
-import io.codelaser.maddi.inspection.api.resource.BuildFiles;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
-import io.codelaser.maddi.run.config.javac.Javac;
-import io.codelaser.maddi.run.config.javac.ParseJavacList;
-import io.codelaser.maddi.run.config.util.JsonStreaming;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -37,6 +30,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
+import io.codelaser.maddi.run.config.javac.Javac;
+import io.codelaser.maddi.run.config.javac.ParseJavacList;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
 
 /**
  * A build's javac invocations, taken from its output as it runs, made into an {@code inputConfiguration.json} with

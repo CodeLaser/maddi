@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.util;
 
-import io.codelaser.maddi.annotation.NotModified;
-
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+
+import io.codelaser.maddi.annotation.NotModified;
 
 // keep the 'final' here, there is a test that checks that MapUtil is not extensible
 public final class MapUtil {

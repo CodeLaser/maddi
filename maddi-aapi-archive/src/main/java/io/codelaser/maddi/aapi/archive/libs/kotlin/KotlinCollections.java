@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedSet;
+
 import io.codelaser.maddi.annotation.Identity;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
@@ -28,14 +36,6 @@ import kotlin.jvm.functions.Function1;
 import kotlin.jvm.functions.Function2;
 import kotlin.ranges.IntRange;
 import kotlin.sequences.Sequence;
-
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
 
 /**
  * The annotated API for {@code kotlin.collections}: the extension functions every Kotlin codebase calls on a

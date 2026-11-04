@@ -17,21 +17,8 @@
 
 package io.codelaser.maddi.run.j2k;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.print.kotlin.KotlinTranslator;
-import io.codelaser.maddi.cst.print.kotlin.KotlinPrintCode;
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
-import io.codelaser.maddi.cst.print.kotlin.KotlinWorld;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.run.config.util.JsonStreaming;
-import io.codelaser.maddi.util.corpus.Corpora;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -43,8 +30,22 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.print.kotlin.KotlinPrintCode;
+import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
+import io.codelaser.maddi.cst.print.kotlin.KotlinTranslator;
+import io.codelaser.maddi.cst.print.kotlin.KotlinWorld;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.util.corpus.Corpora;
 
 /**
  * ⛔ THE RATCHET FOR JAVA → KOTLIN TRANSLATION, shared: a corpus's main sources, parsed by the openjdk front end,

@@ -17,9 +17,9 @@
 
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
-import io.codelaser.maddi.annotation.NotModified;
-
 import java.lang.reflect.Type;
+
+import io.codelaser.maddi.annotation.NotModified;
 
 /**
  * The annotated API for {@code kotlin.reflect}: the read-only accessors the library-call census found read as

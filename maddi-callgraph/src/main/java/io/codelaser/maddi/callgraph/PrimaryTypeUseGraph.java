@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.callgraph;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -24,10 +28,6 @@ import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;
 import io.codelaser.maddi.graph.V;
 import io.codelaser.maddi.graph.op.Common;
-
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * The {@link ComputeCallGraph} projected down to primary types, and <em>transposed</em>: the answer to "who depends on

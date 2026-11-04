@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.run.config.javac;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The <b>fourth</b> build tool, and the only one whose compile invocation does not fit on a line.

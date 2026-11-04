@@ -17,11 +17,12 @@
 
 package io.codelaser.maddi.cst.print;
 
-import io.codelaser.maddi.cst.api.output.element.TypeName;
-import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import io.codelaser.maddi.cst.api.output.element.TypeName;
+import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 
 public class TestTypeName {
 

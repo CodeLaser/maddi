@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.translate;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -33,12 +39,6 @@ import io.codelaser.maddi.cst.impl.type.ParameterizedTypeImpl;
 import io.codelaser.maddi.cst.impl.variable.DependentVariableImpl;
 import io.codelaser.maddi.cst.impl.variable.FieldReferenceImpl;
 import io.codelaser.maddi.cst.impl.variable.ThisImpl;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 public class TranslationMapImpl implements TranslationMap {
 

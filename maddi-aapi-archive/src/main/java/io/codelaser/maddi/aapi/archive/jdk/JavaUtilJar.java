@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.Modified;
-import io.codelaser.maddi.annotation.Nullable;
-
 import java.util.jar.JarEntry;
 import java.util.jar.Manifest;
+
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaUtilJar {
     public static final String PACKAGE_NAME = "java.util.jar";

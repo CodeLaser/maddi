@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.print.formatter2;
 
+import static io.codelaser.maddi.cst.impl.output.QualifiedNameImpl.Required.NEVER;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -24,11 +30,6 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import static io.codelaser.maddi.cst.impl.output.QualifiedNameImpl.Required.NEVER;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class Test6 {
     private final Runtime runtime = new RuntimeImpl();

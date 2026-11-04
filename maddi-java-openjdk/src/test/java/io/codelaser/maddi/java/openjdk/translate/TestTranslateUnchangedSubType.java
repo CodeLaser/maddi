@@ -16,14 +16,15 @@
  */
 package io.codelaser.maddi.java.openjdk.translate;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.translate.TranslationMap;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 /**
  * A translation that changes a type re-creates it, and so must re-create EVERY subtype: a subtype is owned by its

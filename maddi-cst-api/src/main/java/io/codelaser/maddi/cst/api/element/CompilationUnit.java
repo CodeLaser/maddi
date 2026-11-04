@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.api.element;
 
+import java.net.URI;
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-
-import java.net.URI;
-import java.util.List;
 
 /**
  * Represents a single Java source file — the top-level unit of compilation in the CST.

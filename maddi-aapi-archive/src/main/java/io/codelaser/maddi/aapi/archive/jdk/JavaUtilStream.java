@@ -16,14 +16,14 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
-import io.codelaser.maddi.annotation.*;
-import io.codelaser.maddi.annotation.rare.Finalizer;
-import io.codelaser.maddi.annotation.type.UtilityClass;
-
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.*;
 import java.util.stream.*;
+
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.rare.Finalizer;
+import io.codelaser.maddi.annotation.type.UtilityClass;
 
 public class JavaUtilStream {
     public static final String PACKAGE_NAME = "java.util.stream";

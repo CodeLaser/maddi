@@ -18,23 +18,24 @@
 package io.codelaser.maddi.inspection.impl.parser;
 
 
-import io.codelaser.maddi.cst.api.element.JavaDoc;
-import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
-import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.info.*;
-import io.codelaser.maddi.cst.api.statement.Statement;
-import io.codelaser.maddi.inspection.api.parser.*;
-import io.codelaser.maddi.graph.util.TimedLogger;
-import io.codelaser.maddi.cst.api.analysis.Message;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.graph.util.TimedLogger;
+import io.codelaser.maddi.inspection.api.parser.*;
 
 public class ResolverImpl implements Resolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResolverImpl.class);

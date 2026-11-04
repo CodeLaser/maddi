@@ -17,6 +17,17 @@
 
 package io.codelaser.maddi.parser.java;
 
+import static io.codelaser.maddi.util.StringUtil.pad;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -36,16 +47,6 @@ import io.codelaser.maddi.inspection.api.parser.Context;
 import io.codelaser.maddi.inspection.api.parser.ForwardType;
 import io.codelaser.maddi.inspection.api.parser.ParseHelper;
 import io.codelaser.maddi.inspection.api.parser.Summary;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.*;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static io.codelaser.maddi.util.StringUtil.pad;
 
 public class ParseHelperImpl extends CommonParse implements ParseHelper {
     public ParseHelperImpl(Runtime runtime) {

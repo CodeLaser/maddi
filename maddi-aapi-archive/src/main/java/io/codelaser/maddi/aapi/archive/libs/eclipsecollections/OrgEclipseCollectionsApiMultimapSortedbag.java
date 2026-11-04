@@ -16,15 +16,14 @@ import org.eclipse.collections.api.multimap.sortedbag.ImmutableSortedBagMultimap
 import org.eclipse.collections.api.multimap.sortedbag.MutableSortedBagMultimap;
 import org.eclipse.collections.api.multimap.sortedbag.SortedBagMultimap;
 import org.eclipse.collections.api.tuple.Pair;
+
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.FinalFields;
 import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
 @Independent(absent = true)
 public class OrgEclipseCollectionsApiMultimapSortedbag {
     public static final String PACKAGE_NAME = "org.eclipse.collections.api.multimap.sortedbag";

@@ -17,17 +17,18 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
 import io.codelaser.maddi.support.SetOnce;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 public class MethodInspectionImpl extends InspectionImpl implements MethodInspection {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodInspectionImpl.class);

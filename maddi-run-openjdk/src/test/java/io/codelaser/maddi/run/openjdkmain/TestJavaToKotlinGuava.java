@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.run.openjdkmain;
 
-import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
-import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
+import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 
 /**
  * ⛔ THE RATCHET FOR JAVA → KOTLIN TRANSLATION, a third corpus: guava's main sources through

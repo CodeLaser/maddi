@@ -17,16 +17,16 @@
 
 package io.codelaser.maddi.bytecode.java.asm;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Consumer;
 
 class ParseGenerics<T extends Info> {
     private final Runtime runtime;

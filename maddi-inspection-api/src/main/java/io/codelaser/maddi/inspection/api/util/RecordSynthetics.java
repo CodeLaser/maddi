@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.inspection.api.util;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -26,8 +28,6 @@ import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.This;
-
-import java.util.List;
 
 public class RecordSynthetics {
     private final Runtime runtime;

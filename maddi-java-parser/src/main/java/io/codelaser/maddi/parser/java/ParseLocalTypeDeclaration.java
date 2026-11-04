@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.parser.java;
 
+import org.parsers.java.ast.TypeDeclaration;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.inspection.api.parser.Context;
 import io.codelaser.maddi.inspection.api.parser.TypeContext;
-import org.parsers.java.ast.TypeDeclaration;
 
 public class ParseLocalTypeDeclaration extends CommonParse {
     public ParseLocalTypeDeclaration(Runtime runtime, Parsers parsers) {

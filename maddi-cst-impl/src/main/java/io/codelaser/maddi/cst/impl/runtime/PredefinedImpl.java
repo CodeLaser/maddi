@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.impl.runtime;
 
+import java.net.URI;
+import java.util.*;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -34,9 +37,6 @@ import io.codelaser.maddi.cst.impl.info.TypeInfoImpl;
 import io.codelaser.maddi.cst.impl.info.TypeNatureEnum;
 import io.codelaser.maddi.cst.impl.type.IsAssignableFrom2;
 import io.codelaser.maddi.cst.impl.type.ParameterizedTypeImpl;
-
-import java.net.URI;
-import java.util.*;
 
 public class PredefinedImpl implements Predefined {
     /**

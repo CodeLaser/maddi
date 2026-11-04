@@ -24,12 +24,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaUtilRegex {
     public static final String PACKAGE_NAME = "java.util.regex";

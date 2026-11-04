@@ -1,11 +1,10 @@
 package io.codelaser.maddi.java.openjdk;
 
 import com.sun.tools.javac.code.Symbol;
-import io.codelaser.maddi.cst.api.element.SourceSet;
+
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
 
 public interface TypeData {
 

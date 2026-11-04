@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import java.util.*;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Predefined;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.*;
 
 public class CommonType {
     private final Predefined runtime;

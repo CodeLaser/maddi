@@ -17,9 +17,10 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 import java.util.function.*;
-import io.codelaser.maddi.annotation.Modified;
+
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 

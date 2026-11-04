@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
-import io.codelaser.maddi.cst.api.analysis.Property;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
 
 import java.util.*;
 
-import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
+import io.codelaser.maddi.cst.api.analysis.Property;
 
 public class PropertyProviderImpl {
 

@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.cst.impl.variable;
 
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
@@ -26,7 +33,6 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -44,13 +50,6 @@ import io.codelaser.maddi.cst.impl.expression.VariableExpressionImpl;
 import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.type.DiamondEnum;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
-
-import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
 
 public class FieldReferenceImpl extends VariableImpl implements FieldReference {
     @NotNull

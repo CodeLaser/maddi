@@ -2,6 +2,7 @@ package io.codelaser.maddi.java.openjdk;
 
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
+
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldModifier;
 import io.codelaser.maddi.cst.api.info.MethodInfo;

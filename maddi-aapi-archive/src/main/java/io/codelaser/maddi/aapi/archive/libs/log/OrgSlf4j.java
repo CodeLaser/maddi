@@ -16,15 +16,16 @@
  */
 
 package io.codelaser.maddi.aapi.archive.libs.log;
-import io.codelaser.maddi.annotation.Container;
-import io.codelaser.maddi.annotation.Independent;
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.Marker;
 import org.slf4j.event.Level;
 import org.slf4j.spi.LoggingEventBuilder;
+
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 /*
  A Logger is a @Container: a log call reads its arguments. It is not immutable: a log call writes into the logging

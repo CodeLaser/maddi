@@ -17,13 +17,15 @@
 
 package io.codelaser.maddi.cst.impl.statement;
 
-import io.codelaser.maddi.cst.api.info.InfoMapView;
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.OutputElement;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -35,8 +37,6 @@ import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.element.SourceImpl;
 import io.codelaser.maddi.cst.impl.output.*;
-
-import java.util.List;
 
 public abstract class StatementImpl extends ElementImpl implements Statement {
 

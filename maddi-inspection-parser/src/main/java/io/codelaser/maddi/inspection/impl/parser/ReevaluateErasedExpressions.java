@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.inspection.impl.parser;
 
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.NullConstant;
@@ -26,11 +32,6 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.inspection.api.parser.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ReevaluateErasedExpressions {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReevaluateErasedExpressions.class);

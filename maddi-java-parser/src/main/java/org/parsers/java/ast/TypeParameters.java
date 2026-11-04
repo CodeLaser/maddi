@@ -21,10 +21,10 @@
 */
 package org.parsers.java.ast;
 
-import java.util.List;
-import org.parsers.java.*;
-import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
+
+import java.util.*;
+import java.util.List;
 
 public class TypeParameters extends BaseNode { 
 

@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldPrinter;
@@ -27,8 +29,6 @@ import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.List;
 
 /**
  * Prints a {@link FieldInfo} as a C# field: {@code [access] [static] [const|readonly] [volatile] Type name [= init];}.

@@ -16,17 +16,18 @@
  */
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.util.corpus.Corpora;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.opentest4j.TestAbortedException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.opentest4j.TestAbortedException;
+
+import io.codelaser.maddi.util.corpus.Corpora;
 
 /**
  * ⛔ The guard that makes every other corpus test's green mean something. A corpus test that SKIPS because

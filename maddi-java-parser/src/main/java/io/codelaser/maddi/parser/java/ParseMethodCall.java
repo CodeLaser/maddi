@@ -17,6 +17,16 @@
 
 package io.codelaser.maddi.parser.java;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -26,15 +36,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.inspection.api.parser.Context;
 import io.codelaser.maddi.inspection.api.parser.ForwardType;
 import io.codelaser.maddi.parser.java.erasure.MethodCallErasure;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 
 public class ParseMethodCall extends CommonParse {
     private final static Logger LOGGER = LoggerFactory.getLogger(ParseMethodCall.class);

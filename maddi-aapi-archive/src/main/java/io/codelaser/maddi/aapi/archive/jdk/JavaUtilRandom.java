@@ -18,8 +18,9 @@
 package io.codelaser.maddi.aapi.archive.jdk;
 import java.util.random.RandomGenerator;
 import java.util.stream.*;
-import io.codelaser.maddi.annotation.NotModified;
+
 import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 public class JavaUtilRandom {
     public static final String PACKAGE_NAME = "java.util.random";

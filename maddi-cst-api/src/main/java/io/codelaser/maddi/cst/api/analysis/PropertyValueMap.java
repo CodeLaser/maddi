@@ -17,13 +17,12 @@
 
 package io.codelaser.maddi.cst.api.analysis;
 
-import io.codelaser.maddi.annotation.Independent;
-
-import io.codelaser.maddi.cst.api.info.InfoMap;
-import io.codelaser.maddi.cst.api.info.InfoMapView;
-
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 
 public interface PropertyValueMap {
 

@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.element;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.*;
 import io.codelaser.maddi.annotation.eventual.BeforeMark;
 import io.codelaser.maddi.annotation.eventual.Mark;
@@ -33,12 +39,6 @@ import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.impl.expression.AnnotationExpressionImpl;
 import io.codelaser.maddi.cst.impl.info.TypeInfoImpl;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Stream;
 
 public class MaddiAnnotationsImpl {
     public final static String IMPLIED = "implied";
