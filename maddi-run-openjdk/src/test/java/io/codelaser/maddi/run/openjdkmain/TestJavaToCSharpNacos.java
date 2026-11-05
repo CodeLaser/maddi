@@ -27,8 +27,8 @@ import io.codelaser.maddi.run.j2cs.JavaToCSharpRatchet;
 import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 
 /**
- * Nacos's {@code api/main} translated to C# and judged by Roslyn; the numbers are held by
- * {@code src/test/resources/j2cs/nacos.ratchet}. See {@link JavaToCSharpRatchet}.
+ * One module of nacos translated to C# and judged by Roslyn; the numbers are held by
+ * {@code src/test/resources/j2cs/nacos-<module>.ratchet}. See {@link JavaToCSharpRatchet}.
  * <p>
  * Why nacos, beside timefold, langchain4j and fernflower: application-style code, builders and value objects of a
  * service, whose wildcards bound concrete types ({@code List<? extends Instance>}) where timefold's bound type
@@ -39,10 +39,14 @@ import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 @Tag("slow")
 public class TestJavaToCSharpNacos {
 
+    /** The module translated: {@code J2CS_NACOS_MAIN}, {@code api/main} by default; its ratchet is {@code nacos-api.ratchet}. */
     @Test
     public void test() throws Exception {
-        JavaToKotlinRatchet.Corpus corpus = JavaToKotlinRatchet.parse("nacos", "api/main", null, false, true);
+        String main = System.getenv("J2CS_NACOS_MAIN");
+        if (main == null || main.isBlank()) main = "api/main";
+        String name = "nacos-" + main.substring(0, main.indexOf('/'));
+        JavaToKotlinRatchet.Corpus corpus = JavaToKotlinRatchet.parse("nacos", main, null, false, true);
         assertTrue(corpus.types().size() > 200, "only " + corpus.types().size() + " primary types");
-        new JavaToCSharpRatchet("nacos", Path.of("src/test/resources/j2cs/nacos.ratchet")).run(corpus);
+        new JavaToCSharpRatchet(name, Path.of("src/test/resources/j2cs/" + name + ".ratchet")).run(corpus);
     }
 }
