@@ -30,6 +30,20 @@ internal interface IMapper<in X> {
     object Twice(X x);
 }
 internal sealed class MapperLambda<X, R>(Func<X, R> f) : IMapper<X, R> { public R Map(X x) => f(x); }
+internal sealed class Sentinels<B> {
+    internal ITuple<B> next = (ITuple<B>) Sentinels.EMPTY;
+    internal Pair<B> None() => (Pair<B>) (object) Sentinels.NONE;
+}
+internal static class Sentinels {
+    internal static readonly ITuple<object> EMPTY = new TupleLambda<object>(() => null);
+    internal static readonly Pair<object> NONE = new Pair<object>();
+}
+internal sealed class Pair<T> : ITuple<T> { public T Value() => default; }
+internal interface ITuple<out T> {
+    T Value();
+    int Size() => 1;
+}
+internal sealed class TupleLambda<T>(Func<T> f) : ITuple<T> { public T Value() => f(); }
 internal sealed class Plugins {
     internal static T NewInstance<T>(Type type) => default;
     internal static IFilter<string, int> Filter(Type filterClass) {

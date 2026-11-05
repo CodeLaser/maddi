@@ -2854,6 +2854,18 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                         return new Joiners<>(newLeftMappings, newRightMappings, leftMappings[0]);
                     }
                 }
+                class Sentinels<B> {
+                    interface Tuple<T> { T value(); default int size() { return 1; } }
+                    static final class Pair<T> implements Tuple<T> { public T value() { return null; } }
+                    @SuppressWarnings("rawtypes")
+                    private static final Tuple EMPTY = () -> null;
+                    @SuppressWarnings("rawtypes")
+                    private static final Pair NONE = new Pair();
+                    @SuppressWarnings("unchecked")
+                    Tuple<B> next = EMPTY;
+                    @SuppressWarnings("unchecked")
+                    Pair<B> none() { return NONE; }
+                }
                 class Plugins {
                     interface Filter<S, T> { boolean accept(S s, T t); default boolean reject(S s, T t) { return !accept(s, t); } }
                     static <T> T newInstance(Class<T> type) { return null; }
@@ -2872,6 +2884,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Func<B, object>[] newRightMappings = JavaArrays.CopyOf(rightMappings, rightMappings.Length + 1);");
         contains(cs, "return new Joiners<A, B>(newLeftMappings, newRightMappings, leftMappings[0]);");
         contains(cs, "IFilter<string, int> filter = NewInstance<IFilter<string, int>>(filterClass);");
+        // a raw sentinel into the generic type: cast, a class's through object
+        contains(cs, "internal ITuple<B> next = (ITuple<B>) Sentinels.EMPTY;");
+        contains(cs, "internal Pair<B> None() => (Pair<B>) (object) Sentinels.NONE;");
         contains(cs, "=> NewInstance<IFilter<string, int>>(filterClass);");
     }
 

@@ -1088,6 +1088,16 @@ public final class CSharpExpressionPrinter {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(CSharpTypeName.of(target, q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(receiver(value, q));
         }
+        // a raw value of a type printed with object arguments, a raw sentinel EMPTY_TUPLE into a UniTuple<B>: Java's
+        // unchecked conversion, C#'s cast; a class's constructed types cast through object only, (X<B>) (object) v
+        if (rawIntoGeneric(inner, target)) {
+            OutputBuilder cast = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(CSharpTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+            if (!target.typeInfo().isInterface()) {
+                cast.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+            }
+            return cast.add(receiver(value, q));
+        }
         // Map.keySet where a Set is expected: .Keys is an ICollection, the compatibility library's view a set
         if (keySetAsSet(inner, target)) {
             CSharpContext.using(CSharpCompat.NAMESPACE);
@@ -1301,6 +1311,27 @@ public final class CSharpExpressionPrinter {
             return false;
         }
         return target.parameters().stream().allMatch(a -> a.wildcard() == null && !constructorTypeParameter(a))
+               && writable(target, List.of()) && ownTypeParameters(target);
+    }
+
+    /**
+     * A value of a raw type that C# prints with {@code object} arguments (no wildcard interface), a variable or a
+     * call's result, where the type itself is expected with arguments C# can name here: Java's unchecked
+     * conversion, which C#'s reified generics check at run time, as Java's would have at the first use.
+     */
+    private static boolean rawIntoGeneric(Expression inner, ParameterizedType target) {
+        ParameterizedType from = inner.parameterizedType();
+        if (from == null || from.arrays() != 0 || target.arrays() != 0 || from.typeInfo() == null
+            || !from.typeInfo().equals(target.typeInfo()) || target.parameters().isEmpty() || !raw(from)
+            || !CSharpNames.translated(from.typeInfo()) || CSharpWildcardInterfaces.isWildcardUse(from)
+            || CSharpWildcardInterfaces.isWildcardUse(target)) {
+            return false;
+        }
+        // a variable declared raw, or a call of a method declared to return the raw type; not a generic method's
+        // result Java inferred raw from a raw argument, which C# infers from the argument as it prints it
+        boolean declaredRaw = inner instanceof VariableExpression
+                              || inner instanceof MethodCall mc && raw(mc.methodInfo().returnType());
+        return declaredRaw && target.parameters().stream().allMatch(a -> a.wildcard() == null && !constructorTypeParameter(a))
                && writable(target, List.of()) && ownTypeParameters(target);
     }
 
@@ -1538,7 +1569,7 @@ public final class CSharpExpressionPrinter {
                || CSharpErasures.adapted(inner, target) != null
                || constantLambda(inner, target) != null || implementation(inner, target) != null
                || covariantArray(inner, target) || rawCastInto(inner, target) || keySetAsSet(inner, target)
-               || wildcardIntoGeneric(inner, target)
+               || wildcardIntoGeneric(inner, target) || rawIntoGeneric(inner, target)
                || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
     }
