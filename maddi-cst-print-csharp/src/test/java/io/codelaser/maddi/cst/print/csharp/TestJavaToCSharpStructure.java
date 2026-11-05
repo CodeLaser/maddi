@@ -380,7 +380,6 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     /** A line the formatter cannot fit: a type argument longer than the line splits between tokens, not in one. */
     @Test
     public void longTypeArguments() {
-        compile = false; // #185: a cast through a wildcard printed as object (CS0030)
         String cs = translate("Notifiables", LONG_TYPE_ARGUMENTS);
         contains(cs, "basicVariableListener()\n? new OrderedSetOfSomeLength<");
     }

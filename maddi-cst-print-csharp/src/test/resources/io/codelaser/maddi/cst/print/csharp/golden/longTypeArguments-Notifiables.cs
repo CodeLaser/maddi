@@ -6,7 +6,7 @@ internal sealed class Notifiables {
         if (variableListener is ListenerOfAnEvenLongerNameStill<object, object> basicVariableListener) {
             return new Notifiable<S>(
                 scoreDirector,
-                (ListenerOfAnEvenLongerNameStill<S, object>) basicVariableListener,
+                (ListenerOfAnEvenLongerNameStill<S, object>) (object) basicVariableListener,
                 basicVariableListener()
                     ? new OrderedSetOfSomeLength<INotificationWithALongName<S, IChangeEventOfAVeryLongName<object>, ListenerOfAnEvenLongerNameStill<S, object>>>()
                     :

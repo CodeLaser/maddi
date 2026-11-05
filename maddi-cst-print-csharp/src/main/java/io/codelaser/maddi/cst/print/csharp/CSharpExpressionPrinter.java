@@ -174,7 +174,10 @@ public final class CSharpExpressionPrinter {
         ParameterizedType to = cast.parameterizedType();
         if (from != null && (to.isTypeParameter() && to.arrays() == 0 && !from.isTypeParameter()
                              || CstQueries.mentionsTypeParameter(to) && !CstQueries.mentionsTypeParameter(from))
-            && !from.isJavaLangObject() && !(from.typeInfo() != null && from.typeInfo().isInterface())) {
+            && !from.isJavaLangObject() && !(from.typeInfo() != null && from.typeInfo().isInterface()
+                                             // a functional interface C# has as a delegate casts as a class does
+                                             && !CSharpContext.program().delegate(from.typeInfo())
+                                             && !CSharpTypeName.libraryDelegate(from.typeInfo()))) {
             b.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         }
         OutputBuilder operand = operand(cast.precedence(), cast.expression(), q);
