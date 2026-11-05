@@ -140,7 +140,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (staticClass) modifiers.append("static ");
             else if (typeInfo.isAbstract() && !typeInfo.isInterface()) modifiers.append("abstract ");
             else if (record || enumClass || typeInfo.typeNature().isClass()
-                                            && (typeInfo.isFinal() || !CSharpContext.program().open(typeInfo))) {
+                                            && (typeInfo.isFinal() || !CSharpContext.program().open(typeInfo))
+                                            && !CSharpContext.program().boundsTypeParameter(typeInfo)) {
                 modifiers.append("sealed ");
             }
             String keyword = typeInfo.isInterface() ? "interface" : record ? "record" : "class";
@@ -733,11 +734,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /**
      * An interface's companion and its wildcard interface have the same name, {@code ITupleLifecycle}: one interface,
-     * which C# lets have static members, {@code ITupleLifecycle.OfLeft(…)} as the companion's.
+     * which C# lets have static members, {@code ITupleLifecycle.OfLeft(…)} as the companion's. A self-bounded
+     * interface's too ({@code Impacter<G extends Grade<G>>}): two declarations of the name are CS0102.
      */
     private boolean companionInWildcardInterface() {
-        return typeInfo.isInterface() && CSharpNames.hasCompanion(typeInfo) && CSharpWildcardInterfaces.has(typeInfo)
-               && !CSharpWildcardInterfaces.companionOfSelfBounded(typeInfo);
+        return typeInfo.isInterface() && CSharpNames.hasCompanion(typeInfo) && CSharpWildcardInterfaces.has(typeInfo);
     }
 
     /**

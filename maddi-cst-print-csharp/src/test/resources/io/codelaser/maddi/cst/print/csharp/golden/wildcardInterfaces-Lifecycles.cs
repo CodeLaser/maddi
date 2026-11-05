@@ -75,8 +75,7 @@ public sealed class Lifecycles {
         List<G> Impacts();
         public sealed class Lambda(Func<List<G>> f) : IImpacter<G> { public List<G> Impacts() => f(); }
     }
-    public interface IImpacter { }
-    public static class IImpacter { public static IImpacter None() => null; }
+    public interface IImpacter { public static IImpacter None() => null; }
     public sealed class Key<T> where T : ITuple { internal readonly string name = "k"; }
     public sealed class Named : Box<string> {
         internal Named() : base("n") { }

@@ -538,7 +538,6 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
     /** NavigableMap, NavigableSet and SequencedMap on C#'s sorted and ordered collections, by the compatibility library. */
     @Test
     public void navigation() {
-        compile = false; // #185: ToArray<T>, a void Add in &&, All on the non-generic ICollection
         String cs = translate("Navigation", NAVIGATION);
         contains(cs, "SortedDictionary<int, string> map");
         // a navigation's entry may be null: the local is the JavaEntry, not a KeyValuePair

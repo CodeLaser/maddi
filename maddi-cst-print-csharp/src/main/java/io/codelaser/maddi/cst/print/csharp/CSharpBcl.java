@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
@@ -238,6 +240,14 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.Collection.contains/1", (method, call) -> objectArgument(call) && !readOnlyReceiver(call)
                 ? rule("$0.ContainsObject($1)", COMPAT) : readOnlyReceiver(call)
                 ? rule("$0.Contains($1)", LINQ) : rule("$0.Contains($1)"));
+        // add(E) is a value in Java, always true on a List; C#'s List.Add and ICollection.Add are void, a set's Add
+        // is the boolean: the compatibility library's AddReturning where the value is used
+        chooser("java.util.Collection.add/1", (method, call) -> call != null && !setReceiver(call) && valueUsed(call)
+                ? rule("$0.AddReturning($1)", COMPAT) : rule("$0.Add($1)"));
+        // containsAll(Collection<?>): the argument is C#'s non-generic ICollection, without LINQ: the compatibility
+        // library's, over objects
+        chooser("java.util.Collection.containsAll/1", (method, call) -> nonGenericArgument(call, 0)
+                ? rule("$0.ContainsAll($1)", COMPAT) : rule("@1.All($0.Contains)", LINQ));
         Chooser remove = (method, call) -> objectArgument(call) ? rule("$0.RemoveObject($1)", COMPAT) : rule("$0.Remove($1)");
         chooser("java.util.Collection.remove/1", remove);
         chooser("java.util.List.remove(Object)", remove);
@@ -424,6 +434,28 @@ final class CSharpBcl implements LibraryMapping {
         }
         ParameterizedType element = receiver.parameters().getFirst();
         return !element.isJavaLangObject() && (element.wildcard() == null || !element.wildcard().isUnbound());
+    }
+
+    /** The call's method is a {@code java.util.Set}'s, or overrides one: C#'s {@code Add} returns the boolean. */
+    private static boolean setReceiver(MethodCall call) {
+        MethodInfo m = call.methodInfo();
+        return Stream.concat(Stream.of(m), m.overrides().stream())
+                .anyMatch(o -> "java.util.Set".equals(o.typeInfo().fullyQualifiedName()));
+    }
+
+    /** The call is not the statement it is in: its value goes somewhere. */
+    private static boolean valueUsed(MethodCall call) {
+        Statement statement = CSharpContext.state().currentStatement();
+        return !(statement instanceof ExpressionAsStatement eas
+                 && CSharpExpressionPrinter.unwrap(eas.expression()) == call);
+    }
+
+    /** Argument {@code index} is a collection of unbound wildcards, {@code Collection<?>}: C#'s non-generic interface. */
+    private static boolean nonGenericArgument(MethodCall call, int index) {
+        if (call == null || call.parameterExpressions().size() <= index) return false;
+        ParameterizedType argument = call.parameterExpressions().get(index).parameterizedType();
+        return argument != null && argument.arrays() == 0 && !argument.parameters().isEmpty()
+               && argument.parameters().stream().allMatch(a -> a.wildcard() != null && a.wildcard().isUnbound());
     }
 
     private static boolean valueType(MethodCall call, int index) {

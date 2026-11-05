@@ -279,12 +279,10 @@ member java.util.Collection.size/0 -> $0.Count
 member java.util.Map.size/0 -> $0.Count
 member java.util.Collection.isEmpty/0 -> $0.Count == 0
 member java.util.Map.isEmpty/0 -> $0.Count == 0
-member java.util.Collection.add/1 -> $0.Add($1)
 member java.util.Collection.clear/0 -> $0.Clear()
 member java.util.Map.clear/0 -> $0.Clear()
 member java.util.Collection.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
 statement java.util.Collection.addAll/1 -> $0.AddAll($1)
-member java.util.Collection.containsAll/1 -> @1.All($0.Contains) using System.Linq
 member java.util.Collection.removeAll/1 -> $0.RemoveAllOf($1) using Maddi.JavaCompat
 statement java.util.Collection.removeAll/1 -> $0.RemoveAllOf($1)
 member java.util.Collection.retainAll/1 -> $0.RetainAll($1) using Maddi.JavaCompat
@@ -316,7 +314,7 @@ member java.util.SequencedCollection.getFirst/0 -> $0.First() using System.Linq
 member java.util.SequencedCollection.getLast/0 -> $0.Last() using System.Linq
 member java.util.List.copyOf/1 -> new List<{R0}>($1)
 # the array argument only gives Java the element type
-member java.util.Collection.toArray/1 -> $0.ToArray() using System.Linq
+member java.util.Collection.toArray/1 -> $0.ToArray($1) using Maddi.JavaCompat
 member java.util.Deque.getFirst/0 -> $0[0]
 member java.util.LinkedList.getFirst/0 -> $0[0]
 member java.util.ArrayDeque.getFirst/0 -> $0[0]
@@ -917,6 +915,7 @@ member java.lang.System.lineSeparator/0 -> Environment.NewLine using System
 member java.lang.System.getProperty/1 ->? JavaSystem.GetProperty($1) using Maddi.JavaCompat
 member java.lang.System.getProperty/2 ->? JavaSystem.GetProperty($1, $2) using Maddi.JavaCompat
 member java.lang.System.exit/1 -> Environment.Exit($1) using System
+member java.lang.System.gc/0 -> GC.Collect() using System
 member java.lang.System.identityHashCode/1 -> RuntimeHelpers.GetHashCode($1) using System.Runtime.CompilerServices
 member java.io.PrintStream.println/1 -> $0.WriteLine($1)
 member java.io.PrintStream.println/0 -> $0.WriteLine()

@@ -31,7 +31,7 @@ public sealed class Range : IEnumerable<long> {
             this.next = outer.from;
         }
         public bool HasNext() => next < outer.to;
-        public long? Next() => next++;
+        public long Next() => next++;
         internal long Left() => outer.Width() - (next - outer.from);
         internal Upcoming Copy() => new Upcoming(outer);
     }

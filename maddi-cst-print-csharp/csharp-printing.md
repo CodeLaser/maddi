@@ -72,7 +72,8 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   `KeyValuePair<K, V>?` would cast every `e.Key` of a for-each over the map. Java's `var` of such a type is declared
   (`Kind? kind = Kind.Filter`), so that a later `kind = node.getKind()` fits. Where C# has the value type itself, the
   `X?` is cast: a template's operand (`BigDecimal.add`'s `((decimal) a) + ((decimal) b)`), a library's parameter of
-  the struct, an override of `T get()` (`decimal Get()`), a lambda's result; a method reference's typed parameters
+  the struct, an override of `T get()` (`decimal Get()`; of a library's `T` as the supertype's argument prints,
+  `long Next()` for `Iterator<Long>`'s `IJavaIterator<long>`), a lambda's result; a method reference's typed parameters
   are the delegate's type arguments (`(decimal p0, decimal p1) => p0 + p1`).
 - In a pattern, a type has no `?`: `o instanceof Integer` becomes `o is int`.
 - C# has no wildcards. A collection of `? extends T` is C#'s covariant read-only interface, a collection of `?` its
@@ -208,7 +209,8 @@ implements the interface.
     not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
     methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep
     everything Java leaves open: a method that is not final, static or private is `virtual`, a class that is not
-    final is not `sealed`.
+    final is not `sealed`. A class that bounds a type parameter anywhere in the program (`R extends Defaults<R>`)
+    is never `sealed`: C# allows no sealed class as a constraint (CS0701).
   - An override of a class method becomes `override`, or `sealed override` when it is final. Implementing an
     interface method needs neither. An override and an explicit interface implementation inherit their constraints
     and do not repeat them.
@@ -774,7 +776,8 @@ from a map, a stream's collector.
   AverageUniCollector<A>(mapper))`, which C#'s variance would not convert. One already of `object` is itself; any other
   is another object, which a reference comparison with the original tells apart. Not into a method's parameter that
   captures the wildcard. An interface whose statics have a companion, of
-  the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members. Where a
+  the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members, a
+  self-bounded interface's too (two declarations of the name are CS0102). Where a
   class's superclass is expected, its wildcard interface is cast to it, `(AbstractNode) node`: the interface cannot
   extend the class. A wildcard of a library type,
   and `? extends B` (what the code stores there is a `B`), is its bound (`WILDCARD_AS_BOUND`).
@@ -938,6 +941,11 @@ by contract is `T?`, and a mapping rule that calls one says `->?`. `JavaCompat.c
 - Extension methods with Java's behaviour where it differs in a way that can be observed: `Map.put` returns the
   previous value, `Deque.removeFirst` the element, `String.split` takes a regular expression and drops trailing
   empty strings, and `String.format`'s conversions differ from .NET's.
+- Collections: `add` on a list or collection is a value in Java, always true, and C#'s `Add` is void: a call whose
+  value is used (not the statement it is in) is the compatibility library's `AddReturning`; a set's `Add` returns
+  the boolean. `toArray(T[] a)` is `ToArray(a)`, Java's rule of filling `a` when it holds the elements.
+  `containsAll(Collection<?>)` takes the non-generic `ICollection` the wildcard prints as, without LINQ: `ContainsAll`
+  over objects.
 - The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `IJavaIterator<T>`
   (Java's `Iterator`, which the program's iterators implement; `JavaIterator<T>` walks a C# collection, with
   `remove`), `IJavaListIterator<T>` (a `ListIterator`, which `JavaIterator<T>` is over a list: `previous`, `set`,

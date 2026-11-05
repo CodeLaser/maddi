@@ -203,11 +203,23 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         // a type of the program: a library's mapping may keep int? as the argument (IJavaEntry<int?, V>); an enum's
         // or a struct's is the value type (IComparer<E>)
         boolean boxed = pt.isBoxedExcludingVoid();
-        return method.overrides().stream().filter(o -> o != method && (!boxed || CSharpNames.translated(o.typeInfo())
-                                                                       || redeclaredAbove(o, method.typeInfo())))
-                .map(inOverridden)
-                .anyMatch(o -> o != null && o.arrays() == 0 && o.isTypeParameter() && o.typeParameter() != null
-                               && !o.typeParameter().isMethodTypeParameter());
+        return method.overrides().stream().filter(o -> o != method).anyMatch(o -> {
+            ParameterizedType in = inOverridden.apply(o);
+            if (in == null || in.arrays() != 0 || !in.isTypeParameter() || in.typeParameter() == null
+                || in.typeParameter().isMethodTypeParameter()) {
+                return false;
+            }
+            if (!boxed || CSharpNames.translated(o.typeInfo()) || redeclaredAbove(o, method.typeInfo())) return true;
+            // a library type's: as the supertype's argument prints, IJavaIterator<long> of Iterator<Long>
+            return plainArgument(method.typeInfo(), o.typeInfo(), in.typeParameter());
+        });
+    }
+
+    /** {@code lib}'s type parameter {@code tp}, as {@code type} extends or implements it, prints without {@code ?}. */
+    private static boolean plainArgument(TypeInfo type, TypeInfo lib, TypeParameter tp) {
+        ParameterizedType seen = CstSupertypes.asSeen(type, lib);
+        if (seen == null || tp.getIndex() >= seen.parameters().size()) return false;
+        return !CSharpTypeName.argument(seen.parameters().get(tp.getIndex()), null).endsWith("?");
     }
 
     /** {@code : base(…)} or {@code : this(…)} from the first statement, then the rest of the body. */

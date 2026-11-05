@@ -138,6 +138,7 @@ public final class CSharpProgram {
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
+    private final Set<TypeInfo> bounds;
     private final Set<MethodInfo> overridden;
     private final Inheritance inheritance;
     private final Map<String, String> namespaceSegments;
@@ -162,6 +163,7 @@ public final class CSharpProgram {
     private static final class Builder {
         Set<TypeInfo> delegates = Set.of();
         Set<TypeInfo> extended = Set.of();
+        Set<TypeInfo> bounds = Set.of();
         Set<MethodInfo> overridden = Set.of();
         Inheritance inheritance = Inheritance.OPEN;
         Map<String, String> namespaceSegments = Map.of();
@@ -187,6 +189,7 @@ public final class CSharpProgram {
     private CSharpProgram(Builder b) {
         delegates = b.delegates;
         extended = b.extended;
+        bounds = b.bounds;
         overridden = b.overridden;
         inheritance = b.inheritance;
         namespaceSegments = b.namespaceSegments;
@@ -247,10 +250,14 @@ public final class CSharpProgram {
         Set<TypeInfo> candidates = new HashSet<>();
         Set<TypeInfo> implemented = new HashSet<>();
         Set<TypeInfo> extended = new HashSet<>();
+        Set<TypeInfo> bounds = new HashSet<>();
         Set<MethodInfo> overridden = new HashSet<>();
         for (TypeInfo t : all) {
             if (delegateShape(t)) candidates.add(t);
             if (t.parentClass() != null && t.parentClass().typeInfo() != null) extended.add(t.parentClass().typeInfo());
+            Stream.concat(t.typeParameters().stream(), t.methods().stream().flatMap(m -> m.typeParameters().stream()))
+                    .flatMap(tp -> tp.typeBounds().stream()).filter(bd -> bd.typeInfo() != null && bd.arrays() == 0)
+                    .forEach(bd -> bounds.add(bd.typeInfo()));
             Stream.concat(t.methods().stream(), t.constructors().stream())
                     .forEach(m -> m.overrides().stream().filter(o -> o != m).forEach(overridden::add));
             // an anonymous class that becomes a lambda is no implementation
@@ -270,6 +277,7 @@ public final class CSharpProgram {
         // the analyses below name types as the printing will
         CSharpContext.program(b.build());
         b.extended = Set.copyOf(extended);
+        b.bounds = Set.copyOf(bounds);
         b.overridden = Set.copyOf(overridden);
         if (policy.accessors() == Accessors.PROPERTIES) {
             // a superclass's method that implements a subclass's interface is a method there too
@@ -655,6 +663,14 @@ public final class CSharpProgram {
     }
 
     /** A class that may have subclasses: one of the program extends it, or the policy keeps it open. */
+    /**
+     * The class bounds a type parameter somewhere in the program ({@code R extends Defaults<R>}): C# allows no
+     * {@code sealed} class as a constraint (CS0701), so it is not sealed, whatever Java says.
+     */
+    public boolean boundsTypeParameter(TypeInfo typeInfo) {
+        return bounds.contains(typeInfo);
+    }
+
     public boolean open(TypeInfo typeInfo) {
         return switch (inheritance) {
             case OPEN -> true;

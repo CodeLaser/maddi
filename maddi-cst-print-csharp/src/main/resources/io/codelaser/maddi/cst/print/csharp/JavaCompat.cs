@@ -210,6 +210,31 @@ public static class JavaCollections
 
     public static bool AddAll<T>(this ICollection<T> c, params T[] items) => c.AddAll((IEnumerable<T>)items);
 
+    /// <summary>Java's add on a List, always true, where C#'s Add is void: for a call whose value is used.</summary>
+    public static bool AddReturning<T>(this ICollection<T> c, T item)
+    {
+        c.Add(item);
+        return true;
+    }
+
+    /// <summary>Java's toArray(T[] a): a filled with the elements when it holds them (the next slot null), a new array otherwise.</summary>
+    public static T[] ToArray<E, T>(this IEnumerable<E> c, T[] a)
+    {
+        var items = c.Cast<T>().ToList();
+        if (a.Length < items.Count) return items.ToArray();
+        items.CopyTo(a);
+        if (a.Length > items.Count) a[items.Count] = default!;
+        return a;
+    }
+
+    /// <summary>Java's containsAll(Collection&lt;?&gt;): every element of other, whatever its type, is in c.</summary>
+    public static bool ContainsAll<T>(this IEnumerable<T> c, System.Collections.IEnumerable other)
+    {
+        var set = c.Cast<object?>().ToHashSet();
+        foreach (var o in other) if (!set.Contains(o)) return false;
+        return true;
+    }
+
     public static bool InsertAll<T>(this IList<T> l, int index, IEnumerable<T> items)
     {
         var all = items.ToList();
