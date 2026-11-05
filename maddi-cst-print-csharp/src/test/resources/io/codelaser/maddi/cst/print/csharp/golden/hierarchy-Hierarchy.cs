@@ -3,8 +3,8 @@ namespace Org.Example.Shapes;
 internal interface IShape {
     double Area { get; }
     string Describe => "shape";
-    public sealed class Lambda(Func<double> f) : IShape { public double Area => f(); }
 }
+internal sealed class ShapeLambda(Func<double> f) : IShape { public double Area => f(); }
 internal abstract class Base : IShape {
     protected internal readonly double scale;
     protected internal Base(double scale) { this.scale = scale; }

@@ -12,7 +12,7 @@ public sealed class Placers {
         public override IJavaIterator<string> Iterator() => list.Iterator();
     }
 
-    internal interface IPlacer<P> : IEnumerable<P> {
+    internal interface IPlacer<out P> : IEnumerable<P> {
         bool Empty { get; }
         IJavaIterator<P> Iterator();
         IEnumerator<P> IEnumerable<P>.GetEnumerator() => Iterator().AsEnumerator();

@@ -9,12 +9,12 @@ public sealed class Scores {
     }
     internal static string Describe<S>(IDirector<S> director, S solution) => director.Calculate(solution).ToShortString();
     internal static int CompareInner(IInner a, IInner b) => ((IInner) a).CompareTo(b);
-    public interface IDirector<Solution_, Score_> : IDirector<Solution_> where Score_ : IScore<Score_> {
+    public interface IDirector<in Solution_, Score_> : IDirector<Solution_> where Score_ : IScore<Score_> {
         Score_ Calculate(Solution_ solution);
         List<Score_> History();
         IScore IDirector<Solution_>.Calculate(Solution_ solution) => Calculate(solution);
     }
-    public interface IDirector<Solution_> { IScore Calculate(Solution_ solution); }
+    public interface IDirector<in Solution_> { IScore Calculate(Solution_ solution); }
 
     public sealed record Inner<Score_>(Score_ Raw, int Unassigned)
         : IComparable<Inner<Score_>>, IInner where Score_ : IScore<Score_> {

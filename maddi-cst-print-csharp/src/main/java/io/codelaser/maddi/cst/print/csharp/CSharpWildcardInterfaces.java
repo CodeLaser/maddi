@@ -372,8 +372,10 @@ final class CSharpWildcardInterfaces {
         if (t != null && CSharpNames.translated(t) && arguments.size() == t.typeParameters().size()) {
             for (int i = 0; i < arguments.size(); i++) {
                 ParameterizedType a = arguments.get(i);
-                if (open(a)) {
-                    wildcarded.computeIfAbsent(t, k -> new HashSet<>()).add(t.typeParameters().get(i));
+                // an unbound ? of an out parameter without bounds is its object: IMapper<A, object>
+                TypeParameter tp = t.typeParameters().get(i);
+                if (open(a) && !(objectAtOut(tp))) {
+                    wildcarded.computeIfAbsent(t, k -> new HashSet<>()).add(tp);
                 }
             }
         }
@@ -386,6 +388,12 @@ final class CSharpWildcardInterfaces {
      */
     private static boolean open(ParameterizedType a) {
         return a.wildcard() != null && a.wildcard().isUnbound();
+    }
+
+    /** An unbound {@code ?} at {@code tp} is {@code object}: C# declares {@code tp} {@code out}, and its bounds admit object. */
+    static boolean objectAtOut(TypeParameter tp) {
+        return "out".equals(CSharpContext.program().variance(tp))
+               && tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject);
     }
 
     static boolean has(TypeInfo t) {
@@ -603,7 +611,8 @@ final class CSharpWildcardInterfaces {
         String lambda = parameters + " => f" + (adapted(pt.typeInfo()) ? "." + CSharpNames.method(sam) : "") + "("
                         + String.join(", ", arguments) + ")" + (assertResult ? "!" : "");
         // ITriFunction<object, A, B, Action>'s lambda adapter
-        String adapter = adapted(pt.typeInfo()) ? "new " + erasedDelegateType(pt, removed, q) + ".Lambda(" + lambda + ")"
+        String adapter = adapted(pt.typeInfo())
+                ? "new " + CSharpNames.lambdaAdapterReference(pt.typeInfo(), erasedDelegateType(pt, removed, q)) + "(" + lambda + ")"
                 : lambda;
         return "{ var f = " + call + "; return " + adapter + "; }";
     }
@@ -787,7 +796,8 @@ final class CSharpWildcardInterfaces {
     static OutputBuilder declaration(TypeInfo t, String access, Qualification q, List<OutputBuilder> statics) {
         List<TypeParameter> remaining = remaining(t);
         List<TypeParameter> removed = removed(t);
-        String typeParameters = CSharpNames.typeParameters(remaining);
+        // the type's own type parameters, with the variance the type declares on them
+        String typeParameters = CSharpNames.declaredTypeParameters(remaining);
         StringBuilder header = new StringBuilder();
         if (access != null) header.append(access).append(' ');
         header.append("interface ").append(name(t)).append(typeParameters);

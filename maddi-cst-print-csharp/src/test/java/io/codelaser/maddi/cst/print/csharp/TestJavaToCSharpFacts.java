@@ -392,10 +392,10 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         });
         String cs = translate("Adapters", ADAPTERS);
         contains(cs, "string? Get(string external, string? @internal);");
-        contains(cs, "public sealed class Lambda(Func<string, string?, string?> f) : IProvider { public string? "
+        contains(cs, "sealed class ProviderLambda(Func<string, string?, string?> f) : IProvider { public string? "
                      + "Get(string external, string? @internal) => f(external, @internal); }");
         // a type parameter's verdict stays out of the adapter: Func<A?, int> would not take a method group of A
-        contains(cs, "public sealed class Lambda(Func<A, int> f) : IMapper<A> { public int Map(A any) => f(any); }");
+        contains(cs, "sealed class MapperLambda<A>(Func<A, int> f) : IMapper<A> { public int Map(A any) => f(any); }");
         contains(cs, "public int CompareTo(Node o) => string.CompareOrdinal(name, o.name);");
         contains(cs, "int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);");
     }
@@ -796,7 +796,7 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
             }
         });
         String cs = translate("Collectors", ERASED_NULLS);
-        contains(cs, "new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_!, x1_, x2_)!)");
+        contains(cs, "new TriFunctionLambda<object, A, B, Action>((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_!, x1_, x2_)!)");
     }
 
     @Language("java")

@@ -1749,8 +1749,8 @@ public final class CSharpExpressionPrinter {
             return lambda;
         }
         return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
-                .add(text(CSharpTypeName.of(functionalType, q) + ".Lambda")).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(lambda).add(SymbolEnum.RIGHT_PARENTHESIS);
+                .add(text(CSharpNames.lambdaAdapterReference(functionalType.typeInfo(), CSharpTypeName.of(functionalType, q))))
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(lambda).add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /** A type written as a value: the raw type and its arguments ({@link #typeLiteral}). */

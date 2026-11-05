@@ -14,30 +14,30 @@ internal sealed class Collectors {
     internal static IBiCollector<A, B, object, int> count<A, B>() => IBiCollector<A, B, int[], int>.Erased_(
         new Count<A, B>());
     internal static IBiCollector<A, B, object, int> LoggedCount<A, B>() => LoggedBi(count<A, B>());
-    internal interface IBiCollector<A, B, ResultContainer_, Result_> {
+    internal interface IBiCollector<in A, in B, ResultContainer_, Result_> {
         Func<ResultContainer_> Supplier();
         ITriFunction<ResultContainer_, A, B, Action> Accumulator();
-        static IBiCollector<A, B, object, Result_> Erased_(IBiCollector<A, B, ResultContainer_, Result_> erased) => erased as IBiCollector<A, B, object, Result_> ?? new Erasure_(erased);
-        private sealed class Erasure_ : IBiCollector<A, B, object, Result_> {
-            private readonly IBiCollector<A, B, ResultContainer_, Result_> erased;
-            internal Erasure_(IBiCollector<A, B, ResultContainer_, Result_> erased) { this.erased = erased; }
-            public Func<object> Supplier() { var f = erased.Supplier(); return () => f(); }
-            public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }
-        }
+        static IBiCollector<A, B, object, Result_> Erased_(IBiCollector<A, B, ResultContainer_, Result_> erased) => erased as IBiCollector<A, B, object, Result_> ?? new BiCollectorErasure_<A, B, ResultContainer_, Result_>(erased);
+    }
+    internal sealed class BiCollectorErasure_<A, B, ResultContainer_, Result_> : IBiCollector<A, B, object, Result_> {
+        private readonly IBiCollector<A, B, ResultContainer_, Result_> erased;
+        internal BiCollectorErasure_(IBiCollector<A, B, ResultContainer_, Result_> erased) { this.erased = erased; }
+        public Func<object> Supplier() { var f = erased.Supplier(); return () => f(); }
+        public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new TriFunctionLambda<object, A, B, Action>((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }
     }
 
-    internal interface ICollector<A, ResultContainer_, Result_> {
+    internal interface ICollector<in A, ResultContainer_, out Result_> {
         Func<ResultContainer_> Supplier();
         Func<ResultContainer_, A, Action> Accumulator();
         Func<ResultContainer_, Result_> Finisher();
-        static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new Erasure_(erased);
-        private sealed class Erasure_ : ICollector<A, object, Result_> {
-            private readonly ICollector<A, ResultContainer_, Result_> erased;
-            internal Erasure_(ICollector<A, ResultContainer_, Result_> erased) { this.erased = erased; }
-            public Func<object> Supplier() { var f = erased.Supplier(); return () => f(); }
-            public Func<object, A, Action> Accumulator() { var f = erased.Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }
-            public Func<object, Result_> Finisher() { var f = erased.Finisher(); return x0_ => f((ResultContainer_) x0_); }
-        }
+        static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new CollectorErasure_<A, ResultContainer_, Result_>(erased);
+    }
+    internal sealed class CollectorErasure_<A, ResultContainer_, Result_> : ICollector<A, object, Result_> {
+        private readonly ICollector<A, ResultContainer_, Result_> erased;
+        internal CollectorErasure_(ICollector<A, ResultContainer_, Result_> erased) { this.erased = erased; }
+        public Func<object> Supplier() { var f = erased.Supplier(); return () => f(); }
+        public Func<object, A, Action> Accumulator() { var f = erased.Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }
+        public Func<object, Result_> Finisher() { var f = erased.Finisher(); return x0_ => f((ResultContainer_) x0_); }
     }
 
     internal sealed class Concat : ITriFunction<string, string, string, string> {
@@ -46,7 +46,7 @@ internal sealed class Collectors {
 
     internal sealed class Count<A, B> : IBiCollector<A, B, int[], int> {
         public Func<int[]> Supplier() => () => new int[1];
-        public ITriFunction<int[], A, B, Action> Accumulator() => new ITriFunction<int[], A, B, Action>.Lambda((c, a, b) => {
+        public ITriFunction<int[], A, B, Action> Accumulator() => new TriFunctionLambda<int[], A, B, Action>((c, a, b) => {
             c[0]++;
             return () => c[0]--;
         });
@@ -68,8 +68,6 @@ internal sealed class Collectors {
         public Func<List<A>, List<A>> Finisher() => list => list;
     }
 
-    internal interface ITriFunction<A, B, C, R> {
-        R Apply(A a, B b, C c);
-        public sealed class Lambda(Func<A, B, C, R> f) : ITriFunction<A, B, C, R> { public R Apply(A a, B b, C c) => f(a, b, c); }
-    }
+    internal interface ITriFunction<in A, in B, in C, out R> { R Apply(A a, B b, C c); }
+    internal sealed class TriFunctionLambda<A, B, C, R>(Func<A, B, C, R> f) : ITriFunction<A, B, C, R> { public R Apply(A a, B b, C c) => f(a, b, c); }
 }

@@ -311,7 +311,14 @@ public final class CSharpTypeName {
             ParameterizedType a = arguments.get(i);
             // Key<?> where Key<T extends Attribute>: the bound, which satisfies the constraint
             boolean unbound = a.wildcard() != null && a.wildcard().isUnbound() && i < typeInfo.typeParameters().size();
-            printed.add(unbound ? rawArgument(typeInfo.typeParameters().get(i), q) : of(a, q, true));
+            if (unbound) {
+                printed.add(rawArgument(typeInfo.typeParameters().get(i), q));
+            } else if (a.wildcard() != null && i < typeInfo.typeParameters().size() && exact(a, typeInfo.typeParameters().get(i))) {
+                // ? extends B of an out parameter is B: C#'s declaration-site variance says what Java's wildcard said
+                printed.add(of(a.withWildcard(null), q, true));
+            } else {
+                printed.add(of(a, q, true));
+            }
         }
         LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
         String name = bcl != null ? bcl(bcl, printed, arguments, q) : name(typeInfo, q);
@@ -321,6 +328,13 @@ public final class CSharpTypeName {
         }
         String type = bcl != null || printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
         return !typeArgument && valueReference(pt) ? type + "?" : type;
+    }
+
+    /** Wildcard argument {@code a} at {@code tp} is its bound exactly: {@code ? extends B} at an {@code out}, {@code ? super B} at an {@code in}. */
+    static boolean exact(ParameterizedType a, TypeParameter tp) {
+        String variance = CSharpContext.program().variance(tp);
+        return variance != null && (a.typeInfo() != null || a.typeParameter() != null)
+               && (a.wildcard().isExtends() ? "out" : "in").equals(variance);
     }
 
     /**

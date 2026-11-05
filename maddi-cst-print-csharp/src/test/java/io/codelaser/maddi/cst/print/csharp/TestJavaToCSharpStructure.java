@@ -132,7 +132,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         String cs = translate("Hierarchy", HIERARCHY);
         contains(cs, "internal interface IShape {\ndouble Area { get; }");
         contains(cs, "string Describe => \"shape\";");
-        contains(cs, "public sealed class Lambda(Func<double> f) : IShape { public double Area => f(); }");
+        contains(cs, "internal sealed class ShapeLambda(Func<double> f) : IShape { public double Area => f(); }");
         contains(cs, "internal abstract class Base : IShape {");
         contains(cs, "protected internal readonly double scale;");
         contains(cs, "public abstract double Unit { get; }");
@@ -430,7 +430,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void wildcardDelegates() {
         String cs = translate("Collectors", WILDCARD_DELEGATES);
         contains(cs, "internal static ICollector<A, List<A>> toList<A>() => new ToList<A>();");
-        contains(cs, "internal interface ICollector<A, ResultContainer_, Result_> : ICollector<A, Result_> {");
+        contains(cs, "internal interface ICollector<in A, ResultContainer_, out Result_> : ICollector<A, Result_> {");
         contains(cs, "Func<object, A, Action> Accumulator();");
         contains(cs, "Func<object> ICollector<A, Result_>.Supplier() { var f = Supplier(); return () => f(); }");
         contains(cs, "Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
@@ -500,8 +500,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     @Test
     public void erasures() {
         String cs = translate("Collectors", ERASURES);
-        contains(cs, "static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new Erasure_(erased);");
-        contains(cs, "private sealed class Erasure_ : ICollector<A, object, Result_> {");
+        contains(cs, "static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new CollectorErasure_<A, ResultContainer_, Result_>(erased);");
+        // the adapter class beside the interface, which its variance keeps it out of (CS8427)
+        contains(cs, "internal sealed class CollectorErasure_<A, ResultContainer_, Result_> : ICollector<A, object, Result_> {");
         contains(cs, "public Func<object, A, Action> Accumulator() { var f = erased.Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
         contains(cs, "=> ICollector<A, List<A>, List<A>>.Erased_(new ToList<A>());");
         contains(cs, "=> Logged(toList<A>());");
@@ -509,7 +510,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // a diamond's inferred ? extends M is its bound
         contains(cs, "=> ICollector<A, ISet<M>, int>.Erased_(\nnew Distinct<A, M>(mapper));");
         // a functional interface with its lambda adapter
-        contains(cs, "public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }");
+        contains(cs, "public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new TriFunctionLambda<object, A, B, Action>((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }");
         contains(cs, "=> IBiCollector<A, B, int[], int>.Erased_(\nnew Count<A, B>());");
     }
 
@@ -1288,9 +1289,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal static int Lengths() => Walk(s => s.Length) + Walk(Graph.One);");
         contains(cs, "internal static int Counted() => Walk((string node) => 2);");
         contains(cs, "internal static Visitor Bound(Visitor v) => v.Invoke;");
-        contains(cs, "public sealed class Lambda(Action<string> f) : IListener { public void Changed(string node) => f(node); }");
+        contains(cs, "internal sealed class ListenerLambda(Action<string> f) : IListener { public void Changed(string node) => f(node); }");
         contains(cs, "internal static void Tell(IListener l) { l.Changed(\"b\"); }");
-        contains(cs, "internal static void Quiet() { Tell(new IListener.Lambda(n => { })); }");
+        contains(cs, "internal static void Quiet() { Tell(new ListenerLambda(n => { })); }");
     }
 
     @Language("java")
@@ -1496,7 +1497,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal bool Check() => ((IResult) this).Failed();");
         contains(cs, "return (T) (object) this;");
         contains(cs, "internal static Metadata Of(string key, object value) => new Metadata();");
-        contains(cs, "public sealed class Lambda(Action<string> f) : IStartListener { public void OnEvent(string @event) => f(@event); }");
+        contains(cs, "sealed class StartListenerLambda(Action<string> f) : IStartListener { public void OnEvent(string @event) => f(@event); }");
     }
 
     @Language("java")
@@ -2184,7 +2185,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "IScore IScore.Negate() => Negate();");
         contains(cs, "bool IScore.IsZero() => IsZero();");
         // a result of the removed parameter in a collection has no companion form: History is not the companion's
-        contains(cs, "public interface IDirector<Solution_> { IScore Calculate(Solution_ solution); }");
+        contains(cs, "public interface IDirector<in Solution_> { IScore Calculate(Solution_ solution); }");
         contains(cs, "internal static bool AnyZero(List<IScore> scores)");
         contains(cs, "internal static string Describe<S>(IDirector<S> director, S solution)");
         assertFalse(cs.contains("IScore<object>"), cs);
@@ -2702,6 +2703,75 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Entry Add(T t)");
         // a subclass names the inner class it inherits by the superclass as it extends it
         contains(cs, "internal Bag<S>.Entry Again(S s)");
+    }
+
+    /**
+     * C#'s declaration-site variance: a delegate's parameters are {@code in}, its result {@code out}; an interface's
+     * type parameter is {@code out} where its members only produce it (a result, an {@code IEnumerable<T>}, a
+     * {@code Func<T>}), {@code in} where they only consume it, neither in both or in an invariant position (a
+     * {@code List<T>}). A variant interface may declare no nested class (CS8427): its lambda adapter is its sibling.
+     * Java's wildcards then say what the variance says: {@code Mapper<? extends A, ?>} is {@code Mapper<A, object>},
+     * without a message, and an {@code IMapper<string, string>} is an {@code IMapper<string, object>} without a cast.
+     */
+    @Test
+    public void variance() {
+        String cs = translate("Mapper", """
+                package a;
+                import java.util.List;
+                import java.util.function.Function;
+                import java.util.function.Consumer;
+                public interface Mapper<A, R> {
+                    R apply(A a);
+                }
+                interface Source<T> {
+                    T next();
+                    Iterable<T> all();
+                    T[] array();
+                    Function<Integer, T> at();
+                    Consumer<Consumer<T>> each();
+                    default boolean has() { return next() != null; }
+                }
+                interface Sink<T> {
+                    void add(T t);
+                    void addAll(List<T> ts);
+                    void give(Consumer<T> c);
+                }
+                interface Box<T> {
+                    T get();
+                    void set(T t);
+                }
+                interface Handler<E> {
+                    void handle(E e);
+                    default Handler<E> twice() { return e -> { handle(e); handle(e); }; }
+                }
+                class Animal { }
+                class Dog extends Animal { }
+                class Use {
+                    static Object first(Mapper<? extends String, ?> m, Source<? extends Animal> s, Handler<? super Dog> h) {
+                        h.handle(new Dog());
+                        return m;
+                    }
+                    static Object second(Mapper<String, String> m, Source<Dog> s, Handler<Animal> h) {
+                        return first(m, s, h);
+                    }
+                    static Handler<String> make() { return new Handler<String>() { public void handle(String s) { } }; }
+                }
+                """);
+        contains(cs, "public delegate R Mapper<in A, out R>(A a);");
+        contains(cs, "interface ISource<out T>");
+        contains(cs, "interface ISink<T>"); // addAll(List<T>): invariant
+        contains(cs, "interface IBox<T>");
+        contains(cs, "interface IHandler<in E>");
+        // the lambda adapter beside its interface, a class an in E interface may not nest
+        contains(cs, "sealed class HandlerLambda<E>(Action<E> f) : IHandler<E> { public void Handle(E e) => f(e); }");
+        contains(cs, "IHandler<E> Twice() => new HandlerLambda<E>(e => {");
+        assertFalse(cs.contains(".Lambda"), cs);
+        // the wildcards the variance covers print as their bound, without a message
+        contains(cs, "static object First(Mapper<string, object> m, ISource<Animal> s, IHandler<Dog> h)");
+        // C#'s variance converts between reference types without a cast or an adapter
+        contains(cs, "static object Second(Mapper<string, string> m, ISource<Dog> s, IHandler<Animal> h) => First(");
+        assertFalse(cs.contains("(ISource<Animal>)") || cs.contains("(IHandler<Dog>)"), cs);
+        assertFalse(cs.contains("WILDCARD_AS_BOUND"), cs);
     }
 
     /**

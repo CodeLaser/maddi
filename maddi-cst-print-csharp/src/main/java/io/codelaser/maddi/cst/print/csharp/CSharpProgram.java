@@ -139,6 +139,7 @@ public final class CSharpProgram {
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
     private final Set<TypeInfo> bounds;
+    private final Map<TypeParameter, String> variance;
     private final Set<MethodInfo> overridden;
     private final Inheritance inheritance;
     private final Map<String, String> namespaceSegments;
@@ -164,6 +165,7 @@ public final class CSharpProgram {
         Set<TypeInfo> delegates = Set.of();
         Set<TypeInfo> extended = Set.of();
         Set<TypeInfo> bounds = Set.of();
+        Map<TypeParameter, String> variance = Map.of();
         Set<MethodInfo> overridden = Set.of();
         Inheritance inheritance = Inheritance.OPEN;
         Map<String, String> namespaceSegments = Map.of();
@@ -190,6 +192,7 @@ public final class CSharpProgram {
         delegates = b.delegates;
         extended = b.extended;
         bounds = b.bounds;
+        variance = b.variance;
         overridden = b.overridden;
         inheritance = b.inheritance;
         namespaceSegments = b.namespaceSegments;
@@ -274,6 +277,7 @@ public final class CSharpProgram {
         b.prefixedHoisted = prefixedHoisted(all);
         b.typeTokens = typeTokens(index);
         b.delegates = delegates;
+        b.variance = CSharpVariance.analyze(all, delegates);
         // the analyses below name types as the printing will
         CSharpContext.program(b.build());
         b.extended = Set.copyOf(extended);
@@ -674,6 +678,11 @@ public final class CSharpProgram {
      */
     public boolean boundsTypeParameter(TypeInfo typeInfo) {
         return bounds.contains(typeInfo);
+    }
+
+    /** The variance C# declares on a program interface's or delegate's type parameter: {@code out}, {@code in}, or null ({@link CSharpVariance}). */
+    String variance(TypeParameter typeParameter) {
+        return variance.get(typeParameter);
     }
 
     public boolean open(TypeInfo typeInfo) {

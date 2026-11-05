@@ -73,8 +73,8 @@ public class TestJavaToCSharpPolicies extends CommonJavaToCSharp {
 
     private static void assertAdapterOpen(String cs) {
         contains(cs, "internal interface IArea {");
-        contains(cs, "public sealed class Lambda(Func<double, double> f) : IArea { public double Of(double side) => f(side); }");
-        contains(cs, "Total(sides, new IArea.Lambda(s => s * s))");
+        contains(cs, "internal sealed class AreaLambda(Func<double, double> f) : IArea { public double Of(double side) => f(side); }");
+        contains(cs, "Total(sides, new AreaLambda(s => s * s))");
         contains(cs, "public class Square {");
         contains(cs, "public virtual double Side() => 1;");
         contains(cs, "protected internal virtual int Corners() => 4;");
