@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -244,6 +245,10 @@ final class CSharpBcl implements LibraryMapping {
         // is the boolean: the compatibility library's AddReturning where the value is used
         chooser("java.util.Collection.add/1", (method, call) -> call != null && !setReceiver(call) && valueUsed(call)
                 ? rule("$0.AddReturning($1)", COMPAT) : rule("$0.Add($1)"));
+        // toArray(new T[0]), or of the list's size: a new array of the elements, LINQ's; toArray(a) of an array that
+        // exists, Java's rule of filling it when it holds them, the compatibility library's
+        chooser("java.util.Collection.toArray/1", (method, call) -> call == null || arrayCreationArgument(call, 0)
+                ? rule("$0.ToArray()", LINQ) : rule("$0.ToArray($1)", COMPAT));
         // containsAll(Collection<?>): the argument is C#'s non-generic ICollection, without LINQ: the compatibility
         // library's, over objects
         chooser("java.util.Collection.containsAll/1", (method, call) -> nonGenericArgument(call, 0)
@@ -434,6 +439,14 @@ final class CSharpBcl implements LibraryMapping {
         }
         ParameterizedType element = receiver.parameters().getFirst();
         return !element.isJavaLangObject() && (element.wildcard() == null || !element.wildcard().isUnbound());
+    }
+
+    /** Argument {@code index} creates an array, {@code new T[0]}, {@code new T[list.size()]}. */
+    private static boolean arrayCreationArgument(MethodCall call, int index) {
+        if (call.parameterExpressions().size() <= index) return false;
+        Expression e = CSharpExpressionPrinter.unwrap(call.parameterExpressions().get(index));
+        return e instanceof ConstructorCall cc && cc.anonymousClass() == null && cc.parameterizedType() != null
+               && cc.parameterizedType().arrays() > 0;
     }
 
     /** The call's method is a {@code java.util.Set}'s, or overrides one: C#'s {@code Add} returns the boolean. */

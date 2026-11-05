@@ -314,7 +314,6 @@ member java.util.SequencedCollection.getFirst/0 -> $0.First() using System.Linq
 member java.util.SequencedCollection.getLast/0 -> $0.Last() using System.Linq
 member java.util.List.copyOf/1 -> new List<{R0}>($1)
 # the array argument only gives Java the element type
-member java.util.Collection.toArray/1 -> $0.ToArray($1) using Maddi.JavaCompat
 member java.util.Deque.getFirst/0 -> $0[0]
 member java.util.LinkedList.getFirst/0 -> $0[0]
 member java.util.ArrayDeque.getFirst/0 -> $0[0]

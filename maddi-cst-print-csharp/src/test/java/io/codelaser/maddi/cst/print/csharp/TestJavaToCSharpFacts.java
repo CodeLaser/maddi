@@ -192,6 +192,38 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         assertFalse(cs.contains("BigInteger?"), cs);
     }
 
+    /**
+     * An override of a library's {@code T next()} prints as the supertype's argument does, {@code int} for
+     * {@code Iterator<Integer>}'s {@code IJavaIterator<int>}: its boxed value is cast, with the assertion the nullable
+     * field needs.
+     */
+    @Test
+    public void boxedOverrideCast() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public NullableState nullable(FieldInfo field) {
+                return "current".equals(field.name()) ? NullableState.NULLABLE : NullableState.UNSPECIFIED;
+            }
+
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Ints", """
+                package a;
+                import java.util.Iterator;
+                class Ints implements Iterator<Integer> {
+                    private Integer current;
+                    Ints(Integer first) { this.current = first; }
+                    public boolean hasNext() { return current != null; }
+                    public Integer next() { return current; }
+                }
+                """);
+        contains(cs, "private int? current;");
+        contains(cs, "public int Next() => (int) current!;");
+    }
+
     @Language("java")
     private static final String KEYS = """
             package org.example.keys;

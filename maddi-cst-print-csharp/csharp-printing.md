@@ -73,7 +73,8 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   (`Kind? kind = Kind.Filter`), so that a later `kind = node.getKind()` fits. Where C# has the value type itself, the
   `X?` is cast: a template's operand (`BigDecimal.add`'s `((decimal) a) + ((decimal) b)`), a library's parameter of
   the struct, an override of `T get()` (`decimal Get()`; of a library's `T` as the supertype's argument prints,
-  `long Next()` for `Iterator<Long>`'s `IJavaIterator<long>`), a lambda's result; a method reference's typed parameters
+  `long Next()` for `Iterator<Long>`'s `IJavaIterator<long>`, its boxed value cast: `(int) current!`), a lambda's
+  result; a method reference's typed parameters
   are the delegate's type arguments (`(decimal p0, decimal p1) => p0 + p1`).
 - In a pattern, a type has no `?`: `o instanceof Integer` becomes `o is int`.
 - C# has no wildcards. A collection of `? extends T` is C#'s covariant read-only interface, a collection of `?` its
@@ -943,7 +944,8 @@ by contract is `T?`, and a mapping rule that calls one says `->?`. `JavaCompat.c
   empty strings, and `String.format`'s conversions differ from .NET's.
 - Collections: `add` on a list or collection is a value in Java, always true, and C#'s `Add` is void: a call whose
   value is used (not the statement it is in) is the compatibility library's `AddReturning`; a set's `Add` returns
-  the boolean. `toArray(T[] a)` is `ToArray(a)`, Java's rule of filling `a` when it holds the elements.
+  the boolean. `toArray(new T[0])`, or of any array created there, is LINQ's `ToArray()`; `toArray(a)` of an array that
+  exists is `ToArray(a)`, Java's rule of filling `a` when it holds the elements.
   `containsAll(Collection<?>)` takes the non-generic `ICollection` the wildcard prints as, without LINQ: `ContainsAll`
   over objects.
 - The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `IJavaIterator<T>`

@@ -1634,9 +1634,10 @@ public final class CSharpExpressionPrinter {
     /** The value of a {@code return} in the current method or lambda. */
     static OutputBuilder returned(Expression value, Qualification q) {
         MethodInfo method = CSharpContext.currentMethod();
-        // a lambda's result is its delegate's type argument, an override of T Get()'s the class's: the value type
-        if (method != null && unboxedValue(value) && (method.typeInfo().isAnonymous()
-                                                       || CSharpMethodPrinter.plainResult(method))) {
+        // a lambda's result is its delegate's type argument, an override of T Get()'s the class's: the value type.
+        // An override's boxed value too, int GetKey() => (int) key! of an Integer key (CS0266 without the cast)
+        if (method != null && (unboxedValue(value) && method.typeInfo().isAnonymous()
+                               || CSharpMethodPrinter.plainResult(method) && unboxed(unwrap(value)))) {
             return unboxCast(CSharpTypeName.argument(value.parameterizedType(), q), value, q);
         }
         return CSharpNullability.intoReturn(value, converted(value, method == null ? null : method.returnType(), q));
