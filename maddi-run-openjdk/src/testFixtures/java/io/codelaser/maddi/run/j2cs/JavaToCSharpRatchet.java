@@ -53,8 +53,9 @@ import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
  * {@code tools/csharp-check}, a .NET tool on Roslyn, built here with {@code dotnet build} (a .NET SDK must be on the
  * PATH; the test JVM gets the tool's directory as {@code -Dmaddi.test.csharpCheck}). It parses every file on its own,
  * for the syntax errors, then compiles the syntax-clean files together against the BCL. A file that has no error in
- * that compilation counts as compiling. The error total is reported, not ratcheted: as the BCL mapping lets the
- * compiler bind more, it gets to report errors it could not see before.
+ * that compilation counts as compiling. The error total is ratcheted too, since 2026-11-05: when the BCL mapping lets
+ * the compiler bind more and it reports errors it could not see before, the higher number is written with a note
+ * that says so. {@code tools/csharp-check/diff.py} tells two runs' {@code csharp-check.out} apart, file by file.
  * <h2>The libraries</h2>
  * The policy's library mappings decide what goes with the translation: their sources (the compatibility library) are
  * compiled with it, not counted; their NuGet packages are restored into {@code deps/} and referenced. The output has a
@@ -104,6 +105,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         DIRECTION.put("syntaxCleanFiles", ">=");
         DIRECTION.put("compilingFiles", ">=");
         DIRECTION.put("unmappedJdkUses", "<=");
+        DIRECTION.put("errors", "<=");
         DIRECTION.put("nullableWarnings", "<="); // with the facts of a nullability analysis only
     }
 
@@ -134,6 +136,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         measured.put("syntaxCleanFiles", (long) (printed.files.size() - withSyntaxErrors.size()));
         measured.put("compilingFiles", compiling);
         measured.put("unmappedJdkUses", (long) unmapped.size());
+        measured.put("errors", (long) judged.errors.size());
         if (nullable()) measured.put("nullableWarnings", (long) judged.nullableWarnings.size());
 
         long excluded = corpus.types().stream().filter(policy.libraries()::excludes).count();
@@ -240,7 +243,6 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
                           List<PrintMessage<CSharpPrintCode>> unmapped, List<Path> sources, long excluded) {
         StringBuilder sb = new StringBuilder("Java -> C#, " + name + "\n\n");
         measured.forEach((k, v) -> sb.append(String.format("  %-18s %6d%n", k, v)));
-        sb.append(String.format("  %-18s %6d   (reported, not ratcheted)%n", "errors", judged.errors.size()));
         if (excluded > 0) sb.append(String.format("  %-18s %6d   (types a mapping leaves out, not printed)%n", "excluded", excluded));
         if (!judged.nullableWarnings.isEmpty()) {
             sb.append("\nnullable warnings by code:\n").append(counted(judged.nullableWarnings.stream().map(d -> d.code

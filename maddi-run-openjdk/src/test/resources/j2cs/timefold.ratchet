@@ -194,9 +194,19 @@
 # the inner segment: CS0426, CS0305), and inherited from a generic superclass with the superclass's arguments; a
 # superclass's method implementing a subclass's interface method in its override family (CS0535): 1324 -> 1330
 # compiling files, 607 -> 596 errors.
+# 2026-11-05: the error total is ratcheted from here on (JavaToCSharpRatchet.DIRECTION): a rise that a mapping
+# earns, by letting the compiler see errors it could not before, is written with a note that says so.
+# 2026-11-05, maddi e65b4878d, cd0126f96 (#185: a class bounding a type parameter not sealed, a self-bounded
+# interface's companion merged into its wildcard interface, add/toArray/containsAll, overrides of a library's T as
+# the supertype's argument prints): 1330 -> 1321 compiling files, 596 -> 641 errors. The merge removed the duplicate
+# declarations (CS0101, CS0538: -7) of WeightedScoreImpacter and ConstraintMatchSupplier, behind which Roslyn had
+# hidden the errors of their twelve clients (the ImpactHandlers and ScoreInliners call ImpactScore through the
+# wildcard interface, which cannot declare it: CS1061 +21, CS1661/CS1678 +22, CS0411 +8, CS0305 +4). Those files
+# compiled before only because Roslyn gives up on an error type. The wildcard design (#185) is where they get fixed.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1330
+compilingFiles	1321
 unmappedJdkUses	106
+errors	641

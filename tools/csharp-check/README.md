@@ -17,6 +17,9 @@ dotnet tools/csharp-check/build/bin/Release/net10.0/csharp-check.dll <argument f
 dotnet tools/csharp-check/build/bin/Release/net10.0/csharp-check.dll -serve
 ```
 
+`diff.py <before.out> <after.out> [E|S|N]` compares two runs' `csharp-check.out`: the totals, the codes that moved,
+and each file and code that moved.
+
 With `-serve` it reads an argument file per line of standard input and answers each with its lines, the `F` line
 last, keeping the BCL's references for the next one: `maddi-cst-print-csharp`'s unit tests judge every sample
 through one such process (`CSharpCheck`).

@@ -78,9 +78,12 @@
 # 2026-10-18, maddi 459ff635e, 4b171c277, 929b63000, 8a222b943: a diamond's type arguments through any supertype;
 # a raw creation's raw arrays; delegates widened for a generic constructor; the formatter's split points move with
 # an overflow split: 184 -> 185 compiling files.
+# 2026-11-05: the error total is ratcheted from here on (JavaToCSharpRatchet.DIRECTION): a rise that a mapping
+# earns, by letting the compiler see errors it could not before, is written with a note that says so.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
 compilingFiles	185
 unmappedJdkUses	15
+errors	32
