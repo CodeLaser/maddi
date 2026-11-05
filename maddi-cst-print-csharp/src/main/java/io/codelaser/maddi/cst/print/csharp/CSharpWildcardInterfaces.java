@@ -229,6 +229,8 @@ final class CSharpWildcardInterfaces {
      * result one the interface can erase.
      */
     private static List<MethodInfo> inheritedReached(TypeInfo t, List<TypeParameter> removed) {
+        // not an interface's: the generic interface extends both, and a call through it is ambiguous (CS0121)
+        if (t.isInterface()) return List.of();
         CSharpProgram program = program();
         List<MethodInfo> found = new ArrayList<>();
         for (Object info : program.reachedThroughWildcard(t)) {
@@ -345,7 +347,10 @@ final class CSharpWildcardInterfaces {
                                                               || CSharpNames.translated(o.typeInfo())
                                                                  && (inheritedClosed(t, o.typeInfo(), removed)
                                                                      || declaredBySuperclass(t, o)
-                                                                     || !reachedOverride(t, m))))
+                                                                     || !reachedOverride(t, m)
+                                                                     // an interface's redeclaration is ambiguous with
+                                                                     // the supertype's on the interface itself (CS0121)
+                                                                     || t.isInterface())))
             || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0 || program.erasedGeneric(m)
             || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
             return false;
