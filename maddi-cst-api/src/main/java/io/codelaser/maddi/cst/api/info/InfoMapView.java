@@ -99,6 +99,14 @@ public interface InfoMapView {
     }
 
     /**
+     * Drop the memo of {@link #rewired}: the copies are made, and the memo holds this generation's originals for as
+     * long as the map lives. Call it once whatever reads {@link #rewiredIfPresent} (the carry of a seeded analysis's
+     * derived values onto the variable data of a rewired type) is done; a re-parse also drops the map wholesale.
+     */
+    default void releaseRewireMemo() {
+    }
+
+    /**
      * Records {@code rewired} as the copy of {@code original}, for a copy made outside {@link #rewired} (a type's
      * type parameters are built by the rewire phases), or made under construction (a type parameter is entered
      * before its bounds are rewired, so that a self-referential bound terminates).

@@ -152,6 +152,11 @@ public class InfoMapImpl implements InfoMap {
     }
 
     @Override
+    public void releaseRewireMemo() {
+        rewiredObjects.clear();
+    }
+
+    @Override
     public void registerRewired(Object original, Object rewired) {
         rewiredObjects.put(original, rewired);
     }
@@ -196,9 +201,10 @@ public class InfoMapImpl implements InfoMap {
         for (TypeInfo primaryType : toRewire) {
             primaryType.rewirePhase3(this);
         }
-        // the copies are made; kept, the memo would hold this generation's originals for as long as the map lives
-        // (the inspector keeps the last one for its lookups)
-        rewiredObjects.clear();
+        // the copies are made. The memo stays until releaseRewireMemo: the carry of a seeded analysis looks up the
+        // copies of the old variable data's VariableInfos in it (rewiredIfPresent). Cleared here, every lookup missed
+        // and no statement-level link was carried (fernflower: 358,487 of 358,487). The inspector replaces the map at
+        // the next re-parse, so an unreleased memo holds one generation, not a chain of them.
         return toRewire.stream()
                 .map(primaryType -> (TypeInfo) setOfPrimaryTypesToRewire.get(primaryType).get(primaryType))
                 .collect(Collectors.toUnmodifiableSet());
