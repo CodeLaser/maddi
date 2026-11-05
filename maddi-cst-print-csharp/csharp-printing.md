@@ -1008,8 +1008,13 @@ The translation calls the library only where it needs that behaviour, so idiomat
 
 ## The ratchet
 
-`TestJavaToCSharpFernflower`, `TestJavaToCSharpLangchain4j` and `TestJavaToCSharpTimefold` (maddi-run-openjdk,
-`slowTest`) translate the main sources of fernflower, langchain4j's core and timefold's solver. Each judges its
+`TestJavaToCSharpFernflower`, `TestJavaToCSharpLangchain4j`, `TestJavaToCSharpTimefold` and `TestJavaToCSharpNacos`
+(maddi-run-openjdk, `slowTest`) translate the main sources of fernflower, langchain4j's core, timefold's solver and
+one module of nacos (`J2CS_NACOS_MAIN`: `api/main` or `common/main`, each with a ratchet file of its own). The
+corpora differ in what they can show: timefold is a generic engine, whose wildcards bound type parameters, so it
+measures the wildcard interface and not declaration-site variance; nacos is application code whose wildcards bound
+concrete types, and whose errors are mostly types no mapping covers (guava, grpc, and the api module's own types
+when common is translated: a sibling module has no C# while one module is translated). Each judges its
 translation with `tools/csharp-check`, a small .NET tool on Roslyn that `JavaToCSharpRatchet` builds with
 `dotnet build`, so a .NET 10 SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors,
 then compiles the syntax-clean files together against the BCL and the mappings' packages. The numbers are held in
