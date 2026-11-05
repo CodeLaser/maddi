@@ -178,7 +178,10 @@ public final class CSharpExpressionPrinter {
                                              // a functional interface C# has as a delegate casts as a class does
                                              && !CSharpContext.program().delegate(from.typeInfo())
                                              && !CSharpTypeName.libraryDelegate(from.typeInfo()))) {
-            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+            // object? where the value may be null, as the outer cast's type is (CS8600)
+            boolean nullableObject = nullable && CSharpContext.program().facts().nullabilityAnalysed();
+            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(nullableObject ? "object?" : "object"))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         }
         OutputBuilder operand = operand(cast.precedence(), cast.expression(), q);
         // a method's own type parameter has no T?: the null goes through (T) x! as it does through Java's cast

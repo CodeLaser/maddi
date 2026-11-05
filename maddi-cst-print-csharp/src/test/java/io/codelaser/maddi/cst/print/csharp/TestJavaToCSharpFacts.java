@@ -834,6 +834,33 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "Func<object, object>? IJoiner.Mapping(int i) { var f = Mapping(i); return f == null ? null : x0_ => f((A) x0_!); }");
     }
 
+    /** A cast through object of a value that may be null goes through object? (CS8600). */
+    @Test
+    public void nullableCastThroughObject() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return "mapping".equals(method.name()) ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+        });
+        String cs = translate("Casts", """
+                package a;
+                import java.util.function.Function;
+                class Casts {
+                    interface Listener<S, T> { boolean on(S s); }
+                    static Listener<?, ?> mapping() { return null; }
+                    @SuppressWarnings("unchecked")
+                    static <S> Listener<S, Object> typed() { return (Listener<S, Object>) mapping(); }
+                }
+                """);
+        contains(cs, "(Listener<S, object>?) (object?) Mapping()");
+    }
+
     @Language("java")
     private static final String VALUE_NULLS = """
             package org.example.values;
