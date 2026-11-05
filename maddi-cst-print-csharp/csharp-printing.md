@@ -797,12 +797,20 @@ from a map, a stream's collector.
   `ITupleLifecycle<ITuple>` is not. A class's wildcard interface declares its internal members too, Java's
   package-private ones, and the overrides of a library's methods; a result C# writes without arguments (`Class<A>`'s
   `Type`) is kept, and the fields the code reads through the wildcard, as properties of the field's name
-  (`Type IMoveSelectorConfig (a superclass's too, as the type sees its type, `that.parent` in a subclass's `equals`); a superclass's method the superclass's wildcard interface declares is reached through it, which the subclass's wildcard interface extends. What the type's own instance methods reach through a cast or a local of its own wildcard use, `(Node<?>) o` in `equals`, counts for nothing: C# prints that as the type itself with its own type parameters.filterClass => filterClass;`). A result that is a delegate of a removed parameter,
-  each of its parameters and its result that parameter or not mentioning it, is the delegate with the parameter
-  erased, which the bridge adapts to by a lambda: a collector's `BiFunction<ResultContainer_, A, Runnable>
-  accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return
-  (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`; a functional interface of the program with its lambda adapter
-  (`ITriFunction<ResultContainer_, A, B, Action>`) goes in as its `TriFunctionLambda`. Only where it declares every member the
+  (`Type IMoveSelectorConfig.filterClass => filterClass;`), a superclass's too, as the type sees its type
+  (`that.parent` in a subclass's `equals`); a superclass's method the superclass's wildcard interface declares is
+  reached through it, which the subclass's wildcard interface extends when every class between has one. What the
+  type's own instance methods reach through a cast or a local of its own wildcard use, `(Node<?>) o` in `equals`,
+  counts for nothing: C# prints that as the type itself with its own type parameters. A result that is a delegate
+  of a removed parameter, a property's too, each of its parameters and its result that parameter or not mentioning
+  it, is the delegate with the parameter erased, which the bridge adapts to by a lambda: a collector's
+  `BiFunction<ResultContainer_, A, Runnable> accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator()
+  { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`, a nullable result's null passed
+  on (`f == null ? null : …`); a functional interface of the program with its lambda adapter
+  (`ITriFunction<ResultContainer_, A, B, Action>`) goes in as its `TriFunctionLambda`. A creation never names the
+  wildcard interface: a diamond resolved to a wildcard from its target names the bound, `new AndThen<S, object>(…)`
+  (`CSharpTypeName.created`); a default method called on a captured parameter casts to the interface with the
+  captured names, `((IColl<TS, TRC>) a).N()`. Only where it declares every member the
   code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
   where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
   ResultContainer_, Result_>)`, which C# could not infer from the wildcard interface), keeps the type's wildcards their
