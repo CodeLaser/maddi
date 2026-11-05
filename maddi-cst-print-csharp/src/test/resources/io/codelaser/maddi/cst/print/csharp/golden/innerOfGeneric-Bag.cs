@@ -1,6 +1,6 @@
 using Maddi.JavaCompat;
 namespace A;
-public sealed class Bag<T> {
+public class Bag<T> {
     internal Entry Add(T t) => new Entry(t);
     internal IJavaIterator<T> cursor() => null;
     internal sealed class Cursor {
@@ -14,3 +14,4 @@ public sealed class Bag<T> {
     }
 }
 internal sealed class User { internal Bag<string>.Entry First(Bag<string> bag) => bag.Add("x"); }
+internal sealed class Sub<S> : Bag<S> { internal Bag<S>.Entry Again(S s) => Add(s); }

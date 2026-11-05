@@ -374,7 +374,8 @@ implements the interface.
   `ElementAwareArrayList<T>.Entry` are the outer types' first, then its own, and each goes on its own segment, not
   `ElementAwareArrayList.Entry<T>`. In the outer class's code its simple name is the outer type's own instance; out of
   it the name is qualified. A qualified name written without the outer's arguments (Java's `DownstreamIterator` inside
-  its outer class, which a member hides) has the outer class's own type parameters, `Bag<T>.Cursor.Step`.
+  its outer class, which a member hides) has the outer class's own type parameters, `Bag<T>.Cursor.Step`, and in a
+  subclass the superclass's arguments as it extends it, `FilteringValueSelector<Solution_>.JustInTimeFilteringValueIterator`.
 - **Static members of generic types.** C# reaches a generic class's static members through a constructed type,
   `Response<T>.From(x)`; Java through the class, `Response.from(x)`. Java's static members never use the type's
   parameters, so they are declared in a non-generic static class of the same name beside the generic type, the C#

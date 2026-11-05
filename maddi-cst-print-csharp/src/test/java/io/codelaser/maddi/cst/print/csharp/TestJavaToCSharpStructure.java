@@ -2688,10 +2688,15 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 class User {
                     Bag<String>.Entry first(Bag<String> bag) { return bag.add("x"); }
                 }
+                class Sub<S> extends Bag<S> {
+                    Entry again(S s) { return add(s); }
+                }
                 """);
         contains(cs, "Bag<string>.Entry First(Bag<string> bag)");
         assertFalse(cs.contains("Bag.Entry<"), cs);
         contains(cs, "Entry Add(T t)");
+        // a subclass names the inner class it inherits by the superclass as it extends it
+        contains(cs, "internal Bag<S>.Entry Again(S s)");
     }
 
     /**

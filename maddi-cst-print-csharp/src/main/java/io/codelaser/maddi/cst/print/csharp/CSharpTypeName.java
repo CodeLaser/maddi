@@ -35,6 +35,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 import io.codelaser.maddi.cst.impl.type.WildcardEnum;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 /**
  * Renders a {@link ParameterizedType} as a C# type reference.
@@ -363,7 +364,9 @@ public final class CSharpTypeName {
             List<String> arguments;
             if (outerArguments.isEmpty()) {
                 boolean inside = current != null && current.isEnclosedIn(e);
-                arguments = e.typeParameters().stream()
+                ParameterizedType inherited = inside ? null : inheritedOuter(current, e);
+                arguments = inherited != null ? inherited.parameters().stream().map(a -> of(a, null, true)).toList()
+                        : e.typeParameters().stream()
                         .map(tp -> inside ? CSharpNames.typeParameter(tp) : rawArgument(tp, null)).toList();
             } else {
                 int k = e.typeParameters().size();
@@ -376,6 +379,19 @@ public final class CSharpTypeName {
         if (!sb.isEmpty()) sb.append('.');
         return sb.append(String.join(".", parts)).append('.').append(segments[segments.length - 1]).append(ownPart)
                 .toString();
+    }
+
+    /**
+     * {@code outer} as the code being printed, or a type it is nested in, extends it: an inner class inherited from a
+     * generic superclass, {@code FilteringValueSelector<Solution_>.JustInTimeFilteringValueIterator}. Null when none
+     * does, or does so raw.
+     */
+    private static ParameterizedType inheritedOuter(TypeInfo current, TypeInfo outer) {
+        for (TypeInfo t = current; t != null; t = CstQueries.enclosing(t)) {
+            ParameterizedType seen = CstSupertypes.asSeen(t, outer);
+            if (seen != null) return seen.parameters().size() == outer.typeParameters().size() ? seen : null;
+        }
+        return null;
     }
 
     /** A nested class whose instances belong to an instance of the enclosing class, which C# keeps nested. */
