@@ -594,7 +594,7 @@ public class KotlinStatementPrinter {
                         .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl(first)).add(SymbolEnum.RIGHT_PARENTHESIS)
                         .add(SpaceEnum.ONE).add(new TextImpl(first)).add(KotlinSymbols.assignment("="))
                         .add(new TextImpl("false")).add(SpaceEnum.ONE).add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
-                        .add(braces(updates.stream().map(u -> KotlinExpressionPrinter.printStatement(u, q)).toList())));
+                        .add(braces(updatesAtTop(fs, q))));
                 if (hasCondition) {
                     body.add(new OutputBuilderImpl().add(KotlinKeyword.IF).add(SpaceEnum.ONE)
                             .add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.UNARY_BOOLEAN_NOT)
@@ -629,6 +629,26 @@ public class KotlinStatementPrinter {
         }
         // the loop variables are the loop's, in a block of their own
         return scope(braces(all));
+    }
+
+    /**
+     * The updates as they print at the top of the body: without the use-site facts of the variables the loop assigns,
+     * which kotlinc does not smart-cast there (KotlinNullability.NOT_SMART_CAST).
+     */
+    private static List<OutputBuilder> updatesAtTop(ForStatement fs, Qualification q) {
+        Set<Variable> notSmartCast = KotlinNullability.NOT_SMART_CAST.get();
+        Set<Variable> added = new HashSet<>();
+        fs.visit((Element e) -> {
+            if (e instanceof Assignment a && a.variableTarget() != null && notSmartCast.add(a.variableTarget())) {
+                added.add(a.variableTarget());
+            }
+            return true;
+        });
+        try {
+            return fs.updaters().stream().map(u -> KotlinExpressionPrinter.printStatement(u, q)).toList();
+        } finally {
+            notSmartCast.removeAll(added);
+        }
     }
 
     /** A {@code continue} that targets this loop: one not inside a nested loop, or one labelled with this loop's. */

@@ -1241,6 +1241,35 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String LOOP_UPDATE = """
+            package a;
+            class L {
+                static class N { N next; int h; N getNext() { return next; } }
+                int count(N first) {
+                    int n = 0;
+                    for (N e = first; e != null; e = e.getNext()) {
+                        if (e.h == 0) continue;
+                        n++;
+                    }
+                    return n;
+                }
+            }
+            """;
+
+    /**
+     * guava's LocalCache and MapMakerInternalMap: with a continue, a for loop's updates print at the top of a
+     * while (true) body, where kotlinc smart-casts none of the variables the loop assigns. The facts hold e non-null
+     * at {@code e.getNext()} (it runs after a body that ran under the condition); the update needs its {@code !!}
+     * all the same.
+     */
+    @Test
+    public void loopUpdateAtTheTopIsNotSmartCast() {
+        String kotlin = kotlin(LOOP_UPDATE, new KotlinPrintOptions(new ByName(Set.of("e"), Set.of("&&e")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "e = e!!.getNext()");
+    }
+
+    @Language("java")
     private static final String ELEMENTS = """
             package a;
             class D {

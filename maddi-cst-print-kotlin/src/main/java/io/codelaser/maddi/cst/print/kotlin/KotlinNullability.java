@@ -815,8 +815,18 @@ final class KotlinNullability {
         return knownNonNull(variable, null);
     }
 
+    /**
+     * The variables a {@code for} loop assigns, while its updates print at the top of a {@code while (true)} body
+     * (KotlinStatementPrinter.forStatement): there kotlinc joins the loop's entry with every way back and smart-casts
+     * none of them, whatever Java's facts say at the updates. guava's
+     * {@code for (e = getFirst(hash); e != null; e = e.getNext())} with a {@code continue}: the facts hold e non-null
+     * at {@code e.getNext()}, which kotlinc rejects without {@code !!} (LocalCache, MapMakerInternalMap).
+     */
+    static final ThreadLocal<Set<Variable>> NOT_SMART_CAST = ThreadLocal.withInitial(HashSet::new);
+
     /** As {@link #knownNonNull(io.codelaser.maddi.cst.api.variable.Variable)}, used at {@code use}: also smart-cast by an earlier {@code !!}. */
     private static boolean knownNonNull(Variable variable, Expression use) {
+        if (NOT_SMART_CAST.get().contains(variable)) return KotlinSmartCasts.asserted(variable, use);
         return KotlinContext.state().knownNonNull(verdicts(), variable) || KotlinSmartCasts.asserted(variable, use);
     }
 
