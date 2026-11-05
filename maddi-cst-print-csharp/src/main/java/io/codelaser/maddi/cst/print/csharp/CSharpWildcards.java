@@ -71,8 +71,8 @@ final class CSharpWildcards {
             boolean ok = true;
             for (int k = 0; k < pt.parameters().size() && ok; k++) {
                 ParameterizedType a = pt.parameters().get(k);
+                if (a.wildcard() == null) continue;
                 TypeParameter declared = generic.typeParameters().get(k);
-                if (a.wildcard() == null || covered(a, declared)) continue;
                 String base = declared.simpleName();
                 String name = base.startsWith("T") && (base.length() == 1 || Character.isUpperCase(base.charAt(1)))
                         ? base : "T" + base;
@@ -121,8 +121,7 @@ final class CSharpWildcards {
         if (!capturable(pt)) return false;
         for (int k = 0; k < pt.parameters().size(); k++) {
             ParameterizedType a = pt.parameters().get(k);
-            TypeParameter declared = pt.typeInfo().typeParameters().get(k);
-            if (a.wildcard() != null && !covered(a, declared) && !constrainable(bounds(declared, a))) return false;
+            if (a.wildcard() != null && !constrainable(bounds(pt.typeInfo().typeParameters().get(k), a))) return false;
         }
         return true;
     }
@@ -147,39 +146,24 @@ final class CSharpWildcards {
     }
 
     /**
-     * {@code X<?>}, {@code X<? extends B>} of a generic type of the program, with a wildcard the type's variance does
-     * not cover ({@link #covered}).
+     * {@code X<?>}, {@code X<? extends B>} of a generic type of the program. Captured even where the type's variance
+     * ({@link CSharpVariance}) would take the bound: an argument that is a type parameter has no variance conversion
+     * (CS1503), a captured one takes it.
      */
     static boolean capturable(ParameterizedType pt) {
         TypeInfo t = pt.typeInfo();
-        if (pt.arrays() != 0 || pt.wildcard() != null || t == null || !CSharpNames.translated(t)
-            || pt.parameters().isEmpty() || pt.parameters().size() != t.typeParameters().size()
-            || pt.parameters().stream().anyMatch(a -> a.wildcard() != null && a.wildcard().isSuper())) {
-            return false;
-        }
-        for (int k = 0; k < pt.parameters().size(); k++) {
-            ParameterizedType a = pt.parameters().get(k);
-            if (a.wildcard() != null && !covered(a, t.typeParameters().get(k))) return true;
-        }
-        return false;
-    }
-
-    /**
-     * A wildcard argument C#'s declaration-site variance takes as it is ({@link CSharpVariance}): {@code ? extends B}
-     * at an {@code out} parameter is {@code B}, and an unbound {@code ?} there {@code object}; nothing to capture.
-     */
-    static boolean covered(ParameterizedType a, TypeParameter declared) {
-        return a.wildcard().isUnbound() ? CSharpWildcardInterfaces.objectAtOut(declared) : CSharpTypeName.exact(a, declared);
+        return pt.arrays() == 0 && pt.wildcard() == null && t != null && CSharpNames.translated(t)
+               && !pt.parameters().isEmpty() && pt.parameters().size() == t.typeParameters().size()
+               && pt.parameters().stream().anyMatch(a -> a.wildcard() != null && !a.wildcard().isSuper())
+               && pt.parameters().stream().noneMatch(a -> a.wildcard() != null && a.wildcard().isSuper());
     }
 
     /** {@code X<TEmbedded>}: the parameter's type with its wildcards named. */
     static String type(ParameterizedType pt, List<String> names, Qualification q) {
         List<String> printed = new ArrayList<>();
         int n = 0;
-        for (int k = 0; k < pt.parameters().size(); k++) {
-            ParameterizedType a = pt.parameters().get(k);
-            boolean named = a.wildcard() != null && !covered(a, pt.typeInfo().typeParameters().get(k));
-            printed.add(named ? names.get(n++) : CSharpTypeName.of(a, q));
+        for (ParameterizedType a : pt.parameters()) {
+            printed.add(a.wildcard() != null ? names.get(n++) : CSharpTypeName.of(a, q));
         }
         return CSharpTypeName.name(pt.typeInfo(), q) + "<" + String.join(", ", printed) + ">";
     }

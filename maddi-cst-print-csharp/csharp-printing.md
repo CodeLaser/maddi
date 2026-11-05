@@ -410,11 +410,15 @@ implements the interface.
   variant types (`Function`, `Supplier`, `Consumer`, `Predicate`, `Iterable`, `Iterator`, `Stream`, `Comparator`,
   `Comparable`, `Optional`) and through the program's own interfaces, as one fixpoint over them; a delegate's
   parameters are `in`, its result `out`; static members do not count. The wildcard interface of a type (below) has
-  the same variance on the parameters it keeps. The variance then takes Java's wildcards as they are: `Source<?
-  extends Animal>` is `ISource<Animal>`, `Mapper<? extends String, ?>` is `Mapper<string, object>`, without a
-  message, without capturing a method type parameter, and an `ISource<Dog>` is an `ISource<Animal>` without a cast.
-  Only between reference types: C#'s variance does not convert a value type or a type parameter, which keeps the
-  lambda around a delegate variable (`x0_ => m(x0_)`) where an argument becomes `object`.
+  the same variance on the parameters it keeps. The variance then takes a bounded wildcard as its bound without a
+  message: `Handler<? super Dog>` is `IHandler<Dog>`, and an `ISource<Dog>` is an `ISource<Animal>` without a cast.
+  Only between reference types: C#'s variance does not convert a value type or a type parameter, which is why an
+  unbound `?` stays the wildcard interface (`IScoreDirector` for `ScoreDirector<?>`, which an
+  `IInnerScoreDirector<Solution_, Score_>` is, where an `IScoreDirector<object>` is not), a method's wildcard
+  parameter stays captured (`CSharpWildcards`), and the lambda around a delegate variable (`x0_ => m(x0_)`) stays
+  where an argument becomes `object`. The fixpoint is optimistic first (a reference through a parameter not yet
+  decided restricts nothing: `ISource<T> Filter()` keeps `out T`), then strict (a parameter nothing decides is the
+  invariant one it prints as, and so is what takes it in a parameter).
 - **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
   type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
   `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,

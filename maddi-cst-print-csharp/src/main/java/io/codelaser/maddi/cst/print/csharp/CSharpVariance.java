@@ -95,28 +95,32 @@ final class CSharpVariance {
             if (nested) continue;
             t.typeParameters().forEach(tp -> allowed.put(tp, new HashSet<>(Set.of('+', '-'))));
         }
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            for (TypeInfo t : types) {
-                if (!allowed.containsKey(t.typeParameters().getFirst())) continue;
-                Walk walk = new Walk(Set.copyOf(t.typeParameters()), allowed);
-                if (delegates.contains(t)) {
-                    MethodInfo sam = CSharpProgram.invoked(t);
-                    walk.occurs(sam.returnType(), '+');
-                    for (ParameterInfo p : sam.parameters()) walk.occurs(p.parameterizedType(), '-');
-                } else {
-                    t.interfacesImplemented().forEach(s -> walk.occurs(s, '+'));
-                    for (MethodInfo m : t.methods()) {
-                        if (m.isStatic() || m.isSynthetic()) continue;
-                        walk.occurs(m.returnType(), '+');
-                        for (ParameterInfo p : m.parameters()) walk.occurs(p.parameterizedType(), '-');
-                        for (TypeParameter mtp : m.typeParameters()) {
-                            mtp.typeBounds().forEach(b -> walk.occurs(b, '0'));
+        // first optimistically, a reference through a parameter not yet decided restricting nothing; then strictly,
+        // where such a parameter is the invariant one it prints as: each pass only narrows, so both end
+        for (boolean strict : new boolean[] { false, true }) {
+            boolean changed = true;
+            while (changed) {
+                changed = false;
+                for (TypeInfo t : types) {
+                    if (!allowed.containsKey(t.typeParameters().getFirst())) continue;
+                    Walk walk = new Walk(Set.copyOf(t.typeParameters()), allowed, strict);
+                    if (delegates.contains(t)) {
+                        MethodInfo sam = CSharpProgram.invoked(t);
+                        walk.occurs(sam.returnType(), '+');
+                        for (ParameterInfo p : sam.parameters()) walk.occurs(p.parameterizedType(), '-');
+                    } else {
+                        t.interfacesImplemented().forEach(s -> walk.occurs(s, '+'));
+                        for (MethodInfo m : t.methods()) {
+                            if (m.isStatic() || m.isSynthetic()) continue;
+                            walk.occurs(m.returnType(), '+');
+                            for (ParameterInfo p : m.parameters()) walk.occurs(p.parameterizedType(), '-');
+                            for (TypeParameter mtp : m.typeParameters()) {
+                                mtp.typeBounds().forEach(b -> walk.occurs(b, '0'));
+                            }
                         }
                     }
+                    changed |= walk.changed;
                 }
-                changed |= walk.changed;
             }
         }
         Map<TypeParameter, String> variance = new HashMap<>();
@@ -131,11 +135,13 @@ final class CSharpVariance {
     private static final class Walk {
         private final Set<TypeParameter> own;
         private final Map<TypeParameter, Set<Character>> allowed;
+        private final boolean strict;
         boolean changed;
 
-        Walk(Set<TypeParameter> own, Map<TypeParameter, Set<Character>> allowed) {
+        Walk(Set<TypeParameter> own, Map<TypeParameter, Set<Character>> allowed, boolean strict) {
             this.own = own;
             this.allowed = allowed;
+            this.strict = strict;
         }
 
         /** {@code pt} at a position of {@code polarity}: + output, - input, 0 invariant, * undecided (restricts nothing). */
@@ -161,15 +167,16 @@ final class CSharpVariance {
                 char of;
                 if (translated && t.isInterface() && i < parameters.size() && allowed.containsKey(parameters.get(i))) {
                     Set<Character> may = allowed.get(parameters.get(i));
-                    of = may.equals(Set.of('+')) ? '+' : may.equals(Set.of('-')) ? '-' : may.isEmpty() ? '0' : '*';
+                    of = may.equals(Set.of('+')) ? '+' : may.equals(Set.of('-')) ? '-' : may.isEmpty() || strict ? '0' : '*';
                 } else if (library != null && i < library.length()) {
                     of = library.charAt(i);
                 } else {
                     of = '0';
                 }
-                char composed = switch (of) {
+                // an invariant position stays one through any argument
+                char composed = polarity == '0' ? '0' : switch (of) {
                     case '+' -> polarity;
-                    case '-' -> polarity == '+' ? '-' : polarity == '-' ? '+' : polarity;
+                    case '-' -> polarity == '+' ? '-' : '+';
                     case '*' -> '*';
                     default -> '0';
                 };

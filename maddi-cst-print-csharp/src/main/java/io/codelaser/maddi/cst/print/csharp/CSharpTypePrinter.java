@@ -96,10 +96,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                         fieldPrinterFactory));
             }
             // its lambda and erasure adapters beside it: a variant interface may declare no nested class (CS8427)
+            // (outside it, which names its nested types from the primary type, as a header does)
             if (doTypeDeclaration && CSharpNames.lambdaAdapter(typeInfo)) {
-                type.add(SpaceEnum.NEWLINE).add(lambdaAdapter(importData.insideType()));
+                type.add(SpaceEnum.NEWLINE).add(CSharpTypeName.inHeader(typeInfo, () -> lambdaAdapter(importData.insideType())));
             }
-            OutputBuilder erasure = doTypeDeclaration ? CSharpErasures.adapter(typeInfo, typeAccess(), importData.insideType()) : null;
+            OutputBuilder erasure = doTypeDeclaration
+                    ? CSharpTypeName.inHeader(typeInfo, () -> CSharpErasures.adapter(typeInfo, typeAccess(), importData.insideType()))
+                    : null;
             if (erasure != null) type.add(SpaceEnum.NEWLINE).add(erasure);
             return type;
         } finally {

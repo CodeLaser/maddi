@@ -331,7 +331,7 @@ public final class CSharpTypeName {
     }
 
     /** Wildcard argument {@code a} at {@code tp} is its bound exactly: {@code ? extends B} at an {@code out}, {@code ? super B} at an {@code in}. */
-    static boolean exact(ParameterizedType a, TypeParameter tp) {
+    private static boolean exact(ParameterizedType a, TypeParameter tp) {
         String variance = CSharpContext.program().variance(tp);
         return variance != null && (a.typeInfo() != null || a.typeParameter() != null)
                && (a.wildcard().isExtends() ? "out" : "in").equals(variance);

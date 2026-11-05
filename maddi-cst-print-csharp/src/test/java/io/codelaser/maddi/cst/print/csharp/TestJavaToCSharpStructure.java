@@ -2767,11 +2767,59 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "IHandler<E> Twice() => new HandlerLambda<E>(e => {");
         assertFalse(cs.contains(".Lambda"), cs);
         // the wildcards the variance covers print as their bound, without a message
-        contains(cs, "static object First(Mapper<string, object> m, ISource<Animal> s, IHandler<Dog> h)");
+        // a method's wildcard parameter is still captured (an argument that is a type parameter has no variance
+        // conversion); a ? super of an in parameter is its bound
+        contains(cs, "static object First<T>(Mapper<string, object> m, ISource<T> s, IHandler<Dog> h) where T : Animal");
         // C#'s variance converts between reference types without a cast or an adapter
         contains(cs, "static object Second(Mapper<string, string> m, ISource<Dog> s, IHandler<Animal> h) => First(");
         assertFalse(cs.contains("(ISource<Animal>)") || cs.contains("(IHandler<Dog>)"), cs);
         assertFalse(cs.contains("WILDCARD_AS_BOUND"), cs);
+    }
+
+    /**
+     * The variance analysis's fixpoint: an interface whose type parameter is decided by nothing (a cycle of
+     * references, {@code Move<S>} and {@code View<S>} mentioning only each other) is invariant, and so is what
+     * mentions it in a parameter ({@code Ctx<S>}: CS1961 otherwise); an invariant position stays one through any
+     * argument ({@code List<Move<S>>}). An interface with a nested type declares no variance (CS8427), and its
+     * lambda adapter beside it names the nested types from the primary type.
+     */
+    @Test
+    public void varianceFixpoint() {
+        String cs = translate("Ctx", """
+                package a;
+                import java.util.List;
+                interface Ctx<S> {
+                    S get();
+                    void exec(Move<S> m);
+                }
+                interface Move<S> {
+                    void run(View<S> v);
+                    default void twice(View<S> v) { run(v); run(v); }
+                }
+                interface View<S> {
+                    Move<S> next();
+                    default Move<S> again() { return next(); }
+                }
+                interface Listing<S> {
+                    List<Move<S>> moves(S s);
+                    default int count(S s) { return moves(s).size(); }
+                }
+                interface Factory {
+                    interface Input { }
+                    interface Template { }
+                    Template create(Input in);
+                    default Template twice(Input in) { create(in); return create(in); }
+                }
+                class Use {
+                    static Factory make() { return in -> null; }
+                }
+                """);
+        contains(cs, "internal interface ICtx<S> {");
+        contains(cs, "internal interface IMove<S> {");
+        contains(cs, "internal interface IView<S> {");
+        contains(cs, "internal interface IListing<S> {");
+        assertFalse(cs.contains("<out ") || cs.contains("<in "), cs);
+        contains(cs, "internal sealed class FactoryLambda(Func<IFactory.IInput, IFactory.ITemplate> f) : IFactory { public IFactory.ITemplate Create(IFactory.IInput @in) => f(@in); }");
     }
 
     /**

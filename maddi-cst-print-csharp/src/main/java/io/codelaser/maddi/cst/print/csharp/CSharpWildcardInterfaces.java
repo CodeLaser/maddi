@@ -372,10 +372,8 @@ final class CSharpWildcardInterfaces {
         if (t != null && CSharpNames.translated(t) && arguments.size() == t.typeParameters().size()) {
             for (int i = 0; i < arguments.size(); i++) {
                 ParameterizedType a = arguments.get(i);
-                // an unbound ? of an out parameter without bounds is its object: IMapper<A, object>
-                TypeParameter tp = t.typeParameters().get(i);
-                if (open(a) && !(objectAtOut(tp))) {
-                    wildcarded.computeIfAbsent(t, k -> new HashSet<>()).add(tp);
+                if (open(a)) {
+                    wildcarded.computeIfAbsent(t, k -> new HashSet<>()).add(t.typeParameters().get(i));
                 }
             }
         }
@@ -388,12 +386,6 @@ final class CSharpWildcardInterfaces {
      */
     private static boolean open(ParameterizedType a) {
         return a.wildcard() != null && a.wildcard().isUnbound();
-    }
-
-    /** An unbound {@code ?} at {@code tp} is {@code object}: C# declares {@code tp} {@code out}, and its bounds admit object. */
-    static boolean objectAtOut(TypeParameter tp) {
-        return "out".equals(CSharpContext.program().variance(tp))
-               && tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject);
     }
 
     static boolean has(TypeInfo t) {

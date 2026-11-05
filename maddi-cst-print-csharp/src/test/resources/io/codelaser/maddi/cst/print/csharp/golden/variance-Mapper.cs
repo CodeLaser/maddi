@@ -30,7 +30,7 @@ internal sealed class HandlerLambda<E>(Action<E> f) : IHandler<E> { public void 
 internal class Animal { }
 internal sealed class Dog : Animal { }
 internal sealed class Use {
-    internal static object First(Mapper<string, object> m, ISource<Animal> s, IHandler<Dog> h) {
+    internal static object First<T>(Mapper<string, object> m, ISource<T> s, IHandler<Dog> h) where T : Animal {
         h.Handle(new Dog());
         return m;
     }
