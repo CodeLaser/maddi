@@ -21,12 +21,8 @@ internal sealed class Expressions {
         internal bool Empty() => value == null;
         public override bool Equals(object o) => o is Box<T> b && object.ReferenceEquals(b.value, value);
         public override int GetHashCode() => 1;
-        object IBox.value => value;
         bool IBox.Empty() => Empty();
     }
-    internal interface IBox {
-        internal object value { get; }
-        internal bool Empty();
-    }
+    internal interface IBox { internal bool Empty(); }
     internal delegate int Op(int a, int b);
 }

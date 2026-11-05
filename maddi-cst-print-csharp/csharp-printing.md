@@ -797,7 +797,7 @@ from a map, a stream's collector.
   `ITupleLifecycle<ITuple>` is not. A class's wildcard interface declares its internal members too, Java's
   package-private ones, and the overrides of a library's methods; a result C# writes without arguments (`Class<A>`'s
   `Type`) is kept, and the fields the code reads through the wildcard, as properties of the field's name
-  (`Type IMoveSelectorConfig.filterClass => filterClass;`). A result that is a delegate of a removed parameter,
+  (`Type IMoveSelectorConfig (a superclass's too, as the type sees its type, `that.parent` in a subclass's `equals`); a superclass's method the superclass's wildcard interface declares is reached through it, which the subclass's wildcard interface extends. What the type's own instance methods reach through a cast or a local of its own wildcard use, `(Node<?>) o` in `equals`, counts for nothing: C# prints that as the type itself with its own type parameters.filterClass => filterClass;`). A result that is a delegate of a removed parameter,
   each of its parameters and its result that parameter or not mentioning it, is the delegate with the parameter
   erased, which the bridge adapts to by a lambda: a collector's `BiFunction<ResultContainer_, A, Runnable>
   accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return

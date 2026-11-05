@@ -2915,6 +2915,57 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * What counts against a type's wildcard interface: a member the interface cannot declare, reached through the
+     * wildcard. Not a read through the type's own wildcard use in its own instance method ({@code that.parent} in
+     * {@code equals}, after {@code (Map<?, ?>) o}, which C# prints as the type itself), nor through a captured
+     * parameter. A superclass's field read through the subclass's wildcard is a property of the wildcard interface,
+     * as the subclass sees its type; a superclass's method is the superclass's wildcard interface's, which the
+     * subclass's extends.
+     */
+    @Test
+    public void wildcardInterfaceReach() {
+        String cs = translate("Streams", """
+                package a;
+                import java.util.Objects;
+                class Streams {
+                    static abstract class Base<S> {
+                        protected final Base<S> parent;
+                        Base(Base<S> parent) { this.parent = parent; }
+                        int depth() { return parent == null ? 0 : 1 + parent.depth(); }
+                        abstract int arity();
+                    }
+                    static final class Map<S, A> extends Base<S> {
+                        final int n;
+                        Map(Base<S> parent, int n) { super(parent); this.n = n; }
+                        int arity() { return n; }
+                        int same(Map<?, ?> other) { return other.n; }
+                        @Override public boolean equals(Object o) {
+                            if (!(o instanceof Map<?, ?> that)) return false;
+                            return Objects.equals(parent, that.parent) && n == that.n;
+                        }
+                        @Override public int hashCode() { return Objects.hash(parent, n); }
+                    }
+                    static final class Holder {
+                        final Map<?, ?> any;
+                        Holder(Map<?, ?> any) { this.any = any; }
+                        int depth() { return any.depth(); }
+                        Base<?> up() { return any.parent; }
+                    }
+                }
+                """);
+        contains(cs, "internal interface IBase {");
+        contains(cs, "internal interface IMap : IBase {");
+        contains(cs, "IBase parent { get; }");
+        contains(cs, "IBase IMap.parent => parent;");
+        contains(cs, "internal int Depth() => any.Depth();");
+        contains(cs, "internal IBase Up() => any.parent;");
+        // a wildcard parameter of a type with a wildcard interface is that interface, not captured
+        contains(cs, "internal int Same(IMap other) => other.Arity;");
+        contains(cs, "o is not Map<S, A> that");
+        assertFalse(cs.contains("<object"), cs);
+    }
+
+    /**
      * A case label with several patterns (JEP 456), {@code case String _, Integer _ ->}: C#'s {@code or} pattern,
      * {@code string or int}, in a switch statement and in a switch expression. Translating only the first pattern
      * compiles and no longer matches an Integer.
