@@ -169,10 +169,21 @@ final class CSharpWildcardInterfaces {
         return null;
     }
 
-    /** {@code m} is a superclass's, declared by that superclass's wildcard interface. */
+    /**
+     * {@code m} is a superclass's, declared by that superclass's wildcard interface, which t's wildcard interface
+     * extends: each class between has one, extending the next ({@link #supertypes}).
+     */
     private static boolean declaredBySuperclass(TypeInfo t, MethodInfo m) {
         TypeInfo owner = m.typeInfo();
         if (owner.equals(t) || owner.isInterface() || !CstQueries.superclasses(t).contains(owner) || !has(owner)) return false;
+        for (TypeInfo c = t; !c.equals(owner); ) {
+            ParameterizedType s = c.parentClass();
+            TypeInfo st = s == null ? null : s.typeInfo();
+            if (st == null || !has(st)) return false;
+            List<TypeParameter> removedHere = c.equals(t) ? candidates(t) : removed(c);
+            if (CstQueries.mentionsAny(s, removedHere) && !erasable(s, removedHere)) return false;
+            c = st;
+        }
         return declared(owner, removed(owner)).contains(m);
     }
 
@@ -648,6 +659,11 @@ final class CSharpWildcardInterfaces {
      * lambda, {@code { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }}.
      */
     static String delegateBridge(MethodInfo m, String call, List<TypeParameter> removed, Qualification q) {
+        return delegateBridge(m, call, removed, q, false);
+    }
+
+    /** As above; {@code nullableResult}: the own member's result may be null (its {@code ?}), and the bridge passes the null on (CS8602). */
+    static String delegateBridge(MethodInfo m, String call, List<TypeParameter> removed, Qualification q, boolean nullableResult) {
         ParameterizedType pt = m.returnType();
         MethodInfo sam = CstSupertypes.singleAbstractMethod(pt.typeInfo());
         List<ParameterizedType> slots = samTypes(pt, sam);
@@ -674,7 +690,7 @@ final class CSharpWildcardInterfaces {
         String adapter = adapted(pt.typeInfo())
                 ? "new " + CSharpNames.lambdaAdapterReference(pt.typeInfo(), erasedDelegateType(pt, removed, q)) + "(" + lambda + ")"
                 : lambda;
-        return "{ var f = " + call + "; return " + adapter + "; }";
+        return "{ var f = " + call + "; return " + (nullableResult ? "f == null ? null : " : "") + adapter + "; }";
     }
 
     private static String erasedBound(TypeParameter tp, List<TypeParameter> removed, Set<TypeParameter> seen,
@@ -786,9 +802,11 @@ final class CSharpWildcardInterfaces {
             String property = program.propertyRead(m);
             if (property != null) {
                 if (!m.parameters().isEmpty() || !signatures.add(property)) continue;
-                members.add(new Member(modifier + returnType + " " + property + " { get; }",
-                        returnType + " " + self + "." + property + " => " + property + asserted(m, removed, returnType)
-                        + ";"));
+                String bridge = CstQueries.mentionsAny(m.returnType(), removed) && erasedDelegate(m.returnType(), removed)
+                        // Func<A, B, bool> is no Func<object, object, bool>: the delegate adapted, as a method's is
+                        ? returnType + " " + self + "." + property + " { get " + delegateBridge(m, property, removed, q, returnType.endsWith("?")) + " }"
+                        : returnType + " " + self + "." + property + " => " + property + asserted(m, removed, returnType) + ";";
+                members.add(new Member(modifier + returnType + " " + property + " { get; }", bridge));
                 continue;
             }
             String name = CSharpNames.method(m);
@@ -813,7 +831,7 @@ final class CSharpWildcardInterfaces {
             String bridge;
             if (CstQueries.mentionsAny(m.returnType(), removed) && erasedDelegate(m.returnType(), removed)) {
                 String own = name + typeParameters + "(" + String.join(", ", arguments) + ")";
-                bridge = returnType + " " + self + "." + signature + " " + delegateBridge(m, own, removed, q);
+                bridge = returnType + " " + self + "." + signature + " " + delegateBridge(m, own, removed, q, returnType.endsWith("?"));
             } else {
                 String call = name + typeParameters + "(" + String.join(", ", arguments) + ")" + asserted(m, removed, returnType);
                 bridge = returnType + " " + self + "." + signature + " => " + call + ";";

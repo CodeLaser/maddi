@@ -155,6 +155,30 @@ public final class CSharpTypeName {
     }
 
     /**
+     * The type a creation names, {@code new AndThenCollector<S, object>(…)} for a diamond resolved to
+     * {@code AndThenCollector<S, ?>} from its target: a wildcard argument is its bound, never the wildcard interface
+     * a wildcard use would be (CS0144).
+     */
+    static String created(ParameterizedType pt, Qualification q) {
+        TypeInfo t = pt.typeInfo();
+        if (t == null || pt.arrays() != 0 || !CSharpNames.translated(t) || pt.parameters().isEmpty()
+            || pt.parameters().size() != t.typeParameters().size()
+            || pt.parameters().stream().noneMatch(a -> a.wildcard() != null)) {
+            return of(pt, q);
+        }
+        List<String> printed = new ArrayList<>();
+        for (int i = 0; i < pt.parameters().size(); i++) {
+            ParameterizedType a = pt.parameters().get(i);
+            boolean unbound = a.wildcard() != null && (a.wildcard().isUnbound() || a.typeInfo() == null && a.typeParameter() == null);
+            printed.add(unbound ? rawArgument(t.typeParameters().get(i), q)
+                    : a.wildcard() != null ? argument(a.withWildcard(null), q) : argument(a, q));
+        }
+        String name = name(t, q);
+        String inner = innerOfGeneric(t, name, printed);
+        return inner != null ? inner : name + "<" + String.join(", ", printed) + ">";
+    }
+
+    /**
      * The type of a declaration, with what the analysis knows: a collection parameter the method does not modify is
      * read-only ({@code IReadOnlyList<T>}), a reference type that may be null is {@code T?}.
      */

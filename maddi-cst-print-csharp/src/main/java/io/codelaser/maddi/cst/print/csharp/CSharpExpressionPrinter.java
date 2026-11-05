@@ -238,8 +238,18 @@ public final class CSharpExpressionPrinter {
 
     /** The interface as the receiver's type implements it, with its type arguments. */
     private static String interfaceType(TypeInfo owner, Expression object, Qualification q) {
-        TypeInfo start = object == null || object instanceof VariableExpression ve && ve.variable() instanceof This
-                ? CSharpContext.currentType() : object.parameterizedType().typeInfo();
+        boolean self = object == null || object instanceof VariableExpression ve && ve.variable() instanceof This;
+        if (!self && object.parameterizedType() != null && object.parameterizedType().arrays() == 0) {
+            // a receiver with its own arguments, a captured AndThen<TS, TRC>: the interface as it has them
+            String captured = capturedInterfaceType(owner, object, q);
+            if (captured != null) return captured;
+            ParameterizedType seen = CstSupertypes.asSeen(object.parameterizedType(), owner);
+            if (seen != null && seen.parameters().stream().allMatch(a -> a.wildcard() == null)
+                && writable(seen, List.of())) {
+                return CSharpTypeName.of(seen, q);
+            }
+        }
+        TypeInfo start = self ? CSharpContext.currentType() : object.parameterizedType().typeInfo();
         Deque<TypeInfo> todo = new ArrayDeque<>(List.of(start));
         Set<TypeInfo> seen = new HashSet<>();
         while (!todo.isEmpty()) {
@@ -252,6 +262,42 @@ public final class CSharpExpressionPrinter {
             if (t.parentClass() != null && t.parentClass().typeInfo() != null) todo.push(t.parentClass().typeInfo());
         }
         return CSharpTypeName.nameInExpression(owner, q);
+    }
+
+    /**
+     * The interface {@code owner} as a captured parameter's type implements it, {@code IColl<TS, TRC>} for an
+     * {@code AndThen<TS, TRC> a} captured from {@code AndThen<?, ?>}: the class's arguments to the interface are its
+     * own type parameters, each the parameter's argument at that position, a captured wildcard by its name. Null
+     * when the receiver is no captured parameter, or the arguments are not as plain as that.
+     */
+    private static String capturedInterfaceType(TypeInfo owner, Expression object, Qualification q) {
+        MethodInfo method = CSharpContext.currentMethod();
+        if (method == null || !(unwrap(object) instanceof VariableExpression ve) || !(ve.variable() instanceof ParameterInfo pi)
+            || pi.methodInfo() != method || !CSharpWildcards.capturedParameter(method, pi.index())) {
+            return null;
+        }
+        ParameterizedType pt = pi.parameterizedType();
+        TypeInfo t = pt.typeInfo();
+        List<String> names = CSharpWildcards.captured(method, q).names().get(pi.index());
+        if (t == null || names == null || pt.parameters().size() != t.typeParameters().size()) return null;
+        ParameterizedType asOwner = t.equals(owner) ? t.asParameterizedType() : CstSupertypes.asSeen(t, owner);
+        if (asOwner == null) return null;
+        List<String> printed = new ArrayList<>();
+        for (ParameterizedType a : asOwner.parameters()) {
+            if (!a.isTypeParameter() || a.arrays() != 0) return null;
+            int i = t.typeParameters().indexOf(a.typeParameter());
+            if (i < 0) return null;
+            ParameterizedType argument = pt.parameters().get(i);
+            if (argument.wildcard() != null) {
+                int n = 0;
+                for (int k = 0; k < i; k++) if (pt.parameters().get(k).wildcard() != null) n++;
+                if (n >= names.size()) return null;
+                printed.add(names.get(n));
+            } else {
+                printed.add(CSharpTypeName.argument(argument, q));
+            }
+        }
+        return CSharpTypeName.name(owner, q) + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
     }
 
     // ---------------------------------------------------------------- variables
@@ -891,7 +937,7 @@ public final class CSharpExpressionPrinter {
             return new CSharpTemplate(() -> text("this"), args, operands, null, type, null, q).render(rule.template(false));
         }
         return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
-                .add(text(CSharpTypeName.of(created(cc, type), q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+                .add(text(CSharpTypeName.created(created(cc, type), q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
     }
 
     /**

@@ -2966,6 +2966,60 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * Three more things about a wildcard interface: a property of an erased delegate type is bridged by the lambda
+     * adapter, as a method's is ({@code Func<A, B, bool>} is no {@code Func<object, object, bool>}); a creation
+     * never names the wildcard interface, a diamond resolved to a wildcard from its target names the bound
+     * ({@code new AndThen<S, object>(…)}, CS0144 otherwise); and a superclass's member counts for a subclass's wildcard
+     * interface only when every class between has one to extend, else the subclass gets none.
+     */
+    @Test
+    public void wildcardInterfaceBridges() {
+        String cs = translate("Collectors", """
+                package a;
+                import java.util.function.BiPredicate;
+                import java.util.function.Function;
+                class Collectors {
+                    static final class Filtered<A, B> {
+                        private final BiPredicate<A, B> filter;
+                        Filtered(BiPredicate<A, B> filter) { this.filter = filter; }
+                        BiPredicate<A, B> getFilter() { return filter; }
+                    }
+                    static final class Holder {
+                        final Filtered<?, ?> f;
+                        Holder(Filtered<?, ?> f) { this.f = f; }
+                        boolean any() { return f.getFilter() != null; }
+                    }
+                    interface Coll<S, RC> { RC start(S s); default int n() { return 0; } }
+                    static final class AndThen<S, RC> implements Coll<S, RC> {
+                        AndThen(Coll<S, RC> delegate, Function<RC, RC> f) { }
+                        public RC start(S s) { return null; }
+                    }
+                    static <S, RC> Coll<S, ?> andThen(Coll<S, RC> delegate, Function<RC, RC> f) { return new AndThen<>(delegate, f); }
+                    static Coll<String, ?> empty() { return new AndThen<>(null, null); }
+                    static int arity(AndThen<?, ?> a) { return a.n(); }
+                    static class Top<S> { String name() { return "t"; } }
+                    static class Mid<S> extends Top<S> { }
+                    static final class Leaf<S> extends Mid<S> { }
+                    static final class Pair {
+                        final Top<?> top;
+                        final Leaf<?> leaf;
+                        Pair(Top<?> top, Leaf<?> leaf) { this.top = top; this.leaf = leaf; }
+                        String names() { return top.name() + leaf.name(); }
+                    }
+                }
+                """);
+        contains(cs, "Func<object, object, bool> IFiltered.Filter { get { var f = Filter; return (x0_, x1_) => f((A) x0_, (B) x1_); } }");
+        contains(cs, "=> new AndThen<S, RC>(@delegate, f);");
+        contains(cs, "new AndThen<string, object>(null, null)");
+        // a default method called on a captured parameter: the interface with the receiver's arguments
+        contains(cs, "internal static int Arity<TS, TRC>(AndThen<TS, TRC> a) => ((IColl<TS, TRC>) a).N();");
+        contains(cs, "internal interface ITop { internal string Name(); }");
+        assertFalse(cs.contains("ILeaf"), cs);
+        contains(cs, "internal readonly Leaf<object> leaf;");
+        contains(cs, "internal string Names() => top.Name() + leaf.Name();");
+    }
+
+    /**
      * A case label with several patterns (JEP 456), {@code case String _, Integer _ ->}: C#'s {@code or} pattern,
      * {@code string or int}, in a switch statement and in a switch expression. Translating only the first pattern
      * compiles and no longer matches an Integer.

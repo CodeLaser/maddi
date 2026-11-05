@@ -183,7 +183,7 @@ final class CSharpErasures {
             return "public " + type + " " + signature + " => " + call + (facts && !type.endsWith("?") ? "!" : "") + ";";
         }
         if (CstQueries.mentionsAny(result, erased)) {
-            return "public " + type + " " + signature + " " + CSharpWildcardInterfaces.delegateBridge(m, call, erased, q);
+            return "public " + type + " " + signature + " " + CSharpWildcardInterfaces.delegateBridge(m, call, erased, q, type.endsWith("?"));
         }
         return "public " + type + " " + signature + " => " + call + ";";
     }

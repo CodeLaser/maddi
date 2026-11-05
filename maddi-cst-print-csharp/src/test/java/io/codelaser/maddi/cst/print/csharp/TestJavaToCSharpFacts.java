@@ -799,6 +799,41 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "new TriFunctionLambda<object, A, B, Action>((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_!, x1_, x2_)!)");
     }
 
+    /** A bridge of an erased delegate passes the own member's null on, {@code f == null ? null : …}, not dereferenced (CS8602). */
+    @Test
+    public void nullableDelegateBridge() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return "mapping".equals(method.name()) ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+        });
+        String cs = translate("Joiners", """
+                package a;
+                import java.util.function.Function;
+                class Joiners {
+                    static final class Joiner<A> {
+                        private final Function<A, Object> mapping;
+                        Joiner(Function<A, Object> mapping) { this.mapping = mapping; }
+                        Function<A, Object> mapping() { return mapping; }
+                        Function<A, Object> mapping(int i) { return i == 0 ? mapping : null; }
+                    }
+                    static final class Holder {
+                        final Joiner<?> j;
+                        Holder(Joiner<?> j) { this.j = j; }
+                        Object use() { return j.mapping(0) == null ? j.mapping() : null; }
+                    }
+                }
+                """);
+        contains(cs, "Func<object, object>? IJoiner.Mapping() { var f = Mapping(); return f == null ? null : x0_ => f((A) x0_!); }");
+        contains(cs, "Func<object, object>? IJoiner.Mapping(int i) { var f = Mapping(i); return f == null ? null : x0_ => f((A) x0_!); }");
+    }
+
     @Language("java")
     private static final String VALUE_NULLS = """
             package org.example.values;
