@@ -339,10 +339,13 @@ final class CSharpWildcardInterfaces {
         if (CstQueries.isRecordAccessor(m)) return false;
         // an override of the program's: the supertype's wildcard interface has it, where t's extends it; else t's own
         if (m.isStatic() || m.isSynthetic() || m.isConstructor() || m.access() != null && m.access().isPrivate()
+            // an override of the program's only where the code reaches it through the wildcard and nothing t's wildcard
+            // interface extends declares it: else the supertype's wildcard interface has it, or nobody needs it
             || m.overrides().stream().anyMatch(o -> o != m && ("java.lang.Object".equals(o.typeInfo().fullyQualifiedName())
                                                               || CSharpNames.translated(o.typeInfo())
                                                                  && (inheritedClosed(t, o.typeInfo(), removed)
-                                                                     || declaredBySuperclass(t, o))))
+                                                                     || declaredBySuperclass(t, o)
+                                                                     || !reachedOverride(t, m))))
             || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0 || program.erasedGeneric(m)
             || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
             return false;
@@ -359,6 +362,12 @@ final class CSharpWildcardInterfaces {
             return false;
         }
         return m.typeParameters().stream().noneMatch(tp -> tp.typeBounds().stream().anyMatch(b -> CstQueries.mentionsAny(b, removed)));
+    }
+
+    /** The code reaches {@code m}, or a method it overrides, through t's wildcard. */
+    private static boolean reachedOverride(TypeInfo t, MethodInfo m) {
+        Set<Object> reached = CSharpContext.program().reachedThroughWildcard(t);
+        return reached.contains(m) || m.overrides().stream().anyMatch(reached::contains);
     }
 
     private static boolean selfBounded(TypeInfo t, TypeParameter tp) {
