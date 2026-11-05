@@ -119,7 +119,10 @@ final class CSharpWildcardInterfaces {
     private static List<TypeParameter> computeRemoved(TypeInfo t) {
         List<TypeParameter> candidates = candidates(t);
         List<TypeParameter> selfBounded = t.typeParameters().stream().filter(tp -> selfBounded(t, tp)).toList();
-        if (candidates.size() == selfBounded.size() || reachable(t, candidates)) return candidates;
+        if (candidates.size() == selfBounded.size()) return candidates;
+        Object unreachable = unreachable(t, candidates);
+        if (unreachable == null) return candidates;
+        CSharpContext.message(CSharpPrintCode.NO_WILDCARD_INTERFACE, t, t.fullyQualifiedName() + ": " + unreachable);
         return selfBounded;
     }
 
@@ -138,8 +141,12 @@ final class CSharpWildcardInterfaces {
                && t.typeParameters().stream().anyMatch(tp -> selfBounded(t, tp));
     }
 
-    /** Whether the wildcard interface without {@code removed} declares what the code reaches through t's wildcard. */
-    private static boolean reachable(TypeInfo t, List<TypeParameter> removed) {
+    /**
+     * What the code reaches through t's wildcard that the wildcard interface without {@code removed} does not
+     * declare: a member, a field written, a generic parameter the wildcard goes into ({@link #wildcarded}); null
+     * when it declares everything.
+     */
+    private static Object unreachable(TypeInfo t, List<TypeParameter> removed) {
         Set<Object> declared = declared(t, removed);
         for (Object info : CSharpContext.program().reachedThroughWildcard(t)) {
             if (declared.contains(info)) continue;
@@ -154,9 +161,9 @@ final class CSharpWildcardInterfaces {
                     continue;
                 }
             }
-            return false;
+            return info;
         }
-        return true;
+        return null;
     }
 
     /** {@code owner} is an interface the wildcard interface extends: t's, and closed. */
@@ -262,10 +269,18 @@ final class CSharpWildcardInterfaces {
      */
     /** A field the code writes through a wildcard, which the wildcard interface cannot have. */
     private record Written(FieldInfo field) {
+        @Override
+        public String toString() {
+            return "field " + field.name() + " written";
+        }
     }
 
     /** A wildcard passed where its type is declared with arguments, which the wildcard interface cannot be. */
     private record PassedAsGeneric(ParameterizedType formal) {
+        @Override
+        public String toString() {
+            return "passed as " + formal;
+        }
     }
 
     private static void passed(MethodInfo method, List<Expression> arguments, BiConsumer<Expression, Object> through) {

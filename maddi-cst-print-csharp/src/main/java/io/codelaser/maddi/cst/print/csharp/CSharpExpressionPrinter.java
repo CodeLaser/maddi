@@ -238,6 +238,31 @@ public final class CSharpExpressionPrinter {
         return "<" + CSharpTypeName.argument(type.parameters().getFirst(), q) + ">";
     }
 
+    /**
+     * {@code target}, where {@code e} is a generic call whose result Java infers raw, {@code newInstance(Class<?
+     * extends SelectionFilter>)} converted unchecked into a {@code SelectionFilter<Solution_, Move<Solution_>>}: C#
+     * prints the call's type arguments ({@link #inferredTypeArguments}) from the target instead of
+     * {@code <ISelectionFilter<object, object>>}, which converts to nothing. Null otherwise.
+     */
+    private static ParameterizedType rawResultTarget(Expression e, ParameterizedType target) {
+        if (!(e instanceof MethodCall mc) || target == null || target.arrays() != 0 || target.typeInfo() == null
+            || target.parameters().isEmpty() || !writable(target, List.of()) || !mc.typeArguments().isEmpty()) {
+            return null;
+        }
+        MethodInfo method = mc.methodInfo();
+        if (method.typeParameters().isEmpty() || !CSharpNames.translated(method.typeInfo())
+            || !uninferable(method) && !onlyThroughLambdas(mc)) {
+            return null;
+        }
+        ParameterizedType result = mc.concreteReturnType();
+        if (result == null || result.arrays() != 0 || !target.typeInfo().equals(result.typeInfo())
+            || !CstQueries.mentionsAny(method.returnType(), method.typeParameters())) {
+            return null;
+        }
+        boolean rawResult = raw(result) || result.parameters().stream().allMatch(ParameterizedType::isJavaLangObject);
+        return rawResult ? target : null;
+    }
+
     /** The arguments of a call, without its type token. */
     private static List<Expression> withoutTypeToken(MethodCall mc) {
         int token = CSharpContext.program().typeToken(mc.methodInfo());
@@ -585,7 +610,9 @@ public final class CSharpExpressionPrinter {
             return "";
         }
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
-        match(method.returnType(), mc.concreteReturnType(), typeParameters, inferred);
+        // a raw result goes into a target with arguments: Java's unchecked conversion, the target's arguments here
+        ParameterizedType callTarget = CSharpContext.callTarget(mc);
+        match(method.returnType(), callTarget != null ? callTarget : mc.concreteReturnType(), typeParameters, inferred);
         List<Expression> args = mc.parameterExpressions();
         for (int i = 0; i < method.parameters().size() && i < args.size(); i++) {
             ParameterInfo p = method.parameters().get(i);
@@ -1030,6 +1057,11 @@ public final class CSharpExpressionPrinter {
         if (rawArray(inner, target)) return constructorCall((ConstructorCall) inner, target, q);
         ParameterizedType fromTarget = erasedDiamond(inner, target);
         if (fromTarget != null) return constructorCall((ConstructorCall) inner, fromTarget, q);
+        ParameterizedType resultTarget = rawResultTarget(inner, target);
+        if (resultTarget != null) {
+            CSharpContext.callTarget((MethodCall) inner, resultTarget);
+            return print(value, q);
+        }
         // a raw constant lambda returned as the generic type, TRI_PICK_FIRST of a TriFunction<A, B, C, A>: the lambda
         // itself, which C# caches per type arguments as Java's one instance is cached
         Expression constant = constantLambda(inner, target);
@@ -1502,7 +1534,8 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(value);
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
-               || erasedDiamond(inner, target) != null || CSharpErasures.adapted(inner, target) != null
+               || erasedDiamond(inner, target) != null || rawResultTarget(inner, target) != null
+               || CSharpErasures.adapted(inner, target) != null
                || constantLambda(inner, target) != null || implementation(inner, target) != null
                || covariantArray(inner, target) || rawCastInto(inner, target) || keySetAsSet(inner, target)
                || wildcardIntoGeneric(inner, target)
@@ -1545,7 +1578,7 @@ public final class CSharpExpressionPrinter {
         for (int i = 0; i < own.size(); i++) bound.put(own.get(i), arguments.get(i));
         List<ParameterInfo> parameters = cc.constructor() == null ? List.of() : cc.constructor().parameters();
         for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
-            ParameterizedType argument = cc.parameterExpressions().get(i).parameterizedType();
+            ParameterizedType argument = printedType(cc.parameterExpressions().get(i));
             if (!raw(argument)) continue;
             ParameterizedType formal = CstSupertypes.substituteDroppingWildcards(parameters.get(i).parameterizedType(), bound);
             if (!formal.parameters().stream().allMatch(p -> p.isJavaLangObject() || p.wildcard() != null
@@ -1618,6 +1651,15 @@ public final class CSharpExpressionPrinter {
             if (!sameErased(a.parameters().get(i), b.parameters().get(i))) return false;
         }
         return true;
+    }
+
+    /** An expression's type as C# prints it: a raw local's is its initializer's ({@link CSharpStatementPrinter#rawFromInitializer}). */
+    private static ParameterizedType printedType(Expression e) {
+        if (unwrap(e) instanceof VariableExpression ve && ve.variable() instanceof LocalVariable lv) {
+            ParameterizedType fromInitializer = CSharpStatementPrinter.rawFromInitializer(lv);
+            if (fromInitializer != null) return fromInitializer;
+        }
+        return e.parameterizedType();
     }
 
     /** A generic type without its type arguments, {@code Function[]}. */

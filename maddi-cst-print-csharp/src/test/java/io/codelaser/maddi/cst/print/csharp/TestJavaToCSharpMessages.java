@@ -101,6 +101,29 @@ public class TestJavaToCSharpMessages extends CommonJavaToCSharp {
         assertNull(byCode.get(CSharpPrintCode.JAVA_FALLBACK), all);
     }
 
+    /**
+     * A type used with a wildcard that gets no wildcard interface says why: {@code Box<?>} passed where a generic
+     * method declares {@code Box<T>}, which the interface, without {@code T}, could not go into (CS0411).
+     */
+    @Test
+    public void noWildcardInterface() {
+        List<PrintMessage<CSharpPrintCode>> messages = messages("""
+                package a;
+                class W {
+                    interface Box<T> { T get(); void put(T t); }
+                    static <T> void take(Box<T> b) { }
+                    static Box<?> box;
+                    static void use() { take(box); }
+                }
+                """);
+        String all = messages.stream().map(PrintMessage::toString).collect(Collectors.joining("\n"));
+        PrintMessage<CSharpPrintCode> m = messages.stream().filter(x -> x.code() == CSharpPrintCode.NO_WILDCARD_INTERFACE)
+                .findFirst().orElse(null);
+        assertNotNull(m, all);
+        assertEquals("a.W", m.type(), all);
+        assertTrue(m.detail().startsWith("a.W.Box: passed as "), all);
+    }
+
     private static void at(Map<CSharpPrintCode, List<PrintMessage<CSharpPrintCode>>> byCode, CSharpPrintCode code,
                            String type, int line, String all) {
         first(byCode, code, all);

@@ -2823,6 +2823,55 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * Java's unchecked conversions of a raw type, which C# has not: a raw local takes its initializer's type
+     * ({@code Mapper[] m = Arrays.copyOf(mappers, n)} of a {@code Mapper<A, Object>[]}), after which a diamond of it
+     * takes the target's arguments; a type-token call of a raw class ({@code newInstance(Class<? extends Filter>)})
+     * takes its type argument from the target the result goes into.
+     */
+    @Test
+    public void rawIntoTarget() {
+        String cs = translate("Joiners", """
+                package a;
+                import java.util.Arrays;
+                import java.util.function.Function;
+                class Joiners<A, B> {
+                    interface Mapper<X, R> { R map(X x); default R twice(X x) { return map(x); } }
+                    private final Mapper<A, Object>[] leftMappings;
+                    private final Function<B, Object>[] rightMappings;
+                    @SuppressWarnings("unchecked")
+                    Joiners(Mapper<A, ?>[] leftMappings, Function<B, ?>[] rightMappings) {
+                        this.leftMappings = (Mapper<A, Object>[]) leftMappings;
+                        this.rightMappings = (Function<B, Object>[]) rightMappings;
+                    }
+                    @SuppressWarnings("unchecked")
+                    Joiners<A, B> and(Joiners<A, B> other) {
+                        Mapper[] newLeftMappings = Arrays.copyOf(leftMappings, leftMappings.length + 1);
+                        Function[] newRightMappings = Arrays.copyOf(rightMappings, rightMappings.length + 1);
+                        newLeftMappings[leftMappings.length] = other.leftMappings[0];
+                        newRightMappings[rightMappings.length] = other.rightMappings[0];
+                        return new Joiners<>(newLeftMappings, newRightMappings);
+                    }
+                }
+                class Plugins {
+                    interface Filter<S, T> { boolean accept(S s, T t); default boolean reject(S s, T t) { return !accept(s, t); } }
+                    static <T> T newInstance(Class<T> type) { return null; }
+                    @SuppressWarnings("unchecked")
+                    static Filter<String, Integer> filter(Class<? extends Filter> filterClass) {
+                        Filter<String, Integer> filter = newInstance(filterClass);
+                        return filter;
+                    }
+                    @SuppressWarnings("unchecked")
+                    static Filter<String, Integer> direct(Class<? extends Filter> filterClass) { return newInstance(filterClass); }
+                }
+                """);
+        contains(cs, "IMapper<A, object>[] newLeftMappings = JavaArrays.CopyOf(leftMappings, leftMappings.Length + 1);");
+        contains(cs, "Func<B, object>[] newRightMappings = JavaArrays.CopyOf(rightMappings, rightMappings.Length + 1);");
+        contains(cs, "return new Joiners<A, B>(newLeftMappings, newRightMappings);");
+        contains(cs, "IFilter<string, int> filter = NewInstance<IFilter<string, int>>(filterClass);");
+        contains(cs, "=> NewInstance<IFilter<string, int>>(filterClass);");
+    }
+
+    /**
      * A case label with several patterns (JEP 456), {@code case String _, Integer _ ->}: C#'s {@code or} pattern,
      * {@code string or int}, in a switch statement and in a switch expression. Translating only the first pattern
      * compiles and no longer matches an Integer.

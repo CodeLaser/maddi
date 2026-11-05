@@ -419,6 +419,15 @@ implements the interface.
   where an argument becomes `object`. The fixpoint is optimistic first (a reference through a parameter not yet
   decided restricts nothing: `ISource<T> Filter()` keeps `out T`), then strict (a parameter nothing decides is the
   invariant one it prints as, and so is what takes it in a parameter).
+- **Raw types into a target.** Java converts a raw type unchecked; C# has no raw type, and {@code IMapper<object,
+  object>} converts to nothing. A raw local takes its initializer's type, `Mapper[] m = Arrays.copyOf(mappings, n)`
+  of a `Mapper<A, Object>[]` (`CSharpStatementPrinter.rawFromInitializer`), after which a diamond of it takes the
+  target's arguments; a generic call whose result Java infers raw, `newInstance(Class<? extends Filter>)` into a
+  `Filter<String, Integer>`, prints its type arguments from the target, `NewInstance<IFilter<string, int>>`
+  (`CSharpContext.callTarget`, set by `converted`). A type that gets no wildcard interface says why in a
+  `NO_WILDCARD_INTERFACE` message: the member reached through the wildcard that the interface could not declare,
+  or the generic parameter the wildcard goes into; `messages.txt` of a corpus run lists them, the work list of the
+  wildcard design.
 - **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
   type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
   `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
