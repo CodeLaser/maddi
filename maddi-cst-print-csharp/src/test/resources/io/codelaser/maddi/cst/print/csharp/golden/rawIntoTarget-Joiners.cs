@@ -1,5 +1,6 @@
 using Maddi.JavaCompat;
 using System;
+using System.Collections.Generic;
 namespace A;
 internal sealed class Joiners<A, B> {
     private readonly IMapper<A, object>[] leftMappings;
@@ -44,6 +45,24 @@ internal interface ITuple<out T> {
     int Size() => 1;
 }
 internal sealed class TupleLambda<T>(Func<T> f) : ITuple<T> { public T Value() => f(); }
+internal sealed class Sorters {
+    internal static ISorter<string> Sorter(Comparison<object> raw) {
+        ISorter<string> s;
+        s = new BySorter<string>(raw);
+        return s;
+    }
+
+    internal sealed class BySorter<X> : ISorter<X> {
+        internal BySorter(Comparison<X> c) { }
+        public void Sort(List<X> xs) { }
+    }
+
+    internal interface ISorter<X> {
+        void Sort(List<X> xs);
+        int N() => 0;
+    }
+    internal sealed class SorterLambda<X>(Action<List<X>> f) : ISorter<X> { public void Sort(List<X> xs) => f(xs); }
+}
 internal sealed class Plugins {
     internal static T NewInstance<T>(Type type) => default;
     internal static IFilter<string, int> Filter(Type filterClass) {

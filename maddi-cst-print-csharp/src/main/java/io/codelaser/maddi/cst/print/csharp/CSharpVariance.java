@@ -75,6 +75,11 @@ final class CSharpVariance {
     private CSharpVariance() {
     }
 
+    /** The variance C# declares on a library type's parameters, by Java name: {@code -+} for Function; null when invariant. */
+    static String library(String fullyQualifiedName) {
+        return LIBRARY.get(fullyQualifiedName);
+    }
+
     /**
      * Per type parameter of a translated interface or delegate of {@code all}: {@code "out"}, {@code "in"}, or
      * absent where C# declares none.

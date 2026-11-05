@@ -1614,7 +1614,7 @@ public final class CSharpExpressionPrinter {
             ParameterizedType formal = CstSupertypes.substituteDroppingWildcards(parameters.get(i).parameterizedType(), bound);
             if (!formal.parameters().stream().allMatch(p -> p.isJavaLangObject() || p.wildcard() != null
                                                             && p.wildcard().isUnbound())
-                && !storedAs(cc.parameterExpressions().get(i), formal)) {
+                && !storedAs(cc.parameterExpressions().get(i), formal) && !variantRaw(argument, formal)) {
                 return null;
             }
         }
@@ -1662,6 +1662,34 @@ public final class CSharpExpressionPrinter {
         }
         ParameterizedType stored = CSharpStatementPrinter.storedArrayType(lv);
         return stored != null && sameErased(stored, formal);
+    }
+
+    /**
+     * A raw library delegate, {@code Comparator} as C#'s {@code Comparison<object>}, converts to the formal's by the
+     * delegate's variance: a {@code Comparison<IMove<Solution_>>}, whose {@code in} argument is a reference type
+     * (not a type parameter or a value type, which C#'s variance does not convert); an {@code out} argument of
+     * {@code object} only.
+     */
+    private static boolean variantRaw(ParameterizedType argument, ParameterizedType formal) {
+        TypeInfo t = argument.typeInfo();
+        if (t == null || formal.typeInfo() == null || !t.equals(formal.typeInfo()) || formal.arrays() != 0
+            || !CSharpTypeName.libraryDelegate(t)) {
+            return false;
+        }
+        String variance = CSharpVariance.library(t.fullyQualifiedName());
+        if (variance == null || variance.length() != formal.parameters().size()) return false;
+        for (int i = 0; i < formal.parameters().size(); i++) {
+            ParameterizedType a = formal.parameters().get(i);
+            boolean reference = a.wildcard() == null && a.arrays() == 0 && !a.isTypeParameter() && a.typeInfo() != null
+                                && !a.isPrimitiveExcludingVoid() && !CSharpTypeName.valueReference(a);
+            boolean ok = switch (variance.charAt(i)) {
+                case '-' -> reference;
+                case '+' -> a.isJavaLangObject();
+                default -> a.isJavaLangObject();
+            };
+            if (!ok) return false;
+        }
+        return true;
     }
 
     /** The same type, a wildcard, a constructor's type parameter or Object alike: C#'s object each. */
