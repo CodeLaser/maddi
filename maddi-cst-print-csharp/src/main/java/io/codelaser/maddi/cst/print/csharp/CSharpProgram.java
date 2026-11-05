@@ -150,7 +150,7 @@ public final class CSharpProgram {
     private final Map<MethodInfo, String> computedProperties;
     private final Map<MethodInfo, CSharpProperties.Property> accessors;
     private final CSharpFacts facts;
-    private final Set<ParameterInfo> readOnly;
+    private final CSharpReadOnly.Analysis readOnly;
     private final Set<MethodInfo> erasedGenerics;
     private final Set<TypeInfo> exposedBases;
     private final Map<String, TypeInfo> packageInfos;
@@ -173,7 +173,7 @@ public final class CSharpProgram {
         CSharpLibraries libraries = CSharpLibraries.DEFAULT;
         CSharpProperties.Analysis properties = CSharpProperties.Analysis.NONE;
         CSharpFacts facts = CSharpFacts.NONE;
-        Set<ParameterInfo> readOnly = Set.of();
+        CSharpReadOnly.Analysis readOnly = CSharpReadOnly.Analysis.NONE;
         Set<MethodInfo> erasedGenerics = Set.of();
         Set<TypeInfo> exposedBases = Set.of();
         Map<String, TypeInfo> packageInfos = Map.of();
@@ -431,7 +431,12 @@ public final class CSharpProgram {
 
     /** The parameter is a read-only collection in C# ({@link CSharpReadOnly}). */
     boolean readOnly(ParameterInfo parameter) {
-        return readOnly.contains(parameter);
+        return readOnly.parameters().contains(parameter);
+    }
+
+    /** The field holds a collection read-only in C#, {@code IReadOnlyList<T>}: see {@link CSharpReadOnly}. */
+    boolean readOnly(FieldInfo field) {
+        return readOnly.fields().contains(field);
     }
 
     /** {@code where T : notnull}: a type parameter that is, or is passed as, a dictionary's key (CSharpNotNullKeys). */

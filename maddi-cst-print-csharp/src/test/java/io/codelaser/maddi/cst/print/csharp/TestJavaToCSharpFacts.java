@@ -224,6 +224,65 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "public int Next() => (int) current!;");
     }
 
+    /**
+     * A private collection field no code adds to or removes from ({@code structurallyUnmodified}) is read-only,
+     * {@code IReadOnlyList<T>}, where its uses allow: iterated, read by a library, passed where any enumerable goes.
+     * Not one that is returned, nor one a view is taken of that another view or a program method sees (a removal
+     * through {@code iterator()} is one the analysis may miss); a view that is only iterated or read is a read.
+     * A read-only parameter stored in it converts; so does a {@code List<T>}, C#'s class.
+     */
+    @Test
+    public void readOnlyFields() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean structurallyUnmodified(FieldInfo field) {
+                return Set.of("names", "weights", "kept", "viewed", "stored").contains(field.name());
+            }
+
+            @Override
+            public boolean unmodified(ParameterInfo parameter) {
+                return "initial".equals(parameter.name());
+            }
+        });
+        String cs = translate("Registry", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.HashMap;
+                import java.util.List;
+                import java.util.Map;
+                class Registry {
+                    private final List<String> names = new ArrayList<>();
+                    private final Map<String, Integer> weights = new HashMap<>();
+                    private final List<String> kept = new ArrayList<>();
+                    private final List<String> viewed = new ArrayList<>();
+                    private final List<String> stored;
+                    Registry(List<String> initial) { this.stored = initial; }
+                    int count(String x) {
+                        int n = 0;
+                        for (String s : names) n++;
+                        return n + names.size() + (names.contains(x) ? 1 : 0);
+                    }
+                    int weight(String k) {
+                        int total = 0;
+                        for (Map.Entry<String, Integer> e : weights.entrySet()) total += e.getValue();
+                        for (String key : weights.keySet()) total++;
+                        return total + weights.getOrDefault(k, 0);
+                    }
+                    List<String> allKept() { return kept; }
+                    void prune() { viewed.iterator().remove(); }
+                    int storedCount() { return stored.size(); }
+                }
+                """);
+        contains(cs, "private readonly IReadOnlyList<string> names = new List<string>();");
+        contains(cs, "private readonly IReadOnlyDictionary<string, int> weights = new Dictionary<string, int>();");
+        contains(cs, "private readonly IReadOnlyList<string> stored;");
+        contains(cs, "internal Registry(IReadOnlyList<string> initial) { this.stored = initial; }");
+        // returned, through the property its getter became: C#'s class
+        contains(cs, "internal List<string> AllKept { get; } = new List<string>();");
+        assertFalse(cs.contains("IReadOnlyList<string> viewed"), cs);
+        contains(cs, "names.Contains(x)");
+    }
+
     @Language("java")
     private static final String KEYS = """
             package org.example.keys;

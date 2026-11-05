@@ -11,7 +11,8 @@ analyses drive what makes the output idiomatic:
 
 - **Nullability** (`NullabilityPass`, maddi-mod) decides where `?` goes under `#nullable enable`, and where `!`
   asserts what the analysis knows (`CSharpFacts`, `CSharpNullability`).
-- **Modification** decides whether a collection parameter can be `IReadOnlyList<T>` (`CSharpReadOnly`).
+- **Modification** decides whether a collection parameter or a private collection field can be `IReadOnlyList<T>`
+  (`CSharpReadOnly`, on `ModificationFacts`).
 - **The whole program** (`CSharpProgram`) decides what is open for extension, which functional interfaces are
   delegates, which getters and setters are properties (`CSharpProperties`), and which type tokens are type arguments.
 
@@ -106,6 +107,14 @@ implements the interface.
     Kotlin printer), though Java's `overrides()` does not link them: `Scoring.collect` keeps the `ISet` that `Base.collect` adds to (CS0535 otherwise). The same
     families make properties (below), so such a pair of parameterless methods is one property too. Delegates, a functional interface's
     method, records and a method that a method reference names keep Java's types.
+  - A private collection field no code adds to or removes from (`structurallyUnmodified`, the field's elements may
+    change) is read-only too, where its uses allow as a parameter's do, and every value it is given converts: a
+    `List<T>`, a copying constructor, a read-only parameter or field. One a method returns keeps Java's type (C#
+    cannot hand an `IReadOnlyList<T>` back as a `List<T>`); so does one that its getter made a property.
+  - A view of a collection (`entrySet()`, `keySet()`, `iterator()`, `subList()`, …) is a read only where the view is
+    iterated, or a library method the archive contracts as not modifying reads it in turn; a removal through a
+    view (`map.entrySet().iterator().remove()`) is one the analysis may not see, so a view another view or a
+    program method takes keeps the collection as Java declares it.
   - The calls on a read-only collection are those of the read-only interface: `contains` uses LINQ, `indexOf` is
     `JavaCollections.IndexOf`, `subList` is `Skip`/`Take`, `get` on a map is `GetValueOrDefault` (or a `ContainsKey`
     test when the value is a value type).

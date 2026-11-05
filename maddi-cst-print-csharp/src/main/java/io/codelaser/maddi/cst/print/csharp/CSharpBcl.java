@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
@@ -531,7 +532,8 @@ final class CSharpBcl implements LibraryMapping {
         return call != null && call.object() != null
                && CSharpExpressionPrinter.unwrap(call.object()) instanceof Expression e
                && e instanceof VariableExpression ve
-               && ve.variable() instanceof ParameterInfo p && CSharpContext.program().readOnly(p);
+               && (ve.variable() instanceof ParameterInfo p && CSharpContext.program().readOnly(p)
+                   || ve.variable() instanceof FieldReference fr && CSharpContext.program().readOnly(fr.fieldInfo()));
     }
 
     /** The receiver is declared as a Number: C#'s IConvertible. */

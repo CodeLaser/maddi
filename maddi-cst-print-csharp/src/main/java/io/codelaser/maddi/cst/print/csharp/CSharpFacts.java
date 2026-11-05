@@ -26,6 +26,7 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.impl.analysis.ModificationFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 
 /**
@@ -45,22 +46,48 @@ public interface CSharpFacts extends NullabilityFacts {
     CSharpFacts NONE = new CSharpFacts() {
     };
 
-    /** The verdicts stored on the declarations ({@code UNMODIFIED_PARAMETER}, {@code NULLABILITY_*}). */
-    CSharpFacts STORED = of(NullabilityFacts.STORED, ParameterInfo::isUnmodified);
+    /** The verdicts stored on the declarations ({@code UNMODIFIED_PARAMETER}, {@code STRUCTURALLY_UNMODIFIED_FIELD}, {@code NULLABILITY_*}). */
+    CSharpFacts STORED = of(NullabilityFacts.STORED, ModificationFacts.STORED);
 
     /**
      * {@link #STORED}, from a nullability analysis of the whole program under a null-marked policy: a declaration
      * without {@code NULLABLE} is not null, and C#'s nullable reference types are enabled.
      */
-    CSharpFacts STORED_NULL_MARKED = of(NullabilityFacts.STORED.nullMarked(), ParameterInfo::isUnmodified);
+    CSharpFacts STORED_NULL_MARKED = of(NullabilityFacts.STORED.nullMarked(), ModificationFacts.STORED);
 
-    /** {@code nullability}'s answers, and {@code unmodified} for the modification analysis's. */
+    /** {@code nullability}'s answers, and {@code modification}'s for the modification analysis's. */
+    static CSharpFacts of(NullabilityFacts nullability, ModificationFacts modification) {
+        return new ComposedFacts(nullability, modification);
+    }
+
+    /** As above, for a client with the modification analysis's one verdict on parameters: {@code unmodified}. */
     static CSharpFacts of(NullabilityFacts nullability, Predicate<ParameterInfo> unmodified) {
-        return new ComposedFacts(nullability, unmodified);
+        return of(nullability, new ModificationFacts() {
+            @Override
+            public boolean unmodified(ParameterInfo parameterInfo) {
+                return unmodified.test(parameterInfo);
+            }
+        });
     }
 
     /** The method does not modify the object {@code parameter} holds: a collection is read-only there. */
     default boolean unmodified(ParameterInfo parameter) {
+        return false;
+    }
+
+    /**
+     * No code adds to or removes from the collection the field holds (its elements may change): a private collection
+     * field is read-only, {@code IReadOnlyList<T>}, where its uses allow ({@link CSharpReadOnly}).
+     */
+    default boolean structurallyUnmodified(FieldInfo field) {
+        return false;
+    }
+
+    /**
+     * The method adds nothing to and removes nothing from its receiver: a library's read, by the archive's contract
+     * ({@code @NotModified}), which makes a call of it on a view of a collection a read of the collection.
+     */
+    default boolean structurallyNonModifying(MethodInfo method) {
         return false;
     }
 

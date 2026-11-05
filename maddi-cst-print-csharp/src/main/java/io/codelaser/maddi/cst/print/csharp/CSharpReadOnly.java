@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.codelaser.maddi.cst.print.csharp;
 
 import java.util.ArrayList;
@@ -27,37 +26,52 @@ import java.util.Map;
 import java.util.Set;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ForEachStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 /**
- * The collection parameters that are read-only in C#: {@code IReadOnlyList<T>}, {@code IReadOnlyCollection<T>},
+ * The collection parameters and fields that are read-only in C#: {@code IReadOnlyList<T>}, {@code IReadOnlyCollection<T>},
  * {@code IReadOnlySet<T>}, {@code IReadOnlyDictionary<K, V>} for Java's {@code List}, {@code Collection}, {@code Set}
  * and {@code Map}. A caller's {@code List<T>} is one, so the calls do not change; the signature says what the
- * modification analysis proved, that the method does not modify the collection ({@link CSharpFacts#unmodified}).
+ * modification analysis proved: the method does not modify the collection a parameter holds
+ * ({@link CSharpFacts#unmodified}), no code adds to or removes from the collection a private field holds
+ * ({@link CSharpFacts#structurallyUnmodified}).
  * <p>
- * The C# has to compile whatever the analysis's precision, so the parameter's uses decide too: each is a call of a
- * library method on it, the collection of a {@code foreach}, or an argument where any enumerable is accepted (another
- * read-only parameter, a library constructor or method that copies it). A use that stores or returns it keeps the
- * parameter as Java declares it. Every method of an override family has the parameter read-only, or none does; a
- * delegate's, a functional interface's method (its lambda adapter passes the argument on), a record's and a method
- * that a method reference names are not.
+ * The C# has to compile whatever the analysis's precision, so the uses decide too: each is a call of a library
+ * method on it, the collection of a {@code foreach}, or an argument where any enumerable is accepted (another
+ * read-only parameter, a read-only field it is assigned to, a library constructor or method that copies it). A use
+ * that stores it elsewhere or returns it keeps the type as Java declares it. A view of it ({@code entrySet()},
+ * {@code iterator()}, {@code subList()}: {@link #VIEWS}) counts as a read only where the view is iterated or a
+ * library reads it in turn, not where another view is taken of it: a removal through a view
+ * ({@code map.entrySet().iterator().remove()}) is one the analysis may not see. Every method of an override family has
+ * the parameter read-only, or none does; a delegate's, a functional interface's method (its lambda adapter passes
+ * the argument on), a record's and a method that a method reference names are not.
  * <p>
  * The callers have to compile too. Java's {@code List} family prints as the class {@code List<T>}, which implements
  * the read-only interfaces, but {@code Map}, {@code Set} and {@code Collection} print as {@code IDictionary},
- * {@code ISet} and {@code ICollection}, which do not. Each argument a call passes must be of a class that implements
- * the parameter's read-only interface ({@link #IMPLEMENTING}), {@code null}, or a read-only parameter itself.
+ * {@code ISet} and {@code ICollection}, which do not. Each argument a call passes for a parameter, and each value a
+ * field is given, must be of a class that implements the read-only interface ({@link #IMPLEMENTING}), {@code null},
+ * or a read-only parameter or field itself.
  */
 final class CSharpReadOnly {
+
+    /** The read-only parameters and fields of the program. */
+    record Analysis(Set<ParameterInfo> parameters, Set<FieldInfo> fields) {
+        static final Analysis NONE = new Analysis(Set.of(), Set.of());
+    }
 
     private static final Map<String, String> READ_ONLY = Map.of(
             "java.util.List", "IReadOnlyList",
@@ -72,6 +86,11 @@ final class CSharpReadOnly {
             "java.util.Collection.addAll", "java.util.List.addAll", "java.util.Set.addAll",
             "java.util.Collection.containsAll", "java.util.Collection.removeAll", "java.util.Collection.retainAll",
             "java.util.Set.removeAll", "java.util.Set.retainAll", "java.lang.String.join");
+
+    /** The library methods that return a view of their receiver, through which it can be modified. */
+    static final Set<String> VIEWS = Set.of("entrySet", "keySet", "values", "iterator", "listIterator",
+            "spliterator", "subList", "headSet", "tailSet", "subSet", "headMap", "tailMap", "subMap", "descendingSet",
+            "descendingMap", "navigableKeySet", "descendingKeySet", "descendingIterator");
 
     /** Per read-only interface, the JDK classes whose C# counterparts implement it, a subclass of one too. */
     private static final Map<String, Set<String>> IMPLEMENTING;
@@ -103,9 +122,10 @@ final class CSharpReadOnly {
         return name;
     }
 
-    static Set<ParameterInfo> analyze(CSharpProgramIndex index, CSharpFacts facts, Set<TypeInfo> delegates) {
-        if (facts == CSharpFacts.NONE) return Set.of();
-        Set<ParameterInfo> candidates = new HashSet<>();
+    static Analysis analyze(CSharpProgramIndex index, CSharpFacts facts, Set<TypeInfo> delegates) {
+        if (facts == CSharpFacts.NONE) return Analysis.NONE;
+        // the candidates: parameters and fields, which a use may pass on to or store in one another
+        Set<Object> candidates = new HashSet<>();
         Set<MethodInfo> referenced = index.referenced();
         Map<MethodInfo, List<MethodInfo>> familyOf = new HashMap<>();
         for (List<MethodInfo> family : index.families()) family.forEach(m -> familyOf.put(m, family));
@@ -125,23 +145,51 @@ final class CSharpReadOnly {
                     }
                 }
             }
+            // a private field: every use of it is in the program
+            for (FieldInfo f : t.fields()) {
+                if (!f.isSynthetic() && f.access() != null && f.access().isPrivate() && readOnlyName(f.type()) != null
+                    && facts.structurallyUnmodified(f)) {
+                    candidates.add(f);
+                }
+            }
         }
-        // what each candidate's method does with it: one walk of its body
-        Map<ParameterInfo, List<Use>> uses = new HashMap<>();
-        for (ParameterInfo p : candidates) uses.put(p, uses(p));
-        // the uses, then the families, until nothing changes
+        // what the code does with each candidate: a parameter's method body, the whole program for a field
+        List<Element> program = index.types().stream().flatMap(t -> CstQueries.code(t).stream()).toList();
+        Map<Object, List<Use>> uses = new HashMap<>();
+        Map<FieldInfo, List<Expression>> values = new HashMap<>();
+        for (Object c : candidates) {
+            if (c instanceof ParameterInfo p) {
+                uses.put(p, uses(p, List.of(p.methodInfo().methodBody()), facts));
+            } else if (c instanceof FieldInfo f) {
+                uses.put(f, uses(f, program, facts));
+                values.put(f, values(f, program));
+            }
+        }
+        // the uses, then the families and the callers, until nothing changes
         boolean changed = true;
         while (changed) {
             changed = false;
-            for (ParameterInfo p : List.copyOf(candidates)) {
-                if (!uses.get(p).stream().allMatch(u -> u.readOnly(candidates)) || !familyAgrees(p, candidates, familyOf)
-                    || !callersPass(p, passed(index, p), candidates)) {
-                    candidates.remove(p);
+            for (Object c : List.copyOf(candidates)) {
+                boolean keep = uses.get(c).stream().allMatch(u -> u.readOnly(candidates));
+                if (keep && c instanceof ParameterInfo p) {
+                    keep = familyAgrees(p, candidates, familyOf)
+                           && convert(readOnlyName(p.parameterizedType()), passed(index, p), candidates);
+                } else if (keep && c instanceof FieldInfo f) {
+                    keep = convert(readOnlyName(f.type()), values.get(f), candidates);
+                }
+                if (!keep) {
+                    candidates.remove(c);
                     changed = true;
                 }
             }
         }
-        return Set.copyOf(candidates);
+        Set<ParameterInfo> parameters = new HashSet<>();
+        Set<FieldInfo> fields = new HashSet<>();
+        for (Object c : candidates) {
+            if (c instanceof ParameterInfo p) parameters.add(p);
+            else if (c instanceof FieldInfo f) fields.add(f);
+        }
+        return new Analysis(Set.copyOf(parameters), Set.copyOf(fields));
     }
 
     /** The arguments the program passes for {@code p}. */
@@ -155,20 +203,49 @@ final class CSharpReadOnly {
         return passed;
     }
 
-    /** Each argument the program passes for {@code p} converts to its read-only interface. */
-    private static boolean callersPass(ParameterInfo p, List<Expression> arguments, Set<ParameterInfo> candidates) {
-        String readOnly = readOnlyName(p.parameterizedType());
+    /** The values the program gives field {@code f}: its initializer, and every assignment to it. */
+    private static List<Expression> values(FieldInfo f, List<Element> program) {
+        List<Expression> values = new ArrayList<>();
+        if (f.initializer() != null && !f.initializer().isEmpty()) values.add(f.initializer());
+        for (Element element : program) {
+            element.visit((Element e) -> {
+                if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr
+                    && fr.fieldInfo().equals(f)) {
+                    values.add(a.value());
+                }
+                return true;
+            });
+        }
+        return values;
+    }
+
+    /** Each of {@code values} converts to the read-only interface {@code readOnly}. */
+    private static boolean convert(String readOnly, List<Expression> values, Set<Object> candidates) {
         Set<String> implementing = IMPLEMENTING.get(readOnly);
-        for (Expression argument : arguments) {
-            Expression e = CSharpExpressionPrinter.unwrap(argument);
+        for (Expression value : values) {
+            Expression e = CSharpExpressionPrinter.unwrap(value);
             if (e instanceof NullConstant) continue;
-            if (e instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo other
-                && candidates.contains(other) && converts(readOnlyName(other.parameterizedType()), readOnly)) {
+            Object other = candidate(e);
+            if (other != null && candidates.contains(other) && converts(readOnlyName(typeOf(other)), readOnly)) {
                 continue;
             }
             if (!implementing(e.parameterizedType(), implementing)) return false;
         }
         return true;
+    }
+
+    /** The parameter or field {@code e} reads; null for any other expression. */
+    private static Object candidate(Expression e) {
+        if (!(e instanceof VariableExpression ve)) return null;
+        return switch (ve.variable()) {
+            case ParameterInfo p -> p;
+            case FieldReference fr -> fr.fieldInfo();
+            default -> null;
+        };
+    }
+
+    private static ParameterizedType typeOf(Object candidate) {
+        return candidate instanceof ParameterInfo p ? p.parameterizedType() : ((FieldInfo) candidate).type();
     }
 
     /** A read-only {@code from} is a read-only {@code to}: the same, or a list or set as a collection. */
@@ -189,7 +266,7 @@ final class CSharpReadOnly {
     }
 
     /** Every method of {@code p}'s override family, all of the program, has its parameter a candidate. */
-    private static boolean familyAgrees(ParameterInfo p, Set<ParameterInfo> candidates,
+    private static boolean familyAgrees(ParameterInfo p, Set<Object> candidates,
                                         Map<MethodInfo, List<MethodInfo>> familyOf) {
         List<MethodInfo> family = familyOf.get(p.methodInfo());
         if (family == null) return true;
@@ -203,46 +280,68 @@ final class CSharpReadOnly {
     }
 
     /**
-     * A use of a candidate in its method, read-only as the class's description has it: {@code always}, as the receiver
-     * of a library's method or a foreach's collection, or an argument a library takes as an enumerable; or as long as
-     * one of {@code whenCandidate} is a candidate, the parameters of the program's methods it is passed for.
+     * A use of a candidate, read-only as the class's description has it: {@code always}, as the receiver of a
+     * library's method or a foreach's collection, or an argument a library takes as an enumerable; or as long as
+     * one of {@code whenCandidate} is a candidate, the parameters of the program's methods it is passed for and the
+     * fields it is assigned to.
      */
-    private record Use(boolean always, List<ParameterInfo> whenCandidate) {
-        boolean readOnly(Set<ParameterInfo> candidates) {
+    private record Use(boolean always, List<Object> whenCandidate) {
+        boolean readOnly(Set<Object> candidates) {
             return always || whenCandidate.stream().anyMatch(candidates::contains);
         }
     }
 
-    /** The uses of {@code p} in its method. */
-    private static List<Use> uses(ParameterInfo p) {
-        MethodInfo m = p.methodInfo();
-        if (m.methodBody() == null) return List.of();
+    /** The uses of {@code candidate} in {@code code}: its reads, not the targets of assignments to it. */
+    private static List<Use> uses(Object candidate, List<Element> code, CSharpFacts facts) {
         List<Expression> uses = new ArrayList<>();
         Set<Expression> always = Collections.newSetFromMap(new IdentityHashMap<>());
-        Map<Expression, List<ParameterInfo>> whenCandidate = new IdentityHashMap<>();
-        m.methodBody().visit((Element e) -> {
-            if (e instanceof VariableExpression ve && p.equals(ve.variable())) uses.add(ve);
-            if (e instanceof MethodCall mc) {
-                if (mc.object() != null && isUse(mc.object(), p) && !CSharpNames.translated(mc.methodInfo().typeInfo())) {
-                    always.add(CSharpExpressionPrinter.unwrap(mc.object()));
+        Set<Expression> targets = Collections.newSetFromMap(new IdentityHashMap<>());
+        Map<Expression, List<Object>> whenCandidate = new IdentityHashMap<>();
+        for (Element element : code) {
+            if (element == null) continue;
+            element.visit((Element e) -> {
+                if (isUse(e, candidate)) uses.add((Expression) e);
+                if (e instanceof MethodCall mc) {
+                    if (mc.object() != null && !CSharpNames.translated(mc.methodInfo().typeInfo())) {
+                        // a library's method on it, not a view; a library's read, by its contract, on a view of it
+                        boolean view = VIEWS.contains(mc.methodInfo().name());
+                        if (!view && isUse(mc.object(), candidate)) {
+                            always.add(CSharpExpressionPrinter.unwrap(mc.object()));
+                        }
+                        Expression viewed = view || !facts.structurallyNonModifying(mc.methodInfo()) ? null
+                                : viewOf(mc.object(), candidate);
+                        if (viewed != null) always.add(viewed);
+                    }
+                    arguments(mc.methodInfo(), mc.parameterExpressions(), candidate, always, whenCandidate);
                 }
-                arguments(mc.methodInfo(), mc.parameterExpressions(), p, always, whenCandidate);
-            }
-            if (e instanceof ConstructorCall cc && cc.constructor() != null) {
-                arguments(cc.constructor(), cc.parameterExpressions(), p, always, whenCandidate);
-            }
-            if (e instanceof ForEachStatement fe && fe.expression() != null && isUse(fe.expression(), p)) {
-                always.add(CSharpExpressionPrinter.unwrap(fe.expression()));
-            }
-            return true;
-        });
-        return uses.stream().map(u -> new Use(always.contains(u), whenCandidate.getOrDefault(u, List.of()))).toList();
+                if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+                    arguments(cc.constructor(), cc.parameterExpressions(), candidate, always, whenCandidate);
+                }
+                if (e instanceof ForEachStatement fe && fe.expression() != null) {
+                    if (isUse(fe.expression(), candidate)) {
+                        always.add(CSharpExpressionPrinter.unwrap(fe.expression()));
+                    }
+                    Expression viewed = viewOf(fe.expression(), candidate);
+                    if (viewed != null) always.add(viewed);
+                }
+                if (e instanceof Assignment a) {
+                    if (isUse(a.target(), candidate)) targets.add(CSharpExpressionPrinter.unwrap(a.target()));
+                    if (a.variableTarget() instanceof FieldReference fr && isUse(a.value(), candidate)) {
+                        whenCandidate.computeIfAbsent(CSharpExpressionPrinter.unwrap(a.value()), k -> new ArrayList<>())
+                                .add(fr.fieldInfo());
+                    }
+                }
+                return true;
+            });
+        }
+        return uses.stream().filter(u -> !targets.contains(u))
+                .map(u -> new Use(always.contains(u), whenCandidate.getOrDefault(u, List.of()))).toList();
     }
 
-    private static void arguments(MethodInfo callee, List<Expression> arguments, ParameterInfo p, Set<Expression> always,
-                                  Map<Expression, List<ParameterInfo>> whenCandidate) {
+    private static void arguments(MethodInfo callee, List<Expression> arguments, Object candidate,
+                                  Set<Expression> always, Map<Expression, List<Object>> whenCandidate) {
         for (int i = 0; i < arguments.size(); i++) {
-            if (!isUse(arguments.get(i), p)) continue;
+            if (!isUse(arguments.get(i), candidate)) continue;
             Expression use = CSharpExpressionPrinter.unwrap(arguments.get(i));
             if (CSharpNames.translated(callee.typeInfo())) {
                 if (i < callee.parameters().size()) {
@@ -258,7 +357,18 @@ final class CSharpReadOnly {
         }
     }
 
-    private static boolean isUse(Expression e, ParameterInfo p) {
-        return CSharpExpressionPrinter.unwrap(e) instanceof VariableExpression ve && p.equals(ve.variable());
+    /** {@code e} is a view call on the candidate, {@code map.entrySet()}: the candidate's use inside it. */
+    private static Expression viewOf(Expression e, Object candidate) {
+        if (!(CSharpExpressionPrinter.unwrap(e) instanceof MethodCall mc) || mc.object() == null
+            || CSharpNames.translated(mc.methodInfo().typeInfo()) || !VIEWS.contains(mc.methodInfo().name())
+            || !isUse(mc.object(), candidate)) {
+            return null;
+        }
+        return CSharpExpressionPrinter.unwrap(mc.object());
+    }
+
+    private static boolean isUse(Element e, Object candidate) {
+        return e instanceof Expression x && CSharpExpressionPrinter.unwrap(x) instanceof VariableExpression ve
+               && candidate.equals(candidate(ve));
     }
 }

@@ -56,9 +56,9 @@ import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
-import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.impl.analysis.LinkFacts;
+import io.codelaser.maddi.cst.impl.analysis.ModificationFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 import io.codelaser.maddi.cst.print.csharp.CSharpFacts;
 import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
@@ -480,7 +480,7 @@ public class RunAnalyzer implements Runnable {
             files = result.files().size();
         } else {
             CSharpProgram.Policy policy = facts == null ? CSharpProgram.Policy.DEFAULT
-                    : CSharpProgram.Policy.DEFAULT.withFacts(CSharpFacts.of(facts, ParameterInfo::isUnmodified));
+                    : CSharpProgram.Policy.DEFAULT.withFacts(CSharpFacts.of(facts, ModificationFacts.STORED));
             CSharpTranslator.Result result = CSharpTranslator.translate(javaInspector.runtime(), main, policy, out);
             CSharpTranslator.writeProject(policy, out);
             crashes = result.crashes();

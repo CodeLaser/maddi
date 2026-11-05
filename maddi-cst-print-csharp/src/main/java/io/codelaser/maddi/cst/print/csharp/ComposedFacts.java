@@ -14,28 +14,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.codelaser.maddi.cst.print.csharp;
 
 import java.util.Objects;
-import java.util.function.Predicate;
 
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.impl.analysis.ForwardingNullabilityFacts;
+import io.codelaser.maddi.cst.impl.analysis.ModificationFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 
-/** {@link CSharpFacts#of}: the nullability facts as given, and the modification analysis's {@code unmodified}. */
+/** {@link CSharpFacts} of a {@link NullabilityFacts} and a {@link ModificationFacts}: see {@link CSharpFacts#of}. */
 final class ComposedFacts extends ForwardingNullabilityFacts implements CSharpFacts {
+    private final ModificationFacts modification;
 
-    private final Predicate<ParameterInfo> unmodified;
-
-    ComposedFacts(NullabilityFacts nullability, Predicate<ParameterInfo> unmodified) {
+    ComposedFacts(NullabilityFacts nullability, ModificationFacts modification) {
         super(nullability);
-        this.unmodified = Objects.requireNonNull(unmodified);
+        this.modification = Objects.requireNonNull(modification);
     }
 
     @Override
     public boolean unmodified(ParameterInfo parameter) {
-        return unmodified.test(parameter);
+        return modification.unmodified(parameter);
+    }
+
+    @Override
+    public boolean structurallyUnmodified(FieldInfo field) {
+        return modification.structurallyUnmodified(field);
+    }
+
+    @Override
+    public boolean structurallyNonModifying(MethodInfo method) {
+        return modification.structurallyNonModifying(method);
     }
 }
