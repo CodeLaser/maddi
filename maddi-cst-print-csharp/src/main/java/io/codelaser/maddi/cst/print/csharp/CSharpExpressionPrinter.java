@@ -164,9 +164,10 @@ public final class CSharpExpressionPrinter {
                                && CSharpContext.program().facts().nullabilityAnalysed();
         boolean nullable = nullConstant || CSharpNullability.mayBeNull(cast.expression());
         String own = CSharpWildcardInterfaces.ownUse(cast.parameterizedType(), q);
+        ParameterizedType castType = Objects.requireNonNullElse(wildcardCastArguments(cast), cast.parameterizedType());
         String type = own != null ? (nullable ? own + "?" : own)
-                : nullable ? CSharpTypeName.declared(cast.parameterizedType(), false, NullableState.NULLABLE, q)
-                : CSharpTypeName.of(cast.parameterizedType(), q);
+                : nullable ? CSharpTypeName.declared(castType, false, NullableState.NULLABLE, q)
+                : CSharpTypeName.of(castType, q);
         OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(text(type)).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         ParameterizedType from = cast.expression().parameterizedType();
@@ -180,6 +181,43 @@ public final class CSharpExpressionPrinter {
         // a method's own type parameter has no T?: the null goes through (T) x! as it does through Java's cast
         boolean asserted = nullable && CSharpNullability.toMethodTypeParameter(cast);
         return b.add(asserted ? CSharpNullability.asserted(cast.expression(), operand) : operand);
+    }
+
+    /**
+     * A cast to a wildcard type of an operand that has the arguments, {@code (ListVariableDescriptor<?>) descriptor}
+     * of a {@code GenuineVariableDescriptor<Solution_>}: the wildcards take the operand's arguments as the cast's
+     * type extends the operand's, {@code (ListVariableDescriptor<Solution_>)}, where C#'s {@code <object>} converts
+     * to nothing. Null when the cast has no unbound wildcard, the type has a wildcard interface for it, or the
+     * operand does not determine the arguments.
+     */
+    private static ParameterizedType wildcardCastArguments(Cast cast) {
+        ParameterizedType to = cast.parameterizedType();
+        ParameterizedType from = cast.expression().parameterizedType();
+        TypeInfo target = to.typeInfo();
+        if (target == null || to.arrays() != 0 || from == null || from.arrays() != 0 || from.typeInfo() == null
+            || from.parameters().isEmpty() || !CSharpNames.translated(target)
+            || to.parameters().size() != target.typeParameters().size()
+            || to.parameters().stream().noneMatch(a -> a.wildcard() != null && a.wildcard().isUnbound())
+            || CSharpWildcardInterfaces.isWildcardUse(to)) {
+            return null;
+        }
+        ParameterizedType asOperand = target.equals(from.typeInfo()) ? target.asParameterizedType()
+                : CstSupertypes.asSeen(target, from.typeInfo());
+        if (asOperand == null) return null;
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
+        match(asOperand, from, target.typeParameters(), inferred);
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (int i = 0; i < to.parameters().size(); i++) {
+            ParameterizedType a = to.parameters().get(i);
+            if (a.wildcard() == null || !a.wildcard().isUnbound()) {
+                arguments.add(a);
+                continue;
+            }
+            ParameterizedType t = inferred.get(target.typeParameters().get(i));
+            if (t == null || t.wildcard() != null || !writable(t, List.of())) return null;
+            arguments.add(t);
+        }
+        return to.withParameters(arguments);
     }
 
     /** A default method of a translated interface, called on a class (this, or a class-typed receiver). */

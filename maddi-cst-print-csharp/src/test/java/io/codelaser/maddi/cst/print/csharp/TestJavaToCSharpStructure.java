@@ -2875,6 +2875,16 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     @SuppressWarnings({"rawtypes", "unchecked"})
                     static Sorter<String> sorter(java.util.Comparator raw) { Sorter<String> s; s = new BySorter<>(raw); return s; }
                 }
+                class Descriptors<Solution_> {
+                    static class Genuine<S> { boolean list() { return false; } }
+                    static final class ListVariable<S> extends Genuine<S> { }
+                    final Genuine<Solution_> only = null;
+                    int build(ListVariable<?> v) { return 1; }
+                    int size() { return only.list() ? build((ListVariable<?>) only) : 0; }
+                    // a wildcard passed where a generic method declares the type: no wildcard interface for it
+                    static <T> int take(ListVariable<T> v) { return 0; }
+                    static int pass(ListVariable<?> w) { return take(w); }
+                }
                 class Plugins {
                     interface Filter<S, T> { boolean accept(S s, T t); default boolean reject(S s, T t) { return !accept(s, t); } }
                     static <T> T newInstance(Class<T> type) { return null; }
@@ -2893,6 +2903,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Func<B, object>[] newRightMappings = JavaArrays.CopyOf(rightMappings, rightMappings.Length + 1);");
         contains(cs, "return new Joiners<A, B>(newLeftMappings, newRightMappings, leftMappings[0]);");
         contains(cs, "IFilter<string, int> filter = NewInstance<IFilter<string, int>>(filterClass);");
+        // a cast to a wildcard type keeps the operand's arguments
+        contains(cs, "Build((ListVariable<Solution_>) only)");
+        contains(cs, "internal int Build<TS>(ListVariable<TS> v) => 1;");
         // a diamond of a raw library delegate takes the target's arguments where the delegate's variance converts it
         contains(cs, "s = new BySorter<string>(raw);");
         // a raw sentinel into the generic type: cast, a class's through object

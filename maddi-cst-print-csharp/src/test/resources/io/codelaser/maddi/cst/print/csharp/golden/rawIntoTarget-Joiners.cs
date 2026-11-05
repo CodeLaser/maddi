@@ -63,6 +63,17 @@ internal sealed class Sorters {
     }
     internal sealed class SorterLambda<X>(Action<List<X>> f) : ISorter<X> { public void Sort(List<X> xs) => f(xs); }
 }
+internal sealed class Descriptors<Solution_> {
+    internal readonly Genuine<Solution_> only = null;
+    internal int Build<TS>(ListVariable<TS> v) => 1;
+    internal int Size() => only.List() ? Build((ListVariable<Solution_>) only) : 0;
+}
+internal static class Descriptors {
+    internal static int Take<T>(ListVariable<T> v) => 0;
+    internal static int Pass<TS>(ListVariable<TS> w) => Take(w);
+}
+internal class Genuine<S> { internal bool List() => false; }
+internal sealed class ListVariable<S> : Genuine<S> { }
 internal sealed class Plugins {
     internal static T NewInstance<T>(Type type) => default;
     internal static IFilter<string, int> Filter(Type filterClass) {
