@@ -179,6 +179,13 @@ public class RunRewireTests {
      */
     private static final int HISTOGRAM = Integer.getInteger("maddi.rewire.histogram", 0);
 
+    /*
+     -Dmaddi.rewire.types=A,B: edit these primary types, in this order and round, instead of drawing them at random;
+     each is the first primary type whose fully qualified name ends in the given text. Edit a type first to compare
+     its warm summary with the cold run's own values rather than with values an earlier rewire carried.
+     */
+    private static final String TYPES = System.getProperty("maddi.rewire.types");
+
     private static void logHistogram(int iteration, boolean restore) {
         if (HISTOGRAM <= 0) return;
         try {
@@ -292,6 +299,10 @@ public class RunRewireTests {
     public Result go() {
         Random random = new Random(SEED);
         List<TypeInfo> list = parseResult.primaryTypes().stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
+        List<TypeInfo> chosen = TYPES == null ? null : Arrays.stream(TYPES.split(","))
+                .map(name -> list.stream().filter(t -> t.fullyQualifiedName().endsWith(name.strip())).findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("maddi.rewire.types: no type " + name)))
+                .toList();
         G<Info> infoGraph = initialGraph;
         lastParseResult = parseResult;
         if (options.analysis() != null) {
@@ -301,7 +312,8 @@ public class RunRewireTests {
         }
         for (int i = 0; i < options.iterations(); ++i) {
             LOGGER.info("Compute primary type use graph, iteration {}", i);
-            TypeInfo typeToRewire = list.get(random.nextInt(list.size()));
+            TypeInfo typeToRewire = chosen != null ? chosen.get(i % chosen.size())
+                    : list.get(random.nextInt(list.size()));
             Path path = Path.of(typeToRewire.compilationUnit().uri().getSchemeSpecificPart());
             Path absolutePath = path.toAbsolutePath();
             boolean stop = false;
