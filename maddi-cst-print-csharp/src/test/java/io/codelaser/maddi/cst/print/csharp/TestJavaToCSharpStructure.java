@@ -2838,10 +2838,12 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     interface Mapper<X, R> { R map(X x); default R twice(X x) { return map(x); } }
                     private final Mapper<A, Object>[] leftMappings;
                     private final Function<B, Object>[] rightMappings;
+                    private final Mapper<A, Object>[] single;
                     @SuppressWarnings("unchecked")
-                    Joiners(Mapper<A, ?>[] leftMappings, Function<B, ?>[] rightMappings) {
+                    Joiners(Mapper<A, ?>[] leftMappings, Function<B, ?>[] rightMappings, Mapper<A, ?> first) {
                         this.leftMappings = (Mapper<A, Object>[]) leftMappings;
                         this.rightMappings = (Function<B, Object>[]) rightMappings;
+                        this.single = new Mapper[] { first };
                     }
                     @SuppressWarnings("unchecked")
                     Joiners<A, B> and(Joiners<A, B> other) {
@@ -2849,7 +2851,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                         Function[] newRightMappings = Arrays.copyOf(rightMappings, rightMappings.length + 1);
                         newLeftMappings[leftMappings.length] = other.leftMappings[0];
                         newRightMappings[rightMappings.length] = other.rightMappings[0];
-                        return new Joiners<>(newLeftMappings, newRightMappings);
+                        return new Joiners<>(newLeftMappings, newRightMappings, leftMappings[0]);
                     }
                 }
                 class Plugins {
@@ -2864,9 +2866,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     static Filter<String, Integer> direct(Class<? extends Filter> filterClass) { return newInstance(filterClass); }
                 }
                 """);
+        // a wildcard interface's value into an array of the generic type: cast, as Java's unchecked array creation
+        contains(cs, "this.single = new IMapper<A, object>[] { (IMapper<A, object>) first };");
         contains(cs, "IMapper<A, object>[] newLeftMappings = JavaArrays.CopyOf(leftMappings, leftMappings.Length + 1);");
         contains(cs, "Func<B, object>[] newRightMappings = JavaArrays.CopyOf(rightMappings, rightMappings.Length + 1);");
-        contains(cs, "return new Joiners<A, B>(newLeftMappings, newRightMappings);");
+        contains(cs, "return new Joiners<A, B>(newLeftMappings, newRightMappings, leftMappings[0]);");
         contains(cs, "IFilter<string, int> filter = NewInstance<IFilter<string, int>>(filterClass);");
         contains(cs, "=> NewInstance<IFilter<string, int>>(filterClass);");
     }

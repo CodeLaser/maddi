@@ -1755,7 +1755,9 @@ public final class CSharpExpressionPrinter {
                 ? new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(element, q)))
                         .add(SpaceEnum.ONE).add(arrayInitializer(nested, element, q))
                 : unboxedValue(x) ? unboxCast(CSharpTypeName.argument(x.parameterizedType(), q), x, q)
-                : CSharpNullability.intoElement(x, element, print(x, q))).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
+                // an element converted as a value into the element type: a wildcard interface's value cast into the
+                // generic type, new ITriFunction<A, B, C, object>[] { (ITriFunction<A, B, C, object>) leftMapping }
+                : CSharpNullability.intoElement(x, element, converted(x, element, q))).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
                 SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.defaultGuideGenerator()));
     }
 

@@ -4,9 +4,11 @@ namespace A;
 internal sealed class Joiners<A, B> {
     private readonly IMapper<A, object>[] leftMappings;
     private readonly Func<B, object>[] rightMappings;
-    internal Joiners(IMapper<A>[] leftMappings, Func<B, object>[] rightMappings) {
+    private readonly IMapper<A, object>[] single;
+    internal Joiners(IMapper<A>[] leftMappings, Func<B, object>[] rightMappings, IMapper<A> first) {
         this.leftMappings = (IMapper<A, object>[]) leftMappings;
         this.rightMappings = (Func<B, object>[]) rightMappings;
+        this.single = new IMapper<A, object>[] { (IMapper<A, object>) first };
     }
 
     internal Joiners<A, B> And(Joiners<A, B> other) {
@@ -14,7 +16,7 @@ internal sealed class Joiners<A, B> {
         Func<B, object>[] newRightMappings = JavaArrays.CopyOf(rightMappings, rightMappings.Length + 1);
         newLeftMappings[leftMappings.Length] = other.leftMappings[0];
         newRightMappings[rightMappings.Length] = other.rightMappings[0];
-        return new Joiners<A, B>(newLeftMappings, newRightMappings);
+        return new Joiners<A, B>(newLeftMappings, newRightMappings, leftMappings[0]);
     }
 }
 internal interface IMapper<in X, out R> : IMapper<X> {
