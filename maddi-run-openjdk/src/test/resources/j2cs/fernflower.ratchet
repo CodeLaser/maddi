@@ -80,10 +80,12 @@
 # an overflow split: 184 -> 185 compiling files.
 # 2026-11-05: the error total is ratcheted from here on (JavaToCSharpRatchet.DIRECTION): a rise that a mapping
 # earns, by letting the compiler see errors it could not before, is written with a note that says so.
+# 2026-11-05, maddi b13471627..a06af96cb: declaration-site variance and the first slices of the wildcard design's
+# part (b) (see timefold.ratchet): 32 -> 31 errors.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
 compilingFiles	185
 unmappedJdkUses	15
-errors	32
+errors	31
