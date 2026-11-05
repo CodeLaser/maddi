@@ -1190,6 +1190,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun isRepresentable(map: MutableMap<String, Any>, allowedKeys: MutableSet<String>): Boolean");
     }
 
+    /**
+     * A superclass's method that implements a subclass's interface method is of the interface method's override family
+     * ({@code OverrideFamilies}), though Java's {@code overrides()} does not link them: {@code Scoring.collect}'s
+     * parameter stays mutable, as {@code Leaf.collect} adds to it, where its own verdict alone would make it
+     * {@code List<String>} and {@code Score} would implement the interface with a {@code MutableList}.
+     */
+    @Test
+    public void inheritedImplementationInFamily() {
+        String kotlin = kotlinInWorld("""
+                package a;
+                import java.util.List;
+                public class Streams {
+                    public interface Scoring { void collect(List<String> list); int size(); }
+                    public abstract static class Base { public abstract void collect(List<String> list); }
+                    public static class Leaf extends Base { public void collect(List<String> list) { list.add("leaf"); } }
+                    public static final class Score extends Leaf implements Scoring { public int size() { return 0; } }
+                }
+                """, KotlinPrintOptions.DEFAULT, type -> type.recursiveSubTypeStream().filter(TypeInfo::isInterface).forEach(
+                i -> i.methods().forEach(m -> m.parameters().forEach(
+                        p -> p.analysis().set(PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.TRUE)))));
+        contains(kotlin, "fun collect(list: MutableList<String>)");
+        assertFalse(kotlin.contains("list: List<String>"), kotlin);
+        compiles(kotlin);
+    }
+
     @Language("java")
     private static final String GENERIC_OVERRIDE = """
             package a;

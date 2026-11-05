@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
+import io.codelaser.maddi.cst.print.translate.OverrideFamilies;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -122,7 +123,9 @@ public final class KotlinWorld {
      * all in the world's types (member, anonymous and local ones). Null when the family reaches outside the world (a
      * JDK interface's method, a type not translated with it), or when a lambda or method reference of the world
      * implements one of its members: Kotlin types such an implementation's parameters from the interface, and its
-     * body is not checked here. {@link #FILE} has no families.
+     * body is not checked here. A superclass's method that implements a subclass's interface method is of the
+     * family ({@link OverrideFamilies}), though Java's {@code overrides()} does not link them. {@link #FILE} has no
+     * families.
      */
     public List<MethodInfo> family(MethodInfo method) {
         if (isFile()) return null;
@@ -135,19 +138,10 @@ public final class KotlinWorld {
     }
 
     private Map<MethodInfo, List<MethodInfo>> computeFamilies() {
-        Map<MethodInfo, MethodInfo> parent = new IdentityHashMap<>();
+        List<TypeInfo> all = types.stream().flatMap(TypeInfo::recursiveSubTypeStreamIncludingLocal).toList();
+        // the families, with a superclass's method that implements a subclass's interface method (OverrideFamilies)
+        OverrideFamilies families = OverrideFamilies.of(all);
         Set<MethodInfo> implementedByFunction = Collections.newSetFromMap(new IdentityHashMap<>());
-        List<MethodInfo> methods = types.stream()
-                .flatMap(TypeInfo::recursiveSubTypeStreamIncludingLocal)
-                .flatMap(TypeInfo::constructorAndMethodStream)
-                .filter(m -> !m.isConstructor() && !m.isStatic()).toList();
-        for (MethodInfo m : methods) {
-            parent.putIfAbsent(m, m);
-            for (MethodInfo o : m.overrides()) {
-                parent.putIfAbsent(o, o);
-                union(parent, m, o);
-            }
-        }
         types.forEach(t -> KotlinReadOnly.forEachBody(t, (method, body) -> body.visit((Element e) -> {
             TypeInfo functional = e instanceof Lambda l
                     ? l.concreteFunctionalType().typeInfo()
@@ -157,39 +151,17 @@ public final class KotlinWorld {
             }
             return true;
         })));
-        Map<MethodInfo, List<MethodInfo>> byRoot = new IdentityHashMap<>();
-        for (MethodInfo m : parent.keySet()) {
-            byRoot.computeIfAbsent(find(parent, m), _ -> new ArrayList<>()).add(m);
-        }
         Map<MethodInfo, List<MethodInfo>> result = new IdentityHashMap<>();
-        for (List<MethodInfo> family : byRoot.values()) {
-            boolean complete = family.stream().allMatch(m -> types.contains(m.typeInfo().primaryType())
-                                                              && !implementedByFunction.contains(m));
-            List<MethodInfo> members = complete ? List.copyOf(family) : null;
-            for (MethodInfo m : family) {
-                if (members != null) result.put(m, members);
+        for (TypeInfo t : all) {
+            for (MethodInfo m : t.methods()) {
+                if (m.isStatic() || result.containsKey(m)) continue;
+                List<MethodInfo> family = families.family(m);
+                boolean complete = family.stream().allMatch(x -> types.contains(x.typeInfo().primaryType())
+                                                                  && !implementedByFunction.contains(x));
+                if (complete) family.forEach(x -> result.put(x, family));
             }
         }
         return result;
-    }
-
-    private static MethodInfo find(
-            Map<MethodInfo, MethodInfo> parent,
-            MethodInfo m) {
-        MethodInfo root = m;
-        while (parent.get(root) != root) root = parent.get(root);
-        while (parent.get(m) != root) {
-            MethodInfo next = parent.get(m);
-            parent.put(m, root);
-            m = next;
-        }
-        return root;
-    }
-
-    private static void union(Map<MethodInfo, MethodInfo> parent,
-                              MethodInfo a, MethodInfo b) {
-        MethodInfo ra = find(parent, a), rb = find(parent, b);
-        if (ra != rb) parent.put(ra, rb);
     }
 
     /** A read-only verdict remembered; null when not decided, or for {@link #FILE}, which remembers nothing. */

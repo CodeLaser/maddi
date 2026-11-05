@@ -33,6 +33,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.OverrideFamilies;
 
 /**
  * What the whole-program analyses of {@link CSharpProgram} ask of the program, gathered in one pass over its types and
@@ -43,7 +44,7 @@ import io.codelaser.maddi.cst.print.translate.CstQueries;
  * @param overrides  each method of the program, and each method one overrides, to the methods it overrides or that
  *                   override it, directly; not itself
  * @param families   the methods that override one another, connected, with a superclass's method that implements a
- *                   subclass's interface method: the families of two or more
+ *                   subclass's interface method ({@link OverrideFamilies}): the families of two or more
  * @param referenced the methods a method reference names
  * @param calls      each method or constructor called, to the arguments of its calls ({@code this(…)} and
  *                   {@code super(…)} too)
@@ -82,7 +83,7 @@ record CSharpProgramIndex(List<TypeInfo> types, Map<MethodInfo, Set<MethodInfo>>
                 });
             }
         }
-        return new CSharpProgramIndex(List.copyOf(all), overrides, families(all), referenced, calls);
+        return new CSharpProgramIndex(List.copyOf(all), overrides, OverrideFamilies.of(all).families(), referenced, calls);
     }
 
     private static void call(Map<MethodInfo, List<List<Expression>>> calls, MethodInfo callee, List<Expression> arguments) {
@@ -97,42 +98,5 @@ record CSharpProgramIndex(List<TypeInfo> types, Map<MethodInfo, Set<MethodInfo>>
     /** The arguments of each call of {@code callee} in the program. */
     List<List<Expression>> calls(MethodInfo callee) {
         return calls.getOrDefault(callee, List.of());
-    }
-
-    private static List<List<MethodInfo>> families(List<TypeInfo> all) {
-        // union-find: each method to one of its family, up to the family's root
-        Map<MethodInfo, MethodInfo> parent = new HashMap<>();
-        Set<MethodInfo> members = new HashSet<>();
-        for (TypeInfo t : all) {
-            for (MethodInfo m : t.methods()) {
-                for (MethodInfo o : m.overrides()) {
-                    if (o == m) continue;
-                    members.add(m);
-                    members.add(o);
-                    parent.put(root(parent, m), root(parent, o));
-                }
-            }
-            // a superclass's method that implements t's interface method is of its family, though not in overrides()
-            CSharpHierarchy.inheritedImplementationOf(t).forEach((m, x) -> {
-                members.add(m);
-                members.add(x);
-                parent.put(root(parent, x), root(parent, m));
-            });
-        }
-        Map<MethodInfo, List<MethodInfo>> byRoot = new HashMap<>();
-        for (MethodInfo m : members) byRoot.computeIfAbsent(root(parent, m), k -> new ArrayList<>()).add(m);
-        return List.copyOf(byRoot.values());
-    }
-
-    private static MethodInfo root(Map<MethodInfo, MethodInfo> parent, MethodInfo m) {
-        MethodInfo root = m;
-        for (MethodInfo p = parent.get(root); p != null && p != root; p = parent.get(root)) root = p;
-        // the path to the root, shortened for the next time
-        for (MethodInfo x = m; x != root; ) {
-            MethodInfo next = parent.get(x);
-            parent.put(x, root);
-            x = next;
-        }
-        return root;
     }
 }

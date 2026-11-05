@@ -101,8 +101,8 @@ implements the interface.
     not. Each argument must be of a class whose C# counterpart implements the read-only interface (`HashMap` →
     `Dictionary`, `TreeSet` → `SortedSet`, …), `null`, or a read-only parameter itself.
   - Every method of an override family has the parameter read-only, or none does. A superclass's method that
-    implements a subclass's interface method is of the interface method's family, though Java's `overrides()` does
-    not link them: `Scoring.collect` keeps the `ISet` that `Base.collect` adds to (CS0535 otherwise). The same
+    implements a subclass's interface method is of the interface method's family (`OverrideFamilies`, shared with the
+    Kotlin printer), though Java's `overrides()` does not link them: `Scoring.collect` keeps the `ISet` that `Base.collect` adds to (CS0535 otherwise). The same
     families make properties (below), so such a pair of parameterless methods is one property too. Delegates, a functional interface's
     method, records and a method that a method reference names keep Java's types.
   - The calls on a read-only collection are those of the read-only interface: `contains` uses LINQ, `indexOf` is
@@ -990,8 +990,11 @@ of the commit that earned it: the ratchet files are this printer's changelog.
 
 The printer reports every JDK type or member it prints without a BCL counterpart as `UNMAPPED_JDK`. Their count is
 ratcheted, and `build/j2cs/<corpus>/report.txt` lists them by frequency. That list, together with the names and
-members the compiler does not know, is the BCL mapping's work list. The error total is reported but not ratcheted:
-as the mapping lets the compiler bind more, it gets to report errors it could not see before.
+members the compiler does not know, is the BCL mapping's work list. The error total is ratcheted too: when the
+mapping lets the compiler bind more and it reports errors it could not see before, the higher number is written
+with a note that says so. `tools/csharp-check/diff.py before.out after.out` tells two runs' `csharp-check.out`
+apart: the totals, the codes that moved, and each file and code that moved, which the totals alone hide (a run that
+got better and worse at once).
 
 ## Tests
 
