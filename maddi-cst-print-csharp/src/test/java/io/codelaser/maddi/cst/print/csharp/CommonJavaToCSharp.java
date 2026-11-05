@@ -76,6 +76,21 @@ public abstract class CommonJavaToCSharp {
     /** The messages of the last {@link #translate(String, String)}. */
     protected List<PrintMessage<CSharpPrintCode>> messages = List.of();
 
+    /**
+     * Whether {@link #translate} has Roslyn judge the sample ({@link CSharpCheck}): on, unless a test turns it off
+     * before translating, saying why (a sample that prints Java where C# has no form, JAVA_FALLBACK).
+     */
+    protected boolean compile = true;
+
+    /** The nullable warnings of the last judged sample, where the policy's facts enable C#'s nullable types. */
+    protected List<CSharpCheck.Diagnostic> nullableWarnings = List.of();
+
+    @BeforeEach
+    public void compileByDefault() {
+        compile = true;
+        nullableWarnings = List.of();
+    }
+
     @BeforeEach
     public void testName(TestInfo info) {
         test = info.getTestMethod().map(Method::getName).orElseThrow();
@@ -93,7 +108,11 @@ public abstract class CommonJavaToCSharp {
         return false;
     }
 
-    /** {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs}; its messages kept. */
+    /**
+     * {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs} and, unless {@link
+     * #compile} is off, judged by Roslyn: a test's {@code contains} says what the printer wrote, this says that C#
+     * accepts it (an override that overrides nothing reads fine). Its messages kept.
+     */
     protected String translate(String name, String java) {
         Translation translation = translation(java);
         messages = translation.messages();
@@ -102,7 +121,9 @@ public abstract class CommonJavaToCSharp {
         try {
             Path dir = Path.of("build/csharp-samples");
             Files.createDirectories(dir);
-            Files.writeString(dir.resolve(fileName), csharp);
+            Path sample = dir.resolve(fileName);
+            Files.writeString(sample, csharp);
+            if (compile) compiles(sample, csharp);
             if (golden()) {
                 Path file = GOLDEN.resolve(fileName);
                 if (Boolean.getBoolean("csharp.golden.update") || !Files.exists(file)) {
@@ -120,6 +141,16 @@ public abstract class CommonJavaToCSharp {
             throw new UncheckedIOException(e);
         }
         return csharp;
+    }
+
+    /** Roslyn accepts {@code file}: no syntax error, no error; the nullable warnings are kept, not judged. */
+    private void compiles(Path file, String csharp) {
+        List<CSharpCheck.Diagnostic> diagnostics = CSharpCheck.instance().check(file, policy);
+        nullableWarnings = diagnostics.stream().filter(d -> "N".equals(d.kind())).toList();
+        List<CSharpCheck.Diagnostic> errors = diagnostics.stream().filter(d -> !"N".equals(d.kind())).toList();
+        assertTrue(errors.isEmpty(), () -> "Roslyn rejects the printed C#:\n"
+                                           + errors.stream().map(Object::toString).collect(Collectors.joining("\n"))
+                                           + "\n--- in ---\n" + csharp);
     }
 
     /** The C# printing of the compilation unit {@code java}: usings, namespace, and every type in it. */

@@ -2,6 +2,7 @@
 // diagnostic, for JavaToCSharpRatchet (maddi-run-openjdk) to read. See README.md.
 //
 //   csharp-check <argument file>
+//   csharp-check -serve             an argument file per line of standard input, each answered as below
 //
 // The argument file has one C# file per line, one line -r:<assembly> per referenced assembly beyond the BCL
 // (the packages of the translation's library mappings), and the line -nullable to compile with C#'s nullable
@@ -18,52 +19,87 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
+if (args.Length == 1 && args[0] == "-serve")
+{
+    // one process for many checks (maddi-cst-print-csharp's unit tests): an argument file per line of standard input,
+    // each answered by its diagnostics and its F line; the platform's references are read once
+    string? argFile;
+    while ((argFile = Console.ReadLine()) != null)
+    {
+        if (argFile.Trim().Length > 0) Checker.Check(argFile.Trim());
+        Console.Out.Flush();
+    }
+    return 0;
+}
 if (args.Length != 1)
 {
-    Console.Error.WriteLine("usage: csharp-check <argument file>");
+    Console.Error.WriteLine("usage: csharp-check <argument file> | -serve");
     return 2;
 }
-
-var lines = File.ReadAllLines(args[0]).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
-var nullable = lines.Contains("-nullable");
-var files = lines.Where(l => !l.StartsWith("-")).ToList();
-var assemblies = lines.Where(l => l.StartsWith("-r:")).Select(l => l.Substring(3)).ToList();
-var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
-var clean = new List<SyntaxTree>();
-foreach (var file in files)
-{
-    var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(file), parseOptions, path: file);
-    var errors = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
-    errors.ForEach(d => Write("S", d));
-    if (errors.Count == 0) clean.Add(tree);
-}
-
-var platform = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-    .Split(Path.PathSeparator)
-    .Where(p => Path.GetFileName(p).StartsWith("System.") || Path.GetFileName(p) is "mscorlib.dll" or "netstandard.dll")
-    .ToList();
-// a package's copy of a platform assembly is the platform's
-var platformNames = platform.Select(Path.GetFileName).ToHashSet();
-var references = platform
-    .Concat(assemblies.Where(p => !platformNames.Contains(Path.GetFileName(p))))
-    .Select(p => MetadataReference.CreateFromFile(p));
-var compilation = CSharpCompilation.Create("translated", clean, references,
-    new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,     nullableContextOptions: nullable ? NullableContextOptions.Enable : NullableContextOptions.Disable));
-foreach (var d in compilation.GetDiagnostics())
-{
-    if (d.Severity == DiagnosticSeverity.Error) Write("E", d);
-    else if (nullable && d.Severity == DiagnosticSeverity.Warning && IsNullable(d.Id)) Write("N", d);
-}
-Console.WriteLine($"F\t{files.Count}\t{clean.Count}");
+Checker.Check(args[0]);
 return 0;
 
-// the nullable warnings: CS8597-CS8670, CS8714, CS8762-CS8777, CS8819-CS8855, ... all in these hundreds
-static bool IsNullable(string id) => id.StartsWith("CS86") || id.StartsWith("CS87") || id.StartsWith("CS88")
-                                     || id == "CS8597";
-
-static void Write(string kind, Diagnostic d)
+/// <summary>The checks, with the references read once for the process.</summary>
+static class Checker
 {
-    var span = d.Location.GetLineSpan();
-    var message = d.GetMessage().Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ');
-    Console.WriteLine($"{kind}\t{span.Path}\t{span.StartLinePosition.Line + 1}\t{span.StartLinePosition.Character + 1}\t{d.Id}\t{message}");
+    public static void Check(string argFile)
+    {
+        var lines = File.ReadAllLines(argFile).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        var nullable = lines.Contains("-nullable");
+        var files = lines.Where(l => !l.StartsWith("-")).ToList();
+        var assemblies = lines.Where(l => l.StartsWith("-r:")).Select(l => l.Substring(3)).ToList();
+        var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
+        var clean = new List<SyntaxTree>();
+        foreach (var file in files)
+        {
+            var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(file), parseOptions, path: file);
+            var errors = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            errors.ForEach(d => Write("S", d));
+            if (errors.Count == 0) clean.Add(tree);
+        }
+
+        // a package's copy of a platform assembly is the platform's
+        var platformNames = Platform.Keys.Select(Path.GetFileName).ToHashSet();
+        var references = Platform.Values
+            .Concat(assemblies.Where(p => !platformNames.Contains(Path.GetFileName(p))).Select(Reference));
+        var compilation = CSharpCompilation.Create("translated", clean, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: nullable ? NullableContextOptions.Enable : NullableContextOptions.Disable));
+        foreach (var d in compilation.GetDiagnostics())
+        {
+            if (d.Severity == DiagnosticSeverity.Error) Write("E", d);
+            else if (nullable && d.Severity == DiagnosticSeverity.Warning && IsNullable(d.Id)) Write("N", d);
+        }
+        Console.WriteLine($"F\t{files.Count}\t{clean.Count}");
+    }
+
+    static readonly Dictionary<string, MetadataReference> References = new();
+
+    /// <summary>A reference to an assembly, read once: -serve checks many files against the same ones.</summary>
+    static MetadataReference Reference(string path)
+    {
+        if (!References.TryGetValue(path, out var reference))
+        {
+            reference = MetadataReference.CreateFromFile(path);
+            References[path] = reference;
+        }
+        return reference;
+    }
+
+    /// <summary>The assemblies of the running .NET, by path: the BCL the translated code is judged against.</summary>
+    static readonly Dictionary<string, MetadataReference> Platform = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        .Split(Path.PathSeparator)
+        .Where(p => Path.GetFileName(p).StartsWith("System.") || Path.GetFileName(p) is "mscorlib.dll" or "netstandard.dll")
+        .Distinct().ToDictionary(p => p, Reference);
+
+    // the nullable warnings: CS8597-CS8670, CS8714, CS8762-CS8777, CS8819-CS8855, ... all in these hundreds
+    static bool IsNullable(string id) => id.StartsWith("CS86") || id.StartsWith("CS87") || id.StartsWith("CS88")
+                                         || id == "CS8597";
+
+    static void Write(string kind, Diagnostic d)
+    {
+        var span = d.Location.GetLineSpan();
+        var message = d.GetMessage().Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ');
+        Console.WriteLine($"{kind}\t{span.Path}\t{span.StartLinePosition.Line + 1}\t{span.StartLinePosition.Character + 1}\t{d.Id}\t{message}");
+    }
 }

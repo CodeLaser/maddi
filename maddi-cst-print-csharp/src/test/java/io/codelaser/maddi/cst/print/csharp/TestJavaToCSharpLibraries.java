@@ -197,6 +197,8 @@ public class TestJavaToCSharpLibraries extends CommonJavaToCSharp {
                 annotation com.fasterxml.jackson.annotation.JsonProperty -> JsonPropertyName($value)
                 annotation com.fasterxml.jackson.annotation.JsonProperty -> Marked
                 """, "marks.csmap")));
+        // the mapping names attributes that exist nowhere: the sample is about the parsing, not C#
+        compile = false;
         String cs = translate("Marks", MARKS);
         contains(cs, "s.Replace(\" #\", \"\")");
         contains(cs, "[JsonPropertyName(\"n\")] [JsonRequired]");

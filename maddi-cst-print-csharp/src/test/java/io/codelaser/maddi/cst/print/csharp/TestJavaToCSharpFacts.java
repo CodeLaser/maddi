@@ -178,14 +178,15 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                 import java.util.Set;
                 class Streams {
                     interface Scoring { void collect(Set<String> set); int size(); }
-                    abstract static class Base { abstract void collect(Set<String> set); }
-                    static class Leaf extends Base { void collect(Set<String> set) { set.add("leaf"); } }
+                    abstract static class Base { public abstract void collect(Set<String> set); }
+                    static class Leaf extends Base { public void collect(Set<String> set) { set.add("leaf"); } }
                     static final class Score extends Leaf implements Scoring { public int size() { return 0; } }
                     abstract static class Range { abstract boolean contains(BigInteger big); }
                     static final class Big extends Range { boolean contains(BigInteger big) { return big != null; } }
                 }
                 """);
         contains(cs, "void Collect(ISet<string> set);");
+        contains(cs, "public override void Collect(ISet<string> set) { set.Add(\"leaf\"); }");
         assertFalse(cs.contains("IReadOnlySet"), cs);
         contains(cs, "override bool Contains(BigInteger big)");
         assertFalse(cs.contains("BigInteger?"), cs);

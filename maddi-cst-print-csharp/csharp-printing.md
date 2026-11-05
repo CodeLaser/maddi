@@ -987,10 +987,15 @@ as the mapping lets the compiler bind more, it gets to report errors it could no
 
 ## Tests
 
-The unit tests need no .NET SDK; the ratchets are what Roslyn judges.
-
 - `TestJavaToCSharpStructure`, `…Bcl`, `…Libraries` and `…Facts` translate one sample per test and assert the
-  fragments that are the rule, `contains`. Each writes its samples to `build/csharp-samples/<test>-<sample>.cs`.
+  fragments that are the rule, `contains`. Each writes its samples to `build/csharp-samples/<test>-<sample>.cs`,
+  and Roslyn judges every sample (`CSharpCheck`, the ratchets' `tools/csharp-check` kept running for the test JVM
+  with `-serve`, with the compatibility library and the mappings' packages): `contains` says what the printer
+  wrote, the judge that C# accepts it, which the text alone does not say (an override that overrides nothing reads
+  fine). A test whose sample cannot compile sets `compile = false` before translating and says why: a mapping to
+  attributes that exist nowhere, or a printer bug on its way to a fix (#185). The nullable warnings of a sample
+  translated with facts are in `nullableWarnings`, for a test to assert. Without a .NET SDK on the `PATH` the
+  judging is skipped, which the test report shows as skipped tests.
 - The structural samples are also compared whole with a golden file, `src/test/resources/…/golden/`: a new one is
   written and its test fails until it has been looked at; `-PupdateGolden` rewrites them after an intended change.
 - `TestJavaToCSharpMessages` asserts the messages, `TestJavaToCSharpPolicies` the policies besides the default, and

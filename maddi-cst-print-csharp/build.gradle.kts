@@ -47,6 +47,13 @@ dependencies {
 tasks.test {
     // ./gradlew :maddi-cst-print-csharp:test -PupdateGolden rewrites the golden files (CommonJavaToCSharp.golden)
     systemProperty("csharp.golden.update", project.hasProperty("updateGolden"))
+    // the samples are judged by tools/csharp-check, a .NET tool on Roslyn (CSharpCheck): its directory; without a
+    // .NET SDK on the PATH the judging is skipped
+    val csharpCheck = rootProject.file("tools/csharp-check")
+    inputs.dir(csharpCheck).withPropertyName("csharpCheck").optional()
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Dmaddi.test.csharpCheck=" + csharpCheck.absolutePath)
+    })
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
