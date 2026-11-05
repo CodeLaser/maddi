@@ -3014,9 +3014,50 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // a default method called on a captured parameter: the interface with the receiver's arguments
         contains(cs, "internal static int Arity<TS, TRC>(AndThen<TS, TRC> a) => ((IColl<TS, TRC>) a).N();");
         contains(cs, "internal interface ITop { internal string Name(); }");
-        assertFalse(cs.contains("ILeaf"), cs);
-        contains(cs, "internal readonly Leaf<object> leaf;");
+        // Leaf's wildcard interface declares Top's name() itself, Mid having none to extend
+        contains(cs, "internal interface ILeaf { internal string Name(); }");
+        contains(cs, "internal readonly ILeaf leaf;");
         contains(cs, "internal string Names() => top.Name() + leaf.Name();");
+    }
+
+    /**
+     * A supertype's method reached through a wildcard, which the wildcard interface cannot inherit (the supertype
+     * mentions the removed parameter, or has no wildcard interface of its own): declared by t's wildcard interface
+     * itself, as t sees it, the bridge calling t's own, through the interface for a default method a class does not
+     * override.
+     */
+    private static final String INHERITED_MODELS = """
+                package a;
+                import java.util.List;
+                class Models {
+                    interface Variable<S, V> {
+                        String name();
+                        List<V> values(S s);
+                        default int ordinal() { return 0; }
+                    }
+                    static class Base<S> {
+                        String label() { return "b"; }
+                        List<S> all() { return null; }
+                    }
+                    static final class Shadow<S, V> extends Base<S> implements Variable<S, V> {
+                        public String name() { return "s"; }
+                        public List<V> values(S s) { return null; }
+                    }
+                    static final class Holder {
+                        final Shadow<?, ?> shadow;
+                        Holder(Shadow<?, ?> shadow) { this.shadow = shadow; }
+                        String describe() { return shadow.name() + shadow.ordinal() + shadow.label(); }
+                    }
+                }
+                """;
+
+    @Test
+    public void wildcardInterfaceInherited() {
+        String cs = translate("Models", INHERITED_MODELS);
+        contains(cs, "internal readonly IShadow shadow;");
+        contains(cs, "string IShadow.Name => Name;");
+        contains(cs, "int IShadow.Ordinal() => ((IVariable<S, V>) this).Ordinal();");
+        contains(cs, "string IShadow.Label() => Label();");
     }
 
     /**

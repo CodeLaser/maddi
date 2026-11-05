@@ -33,12 +33,14 @@ internal sealed class Collectors {
         internal Holder(IFiltered f) { this.f = f; }
         internal bool Any() => f.Filter != null;
     }
-    internal sealed class Leaf<S> : Mid<S> { }
+
+    internal sealed class Leaf<S> : Mid<S>, ILeaf { string ILeaf.Name() => Name(); }
+    internal interface ILeaf { internal string Name(); }
     internal class Mid<S> : Top<S> { }
     internal sealed class Pair {
         internal readonly ITop top;
-        internal readonly Leaf<object> leaf;
-        internal Pair(ITop top, Leaf<object> leaf) {
+        internal readonly ILeaf leaf;
+        internal Pair(ITop top, ILeaf leaf) {
             this.top = top;
             this.leaf = leaf;
         }

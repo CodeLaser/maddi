@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -216,7 +217,64 @@ final class CSharpWildcardInterfaces {
             }
         }
         declared.addAll(readFields(t, removed));
+        declared.addAll(inheritedReached(t, removed));
         return declared;
+    }
+
+    /**
+     * The methods of t's supertypes that the code reaches through t's wildcard and that t's wildcard interface
+     * declares itself, as t sees them: a supertype that mentions a removed parameter, and so has no wildcard interface
+     * t's extends, or one whose own wildcard interface lacks the method, {@code VariableMetaModel.name()} through a
+     * {@code ShadowVariableMetaModel<?, ?, ?>}. Each parameter, as t sees it, mentions no removed parameter, the
+     * result one the interface can erase.
+     */
+    private static List<MethodInfo> inheritedReached(TypeInfo t, List<TypeParameter> removed) {
+        CSharpProgram program = program();
+        List<MethodInfo> found = new ArrayList<>();
+        for (Object info : program.reachedThroughWildcard(t)) {
+            if (!(info instanceof MethodInfo m) || m.typeInfo().equals(t) || m.isStatic() || m.isConstructor()
+                || !m.typeParameters().isEmpty() || !CSharpNames.translated(m.typeInfo())
+                || m.access() != null && m.access().isPrivate()
+                || "java.lang.Object".equals(m.typeInfo().fullyQualifiedName())
+                || m.overrides().stream().anyMatch(o -> "java.lang.Object".equals(o.typeInfo().fullyQualifiedName()))) {
+                continue;
+            }
+            // what an interface the wildcard interface extends declares already
+            if (m.overrides().stream().filter(o -> o != m).map(MethodInfo::typeInfo)
+                        .anyMatch(o -> inheritedClosed(t, o, removed)) || inheritedClosed(t, m.typeInfo(), removed)
+                || declaredBySuperclass(t, m)) {
+                continue;
+            }
+            Map<TypeParameter, ParameterizedType> seen = seenFrom(t, m.typeInfo());
+            if (seen == null) continue;
+            CSharpProperties.Property accessor = program.accessorOf(m);
+            if (accessor != null && accessor.getter() != m) continue;
+            boolean ok = true;
+            for (ParameterInfo p : m.parameters()) {
+                if (p.isVarArgs() || CstQueries.mentionsAny(CstSupertypes.substitute(p.parameterizedType(), seen), removed)) {
+                    ok = false;
+                }
+            }
+            ParameterizedType result = CstSupertypes.substitute(m.returnType(), seen);
+            if (ok && (m.isVoid() || erasable(result, removed))) found.add(m);
+        }
+        found.sort(Comparator.comparing(MethodInfo::fullyQualifiedName));
+        return found;
+    }
+
+    /** The type parameters of {@code owner} as {@code t} extends or implements it; null when it does not, or raw. */
+    private static Map<TypeParameter, ParameterizedType> seenFrom(TypeInfo t, TypeInfo owner) {
+        ParameterizedType seen = CstSupertypes.asSeen(t, owner);
+        if (seen == null || seen.parameters().size() != owner.typeParameters().size()) {
+            return owner.typeParameters().isEmpty() && seen != null ? Map.of() : null;
+        }
+        Map<TypeParameter, ParameterizedType> map = new HashMap<>();
+        for (int i = 0; i < owner.typeParameters().size(); i++) map.put(owner.typeParameters().get(i), seen.parameters().get(i));
+        return map;
+    }
+
+    private static CSharpProgram program() {
+        return CSharpContext.program();
     }
 
     /**
@@ -279,9 +337,12 @@ final class CSharpWildcardInterfaces {
     private static boolean candidate(TypeInfo t, MethodInfo m, List<TypeParameter> removed) {
         CSharpProgram program = CSharpContext.program();
         if (CstQueries.isRecordAccessor(m)) return false;
+        // an override of the program's: the supertype's wildcard interface has it, where t's extends it; else t's own
         if (m.isStatic() || m.isSynthetic() || m.isConstructor() || m.access() != null && m.access().isPrivate()
-            || m.overrides().stream().anyMatch(o -> o != m && (CSharpNames.translated(o.typeInfo())
-                                                              || "java.lang.Object".equals(o.typeInfo().fullyQualifiedName())))
+            || m.overrides().stream().anyMatch(o -> o != m && ("java.lang.Object".equals(o.typeInfo().fullyQualifiedName())
+                                                              || CSharpNames.translated(o.typeInfo())
+                                                                 && (inheritedClosed(t, o.typeInfo(), removed)
+                                                                     || declaredBySuperclass(t, o))))
             || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0 || program.erasedGeneric(m)
             || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
             return false;
@@ -838,7 +899,63 @@ final class CSharpWildcardInterfaces {
             }
             members.add(new Member(declaration, bridge));
         }
+        for (MethodInfo m : inheritedReached(t, removed)) {
+            Member member = inheritedMember(t, m, removed, self, signatures, q);
+            if (member != null) members.add(member);
+        }
         return members;
+    }
+
+    /**
+     * A supertype's method the wildcard interface declares itself ({@link #inheritedReached}), as t sees it; the
+     * bridge calls t's own, through the interface for a default method a class does not override (C# does not
+     * inherit it).
+     */
+    private static Member inheritedMember(TypeInfo t, MethodInfo m, List<TypeParameter> removed, String self,
+                                          Set<String> signatures, Qualification q) {
+        CSharpProgram program = program();
+        Map<TypeParameter, ParameterizedType> seen = seenFrom(t, m.typeInfo());
+        ParameterizedType result = CstSupertypes.substitute(m.returnType(), seen);
+        NullableState nullable = program.facts().nullable(m);
+        String returnType;
+        if (m.isVoid()) {
+            returnType = "void";
+        } else if (!CstQueries.mentionsAny(result, removed)) {
+            returnType = CSharpTypeName.declared(result, false, nullable, q);
+        } else {
+            returnType = erased(result, removed, q);
+            if (returnType == null) return null;
+            if (nullable == NullableState.NULLABLE && !returnType.endsWith("?")) returnType += "?";
+        }
+        String modifier = t.isInterface() || "public".equals(CSharpModifiers.access(m, m.typeInfo())) ? "" : "internal ";
+        String receiver = "";
+        if (!t.isInterface() && m.typeInfo().isInterface() && !m.isAbstract()
+            && CstQueries.classChain(t).stream().flatMap(c -> c.methods().stream()).noneMatch(x -> x.overrides().contains(m))) {
+            receiver = "((" + CSharpTypeName.of(CstSupertypes.asSeen(t, m.typeInfo()), q) + ") this).";
+        }
+        String property = program.propertyRead(m);
+        if (property != null) {
+            if (!m.parameters().isEmpty() || !signatures.add(property)) return null;
+            String bridge = returnType + " " + self + "." + property + " => " + receiver + property + ";";
+            return new Member(modifier + returnType + " " + property + " { get; }", bridge);
+        }
+        String name = CSharpNames.method(m);
+        List<String> parameters = new ArrayList<>();
+        List<String> arguments = new ArrayList<>();
+        for (ParameterInfo p : m.parameters()) {
+            String pn = CSharpNames.name(p.name());
+            parameters.add(CSharpTypeName.declared(CstSupertypes.substitute(p.parameterizedType(), seen), false,
+                    program.facts().nullable(p), q) + " " + pn);
+            arguments.add(pn);
+        }
+        String signature = name + "(" + String.join(", ", parameters) + ")";
+        if (!signatures.add(name + "/" + parameters.stream().map(s -> s.substring(0, s.lastIndexOf(' ')))
+                .collect(Collectors.joining(",")))) {
+            return null;
+        }
+        String call = receiver + name + "(" + String.join(", ", arguments) + ")";
+        String bridge = returnType + " " + self + "." + signature + " => " + call + ";";
+        return new Member(modifier + returnType + " " + signature + ";", bridge);
     }
 
     /**

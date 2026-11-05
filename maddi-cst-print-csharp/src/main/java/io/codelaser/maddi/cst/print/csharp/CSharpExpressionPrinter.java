@@ -231,6 +231,8 @@ public final class CSharpExpressionPrinter {
             receiverType = CSharpContext.currentType();
         } else {
             ParameterizedType t = object.parameterizedType();
+            // a wildcard use is its wildcard interface, which declares the method itself
+            if (t != null && t.arrays() == 0 && CSharpWildcardInterfaces.isWildcardUse(t)) return false;
             receiverType = t == null ? null : t.typeInfo();
         }
         return receiverType != null && !receiverType.isInterface() && !receiverType.equals(method.typeInfo());

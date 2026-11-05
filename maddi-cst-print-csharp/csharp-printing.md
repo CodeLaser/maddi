@@ -810,7 +810,11 @@ from a map, a stream's collector.
   (`ITriFunction<ResultContainer_, A, B, Action>`) goes in as its `TriFunctionLambda`. A creation never names the
   wildcard interface: a diamond resolved to a wildcard from its target names the bound, `new AndThen<S, object>(…)`
   (`CSharpTypeName.created`); a default method called on a captured parameter casts to the interface with the
-  captured names, `((IColl<TS, TRC>) a).N()`. Only where it declares every member the
+  captured names, `((IColl<TS, TRC>) a).N()`. A supertype's method reached through the wildcard that no interface the wildcard
+  interface extends declares (the supertype mentions a removed parameter, or has no wildcard interface of its own)
+  the wildcard interface declares itself, as the type sees it, an override of it too: `string IShadow.Name => Name;`,
+  through the interface for a default method the class does not override, `((IVariable<S, V>) this).Ordinal()`; a
+  call through the wildcard interface needs no such cast. Only where it declares every member the
   code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
   where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
   ResultContainer_, Result_>)`, which C# could not infer from the wildcard interface), keeps the type's wildcards their
