@@ -42,7 +42,8 @@ import io.codelaser.maddi.cst.print.translate.CstQueries;
  * @param types      the program's types, the nested, local and anonymous ones too
  * @param overrides  each method of the program, and each method one overrides, to the methods it overrides or that
  *                   override it, directly; not itself
- * @param families   the methods that override one another, connected: the families of two or more
+ * @param families   the methods that override one another, connected, with a superclass's method that implements a
+ *                   subclass's interface method: the families of two or more
  * @param referenced the methods a method reference names
  * @param calls      each method or constructor called, to the arguments of its calls ({@code this(…)} and
  *                   {@code super(…)} too)
@@ -111,6 +112,12 @@ record CSharpProgramIndex(List<TypeInfo> types, Map<MethodInfo, Set<MethodInfo>>
                     parent.put(root(parent, m), root(parent, o));
                 }
             }
+            // a superclass's method that implements t's interface method is of its family, though not in overrides()
+            CSharpHierarchy.inheritedImplementationOf(t).forEach((m, x) -> {
+                members.add(m);
+                members.add(x);
+                parent.put(root(parent, x), root(parent, m));
+            });
         }
         Map<MethodInfo, List<MethodInfo>> byRoot = new HashMap<>();
         for (MethodInfo m : members) byRoot.computeIfAbsent(root(parent, m), k -> new ArrayList<>()).add(m);

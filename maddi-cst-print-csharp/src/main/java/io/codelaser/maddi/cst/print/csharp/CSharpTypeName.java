@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -69,7 +70,8 @@ public final class CSharpTypeName {
     /** The value types C# has for Java's types, the primitives and the BCL mapping's structs. */
     private static final Set<String> VALUE_TYPES = Set.of("int", "long", "short", "sbyte", "byte", "char", "bool",
             "double", "float", "decimal", "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan",
-            "KeyValuePair", "ValueTuple", "JavaChronoUnit", "JavaPeriod", "JavaTimeUnit");
+            "KeyValuePair", "ValueTuple", "JavaChronoUnit", "JavaPeriod", "JavaTimeUnit", "BigInteger",
+            "MidpointRounding");
 
     /** The structs a Java reference type maps to, {@link #valueReference}. */
     private static final Set<String> STRUCTS = Set.of("decimal", "Guid", "DateOnly", "TimeOnly", "DateTime",
@@ -312,8 +314,74 @@ public final class CSharpTypeName {
         }
         LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
         String name = bcl != null ? bcl(bcl, printed, arguments, q) : name(typeInfo, q);
+        if (bcl == null) {
+            String inner = innerOfGeneric(typeInfo, name, printed);
+            if (inner != null) return inner;
+        }
         String type = bcl != null || printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
         return !typeArgument && valueReference(pt) ? type + "?" : type;
+    }
+
+    /**
+     * An inner class of a generic class, {@code ElementAwareArrayList<T>.Entry}: Java's arguments are its outer types'
+     * first, then its own (as the Java printer's {@code distributeTypeParameters} has them), and C# writes each on its
+     * own segment, {@code ElementAwareArrayList<T>.Entry}, not {@code ElementAwareArrayList.Entry<T>}. A name in scope
+     * by its simple name is the outer type's own instance, {@code Entry}. Without the outer types' arguments, as
+     * {@code DownstreamIterator} is written inside its outer class, a qualified name has the enclosing type's own
+     * type parameters, or their bounds outside it. Null when no outer type of the name is generic.
+     */
+    private static String innerOfGeneric(TypeInfo typeInfo, String name, List<String> printed) {
+        List<TypeInfo> chain = new ArrayList<>();
+        chain.add(typeInfo);
+        for (TypeInfo t = typeInfo; inner(t); ) {
+            t = CstQueries.enclosing(t);
+            chain.addFirst(t);
+        }
+        if (chain.size() == 1 || chain.subList(0, chain.size() - 1).stream().allMatch(t -> t.typeParameters().isEmpty())) {
+            return null;
+        }
+        int own = typeInfo.typeParameters().size();
+        if (printed.size() < own) return null;
+        List<String> ownArguments = printed.subList(printed.size() - own, printed.size());
+        String ownPart = ownArguments.isEmpty() ? "" : "<" + String.join(", ", ownArguments) + ">";
+        TypeInfo current = CSharpContext.currentType();
+        TypeInfo outer = chain.get(chain.size() - 2);
+        if (!name.contains(".")) {
+            if (current != null && current.isEnclosedIn(outer)) return name + ownPart;
+            // out of the outer class's scope the name is not: Bag<string>.Entry
+            name = fromPrimaryType(typeInfo);
+        }
+        List<String> outerArguments = printed.subList(0, printed.size() - own);
+        String[] segments = name.split("\\.");
+        if (segments.length < chain.size()) return null;
+        int first = segments.length - chain.size();
+        StringBuilder sb = new StringBuilder(String.join(".", Arrays.asList(segments).subList(0, first)));
+        int end = outerArguments.size();
+        List<String> parts = new ArrayList<>();
+        for (int i = chain.size() - 2; i >= 0; i--) {
+            TypeInfo e = chain.get(i);
+            List<String> arguments;
+            if (outerArguments.isEmpty()) {
+                boolean inside = current != null && current.isEnclosedIn(e);
+                arguments = e.typeParameters().stream()
+                        .map(tp -> inside ? CSharpNames.typeParameter(tp) : rawArgument(tp, null)).toList();
+            } else {
+                int k = e.typeParameters().size();
+                if (end < k) return null;
+                arguments = outerArguments.subList(end - k, end);
+                end -= k;
+            }
+            parts.addFirst(segments[first + i] + (arguments.isEmpty() ? "" : "<" + String.join(", ", arguments) + ">"));
+        }
+        if (!sb.isEmpty()) sb.append('.');
+        return sb.append(String.join(".", parts)).append('.').append(segments[segments.length - 1]).append(ownPart)
+                .toString();
+    }
+
+    /** A nested class whose instances belong to an instance of the enclosing class, which C# keeps nested. */
+    private static boolean inner(TypeInfo t) {
+        return CstQueries.enclosing(t) != null && t.enclosingMethod() == null && !t.isStatic() && !t.isInterface()
+               && !t.typeNature().isEnum() && !t.typeNature().isRecord() && !CSharpNames.hoisted(t);
     }
 
     /** A library type C# prints without its type arguments: {@code Class<A>}'s {@code Type}. */

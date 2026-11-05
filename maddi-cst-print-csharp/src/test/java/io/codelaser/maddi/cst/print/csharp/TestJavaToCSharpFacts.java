@@ -153,6 +153,44 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "string d = description;");
     }
 
+    /**
+     * A superclass's method that implements a subclass's interface method is of its override family: the interface's
+     * parameter is read-only only when the superclass's is ({@code Scoring.Collect} keeps the {@code ISet} that
+     * {@code Base.Collect} adds to, CS0535 otherwise). A nullable {@code BigInteger} is C#'s struct, without {@code ?}:
+     * {@code BigInteger?} is {@code Nullable<BigInteger>}, which no longer overrides.
+     */
+    @Test
+    public void inheritedFamilyAndStructs() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean unmodified(ParameterInfo parameter) {
+                return parameter.methodInfo().typeInfo().isInterface();
+            }
+
+            @Override
+            public NullableState nullable(ParameterInfo parameter) {
+                return "big".equals(parameter.name()) ? NullableState.NULLABLE : NullableState.UNSPECIFIED;
+            }
+        });
+        String cs = translate("Streams", """
+                package a;
+                import java.math.BigInteger;
+                import java.util.Set;
+                class Streams {
+                    interface Scoring { void collect(Set<String> set); int size(); }
+                    abstract static class Base { abstract void collect(Set<String> set); }
+                    static class Leaf extends Base { void collect(Set<String> set) { set.add("leaf"); } }
+                    static final class Score extends Leaf implements Scoring { public int size() { return 0; } }
+                    abstract static class Range { abstract boolean contains(BigInteger big); }
+                    static final class Big extends Range { boolean contains(BigInteger big) { return big != null; } }
+                }
+                """);
+        contains(cs, "void Collect(ISet<string> set);");
+        assertFalse(cs.contains("IReadOnlySet"), cs);
+        contains(cs, "override bool Contains(BigInteger big)");
+        assertFalse(cs.contains("BigInteger?"), cs);
+    }
+
     @Language("java")
     private static final String KEYS = """
             package org.example.keys;

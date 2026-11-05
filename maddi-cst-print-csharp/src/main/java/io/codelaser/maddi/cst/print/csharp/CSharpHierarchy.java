@@ -20,6 +20,7 @@ package io.codelaser.maddi.cst.print.csharp;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -230,9 +231,17 @@ final class CSharpHierarchy {
      * I's {@code d()}. C#'s public {@code B.D()} implements {@code I.D()} for C as Java's does; it is no property.
      */
     static Set<MethodInfo> inheritedImplementations(TypeInfo cls) {
-        if (cls.isInterface() || cls.interfacesImplemented().isEmpty()) return Set.of();
+        return Set.copyOf(inheritedImplementationOf(cls).values());
+    }
+
+    /**
+     * Per interface method of {@code cls}, the superclass's method that implements it without overriding it in Java's
+     * overrides(): {@link #inheritedImplementations}, with the interface method each one implements.
+     */
+    static Map<MethodInfo, MethodInfo> inheritedImplementationOf(TypeInfo cls) {
+        if (cls.isInterface() || cls.interfacesImplemented().isEmpty()) return Map.of();
         List<MethodInfo> inherited = CstQueries.superclasses(cls).stream().flatMap(t -> t.methods().stream()).toList();
-        if (inherited.isEmpty()) return Set.of();
+        if (inherited.isEmpty()) return Map.of();
         Set<TypeInfo> interfaces = new HashSet<>();
         Deque<TypeInfo> todo = new ArrayDeque<>();
         cls.interfacesImplemented().forEach(i -> { if (i.typeInfo() != null) todo.add(i.typeInfo()); });
@@ -241,11 +250,12 @@ final class CSharpHierarchy {
             if (!interfaces.add(iface)) continue;
             iface.interfacesImplemented().forEach(i -> { if (i.typeInfo() != null) todo.add(i.typeInfo()); });
         }
-        Set<MethodInfo> found = new HashSet<>();
+        Map<MethodInfo, MethodInfo> found = new HashMap<>();
         for (TypeInfo iface : interfaces) {
             for (MethodInfo m : iface.methods()) {
                 if (m.isStatic() || !m.isAbstract()) continue;
-                inherited.stream().filter(x -> inheritedImplementation(x, m)).findFirst().ifPresent(found::add);
+                inherited.stream().filter(x -> inheritedImplementation(x, m)).findFirst()
+                        .ifPresent(x -> found.put(m, x));
             }
         }
         return found;

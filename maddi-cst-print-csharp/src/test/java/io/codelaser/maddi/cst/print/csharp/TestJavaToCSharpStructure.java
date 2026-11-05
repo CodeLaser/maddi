@@ -2664,6 +2664,37 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * An inner class of a generic class: Java's {@code Bag<String>.Entry} has its outer type's argument first, which C#
+     * writes on the outer type's segment, {@code Bag<string>.Entry}. Qualified inside the outer class (a method
+     * {@code Cursor()} hides the type {@code Cursor}), the outer segment has the outer class's own type parameter.
+     */
+    @Test
+    public void innerOfGeneric() {
+        String cs = translate("Bag", """
+                package a;
+                import java.util.Iterator;
+                public class Bag<T> {
+                    Entry add(T t) { return new Entry(t); }
+                    class Entry {
+                        final T value;
+                        Entry(T value) { this.value = value; }
+                    }
+                    Iterator<T> cursor() { return null; }
+                    class Cursor {
+                        Step current;
+                        class Step { }
+                    }
+                }
+                class User {
+                    Bag<String>.Entry first(Bag<String> bag) { return bag.add("x"); }
+                }
+                """);
+        contains(cs, "Bag<string>.Entry First(Bag<string> bag)");
+        assertFalse(cs.contains("Bag.Entry<"), cs);
+        contains(cs, "Entry Add(T t)");
+    }
+
+    /**
      * A case label with several patterns (JEP 456), {@code case String _, Integer _ ->}: C#'s {@code or} pattern,
      * {@code string or int}, in a switch statement and in a switch expression. Translating only the first pattern
      * compiles and no longer matches an Integer.

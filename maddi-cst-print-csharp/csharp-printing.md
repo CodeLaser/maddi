@@ -99,13 +99,16 @@ implements the interface.
     read-only interfaces, but `Map`, `Set` and `Collection` print as `IDictionary`, `ISet` and `ICollection`, which do
     not. Each argument must be of a class whose C# counterpart implements the read-only interface (`HashMap` →
     `Dictionary`, `TreeSet` → `SortedSet`, …), `null`, or a read-only parameter itself.
-  - Every method of an override family has the parameter read-only, or none does. Delegates, a functional interface's
+  - Every method of an override family has the parameter read-only, or none does. A superclass's method that
+    implements a subclass's interface method is of the interface method's family, though Java's `overrides()` does
+    not link them: `Scoring.collect` keeps the `ISet` that `Base.collect` adds to (CS0535 otherwise). The same
+    families make properties (below), so such a pair of parameterless methods is one property too. Delegates, a functional interface's
     method, records and a method that a method reference names keep Java's types.
   - The calls on a read-only collection are those of the read-only interface: `contains` uses LINQ, `indexOf` is
     `JavaCollections.IndexOf`, `subList` is `Skip`/`Take`, `get` on a map is `GetValueOrDefault` (or a `ContainsKey`
     test when the value is a value type).
 - A field, parameter or method return that the nullability analysis finds nullable has the type `T?`. Value types
-  (primitives, and `KeyValuePair`; a simple enum or a struct is `X?` already), a method's own type parameters and types that
+  (primitives, `KeyValuePair`, `BigInteger` and `MidpointRounding`; a simple enum or a struct is `X?` already), a method's own type parameters and types that
   already end in `?` are left alone: on a value type `?` would make it `Nullable<T>`, another type. A class's type
   parameter takes it, `T? held`: an unconstrained `T?` is `T` itself for a value type. So is a library type without a
   mapping (UNMAPPED_JDK): C# reads its `X?` as `Nullable<X>`, and every use of the variable becomes another error.
@@ -367,7 +370,11 @@ implements the interface.
   type, in the namespace, by its simple name; private members of the outer type it uses become `internal`. When
   another type of the namespace has that name too, the name is prefixed with its enclosing types' names
   (`EmbeddingStoreRequestContextAdd`), a whole-program fact of `CSharpProgram`. An inner (non-static) class of a
-  generic type is not translated (`NESTED_IN_GENERIC`): C# names it `Outer<E>.Inner`.
+  generic type stays nested (reported, `NESTED_IN_GENERIC`), and C# names it `Outer<E>.Inner`: Java's arguments of
+  `ElementAwareArrayList<T>.Entry` are the outer types' first, then its own, and each goes on its own segment, not
+  `ElementAwareArrayList.Entry<T>`. In the outer class's code its simple name is the outer type's own instance; out of
+  it the name is qualified. A qualified name written without the outer's arguments (Java's `DownstreamIterator` inside
+  its outer class, which a member hides) has the outer class's own type parameters, `Bag<T>.Cursor.Step`.
 - **Static members of generic types.** C# reaches a generic class's static members through a constructed type,
   `Response<T>.From(x)`; Java through the class, `Response.from(x)`. Java's static members never use the type's
   parameters, so they are declared in a non-generic static class of the same name beside the generic type, the C#

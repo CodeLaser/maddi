@@ -23,14 +23,14 @@ internal abstract class AbstractModel : IModel {
 internal sealed class UpperModel : AbstractModel { public override string Embed(string text) => text.ToUpperInvariant(); }
 internal interface IStream {
     string GetSemantics();
-    bool Distinct();
+    bool Distinct { get; }
     int Size { get; }
 }
 internal abstract class BaseStream {
     private readonly string semantics;
     internal BaseStream(string semantics) { this.semantics = semantics; }
     public string GetSemantics() => semantics;
-    public bool Distinct() => false;
+    public bool Distinct => false;
 }
 internal abstract class MiddleStream : BaseStream, IStream {
     internal MiddleStream() : base("all") { }
