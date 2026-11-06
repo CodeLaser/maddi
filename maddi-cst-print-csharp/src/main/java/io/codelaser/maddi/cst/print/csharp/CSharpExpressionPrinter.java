@@ -919,6 +919,9 @@ public final class CSharpExpressionPrinter {
     private static OutputBuilder constructorCallInCall(ConstructorCall cc, ParameterizedType type, Qualification q) {
         if (cc.anonymousClass() != null) return anonymousCreation(cc, type, q);
         if (type.arrays() > 0) return arrayCreation(cc, type, q);
+        // new AndThen<>(delegate, f) of a Collector<A, ?, I>: delegate.Open_(new …Opener_<A, I, X>(f))
+        CSharpOpeners.Site site = CSharpOpeners.site(cc);
+        if (site != null) return CSharpOpeners.call(site, q, (i, a) -> argument(a, cc.constructor(), i, q));
         TypeInfo created = cc.constructor() == null ? null : cc.constructor().typeInfo();
         if (CSharpInner.withOuter(created)) {
             // an inner class's enclosing instance comes first: range.new Iterator() is new Iterator(range)

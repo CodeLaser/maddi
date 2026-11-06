@@ -572,6 +572,11 @@ public final class CSharpProgram {
         final Map<TypeInfo, List<CSharpHierarchy.LeftAbstract>> leftAbstract = new ConcurrentHashMap<>();
         /** C#'s names of the methods of named types ({@link CSharpNames#method}). */
         final Map<MethodInfo, String> methodNames = new ConcurrentHashMap<>();
+        /** The openers of a type's code ({@link CSharpOpeners#sites}). */
+        final Map<TypeInfo, List<CSharpOpeners.Site>> openers = new ConcurrentHashMap<>();
+        /** The opener of a creation ({@link CSharpOpeners#site}). */
+        final Map<io.codelaser.maddi.cst.api.expression.ConstructorCall, CSharpOpeners.Site> openerSites =
+                java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
     }
 
     Memo memo() {

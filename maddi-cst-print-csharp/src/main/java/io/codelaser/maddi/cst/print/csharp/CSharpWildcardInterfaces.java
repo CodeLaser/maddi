@@ -151,7 +151,7 @@ final class CSharpWildcardInterfaces {
     private static Object unreachable(TypeInfo t, List<TypeParameter> removed) {
         Set<Object> declared = declared(t, removed);
         for (Object info : CSharpContext.program().reachedThroughWildcard(t)) {
-            if (declared.contains(info)) continue;
+            if (declared.contains(info) || info == CSharpOpeners.OPENED) continue;
             if (info instanceof MethodInfo m) {
                 // Object's, or an override of Object's (javac resolves tag.toString() to Tag's): every C# object has it
                 if (m.overrides().stream().anyMatch(o -> "java.lang.Object".equals(o.typeInfo().fullyQualifiedName()))
@@ -506,7 +506,13 @@ final class CSharpWildcardInterfaces {
             // wildcard interface infers no T (CS0411)
             if (e instanceof MethodCall mc) passed(mc.methodInfo(), mc.parameterExpressions(), caller, through);
             if (e instanceof ConstructorCall cc && cc.constructor() != null) {
-                passed(cc.constructor(), cc.parameterExpressions(), caller, through);
+                // new AndThen<>(delegate, f) of a Collector<A, ?, I>: the wildcard interface's Open_ (CSharpOpeners)
+                int opened = CSharpOpeners.openedArgument(cc);
+                if (opened >= 0) {
+                    through.accept(cc.parameterExpressions().get(opened), CSharpOpeners.OPENED);
+                } else {
+                    passed(cc.constructor(), cc.parameterExpressions(), caller, through);
+                }
             }
             if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
                 && !fr.fieldInfo().isStatic()) {
@@ -919,6 +925,7 @@ final class CSharpWildcardInterfaces {
             Member member = inheritedMember(t, m, removed, self, signatures, q);
             if (member != null) members.add(member);
         }
+        if (CSharpOpeners.opened(t)) members.add(CSharpOpeners.member(t, self, q));
         return members;
     }
 

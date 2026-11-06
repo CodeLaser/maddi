@@ -3060,6 +3060,56 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * A wildcard passed into a generic class's creation, {@code new AndThen<>(delegate, f)} of a
+     * {@code Collector<A, ?, I>}: Java captures the {@code ?}, C# infers nothing from the wildcard interface. The object
+     * names it: the wildcard interface's {@code Open_} calls the opener's {@code With<R>} with itself, which creates
+     * (CSharpOpeners). The result is the first supertype whose wildcard interface hides R, or one without R at all.
+     */
+    @Test
+    public void wildcardOpened() {
+        String cs = translate("Collectors", """
+                package a;
+                import java.util.function.Function;
+                class Collectors {
+                    interface Collector<A, R, I> {
+                        R supply();
+                        void accumulate(R r, A a);
+                        I finish(R r);
+                    }
+                    static final class AndThen<A, R, I, X> implements Collector<A, R, X> {
+                        private final Collector<A, R, I> delegate;
+                        private final Function<I, X> f;
+                        AndThen(Collector<A, R, I> delegate, Function<I, X> f) { this.delegate = delegate; this.f = f; }
+                        public R supply() { return delegate.supply(); }
+                        public void accumulate(R r, A a) { delegate.accumulate(r, a); }
+                        public X finish(R r) { return f.apply(delegate.finish(r)); }
+                    }
+                    static <A, I, X> Collector<A, ?, X> andThen(Collector<A, ?, I> delegate, Function<I, X> f) {
+                        return new AndThen<>(delegate, f);
+                    }
+                    interface Provider<S> { int size(); }
+                    interface Variable<S, E, V> { String name(); E entity(); }
+                    static final class Change<S, E, V> implements Provider<S> {
+                        private final Variable<S, E, V> variable;
+                        Change(Variable<S, E, V> variable) { this.variable = variable; }
+                        public int size() { return variable.name().length(); }
+                    }
+                    static final class Holder<S> {
+                        private final Variable<S, ?, ?> variable;
+                        Holder(Object o) { this.variable = (Variable<S, ?, ?>) o; }
+                        Provider<S> change() { return new Change<>(variable); }
+                    }
+                }
+                """);
+        contains(cs, "@delegate.Open_(");
+        contains(cs, "new CollectorsAndThenOpener_<A, I, X>(f));");
+        contains(cs, "=> new Collectors.AndThen<A, R, I, X>(@delegate, f);");
+        contains(cs, "TOpen_ Open_<TOpen_>(ICollectorOpener_<A, I, TOpen_> o);");
+        contains(cs, "With<R>(this)");
+        contains(cs, "variable.Open_(new HolderChangeOpener_<S>())");
+    }
+
+    /**
      * A case label with several patterns (JEP 456), {@code case String _, Integer _ ->}: C#'s {@code or} pattern,
      * {@code string or int}, in a switch statement and in a switch expression. Translating only the first pattern
      * compiles and no longer matches an Integer.
