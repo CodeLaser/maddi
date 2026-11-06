@@ -92,9 +92,23 @@ public class TestLombokFallback {
             """;
 
     // annotated: javac only instantiates (and so initialises) processors in a round that has annotations to offer;
-    // a source set that uses Lombok always does
+    // a source set that uses Lombok always does. It must also name lombok: the processor only runs for a source set
+    // whose sources do (a real use is an import or a qualified annotation; the broken jar has neither to offer, and
+    // any occurrence of the word counts).
     @Language("java")
     private static final String INPUT = """
+            package io.codelaser.maddi.test;
+            // stands in for a use of lombok
+            @SuppressWarnings("unused")
+            public class X {
+                private int t;
+            }
+            """;
+
+    // the same source set, the same broken Lombok on its class path, but no source that uses it: Spring Boot's
+    // dependency list puts lombok on the class path of projects that never use it
+    @Language("java")
+    private static final String INPUT_WITHOUT_LOMBOK = """
             package io.codelaser.maddi.test;
             @SuppressWarnings("unused")
             public class X {
@@ -145,10 +159,22 @@ public class TestLombokFallback {
     }
 
     private Summary parse(boolean failFast) {
+        return parse(failFast, INPUT);
+    }
+
+    private Summary parse(boolean failFast, String input) {
         JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder()
                 .setFailFast(failFast).setDetailedSources(true).setLombok(true).build();
-        return javaInspector.parseMultiSourceSet(Map.of(sourceSet, Map.of("io.codelaser.maddi.test.X", INPUT)),
+        return javaInspector.parseMultiSourceSet(Map.of(sourceSet, Map.of("io.codelaser.maddi.test.X", input)),
                 options);
+    }
+
+    @Test
+    public void lombokOnTheClassPathButUnusedDoesNotRun() {
+        Summary summary = parse(true, INPUT_WITHOUT_LOMBOK);
+        assertTrue(summary.parseExceptions().isEmpty(), String.valueOf(summary.parseExceptions()));
+        assertFalse(summary.haveErrors());
+        assertNotNull(summary.parseResult().findType("io.codelaser.maddi.test.X"));
     }
 
     @Test

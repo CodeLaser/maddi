@@ -1571,10 +1571,12 @@ public class JavaInspectorImpl implements JavaInspector {
             boolean hasModuleInfo = false;
             boolean haveSources = false;
             List<URI> handed = new ArrayList<>();
+            List<JavaFileObject> handedUnits = new ArrayList<>();
             for (JavaFileObject jfo : allCompilationUnits) {
                 if (jfo.toUri().getPath().endsWith("module-info.java")) hasModuleInfo = true;
                 haveSources = true;
                 handed.add(jfo.toUri());
+                handedUnits.add(jfo);
             }
             if (!loaderOnly) unitsHandedToJavac.put(sourceSet, handed);
             // "no sources" is the normal state of a loader task, and the whole point of it
@@ -1664,6 +1666,17 @@ public class JavaInspectorImpl implements JavaInspector {
             // error that aborts ENTER (seen on timefold-solver, where lombok sits in a single module's test deps).
             boolean lombokOnClassPath = lombok && !loaderOnly && sourceSet.dependencies().stream()
                     .anyMatch(d -> d.externalLibrary() && d.name().startsWith("lombok-"));
+            // ... and only for a source set whose sources use it. Every use of Lombok names it in the text (import
+            // lombok.*, @lombok.Getter, lombok.val), so a source set without the word cannot need the processor --
+            // while a jar merely on the class path (Spring Boot's dependency list brings lombok along) would still
+            // run it, and a Lombok too old for this JDK then crashes javac and turns a project that never uses
+            // Lombok into a LombokFallback parse error. A stray "lombok" in a comment only keeps today's behaviour.
+            // The processor sees the handed units only, so those are what is read. TestLombokFallback.
+            if (lombokOnClassPath && !mentionsLombok(handedUnits)) {
+                LOGGER.debug("Source set {} has lombok on its class path, but its sources do not use it: no"
+                             + " annotation processing", sourceSet.name());
+                lombokOnClassPath = false;
+            }
             if (lombokOnClassPath) {
                 // Run the real Lombok annotation processor inside javac: it mutates the AST (generating getters,
                 // setters, constructors, @Builder, loggers, ...) and the scanner then reads those members into the
@@ -2089,6 +2102,14 @@ public class JavaInspectorImpl implements JavaInspector {
                      + " or run on an older JDK. Source sets: {}", fallbacks.size(), jars,
                 java.lang.Runtime.version().feature(), causes,
                 fallbacks.stream().map(LombokFallback::sourceSetName).toList());
+    }
+
+    // does any of these units contain the text "lombok"? Stops at the first that does.
+    private static boolean mentionsLombok(List<JavaFileObject> units) throws IOException {
+        for (JavaFileObject unit : units) {
+            if (unit.getCharContent(true).toString().contains("lombok")) return true;
+        }
+        return false;
     }
 
     // does the cause chain point into Lombok's own code? (processor init/handler crash, not a source problem)
