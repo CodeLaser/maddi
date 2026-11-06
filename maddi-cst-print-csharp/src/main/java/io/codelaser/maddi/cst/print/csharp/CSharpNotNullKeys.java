@@ -109,6 +109,7 @@ final class CSharpNotNullKeys {
                 }
                 else if (ex instanceof ConstructorCall cc && cc.constructor() != null) {
                     call(cc.constructor(), cc.parameterExpressions());
+                    opened(cc);
                 }
             } else if (e instanceof LocalVariableCreation lvc) {
                 lvc.localVariableStream().forEach(lv -> use(lv.parameterizedType()));
@@ -150,6 +151,31 @@ final class CSharpNotNullKeys {
         if (explicit.size() == method.typeParameters().size()) {
             for (int i = 0; i < explicit.size(); i++) {
                 if (plain(explicit.get(i))) link(method.typeParameters().get(i), explicit.get(i).typeParameter());
+            }
+        }
+    }
+
+    /**
+     * A creation's wildcard argument that goes into a type parameter of the class, {@code new Change<>(variable)} of
+     * a {@code Variable<S, ?, ?>}: C# opens it ({@link CSharpOpeners}), passing the variable's own type parameters
+     * where the class's are expected.
+     */
+    private void opened(ConstructorCall cc) {
+        List<ParameterInfo> parameters = cc.constructor().parameters();
+        List<Expression> arguments = cc.parameterExpressions();
+        for (int i = 0; i < arguments.size() && i < parameters.size(); i++) {
+            ParameterizedType formal = parameters.get(i).parameterizedType();
+            ParameterizedType actual = arguments.get(i).parameterizedType();
+            if (actual == null || formal.typeInfo() == null || formal.typeInfo() != actual.typeInfo()
+                || formal.parameters().size() != actual.parameters().size()
+                || formal.typeInfo().typeParameters().size() != formal.parameters().size()) {
+                continue;
+            }
+            for (int j = 0; j < formal.parameters().size(); j++) {
+                ParameterizedType a = actual.parameters().get(j);
+                if (a.wildcard() != null && a.wildcard().isUnbound() && plain(formal.parameters().get(j))) {
+                    link(formal.parameters().get(j).typeParameter(), formal.typeInfo().typeParameters().get(j));
+                }
             }
         }
     }

@@ -861,6 +861,42 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "(Listener<S, object>?) (object?) Mapping()");
     }
 
+    /**
+     * A creation opened through the object ({@link CSharpOpeners}): the class's type parameter is a dictionary's key,
+     * {@code where E : notnull}, so the variable's own, which the opener passes there, is not null too (CS8714 in the
+     * opener otherwise).
+     */
+    @Test
+    public void openedNotNullKey() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Providers", """
+                package a;
+                import java.util.HashMap;
+                class Providers {
+                    interface Provider<S> { int size(); }
+                    interface Variable<S, E, V> { String name(); E entity(); }
+                    static final class Change<S, E, V> implements Provider<S> {
+                        private final Variable<S, E, V> variable;
+                        private final HashMap<E, V> index = new HashMap<>();
+                        Change(Variable<S, E, V> variable) { this.variable = variable; }
+                        public int size() { return index.size(); }
+                    }
+                    static final class Holder<S> {
+                        private final Variable<S, ?, ?> variable;
+                        Holder(Object o) { this.variable = (Variable<S, ?, ?>) o; }
+                        Provider<S> change() { return new Change<>(variable); }
+                    }
+                }
+                """);
+        contains(cs, "variable.Open_(new HolderChangeOpener_<S>())");
+        contains(cs, "TOpen_ With<E, V>(IVariable<S, E, V> x) where E : notnull;");
+    }
+
     @Language("java")
     private static final String VALUE_NULLS = """
             package org.example.values;
