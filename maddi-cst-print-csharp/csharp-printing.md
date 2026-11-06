@@ -426,8 +426,18 @@ implements the interface.
   `Filter<String, Integer>`, prints its type arguments from the target, `NewInstance<IFilter<string, int>>`
   (`CSharpContext.callTarget`, set by `converted`). A type that gets no wildcard interface says why in a
   `NO_WILDCARD_INTERFACE` message: the member reached through the wildcard that the interface could not declare,
-  or the generic parameter the wildcard goes into; `messages.txt` of a corpus run lists them, the work list of the
-  wildcard design.
+  or the generic parameter the wildcard goes into (with the method called and its caller); `messages.txt` of a corpus
+  run lists them, the work list of the wildcard design.
+- **Opening a wildcard into a generic creation.** `new AndThen<>(delegate, f)` of a `Collector<A, ?, I> delegate`:
+  Java names the `?` and creates an `AndThen<A, CAP#1, I, X>`, C# infers nothing from the wildcard interface. The
+  object names it (`CSharpOpeners`): the wildcard interface declares `TOpen_ Open_<TOpen_>(ICollectorOpener_<A, I,
+  TOpen_> o)`, which the type implements as `o.With<R>(this)`; the creation is `delegate.Open_(new
+  CollectorsAndThenOpener_<A, I, X>(f))`, and the opener class, the creating type's sibling, creates `new AndThen<A,
+  R, I, X>(delegate, f)` in `With<R>`. The opener interface's variance is the wildcard interface's reversed, as it
+  takes the type in. `Open_` returns the created class's supertype whose wildcard interface hides the fewest other
+  arguments (`ICollector<A, X>`, not `AndThen`'s own, which hides all four). Only a creation whose one wildcard
+  argument goes into bare, unbounded type parameters of the class, and which names the class's other arguments,
+  opens; a call of a generic method, a raw creation, or a type argument nothing passes stays "passed as".
 - **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
   type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
   `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
