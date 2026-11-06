@@ -395,14 +395,15 @@ final class CSharpWildcardInterfaces {
     }
 
     /** A wildcard passed where its type is declared with arguments, which the wildcard interface cannot be. */
-    private record PassedAsGeneric(ParameterizedType formal) {
+    private record PassedAsGeneric(ParameterizedType formal, MethodInfo callee, String caller) {
         @Override
         public String toString() {
-            return "passed as " + formal;
+            return "passed as " + formal + " to " + callee.fullyQualifiedName() + " in " + caller;
         }
     }
 
-    private static void passed(MethodInfo method, List<Expression> arguments, BiConsumer<Expression, Object> through) {
+    private static void passed(MethodInfo method, List<Expression> arguments, String caller,
+                               BiConsumer<Expression, Object> through) {
         List<ParameterInfo> parameters = method.parameters();
         for (int i = 0; i < arguments.size() && !parameters.isEmpty(); i++) {
             ParameterizedType formal = parameters.get(Math.min(i, parameters.size() - 1)).parameterizedType();
@@ -412,7 +413,7 @@ final class CSharpWildcardInterfaces {
                 continue;
             }
             if (formal.parameters().stream().noneMatch(a -> a.wildcard() != null)) {
-                through.accept(arguments.get(i), new PassedAsGeneric(formal));
+                through.accept(arguments.get(i), new PassedAsGeneric(formal, method, caller));
             }
         }
     }
@@ -498,13 +499,14 @@ final class CSharpWildcardInterfaces {
                 }
             }
         };
+        String caller = owner.fullyQualifiedName() + (method == null ? "" : "." + method.name());
         code.visit((Element e) -> {
             if (e instanceof MethodCall mc && !mc.methodInfo().isStatic()) through.accept(mc.object(), mc.methodInfo());
             // a wildcard passed where the type is declared with arguments, getAttribute(Key<T> key): the
             // wildcard interface infers no T (CS0411)
-            if (e instanceof MethodCall mc) passed(mc.methodInfo(), mc.parameterExpressions(), through);
+            if (e instanceof MethodCall mc) passed(mc.methodInfo(), mc.parameterExpressions(), caller, through);
             if (e instanceof ConstructorCall cc && cc.constructor() != null) {
-                passed(cc.constructor(), cc.parameterExpressions(), through);
+                passed(cc.constructor(), cc.parameterExpressions(), caller, through);
             }
             if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
                 && !fr.fieldInfo().isStatic()) {
