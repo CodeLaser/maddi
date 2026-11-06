@@ -234,6 +234,7 @@ public final class CSharpStatementPrinter {
         LocalVariable lv = lvc.localVariable();
         OutputBuilder b = new OutputBuilderImpl();
         ParameterizedType stored = lvc.otherLocalVariables().isEmpty() ? storedArrayType(lv) : null;
+        if (stored == null && lvc.otherLocalVariables().isEmpty()) stored = rawFromInitializer(lv);
         ParameterizedType type = stored != null ? stored : lv.parameterizedType();
         b.add(text(implicitlyTyped(lvc) ? "var" : local(type, q))).add(SpaceEnum.ONE);
         return b.add(lvc.localVariableStream().map(v -> {
@@ -246,6 +247,28 @@ public final class CSharpStatementPrinter {
             }
             return d;
         }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
+    }
+
+    /**
+     * A raw local of a program type initialized with the type's arguments, {@code QuadFunction[] mappings =
+     * Arrays.copyOf(leftMappings, n)} of a {@code QuadFunction<A, B, C, D, Object>[]}: declared as the initializer
+     * is, which Java's raw local took unchecked; C# has no raw type, and {@code IQuadFunction<object, …>[]} takes
+     * neither the initializer nor what the local then goes into. Null when the local is not such a raw one.
+     */
+    static ParameterizedType rawFromInitializer(LocalVariable lv) {
+        ParameterizedType declared = lv.parameterizedType();
+        Expression init = lv.assignmentExpression();
+        if (declared == null || declared.typeInfo() == null || !declared.parameters().isEmpty()
+            || declared.typeInfo().typeParameters().isEmpty() || init == null || init.isEmpty()) {
+            return null;
+        }
+        ParameterizedType actual = CSharpExpressionPrinter.unwrap(init).parameterizedType();
+        if (actual == null || actual.arrays() != declared.arrays() || !declared.typeInfo().equals(actual.typeInfo())
+            || actual.parameters().size() != declared.typeInfo().typeParameters().size()
+            || !CSharpExpressionPrinter.writable(actual, List.of())) {
+            return null;
+        }
+        return actual;
     }
 
     /**

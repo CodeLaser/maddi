@@ -1,17 +1,13 @@
 using System;
 namespace Org.Example.Interfaces;
-internal interface IListener<E> {
+internal interface IListener<in E> {
     void OnEvent(E @event);
     Type EventClass();
 }
-internal interface IStringListener : IListener<string> {
-    Type IListener<string>.EventClass() => typeof(string);
-    public sealed class Lambda(Action<string> f) : IStringListener { public void OnEvent(string @event) => f(@event); }
-}
-internal interface IFailure {
-    IFailure WithCode(int code);
-    public sealed class Lambda(Func<int, IFailure> f) : IFailure { public IFailure WithCode(int code) => f(code); }
-}
+internal interface IStringListener : IListener<string> { Type IListener<string>.EventClass() => typeof(string); }
+internal sealed class StringListenerLambda(Action<string> f) : IStringListener { public void OnEvent(string @event) => f(@event); }
+internal interface IFailure { IFailure WithCode(int code); }
+internal sealed class FailureLambda(Func<int, IFailure> f) : IFailure { public IFailure WithCode(int code) => f(code); }
 internal interface IModel {
     int Dimension { get; }
     string Embed(string text);

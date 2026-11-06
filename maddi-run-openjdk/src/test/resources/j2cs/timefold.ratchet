@@ -203,10 +203,20 @@
 # hidden the errors of their twelve clients (the ImpactHandlers and ScoreInliners call ImpactScore through the
 # wildcard interface, which cannot declare it: CS1061 +21, CS1661/CS1678 +22, CS0411 +8, CS0305 +4). Those files
 # compiled before only because Roslyn gives up on an error type. The wildcard design (#185) is where they get fixed.
+# 2026-11-05, maddi b13471627..a06af96cb: declaration-site variance (CSharpVariance, IMapper<in A, out R>, lambda and
+# erasure adapters beside the interface) and the first slices of the wildcard design's part (b): a raw local takes its
+# initializer's type, a raw generic result its target's type arguments, an array initializer's elements and a raw
+# value are converted into the generic type, a cast to X<?> keeps the operand's arguments, a diamond of a raw library
+# delegate takes the target's by its variance; wildcard interfaces reach inherited fields and superclass members, and
+# not the type's own equals-style uses (NO_WILDCARD_INTERFACE says why a type has none). 1,321 -> 1,330 compiling
+# files, 641 -> 604 errors (the joiners, selector factories, sentinels).
+# 2026-11-05, maddi 45d14b35f..8fe5ff0a9: a class's wildcard interface declares the supertype methods reached through it
+# that nothing it extends declares (an override too, only where reached); a cast between a delegate's constructed
+# types goes through object (object? where the value may be null): 604 -> 601 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1321
+compilingFiles	1330
 unmappedJdkUses	106
-errors	641
+errors	601

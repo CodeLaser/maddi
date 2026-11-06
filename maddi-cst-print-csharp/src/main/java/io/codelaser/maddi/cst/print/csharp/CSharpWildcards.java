@@ -145,7 +145,11 @@ final class CSharpWildcards {
         return method.parameters().stream().anyMatch(p -> capturable(p.parameterizedType()));
     }
 
-    /** {@code X<?>}, {@code X<? extends B>} of a generic type of the program. */
+    /**
+     * {@code X<?>}, {@code X<? extends B>} of a generic type of the program. Captured even where the type's variance
+     * ({@link CSharpVariance}) would take the bound: an argument that is a type parameter has no variance conversion
+     * (CS1503), a captured one takes it.
+     */
     static boolean capturable(ParameterizedType pt) {
         TypeInfo t = pt.typeInfo();
         return pt.arrays() == 0 && pt.wildcard() == null && t != null && CSharpNames.translated(t)

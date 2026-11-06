@@ -155,6 +155,30 @@ public final class CSharpTypeName {
     }
 
     /**
+     * The type a creation names, {@code new AndThenCollector<S, object>(…)} for a diamond resolved to
+     * {@code AndThenCollector<S, ?>} from its target: a wildcard argument is its bound, never the wildcard interface
+     * a wildcard use would be (CS0144).
+     */
+    static String created(ParameterizedType pt, Qualification q) {
+        TypeInfo t = pt.typeInfo();
+        if (t == null || pt.arrays() != 0 || !CSharpNames.translated(t) || pt.parameters().isEmpty()
+            || pt.parameters().size() != t.typeParameters().size()
+            || pt.parameters().stream().noneMatch(a -> a.wildcard() != null)) {
+            return of(pt, q);
+        }
+        List<String> printed = new ArrayList<>();
+        for (int i = 0; i < pt.parameters().size(); i++) {
+            ParameterizedType a = pt.parameters().get(i);
+            boolean unbound = a.wildcard() != null && (a.wildcard().isUnbound() || a.typeInfo() == null && a.typeParameter() == null);
+            printed.add(unbound ? rawArgument(t.typeParameters().get(i), q)
+                    : a.wildcard() != null ? argument(a.withWildcard(null), q) : argument(a, q));
+        }
+        String name = name(t, q);
+        String inner = innerOfGeneric(t, name, printed);
+        return inner != null ? inner : name + "<" + String.join(", ", printed) + ">";
+    }
+
+    /**
      * The type of a declaration, with what the analysis knows: a collection parameter the method does not modify is
      * read-only ({@code IReadOnlyList<T>}), a reference type that may be null is {@code T?}.
      */
@@ -311,7 +335,14 @@ public final class CSharpTypeName {
             ParameterizedType a = arguments.get(i);
             // Key<?> where Key<T extends Attribute>: the bound, which satisfies the constraint
             boolean unbound = a.wildcard() != null && a.wildcard().isUnbound() && i < typeInfo.typeParameters().size();
-            printed.add(unbound ? rawArgument(typeInfo.typeParameters().get(i), q) : of(a, q, true));
+            if (unbound) {
+                printed.add(rawArgument(typeInfo.typeParameters().get(i), q));
+            } else if (a.wildcard() != null && i < typeInfo.typeParameters().size() && exact(a, typeInfo.typeParameters().get(i))) {
+                // ? extends B of an out parameter is B: C#'s declaration-site variance says what Java's wildcard said
+                printed.add(of(a.withWildcard(null), q, true));
+            } else {
+                printed.add(of(a, q, true));
+            }
         }
         LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
         String name = bcl != null ? bcl(bcl, printed, arguments, q) : name(typeInfo, q);
@@ -321,6 +352,13 @@ public final class CSharpTypeName {
         }
         String type = bcl != null || printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
         return !typeArgument && valueReference(pt) ? type + "?" : type;
+    }
+
+    /** Wildcard argument {@code a} at {@code tp} is its bound exactly: {@code ? extends B} at an {@code out}, {@code ? super B} at an {@code in}. */
+    private static boolean exact(ParameterizedType a, TypeParameter tp) {
+        String variance = CSharpContext.program().variance(tp);
+        return variance != null && (a.typeInfo() != null || a.typeParameter() != null)
+               && (a.wildcard().isExtends() ? "out" : "in").equals(variance);
     }
 
     /**

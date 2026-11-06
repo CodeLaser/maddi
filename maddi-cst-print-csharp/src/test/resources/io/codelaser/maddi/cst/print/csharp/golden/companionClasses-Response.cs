@@ -10,12 +10,10 @@ public static class Response {
     internal static int Count() => 1;
     public static Response<T> From<T>(T content) => new Response<T>(content);
 }
-internal interface IStore<E> {
-    E Get();
-    public sealed class Lambda(Func<E> f) : IStore<E> { public E Get() => f(); }
-}
+internal interface IStore<out E> { E Get(); }
 internal static class IStore {
     public const int LIMIT = 10;
     public static IStore<E> Empty<E>() => null;
 }
+internal sealed class StoreLambda<E>(Func<E> f) : IStore<E> { public E Get() => f(); }
 internal sealed class User { internal Response<string> Hello() => Response.From("hello" + IStore.LIMIT); }

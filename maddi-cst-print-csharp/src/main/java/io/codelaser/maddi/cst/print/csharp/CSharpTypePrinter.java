@@ -95,6 +95,15 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 type.add(SpaceEnum.NEWLINE).add(companion(importData.insideType(), methodPrinterFactory,
                         fieldPrinterFactory));
             }
+            // its lambda and erasure adapters beside it: a variant interface may declare no nested class (CS8427)
+            // (outside it, which names its nested types from the primary type, as a header does)
+            if (doTypeDeclaration && CSharpNames.lambdaAdapter(typeInfo)) {
+                type.add(SpaceEnum.NEWLINE).add(CSharpTypeName.inHeader(typeInfo, () -> lambdaAdapter(importData.insideType())));
+            }
+            OutputBuilder erasure = doTypeDeclaration
+                    ? CSharpTypeName.inHeader(typeInfo, () -> CSharpErasures.adapter(typeInfo, typeAccess(), importData.insideType()))
+                    : null;
+            if (erasure != null) type.add(SpaceEnum.NEWLINE).add(erasure);
             return type;
         } finally {
             CSharpContext.popType();
@@ -146,7 +155,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             }
             String keyword = typeInfo.isInterface() ? "interface" : record ? "record" : "class";
             List<TypeParameter> declaredTypeParameters = self != null ? self.typeParameters() : typeInfo.typeParameters();
-            String typeParameters = CSharpNames.typeParameters(declaredTypeParameters);
+            String typeParameters = typeInfo.isInterface() && self == null
+                    ? CSharpNames.declaredTypeParameters(declaredTypeParameters)
+                    : CSharpNames.typeParameters(declaredTypeParameters);
             out.add(new TextImpl(modifiers + keyword)).add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpNames.type(typeInfo) + typeParameters));
             if (record && canonical == null) {
@@ -230,7 +241,6 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         CSharpLocalTypes.lifted(typeInfo)
                 .forEach(lt -> members.add(new CSharpTypePrinter(lt, formatter2).print(importData, true)));
         if (CSharpNames.librarySingleAbstractMethod(typeInfo) != null) members.add(librarySingleAbstractMethod(q));
-        if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
         members.addAll(enumerable(q));
         if (record) members.addAll(accessorImplementations(components, q));
         if (record) members.addAll(recordHashCode(components));
@@ -546,7 +556,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private OutputBuilder delegate(Qualification q) {
         MethodInfo sam = CSharpProgram.invoked(typeInfo);
         String access = typeAccess();
-        String typeParameters = CSharpNames.typeParameters(typeInfo.typeParameters());
+        String typeParameters = CSharpNames.declaredTypeParameters(typeInfo.typeParameters());
         String parameters = sam.parameters().stream()
                 .map(p -> CSharpTypeName.of(p.parameterizedType(), q) + " " + CSharpNames.name(p.name()))
                 .collect(Collectors.joining(", "));
@@ -558,9 +568,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     /**
-     * {@code public sealed class Lambda(Func<Exprent, int> f) : IExprentIterator { public int ProcessExprent(Exprent
-     * exprent) => f(exprent); }}: a lambda of a functional interface that is not a delegate, {@code new IExprentIterator.Lambda(
-     * e => 0)}. An interface becomes a delegate only when nothing else implements it, which a file does not know.
+     * {@code public sealed class ExprentIteratorLambda(Func<Exprent, int> f) : IExprentIterator { public int
+     * ProcessExprent(Exprent exprent) => f(exprent); }}, beside the interface: a lambda of a functional interface
+     * that is not a delegate, {@code new ExprentIteratorLambda(e => 0)}. An interface becomes a delegate only when
+     * nothing else implements it, which a file does not know. Beside, not nested: a variant interface may declare
+     * no nested class (CS8427), so the adapter repeats the interface's constraints.
      */
     private OutputBuilder lambdaAdapter(Qualification q) {
         MethodInfo sam = CstSupertypes.singleAbstractMethod(typeInfo);
@@ -587,9 +599,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<String> forwarded = IntStream.range(0, names.size())
                 .mapToObj(i -> CSharpTypeName.valueReference(signature.parameters().get(i))
                         ? "(" + parameterTypes.get(i) + ") " + names.get(i) + forgiven : names.get(i)).toList();
-        return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
-                + " { public " + result + " " + signature.member() + " => " + f + "("
-                + String.join(", ", forwarded) + "); }"));
+        String access = typeAccess();
+        StringBuilder header = new StringBuilder(access == null ? "" : access + " ").append("sealed class ")
+                .append(CSharpNames.lambdaAdapterName(typeInfo)).append(CSharpNames.typeParameters(typeInfo.typeParameters()))
+                .append('(').append(delegate).append(' ').append(f).append(") : ").append(self);
+        for (String constraint : CSharpTypeName.constraints(typeInfo.typeParameters(), q)) header.append(' ').append(constraint);
+        return new OutputBuilderImpl().add(new TextImpl(header + " { public " + result + " " + signature.member() + " => "
+                + f + "(" + String.join(", ", forwarded) + "); }"));
     }
 
     /**

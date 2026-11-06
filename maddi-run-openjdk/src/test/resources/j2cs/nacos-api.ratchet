@@ -1,0 +1,16 @@
+# TestJavaToCSharpNacos with J2CS_NACOS_MAIN=api/main: nacos's api module printed as C# by maddi-cst-print-csharp and
+# judged by Roslyn (tools/csharp-check; see JavaToCSharpRatchet's javadoc). Lower is better for printerCrashes,
+# syntaxErrors, unmappedJdkUses and errors, higher for syntaxCleanFiles and compilingFiles; `types` must not move.
+# Write a better value here in the commit that earns it.
+#
+# 2026-11-05, first record, maddi a2e0360b9 (declaration-site variance in, CSharpVariance): application-style code,
+# a Spring service's api module, whose wildcards bound concrete types where timefold's bound type parameters. The
+# unmapped uses are mostly third-party libraries no mapping file covers yet (api: 309 com.google, 115 io.grpc, 49
+# of the JDK itself); the errors are their types (CS0246, CS0103) before anything of the translation's own.
+types	274
+printerCrashes	0
+syntaxErrors	0
+syntaxCleanFiles	274
+compilingFiles	241
+unmappedJdkUses	478
+errors	495

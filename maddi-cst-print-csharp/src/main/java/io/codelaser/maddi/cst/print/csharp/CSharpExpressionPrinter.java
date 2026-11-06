@@ -164,22 +164,66 @@ public final class CSharpExpressionPrinter {
                                && CSharpContext.program().facts().nullabilityAnalysed();
         boolean nullable = nullConstant || CSharpNullability.mayBeNull(cast.expression());
         String own = CSharpWildcardInterfaces.ownUse(cast.parameterizedType(), q);
+        ParameterizedType castType = Objects.requireNonNullElse(wildcardCastArguments(cast), cast.parameterizedType());
         String type = own != null ? (nullable ? own + "?" : own)
-                : nullable ? CSharpTypeName.declared(cast.parameterizedType(), false, NullableState.NULLABLE, q)
-                : CSharpTypeName.of(cast.parameterizedType(), q);
+                : nullable ? CSharpTypeName.declared(castType, false, NullableState.NULLABLE, q)
+                : CSharpTypeName.of(castType, q);
         OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(text(type)).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         ParameterizedType from = cast.expression().parameterizedType();
         ParameterizedType to = cast.parameterizedType();
         if (from != null && (to.isTypeParameter() && to.arrays() == 0 && !from.isTypeParameter()
                              || CstQueries.mentionsTypeParameter(to) && !CstQueries.mentionsTypeParameter(from))
-            && !from.isJavaLangObject() && !(from.typeInfo() != null && from.typeInfo().isInterface())) {
-            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+            && !from.isJavaLangObject() && !(from.typeInfo() != null && from.typeInfo().isInterface()
+                                             // a functional interface C# has as a delegate casts as a class does
+                                             && !CSharpContext.program().delegate(from.typeInfo())
+                                             && !CSharpTypeName.libraryDelegate(from.typeInfo()))) {
+            // object? where the value may be null, as the outer cast's type is (CS8600)
+            boolean nullableObject = nullable && CSharpContext.program().facts().nullabilityAnalysed();
+            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(nullableObject ? "object?" : "object"))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         }
         OutputBuilder operand = operand(cast.precedence(), cast.expression(), q);
         // a method's own type parameter has no T?: the null goes through (T) x! as it does through Java's cast
         boolean asserted = nullable && CSharpNullability.toMethodTypeParameter(cast);
         return b.add(asserted ? CSharpNullability.asserted(cast.expression(), operand) : operand);
+    }
+
+    /**
+     * A cast to a wildcard type of an operand that has the arguments, {@code (ListVariableDescriptor<?>) descriptor}
+     * of a {@code GenuineVariableDescriptor<Solution_>}: the wildcards take the operand's arguments as the cast's
+     * type extends the operand's, {@code (ListVariableDescriptor<Solution_>)}, where C#'s {@code <object>} converts
+     * to nothing. Null when the cast has no unbound wildcard, the type has a wildcard interface for it, or the
+     * operand does not determine the arguments.
+     */
+    private static ParameterizedType wildcardCastArguments(Cast cast) {
+        ParameterizedType to = cast.parameterizedType();
+        ParameterizedType from = cast.expression().parameterizedType();
+        TypeInfo target = to.typeInfo();
+        if (target == null || to.arrays() != 0 || from == null || from.arrays() != 0 || from.typeInfo() == null
+            || from.parameters().isEmpty() || !CSharpNames.translated(target)
+            || to.parameters().size() != target.typeParameters().size()
+            || to.parameters().stream().noneMatch(a -> a.wildcard() != null && a.wildcard().isUnbound())
+            || CSharpWildcardInterfaces.isWildcardUse(to)) {
+            return null;
+        }
+        ParameterizedType asOperand = target.equals(from.typeInfo()) ? target.asParameterizedType()
+                : CstSupertypes.asSeen(target, from.typeInfo());
+        if (asOperand == null) return null;
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
+        match(asOperand, from, target.typeParameters(), inferred);
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (int i = 0; i < to.parameters().size(); i++) {
+            ParameterizedType a = to.parameters().get(i);
+            if (a.wildcard() == null || !a.wildcard().isUnbound()) {
+                arguments.add(a);
+                continue;
+            }
+            ParameterizedType t = inferred.get(target.typeParameters().get(i));
+            if (t == null || t.wildcard() != null || !writable(t, List.of())) return null;
+            arguments.add(t);
+        }
+        return to.withParameters(arguments);
     }
 
     /** A default method of a translated interface, called on a class (this, or a class-typed receiver). */
@@ -193,6 +237,8 @@ public final class CSharpExpressionPrinter {
             receiverType = CSharpContext.currentType();
         } else {
             ParameterizedType t = object.parameterizedType();
+            // a wildcard use is its wildcard interface, which declares the method itself
+            if (t != null && t.arrays() == 0 && CSharpWildcardInterfaces.isWildcardUse(t)) return false;
             receiverType = t == null ? null : t.typeInfo();
         }
         return receiverType != null && !receiverType.isInterface() && !receiverType.equals(method.typeInfo());
@@ -200,8 +246,18 @@ public final class CSharpExpressionPrinter {
 
     /** The interface as the receiver's type implements it, with its type arguments. */
     private static String interfaceType(TypeInfo owner, Expression object, Qualification q) {
-        TypeInfo start = object == null || object instanceof VariableExpression ve && ve.variable() instanceof This
-                ? CSharpContext.currentType() : object.parameterizedType().typeInfo();
+        boolean self = object == null || object instanceof VariableExpression ve && ve.variable() instanceof This;
+        if (!self && object.parameterizedType() != null && object.parameterizedType().arrays() == 0) {
+            // a receiver with its own arguments, a captured AndThen<TS, TRC>: the interface as it has them
+            String captured = capturedInterfaceType(owner, object, q);
+            if (captured != null) return captured;
+            ParameterizedType seen = CstSupertypes.asSeen(object.parameterizedType(), owner);
+            if (seen != null && seen.parameters().stream().allMatch(a -> a.wildcard() == null)
+                && writable(seen, List.of())) {
+                return CSharpTypeName.of(seen, q);
+            }
+        }
+        TypeInfo start = self ? CSharpContext.currentType() : object.parameterizedType().typeInfo();
         Deque<TypeInfo> todo = new ArrayDeque<>(List.of(start));
         Set<TypeInfo> seen = new HashSet<>();
         while (!todo.isEmpty()) {
@@ -214,6 +270,42 @@ public final class CSharpExpressionPrinter {
             if (t.parentClass() != null && t.parentClass().typeInfo() != null) todo.push(t.parentClass().typeInfo());
         }
         return CSharpTypeName.nameInExpression(owner, q);
+    }
+
+    /**
+     * The interface {@code owner} as a captured parameter's type implements it, {@code IColl<TS, TRC>} for an
+     * {@code AndThen<TS, TRC> a} captured from {@code AndThen<?, ?>}: the class's arguments to the interface are its
+     * own type parameters, each the parameter's argument at that position, a captured wildcard by its name. Null
+     * when the receiver is no captured parameter, or the arguments are not as plain as that.
+     */
+    private static String capturedInterfaceType(TypeInfo owner, Expression object, Qualification q) {
+        MethodInfo method = CSharpContext.currentMethod();
+        if (method == null || !(unwrap(object) instanceof VariableExpression ve) || !(ve.variable() instanceof ParameterInfo pi)
+            || pi.methodInfo() != method || !CSharpWildcards.capturedParameter(method, pi.index())) {
+            return null;
+        }
+        ParameterizedType pt = pi.parameterizedType();
+        TypeInfo t = pt.typeInfo();
+        List<String> names = CSharpWildcards.captured(method, q).names().get(pi.index());
+        if (t == null || names == null || pt.parameters().size() != t.typeParameters().size()) return null;
+        ParameterizedType asOwner = t.equals(owner) ? t.asParameterizedType() : CstSupertypes.asSeen(t, owner);
+        if (asOwner == null) return null;
+        List<String> printed = new ArrayList<>();
+        for (ParameterizedType a : asOwner.parameters()) {
+            if (!a.isTypeParameter() || a.arrays() != 0) return null;
+            int i = t.typeParameters().indexOf(a.typeParameter());
+            if (i < 0) return null;
+            ParameterizedType argument = pt.parameters().get(i);
+            if (argument.wildcard() != null) {
+                int n = 0;
+                for (int k = 0; k < i; k++) if (pt.parameters().get(k).wildcard() != null) n++;
+                if (n >= names.size()) return null;
+                printed.add(names.get(n));
+            } else {
+                printed.add(CSharpTypeName.argument(argument, q));
+            }
+        }
+        return CSharpTypeName.name(owner, q) + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
     }
 
     // ---------------------------------------------------------------- variables
@@ -236,6 +328,31 @@ public final class CSharpExpressionPrinter {
         if (token < 0) return null;
         ParameterizedType type = mc.parameterExpressions().get(token).parameterizedType();
         return "<" + CSharpTypeName.argument(type.parameters().getFirst(), q) + ">";
+    }
+
+    /**
+     * {@code target}, where {@code e} is a generic call whose result Java infers raw, {@code newInstance(Class<?
+     * extends SelectionFilter>)} converted unchecked into a {@code SelectionFilter<Solution_, Move<Solution_>>}: C#
+     * prints the call's type arguments ({@link #inferredTypeArguments}) from the target instead of
+     * {@code <ISelectionFilter<object, object>>}, which converts to nothing. Null otherwise.
+     */
+    private static ParameterizedType rawResultTarget(Expression e, ParameterizedType target) {
+        if (!(e instanceof MethodCall mc) || target == null || target.arrays() != 0 || target.typeInfo() == null
+            || target.parameters().isEmpty() || !writable(target, List.of()) || !mc.typeArguments().isEmpty()) {
+            return null;
+        }
+        MethodInfo method = mc.methodInfo();
+        if (method.typeParameters().isEmpty() || !CSharpNames.translated(method.typeInfo())
+            || !uninferable(method) && !onlyThroughLambdas(mc)) {
+            return null;
+        }
+        ParameterizedType result = mc.concreteReturnType();
+        if (result == null || result.arrays() != 0 || !target.typeInfo().equals(result.typeInfo())
+            || !CstQueries.mentionsAny(method.returnType(), method.typeParameters())) {
+            return null;
+        }
+        boolean rawResult = raw(result) || result.parameters().stream().allMatch(ParameterizedType::isJavaLangObject);
+        return rawResult ? target : null;
     }
 
     /** The arguments of a call, without its type token. */
@@ -585,7 +702,9 @@ public final class CSharpExpressionPrinter {
             return "";
         }
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
-        match(method.returnType(), mc.concreteReturnType(), typeParameters, inferred);
+        // a raw result goes into a target with arguments: Java's unchecked conversion, the target's arguments here
+        ParameterizedType callTarget = CSharpContext.callTarget(mc);
+        match(method.returnType(), callTarget != null ? callTarget : mc.concreteReturnType(), typeParameters, inferred);
         List<Expression> args = mc.parameterExpressions();
         for (int i = 0; i < method.parameters().size() && i < args.size(); i++) {
             ParameterInfo p = method.parameters().get(i);
@@ -826,7 +945,7 @@ public final class CSharpExpressionPrinter {
             return new CSharpTemplate(() -> text("this"), args, operands, null, type, null, q).render(rule.template(false));
         }
         return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
-                .add(text(CSharpTypeName.of(created(cc, type), q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+                .add(text(CSharpTypeName.created(created(cc, type), q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
     }
 
     /**
@@ -1030,6 +1149,11 @@ public final class CSharpExpressionPrinter {
         if (rawArray(inner, target)) return constructorCall((ConstructorCall) inner, target, q);
         ParameterizedType fromTarget = erasedDiamond(inner, target);
         if (fromTarget != null) return constructorCall((ConstructorCall) inner, fromTarget, q);
+        ParameterizedType resultTarget = rawResultTarget(inner, target);
+        if (resultTarget != null) {
+            CSharpContext.callTarget((MethodCall) inner, resultTarget);
+            return print(value, q);
+        }
         // a raw constant lambda returned as the generic type, TRI_PICK_FIRST of a TriFunction<A, B, C, A>: the lambda
         // itself, which C# caches per type arguments as Java's one instance is cached
         Expression constant = constantLambda(inner, target);
@@ -1055,6 +1179,16 @@ public final class CSharpExpressionPrinter {
         if (wildcardIntoGeneric(inner, target)) {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(CSharpTypeName.of(target, q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(receiver(value, q));
+        }
+        // a raw value of a type printed with object arguments, a raw sentinel EMPTY_TUPLE into a UniTuple<B>: Java's
+        // unchecked conversion, C#'s cast; a class's constructed types cast through object only, (X<B>) (object) v
+        if (rawIntoGeneric(inner, target)) {
+            OutputBuilder cast = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(CSharpTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+            if (!target.typeInfo().isInterface()) {
+                cast.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+            }
+            return cast.add(receiver(value, q));
         }
         // Map.keySet where a Set is expected: .Keys is an ICollection, the compatibility library's view a set
         if (keySetAsSet(inner, target)) {
@@ -1269,6 +1403,27 @@ public final class CSharpExpressionPrinter {
             return false;
         }
         return target.parameters().stream().allMatch(a -> a.wildcard() == null && !constructorTypeParameter(a))
+               && writable(target, List.of()) && ownTypeParameters(target);
+    }
+
+    /**
+     * A value of a raw type that C# prints with {@code object} arguments (no wildcard interface), a variable or a
+     * call's result, where the type itself is expected with arguments C# can name here: Java's unchecked
+     * conversion, which C#'s reified generics check at run time, as Java's would have at the first use.
+     */
+    private static boolean rawIntoGeneric(Expression inner, ParameterizedType target) {
+        ParameterizedType from = inner.parameterizedType();
+        if (from == null || from.arrays() != 0 || target.arrays() != 0 || from.typeInfo() == null
+            || !from.typeInfo().equals(target.typeInfo()) || target.parameters().isEmpty() || !raw(from)
+            || !CSharpNames.translated(from.typeInfo()) || CSharpWildcardInterfaces.isWildcardUse(from)
+            || CSharpWildcardInterfaces.isWildcardUse(target)) {
+            return false;
+        }
+        // a variable declared raw, or a call of a method declared to return the raw type; not a generic method's
+        // result Java inferred raw from a raw argument, which C# infers from the argument as it prints it
+        boolean declaredRaw = inner instanceof VariableExpression
+                              || inner instanceof MethodCall mc && raw(mc.methodInfo().returnType());
+        return declaredRaw && target.parameters().stream().allMatch(a -> a.wildcard() == null && !constructorTypeParameter(a))
                && writable(target, List.of()) && ownTypeParameters(target);
     }
 
@@ -1502,10 +1657,11 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(value);
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
-               || erasedDiamond(inner, target) != null || CSharpErasures.adapted(inner, target) != null
+               || erasedDiamond(inner, target) != null || rawResultTarget(inner, target) != null
+               || CSharpErasures.adapted(inner, target) != null
                || constantLambda(inner, target) != null || implementation(inner, target) != null
                || covariantArray(inner, target) || rawCastInto(inner, target) || keySetAsSet(inner, target)
-               || wildcardIntoGeneric(inner, target)
+               || wildcardIntoGeneric(inner, target) || rawIntoGeneric(inner, target)
                || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
     }
@@ -1545,12 +1701,12 @@ public final class CSharpExpressionPrinter {
         for (int i = 0; i < own.size(); i++) bound.put(own.get(i), arguments.get(i));
         List<ParameterInfo> parameters = cc.constructor() == null ? List.of() : cc.constructor().parameters();
         for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
-            ParameterizedType argument = cc.parameterExpressions().get(i).parameterizedType();
+            ParameterizedType argument = printedType(cc.parameterExpressions().get(i));
             if (!raw(argument)) continue;
             ParameterizedType formal = CstSupertypes.substituteDroppingWildcards(parameters.get(i).parameterizedType(), bound);
             if (!formal.parameters().stream().allMatch(p -> p.isJavaLangObject() || p.wildcard() != null
                                                             && p.wildcard().isUnbound())
-                && !storedAs(cc.parameterExpressions().get(i), formal)) {
+                && !storedAs(cc.parameterExpressions().get(i), formal) && !variantRaw(argument, formal)) {
                 return null;
             }
         }
@@ -1600,6 +1756,34 @@ public final class CSharpExpressionPrinter {
         return stored != null && sameErased(stored, formal);
     }
 
+    /**
+     * A raw library delegate, {@code Comparator} as C#'s {@code Comparison<object>}, converts to the formal's by the
+     * delegate's variance: a {@code Comparison<IMove<Solution_>>}, whose {@code in} argument is a reference type
+     * (not a type parameter or a value type, which C#'s variance does not convert); an {@code out} argument of
+     * {@code object} only.
+     */
+    private static boolean variantRaw(ParameterizedType argument, ParameterizedType formal) {
+        TypeInfo t = argument.typeInfo();
+        if (t == null || formal.typeInfo() == null || !t.equals(formal.typeInfo()) || formal.arrays() != 0
+            || !CSharpTypeName.libraryDelegate(t)) {
+            return false;
+        }
+        String variance = CSharpVariance.library(t.fullyQualifiedName());
+        if (variance == null || variance.length() != formal.parameters().size()) return false;
+        for (int i = 0; i < formal.parameters().size(); i++) {
+            ParameterizedType a = formal.parameters().get(i);
+            boolean reference = a.wildcard() == null && a.arrays() == 0 && !a.isTypeParameter() && a.typeInfo() != null
+                                && !a.isPrimitiveExcludingVoid() && !CSharpTypeName.valueReference(a);
+            boolean ok = switch (variance.charAt(i)) {
+                case '-' -> reference;
+                case '+' -> a.isJavaLangObject();
+                default -> a.isJavaLangObject();
+            };
+            if (!ok) return false;
+        }
+        return true;
+    }
+
     /** The same type, a wildcard, a constructor's type parameter or Object alike: C#'s object each. */
     private static boolean sameErased(ParameterizedType a, ParameterizedType b) {
         boolean objectA = a.isJavaLangObject() || a.wildcard() != null && a.wildcard().isUnbound()
@@ -1618,6 +1802,15 @@ public final class CSharpExpressionPrinter {
             if (!sameErased(a.parameters().get(i), b.parameters().get(i))) return false;
         }
         return true;
+    }
+
+    /** An expression's type as C# prints it: a raw local's is its initializer's ({@link CSharpStatementPrinter#rawFromInitializer}). */
+    private static ParameterizedType printedType(Expression e) {
+        if (unwrap(e) instanceof VariableExpression ve && ve.variable() instanceof LocalVariable lv) {
+            ParameterizedType fromInitializer = CSharpStatementPrinter.rawFromInitializer(lv);
+            if (fromInitializer != null) return fromInitializer;
+        }
+        return e.parameterizedType();
     }
 
     /** A generic type without its type arguments, {@code Function[]}. */
@@ -1713,7 +1906,9 @@ public final class CSharpExpressionPrinter {
                 ? new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(element, q)))
                         .add(SpaceEnum.ONE).add(arrayInitializer(nested, element, q))
                 : unboxedValue(x) ? unboxCast(CSharpTypeName.argument(x.parameterizedType(), q), x, q)
-                : CSharpNullability.intoElement(x, element, print(x, q))).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
+                // an element converted as a value into the element type: a wildcard interface's value cast into the
+                // generic type, new ITriFunction<A, B, C, object>[] { (ITriFunction<A, B, C, object>) leftMapping }
+                : CSharpNullability.intoElement(x, element, converted(x, element, q))).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
                 SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.defaultGuideGenerator()));
     }
 
@@ -1749,8 +1944,8 @@ public final class CSharpExpressionPrinter {
             return lambda;
         }
         return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
-                .add(text(CSharpTypeName.of(functionalType, q) + ".Lambda")).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(lambda).add(SymbolEnum.RIGHT_PARENTHESIS);
+                .add(text(CSharpNames.lambdaAdapterReference(functionalType.typeInfo(), CSharpTypeName.of(functionalType, q))))
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(lambda).add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /** A type written as a value: the raw type and its arguments ({@link #typeLiteral}). */

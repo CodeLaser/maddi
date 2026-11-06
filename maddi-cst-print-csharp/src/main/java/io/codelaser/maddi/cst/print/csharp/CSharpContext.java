@@ -69,6 +69,8 @@ final class CSharpContext {
         CSharpProgram program = CSharpProgram.NONE;
         final Map<ConstructorCall, ParameterizedType>
                 created = new IdentityHashMap<>();
+        /** The type a generic call's raw result goes into: its type arguments ({@link CSharpExpressionPrinter#converted}). */
+        final Map<MethodCall, ParameterizedType> callTargets = new IdentityHashMap<>();
         final Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new HashMap<>();
         final Deque<Scope> scopes = new ArrayDeque<>();
     }
@@ -193,6 +195,15 @@ final class CSharpContext {
 
     static ParameterizedType created(ConstructorCall cc) {
         return STATE.get().created.get(cc);
+    }
+
+    /** The type a generic call's raw result goes into ({@link CSharpExpressionPrinter#converted}). */
+    static void callTarget(MethodCall mc, ParameterizedType target) {
+        STATE.get().callTargets.put(mc, target);
+    }
+
+    static ParameterizedType callTarget(MethodCall mc) {
+        return STATE.get().callTargets.get(mc);
     }
 
     /**

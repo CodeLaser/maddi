@@ -116,6 +116,36 @@ public final class CSharpNames {
                 : typeParameters.stream().map(CSharpNames::typeParameter).collect(Collectors.joining(", ", "<", ">"));
     }
 
+    /** The type parameters as an interface or delegate declares them, with their variance: {@code <in A, out R>}. */
+    static String declaredTypeParameters(List<TypeParameter> typeParameters) {
+        return typeParameters.isEmpty() ? "" : typeParameters.stream().map(tp -> {
+            String variance = CSharpContext.program().variance(tp);
+            return (variance == null ? "" : variance + " ") + typeParameter(tp);
+        }).collect(Collectors.joining(", ", "<", ">"));
+    }
+
+    /**
+     * The lambda adapter class of a translated functional interface, its sibling: {@code MapperLambda} for
+     * {@code IMapper} (a variant interface may declare no nested class, CS8427, so none does).
+     */
+    static String lambdaAdapterName(TypeInfo typeInfo) {
+        String name = type(typeInfo);
+        boolean prefixed = name.length() > 1 && name.charAt(0) == 'I' && Character.isUpperCase(name.charAt(1))
+                           && !typeInfo.simpleName().equals(name);
+        return (prefixed ? name.substring(1) : name) + "Lambda";
+    }
+
+    /** {@code printed}, the interface as a type ({@code Outer.IMapper<A, R>}), as its lambda adapter: {@code Outer.MapperLambda<A, R>}. */
+    static String lambdaAdapterReference(TypeInfo typeInfo, String printed) {
+        int lt = printed.indexOf('<');
+        String head = lt < 0 ? printed : printed.substring(0, lt);
+        String tail = lt < 0 ? "" : printed.substring(lt);
+        String name = type(typeInfo);
+        int at = head.lastIndexOf(name);
+        if (at < 0) return head + "." + lambdaAdapterName(typeInfo) + tail;
+        return head.substring(0, at) + lambdaAdapterName(typeInfo) + head.substring(at + name.length()) + tail;
+    }
+
     /**
      * The name of a type parameter: its Java name, unless a member of its type has that name in C#, which C# does not
      * allow; then the C# convention's {@code T} prefix: {@code EmbeddingMatch<TEmbedded>} with method {@code Embedded()}.

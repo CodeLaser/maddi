@@ -342,10 +342,12 @@ implements the interface.
   anonymous class that becomes a lambda does not count). Its lambdas are plain lambdas, a call `f.apply(x)` is an
   invocation `f(x)`, and a method reference `f::apply` is `f.Invoke`. `CSharpProgram` makes that decision once,
   over all the translated types, before the files are printed. Any other functional interface stays an interface
-  and gets a nested adapter, `public sealed class Lambda(Func<Exprent, int> f) : IExprentIterator { … }`, around its
-  lambdas and method references: `new IExprentIterator.Lambda(e => 0)`. With the nullability analysis, the adapter of
+  and gets an adapter class beside it, `public sealed class ExprentIteratorLambda(Func<Exprent, int> f) :
+  IExprentIterator { … }`, around its lambdas and method references: `new ExprentIteratorLambda(e => 0)`. Beside,
+  not nested: an interface with variance (below) may declare no nested class (CS8427), so the adapter repeats the
+  interface's type parameters and constraints. With the nullability analysis, the adapter of
   an interface's own method takes its verdicts: `string? GetBytecode(string externalPath, string? internalPath)` is
-  implemented as `Lambda(Func<string, string?, string?> f)` with the same signature, not the declared one (CS8767,
+  implemented as `ProviderLambda(Func<string, string?, string?> f)` with the same signature, not the declared one (CS8767,
   CS8766). Not where the declared type is a type parameter: a `Func<.., A?, ..>` would not take a method group of
   `A`, which moves the one mismatch at the adapter to every conversion (CS8622, CS8620). A class implementing `Comparable<Node>` whose `compareTo(Node o)` is non-null (it dereferences `o`) gets
   an explicit `int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);`, since C# declares the
@@ -399,6 +401,33 @@ implements the interface.
 
 ### Generics
 
+- **Declaration-site variance (`CSharpVariance`).** Java's wildcards are use-site variance; C# declares it on the
+  interface or delegate: `IMapper<in A, out R>`, `delegate R Mapper<in A, out R>(A a)`. A program interface's type
+  parameter is `out` when its instance members only produce it (a result, the element of an `IEnumerable<T>` or
+  `T[]` result, the result of a `Func`), `in` when they only consume it (a parameter, the argument of an `Action`
+  or `Func`), and neither in both, in an invariant position (a `List<T>`, a program class's argument, a method type
+  parameter's bound), or when the interface declares a nested type (CS8427). Positions compose through the library's
+  variant types (`Function`, `Supplier`, `Consumer`, `Predicate`, `Iterable`, `Iterator`, `Stream`, `Comparator`,
+  `Comparable`, `Optional`) and through the program's own interfaces, as one fixpoint over them; a delegate's
+  parameters are `in`, its result `out`; static members do not count. The wildcard interface of a type (below) has
+  the same variance on the parameters it keeps. The variance then takes a bounded wildcard as its bound without a
+  message: `Handler<? super Dog>` is `IHandler<Dog>`, and an `ISource<Dog>` is an `ISource<Animal>` without a cast.
+  Only between reference types: C#'s variance does not convert a value type or a type parameter, which is why an
+  unbound `?` stays the wildcard interface (`IScoreDirector` for `ScoreDirector<?>`, which an
+  `IInnerScoreDirector<Solution_, Score_>` is, where an `IScoreDirector<object>` is not), a method's wildcard
+  parameter stays captured (`CSharpWildcards`), and the lambda around a delegate variable (`x0_ => m(x0_)`) stays
+  where an argument becomes `object`. The fixpoint is optimistic first (a reference through a parameter not yet
+  decided restricts nothing: `ISource<T> Filter()` keeps `out T`), then strict (a parameter nothing decides is the
+  invariant one it prints as, and so is what takes it in a parameter).
+- **Raw types into a target.** Java converts a raw type unchecked; C# has no raw type, and {@code IMapper<object,
+  object>} converts to nothing. A raw local takes its initializer's type, `Mapper[] m = Arrays.copyOf(mappings, n)`
+  of a `Mapper<A, Object>[]` (`CSharpStatementPrinter.rawFromInitializer`), after which a diamond of it takes the
+  target's arguments; a generic call whose result Java infers raw, `newInstance(Class<? extends Filter>)` into a
+  `Filter<String, Integer>`, prints its type arguments from the target, `NewInstance<IFilter<string, int>>`
+  (`CSharpContext.callTarget`, set by `converted`). A type that gets no wildcard interface says why in a
+  `NO_WILDCARD_INTERFACE` message: the member reached through the wildcard that the interface could not declare,
+  or the generic parameter the wildcard goes into; `messages.txt` of a corpus run lists them, the work list of the
+  wildcard design.
 - **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
   type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
   `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
@@ -454,7 +483,7 @@ implements the interface.
   constructor's `Function<A, P>[]` is C#'s `Func<A, object>[]`.
 - **Constant lambdas.** A raw static final field of a lambda, `private static final TriFunction TRI_PICK_FIRST =
   (a, b, c) -> a`, returned or passed as the type with arguments, `TriFunction<A, B, C, A>`, is the lambda itself,
-  `new ITriFunction<A, B, C, A>.Lambda((a, b, c) => a)`: C#'s field is of `object`, which converts to no
+  `new TriFunctionLambda<A, B, C, A>((a, b, c) => a)`: C#'s field is of `object`, which converts to no
   `ITriFunction<A, B, C, A>`. A lambda that captures nothing C# creates once per type arguments, as Java's field is
   one instance. `Function.identity()` too; not a lambda of `null`, which C# does not convert to a type parameter.
 - **Unchecked conversions.** Java's raw cast into a parameterized target, `weigh((Map) weights)` for a
@@ -768,19 +797,31 @@ from a map, a stream's collector.
   `ITupleLifecycle<ITuple>` is not. A class's wildcard interface declares its internal members too, Java's
   package-private ones, and the overrides of a library's methods; a result C# writes without arguments (`Class<A>`'s
   `Type`) is kept, and the fields the code reads through the wildcard, as properties of the field's name
-  (`Type IMoveSelectorConfig.filterClass => filterClass;`). A result that is a delegate of a removed parameter,
-  each of its parameters and its result that parameter or not mentioning it, is the delegate with the parameter
-  erased, which the bridge adapts to by a lambda: a collector's `BiFunction<ResultContainer_, A, Runnable>
-  accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return
-  (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`; a functional interface of the program with its lambda adapter
-  (`ITriFunction<ResultContainer_, A, B, Action>`) goes in as its `Lambda`. Only where it declares every member the
+  (`Type IMoveSelectorConfig.filterClass => filterClass;`), a superclass's too, as the type sees its type
+  (`that.parent` in a subclass's `equals`); a superclass's method the superclass's wildcard interface declares is
+  reached through it, which the subclass's wildcard interface extends when every class between has one. What the
+  type's own instance methods reach through a cast or a local of its own wildcard use, `(Node<?>) o` in `equals`,
+  counts for nothing: C# prints that as the type itself with its own type parameters. A result that is a delegate
+  of a removed parameter, a property's too, each of its parameters and its result that parameter or not mentioning
+  it, is the delegate with the parameter erased, which the bridge adapts to by a lambda: a collector's
+  `BiFunction<ResultContainer_, A, Runnable> accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator()
+  { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`, a nullable result's null passed
+  on (`f == null ? null : …`); a functional interface of the program with its lambda adapter
+  (`ITriFunction<ResultContainer_, A, B, Action>`) goes in as its `TriFunctionLambda`. A creation never names the
+  wildcard interface: a diamond resolved to a wildcard from its target names the bound, `new AndThen<S, object>(…)`
+  (`CSharpTypeName.created`); a default method called on a captured parameter casts to the interface with the
+  captured names, `((IColl<TS, TRC>) a).N()`. A supertype's method reached through the wildcard that no interface the wildcard
+  interface extends declares (the supertype mentions a removed parameter, or has no wildcard interface of its own)
+  the wildcard interface declares itself, as the type sees it, an override of it too: `string IShadow.Name => Name;`,
+  through the interface for a default method the class does not override, `((IVariable<S, V>) this).Ordinal()`; a
+  call through the wildcard interface needs no such cast. Only where it declares every member the
   code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
   where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
   ResultContainer_, Result_>)`, which C# could not infer from the wildcard interface), keeps the type's wildcards their
   bound, `object`. Such an interface, of no supertypes, whose instance methods each take an erased type parameter or
   none and return one, none, or a delegate the bridge adapts, has an erasure adapter (`CSharpErasures`): a static
   `IUniConstraintCollector<A, object, Result_> Erased_(IUniConstraintCollector<A, ResultContainer_, Result_>)` and a
-  private class `Erasure_` that implements the interface of `object` by calling the adapted one's members. A value
+  class beside it, `CollectorErasure_<A, ResultContainer_, Result_>`, that implements the interface of `object` by calling the adapted one's members. A value
   going where the wildcard is expected, `new AverageUniCollector<>(mapper)` returned as `UniConstraintCollector<A, ?,
   Double>`, is adapted: `IUniConstraintCollector<A, AbstractLongAverageSlot.State, double>.Erased_(new
   AverageUniCollector<A>(mapper))`, which C#'s variance would not convert. One already of `object` is itself; any other
@@ -988,8 +1029,13 @@ The translation calls the library only where it needs that behaviour, so idiomat
 
 ## The ratchet
 
-`TestJavaToCSharpFernflower`, `TestJavaToCSharpLangchain4j` and `TestJavaToCSharpTimefold` (maddi-run-openjdk,
-`slowTest`) translate the main sources of fernflower, langchain4j's core and timefold's solver. Each judges its
+`TestJavaToCSharpFernflower`, `TestJavaToCSharpLangchain4j`, `TestJavaToCSharpTimefold` and `TestJavaToCSharpNacos`
+(maddi-run-openjdk, `slowTest`) translate the main sources of fernflower, langchain4j's core, timefold's solver and
+one module of nacos (`J2CS_NACOS_MAIN`: `api/main` or `common/main`, each with a ratchet file of its own). The
+corpora differ in what they can show: timefold is a generic engine, whose wildcards bound type parameters, so it
+measures the wildcard interface and not declaration-site variance; nacos is application code whose wildcards bound
+concrete types, and whose errors are mostly types no mapping covers (guava, grpc, and the api module's own types
+when common is translated: a sibling module has no C# while one module is translated). Each judges its
 translation with `tools/csharp-check`, a small .NET tool on Roslyn that `JavaToCSharpRatchet` builds with
 `dotnet build`, so a .NET 10 SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors,
 then compiles the syntax-clean files together against the BCL and the mappings' packages. The numbers are held in

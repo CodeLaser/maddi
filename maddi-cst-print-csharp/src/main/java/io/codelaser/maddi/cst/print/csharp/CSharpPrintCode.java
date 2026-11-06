@@ -29,6 +29,13 @@ public enum CSharpPrintCode implements PrintMessage.Code {
     WILDCARD_AS_BOUND(Severity.LOSS),
     /** A raw generic type printed with {@code object} arguments: C# has no raw types. */
     RAW_TYPE(Severity.LOSS),
+    /**
+     * A type the program uses with an unbound wildcard gets no wildcard interface ({@link CSharpWildcardInterfaces}):
+     * the detail names the type and the member reached through the wildcard that the interface could not declare,
+     * or the generic parameter the wildcard goes into. Its wildcard is then {@code object}, which a type parameter
+     * argument does not convert to.
+     */
+    NO_WILDCARD_INTERFACE(Severity.LOSS),
     /** A Java instance initializer {@code { … }}: C# has none (yet: to be moved into the constructors). */
     INSTANCE_INITIALIZER(Severity.ERROR),
     /**

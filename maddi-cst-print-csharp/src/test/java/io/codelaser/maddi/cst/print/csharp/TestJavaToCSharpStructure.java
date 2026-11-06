@@ -132,7 +132,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         String cs = translate("Hierarchy", HIERARCHY);
         contains(cs, "internal interface IShape {\ndouble Area { get; }");
         contains(cs, "string Describe => \"shape\";");
-        contains(cs, "public sealed class Lambda(Func<double> f) : IShape { public double Area => f(); }");
+        contains(cs, "internal sealed class ShapeLambda(Func<double> f) : IShape { public double Area => f(); }");
         contains(cs, "internal abstract class Base : IShape {");
         contains(cs, "protected internal readonly double scale;");
         contains(cs, "public abstract double Unit { get; }");
@@ -380,7 +380,6 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     /** A line the formatter cannot fit: a type argument longer than the line splits between tokens, not in one. */
     @Test
     public void longTypeArguments() {
-        compile = false; // #185: a cast through a wildcard printed as object (CS0030)
         String cs = translate("Notifiables", LONG_TYPE_ARGUMENTS);
         contains(cs, "basicVariableListener()\n? new OrderedSetOfSomeLength<");
     }
@@ -430,7 +429,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void wildcardDelegates() {
         String cs = translate("Collectors", WILDCARD_DELEGATES);
         contains(cs, "internal static ICollector<A, List<A>> toList<A>() => new ToList<A>();");
-        contains(cs, "internal interface ICollector<A, ResultContainer_, Result_> : ICollector<A, Result_> {");
+        contains(cs, "internal interface ICollector<in A, ResultContainer_, out Result_> : ICollector<A, Result_> {");
         contains(cs, "Func<object, A, Action> Accumulator();");
         contains(cs, "Func<object> ICollector<A, Result_>.Supplier() { var f = Supplier(); return () => f(); }");
         contains(cs, "Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
@@ -500,8 +499,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     @Test
     public void erasures() {
         String cs = translate("Collectors", ERASURES);
-        contains(cs, "static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new Erasure_(erased);");
-        contains(cs, "private sealed class Erasure_ : ICollector<A, object, Result_> {");
+        contains(cs, "static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new CollectorErasure_<A, ResultContainer_, Result_>(erased);");
+        // the adapter class beside the interface, which its variance keeps it out of (CS8427)
+        contains(cs, "internal sealed class CollectorErasure_<A, ResultContainer_, Result_> : ICollector<A, object, Result_> {");
         contains(cs, "public Func<object, A, Action> Accumulator() { var f = erased.Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
         contains(cs, "=> ICollector<A, List<A>, List<A>>.Erased_(new ToList<A>());");
         contains(cs, "=> Logged(toList<A>());");
@@ -509,7 +509,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // a diamond's inferred ? extends M is its bound
         contains(cs, "=> ICollector<A, ISet<M>, int>.Erased_(\nnew Distinct<A, M>(mapper));");
         // a functional interface with its lambda adapter
-        contains(cs, "public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }");
+        contains(cs, "public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new TriFunctionLambda<object, A, B, Action>((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }");
         contains(cs, "=> IBiCollector<A, B, int[], int>.Erased_(\nnew Count<A, B>());");
     }
 
@@ -1288,9 +1288,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal static int Lengths() => Walk(s => s.Length) + Walk(Graph.One);");
         contains(cs, "internal static int Counted() => Walk((string node) => 2);");
         contains(cs, "internal static Visitor Bound(Visitor v) => v.Invoke;");
-        contains(cs, "public sealed class Lambda(Action<string> f) : IListener { public void Changed(string node) => f(node); }");
+        contains(cs, "internal sealed class ListenerLambda(Action<string> f) : IListener { public void Changed(string node) => f(node); }");
         contains(cs, "internal static void Tell(IListener l) { l.Changed(\"b\"); }");
-        contains(cs, "internal static void Quiet() { Tell(new IListener.Lambda(n => { })); }");
+        contains(cs, "internal static void Quiet() { Tell(new ListenerLambda(n => { })); }");
     }
 
     @Language("java")
@@ -1496,7 +1496,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal bool Check() => ((IResult) this).Failed();");
         contains(cs, "return (T) (object) this;");
         contains(cs, "internal static Metadata Of(string key, object value) => new Metadata();");
-        contains(cs, "public sealed class Lambda(Action<string> f) : IStartListener { public void OnEvent(string @event) => f(@event); }");
+        contains(cs, "sealed class StartListenerLambda(Action<string> f) : IStartListener { public void OnEvent(string @event) => f(@event); }");
     }
 
     @Language("java")
@@ -2184,7 +2184,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "IScore IScore.Negate() => Negate();");
         contains(cs, "bool IScore.IsZero() => IsZero();");
         // a result of the removed parameter in a collection has no companion form: History is not the companion's
-        contains(cs, "public interface IDirector<Solution_> { IScore Calculate(Solution_ solution); }");
+        contains(cs, "public interface IDirector<in Solution_> { IScore Calculate(Solution_ solution); }");
         contains(cs, "internal static bool AnyZero(List<IScore> scores)");
         contains(cs, "internal static string Describe<S>(IDirector<S> director, S solution)");
         assertFalse(cs.contains("IScore<object>"), cs);
@@ -2702,6 +2702,361 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Entry Add(T t)");
         // a subclass names the inner class it inherits by the superclass as it extends it
         contains(cs, "internal Bag<S>.Entry Again(S s)");
+    }
+
+    /**
+     * C#'s declaration-site variance: a delegate's parameters are {@code in}, its result {@code out}; an interface's
+     * type parameter is {@code out} where its members only produce it (a result, an {@code IEnumerable<T>}, a
+     * {@code Func<T>}), {@code in} where they only consume it, neither in both or in an invariant position (a
+     * {@code List<T>}). A variant interface may declare no nested class (CS8427): its lambda adapter is its sibling.
+     * Java's wildcards then say what the variance says: {@code Mapper<? extends A, ?>} is {@code Mapper<A, object>},
+     * without a message, and an {@code IMapper<string, string>} is an {@code IMapper<string, object>} without a cast.
+     */
+    @Test
+    public void variance() {
+        String cs = translate("Mapper", """
+                package a;
+                import java.util.List;
+                import java.util.function.Function;
+                import java.util.function.Consumer;
+                public interface Mapper<A, R> {
+                    R apply(A a);
+                }
+                interface Source<T> {
+                    T next();
+                    Iterable<T> all();
+                    T[] array();
+                    Function<Integer, T> at();
+                    Consumer<Consumer<T>> each();
+                    default boolean has() { return next() != null; }
+                }
+                interface Sink<T> {
+                    void add(T t);
+                    void addAll(List<T> ts);
+                    void give(Consumer<T> c);
+                }
+                interface Box<T> {
+                    T get();
+                    void set(T t);
+                }
+                interface Handler<E> {
+                    void handle(E e);
+                    default Handler<E> twice() { return e -> { handle(e); handle(e); }; }
+                }
+                class Animal { }
+                class Dog extends Animal { }
+                class Use {
+                    static Object first(Mapper<? extends String, ?> m, Source<? extends Animal> s, Handler<? super Dog> h) {
+                        h.handle(new Dog());
+                        return m;
+                    }
+                    static Object second(Mapper<String, String> m, Source<Dog> s, Handler<Animal> h) {
+                        return first(m, s, h);
+                    }
+                    static Handler<String> make() { return new Handler<String>() { public void handle(String s) { } }; }
+                }
+                """);
+        contains(cs, "public delegate R Mapper<in A, out R>(A a);");
+        contains(cs, "interface ISource<out T>");
+        contains(cs, "interface ISink<T>"); // addAll(List<T>): invariant
+        contains(cs, "interface IBox<T>");
+        contains(cs, "interface IHandler<in E>");
+        // the lambda adapter beside its interface, a class an in E interface may not nest
+        contains(cs, "sealed class HandlerLambda<E>(Action<E> f) : IHandler<E> { public void Handle(E e) => f(e); }");
+        contains(cs, "IHandler<E> Twice() => new HandlerLambda<E>(e => {");
+        assertFalse(cs.contains(".Lambda"), cs);
+        // the wildcards the variance covers print as their bound, without a message
+        // a method's wildcard parameter is still captured (an argument that is a type parameter has no variance
+        // conversion); a ? super of an in parameter is its bound
+        contains(cs, "static object First<T>(Mapper<string, object> m, ISource<T> s, IHandler<Dog> h) where T : Animal");
+        // C#'s variance converts between reference types without a cast or an adapter
+        contains(cs, "static object Second(Mapper<string, string> m, ISource<Dog> s, IHandler<Animal> h) => First(");
+        assertFalse(cs.contains("(ISource<Animal>)") || cs.contains("(IHandler<Dog>)"), cs);
+        assertFalse(cs.contains("WILDCARD_AS_BOUND"), cs);
+    }
+
+    /**
+     * The variance analysis's fixpoint: an interface whose type parameter is decided by nothing (a cycle of
+     * references, {@code Move<S>} and {@code View<S>} mentioning only each other) is invariant, and so is what
+     * mentions it in a parameter ({@code Ctx<S>}: CS1961 otherwise); an invariant position stays one through any
+     * argument ({@code List<Move<S>>}). An interface with a nested type declares no variance (CS8427), and its
+     * lambda adapter beside it names the nested types from the primary type.
+     */
+    @Test
+    public void varianceFixpoint() {
+        String cs = translate("Ctx", """
+                package a;
+                import java.util.List;
+                interface Ctx<S> {
+                    S get();
+                    void exec(Move<S> m);
+                }
+                interface Move<S> {
+                    void run(View<S> v);
+                    default void twice(View<S> v) { run(v); run(v); }
+                }
+                interface View<S> {
+                    Move<S> next();
+                    default Move<S> again() { return next(); }
+                }
+                interface Listing<S> {
+                    List<Move<S>> moves(S s);
+                    default int count(S s) { return moves(s).size(); }
+                }
+                interface Factory {
+                    interface Input { }
+                    interface Template { }
+                    Template create(Input in);
+                    default Template twice(Input in) { create(in); return create(in); }
+                }
+                class Use {
+                    static Factory make() { return in -> null; }
+                }
+                """);
+        contains(cs, "internal interface ICtx<S> {");
+        contains(cs, "internal interface IMove<S> {");
+        contains(cs, "internal interface IView<S> {");
+        contains(cs, "internal interface IListing<S> {");
+        assertFalse(cs.contains("<out ") || cs.contains("<in "), cs);
+        contains(cs, "internal sealed class FactoryLambda(Func<IFactory.IInput, IFactory.ITemplate> f) : IFactory { public IFactory.ITemplate Create(IFactory.IInput @in) => f(@in); }");
+    }
+
+    /**
+     * Java's unchecked conversions of a raw type, which C# has not: a raw local takes its initializer's type
+     * ({@code Mapper[] m = Arrays.copyOf(mappers, n)} of a {@code Mapper<A, Object>[]}), after which a diamond of it
+     * takes the target's arguments; a type-token call of a raw class ({@code newInstance(Class<? extends Filter>)})
+     * takes its type argument from the target the result goes into.
+     */
+    @Test
+    public void rawIntoTarget() {
+        String cs = translate("Joiners", """
+                package a;
+                import java.util.Arrays;
+                import java.util.function.Function;
+                class Joiners<A, B> {
+                    interface Mapper<X, R> { R map(X x); default R twice(X x) { return map(x); } }
+                    private final Mapper<A, Object>[] leftMappings;
+                    private final Function<B, Object>[] rightMappings;
+                    private final Mapper<A, Object>[] single;
+                    @SuppressWarnings("unchecked")
+                    Joiners(Mapper<A, ?>[] leftMappings, Function<B, ?>[] rightMappings, Mapper<A, ?> first) {
+                        this.leftMappings = (Mapper<A, Object>[]) leftMappings;
+                        this.rightMappings = (Function<B, Object>[]) rightMappings;
+                        this.single = new Mapper[] { first };
+                    }
+                    @SuppressWarnings("unchecked")
+                    Joiners<A, B> and(Joiners<A, B> other) {
+                        Mapper[] newLeftMappings = Arrays.copyOf(leftMappings, leftMappings.length + 1);
+                        Function[] newRightMappings = Arrays.copyOf(rightMappings, rightMappings.length + 1);
+                        newLeftMappings[leftMappings.length] = other.leftMappings[0];
+                        newRightMappings[rightMappings.length] = other.rightMappings[0];
+                        return new Joiners<>(newLeftMappings, newRightMappings, leftMappings[0]);
+                    }
+                }
+                class Sentinels<B> {
+                    interface Tuple<T> { T value(); default int size() { return 1; } }
+                    static final class Pair<T> implements Tuple<T> { public T value() { return null; } }
+                    @SuppressWarnings("rawtypes")
+                    private static final Tuple EMPTY = () -> null;
+                    @SuppressWarnings("rawtypes")
+                    private static final Pair NONE = new Pair();
+                    @SuppressWarnings("unchecked")
+                    Tuple<B> next = EMPTY;
+                    @SuppressWarnings("unchecked")
+                    Pair<B> none() { return NONE; }
+                }
+                class Sorters {
+                    interface Sorter<X> { void sort(java.util.List<X> xs); default int n() { return 0; } }
+                    static final class BySorter<X> implements Sorter<X> {
+                        BySorter(java.util.Comparator<X> c) { }
+                        public void sort(java.util.List<X> xs) { }
+                    }
+                    @SuppressWarnings({"rawtypes", "unchecked"})
+                    static Sorter<String> sorter(java.util.Comparator raw) { Sorter<String> s; s = new BySorter<>(raw); return s; }
+                }
+                class Descriptors<Solution_> {
+                    static class Genuine<S> { boolean list() { return false; } }
+                    static final class ListVariable<S> extends Genuine<S> { }
+                    final Genuine<Solution_> only = null;
+                    int build(ListVariable<?> v) { return 1; }
+                    int size() { return only.list() ? build((ListVariable<?>) only) : 0; }
+                    // a wildcard passed where a generic method declares the type: no wildcard interface for it
+                    static <T> int take(ListVariable<T> v) { return 0; }
+                    static int pass(ListVariable<?> w) { return take(w); }
+                }
+                class Plugins {
+                    interface Filter<S, T> { boolean accept(S s, T t); default boolean reject(S s, T t) { return !accept(s, t); } }
+                    static <T> T newInstance(Class<T> type) { return null; }
+                    @SuppressWarnings("unchecked")
+                    static Filter<String, Integer> filter(Class<? extends Filter> filterClass) {
+                        Filter<String, Integer> filter = newInstance(filterClass);
+                        return filter;
+                    }
+                    @SuppressWarnings("unchecked")
+                    static Filter<String, Integer> direct(Class<? extends Filter> filterClass) { return newInstance(filterClass); }
+                }
+                """);
+        // a wildcard interface's value into an array of the generic type: cast, as Java's unchecked array creation
+        contains(cs, "this.single = new IMapper<A, object>[] { (IMapper<A, object>) first };");
+        contains(cs, "IMapper<A, object>[] newLeftMappings = JavaArrays.CopyOf(leftMappings, leftMappings.Length + 1);");
+        contains(cs, "Func<B, object>[] newRightMappings = JavaArrays.CopyOf(rightMappings, rightMappings.Length + 1);");
+        contains(cs, "return new Joiners<A, B>(newLeftMappings, newRightMappings, leftMappings[0]);");
+        contains(cs, "IFilter<string, int> filter = NewInstance<IFilter<string, int>>(filterClass);");
+        // a cast to a wildcard type keeps the operand's arguments
+        contains(cs, "Build((ListVariable<Solution_>) only)");
+        contains(cs, "internal int Build<TS>(ListVariable<TS> v) => 1;");
+        // a diamond of a raw library delegate takes the target's arguments where the delegate's variance converts it
+        contains(cs, "s = new BySorter<string>(raw);");
+        // a raw sentinel into the generic type: cast, a class's through object
+        contains(cs, "internal ITuple<B> next = (ITuple<B>) Sentinels.EMPTY;");
+        contains(cs, "internal Pair<B> None() => (Pair<B>) (object) Sentinels.NONE;");
+        contains(cs, "=> NewInstance<IFilter<string, int>>(filterClass);");
+    }
+
+    /**
+     * What counts against a type's wildcard interface: a member the interface cannot declare, reached through the
+     * wildcard. Not a read through the type's own wildcard use in its own instance method ({@code that.parent} in
+     * {@code equals}, after {@code (Map<?, ?>) o}, which C# prints as the type itself), nor through a captured
+     * parameter. A superclass's field read through the subclass's wildcard is a property of the wildcard interface,
+     * as the subclass sees its type; a superclass's method is the superclass's wildcard interface's, which the
+     * subclass's extends.
+     */
+    @Test
+    public void wildcardInterfaceReach() {
+        String cs = translate("Streams", """
+                package a;
+                import java.util.Objects;
+                class Streams {
+                    static abstract class Base<S> {
+                        protected final Base<S> parent;
+                        Base(Base<S> parent) { this.parent = parent; }
+                        int depth() { return parent == null ? 0 : 1 + parent.depth(); }
+                        abstract int arity();
+                    }
+                    static final class Map<S, A> extends Base<S> {
+                        final int n;
+                        Map(Base<S> parent, int n) { super(parent); this.n = n; }
+                        int arity() { return n; }
+                        int same(Map<?, ?> other) { return other.n; }
+                        @Override public boolean equals(Object o) {
+                            if (!(o instanceof Map<?, ?> that)) return false;
+                            return Objects.equals(parent, that.parent) && n == that.n;
+                        }
+                        @Override public int hashCode() { return Objects.hash(parent, n); }
+                    }
+                    static final class Holder {
+                        final Map<?, ?> any;
+                        Holder(Map<?, ?> any) { this.any = any; }
+                        int depth() { return any.depth(); }
+                        Base<?> up() { return any.parent; }
+                    }
+                }
+                """);
+        contains(cs, "internal interface IBase {");
+        contains(cs, "internal interface IMap : IBase {");
+        contains(cs, "IBase parent { get; }");
+        contains(cs, "IBase IMap.parent => parent;");
+        contains(cs, "internal int Depth() => any.Depth();");
+        contains(cs, "internal IBase Up() => any.parent;");
+        // a wildcard parameter of a type with a wildcard interface is that interface, not captured
+        contains(cs, "internal int Same(IMap other) => other.Arity;");
+        contains(cs, "o is not Map<S, A> that");
+        assertFalse(cs.contains("<object"), cs);
+    }
+
+    /**
+     * Three more things about a wildcard interface: a property of an erased delegate type is bridged by the lambda
+     * adapter, as a method's is ({@code Func<A, B, bool>} is no {@code Func<object, object, bool>}); a creation
+     * never names the wildcard interface, a diamond resolved to a wildcard from its target names the bound
+     * ({@code new AndThen<S, object>(…)}, CS0144 otherwise); and a superclass's member counts for a subclass's wildcard
+     * interface only when every class between has one to extend, else the subclass gets none.
+     */
+    @Test
+    public void wildcardInterfaceBridges() {
+        String cs = translate("Collectors", """
+                package a;
+                import java.util.function.BiPredicate;
+                import java.util.function.Function;
+                class Collectors {
+                    static final class Filtered<A, B> {
+                        private final BiPredicate<A, B> filter;
+                        Filtered(BiPredicate<A, B> filter) { this.filter = filter; }
+                        BiPredicate<A, B> getFilter() { return filter; }
+                    }
+                    static final class Holder {
+                        final Filtered<?, ?> f;
+                        Holder(Filtered<?, ?> f) { this.f = f; }
+                        boolean any() { return f.getFilter() != null; }
+                    }
+                    interface Coll<S, RC> { RC start(S s); default int n() { return 0; } }
+                    static final class AndThen<S, RC> implements Coll<S, RC> {
+                        AndThen(Coll<S, RC> delegate, Function<RC, RC> f) { }
+                        public RC start(S s) { return null; }
+                    }
+                    static <S, RC> Coll<S, ?> andThen(Coll<S, RC> delegate, Function<RC, RC> f) { return new AndThen<>(delegate, f); }
+                    static Coll<String, ?> empty() { return new AndThen<>(null, null); }
+                    static int arity(AndThen<?, ?> a) { return a.n(); }
+                    static class Top<S> { String name() { return "t"; } }
+                    static class Mid<S> extends Top<S> { }
+                    static final class Leaf<S> extends Mid<S> { }
+                    static final class Pair {
+                        final Top<?> top;
+                        final Leaf<?> leaf;
+                        Pair(Top<?> top, Leaf<?> leaf) { this.top = top; this.leaf = leaf; }
+                        String names() { return top.name() + leaf.name(); }
+                    }
+                }
+                """);
+        contains(cs, "Func<object, object, bool> IFiltered.Filter { get { var f = Filter; return (x0_, x1_) => f((A) x0_, (B) x1_); } }");
+        contains(cs, "=> new AndThen<S, RC>(@delegate, f);");
+        contains(cs, "new AndThen<string, object>(null, null)");
+        // a default method called on a captured parameter: the interface with the receiver's arguments
+        contains(cs, "internal static int Arity<TS, TRC>(AndThen<TS, TRC> a) => ((IColl<TS, TRC>) a).N();");
+        contains(cs, "internal interface ITop { internal string Name(); }");
+        // Leaf's wildcard interface declares Top's name() itself, Mid having none to extend
+        contains(cs, "internal interface ILeaf { internal string Name(); }");
+        contains(cs, "internal readonly ILeaf leaf;");
+        contains(cs, "internal string Names() => top.Name() + leaf.Name();");
+    }
+
+    /**
+     * A supertype's method reached through a wildcard, which the wildcard interface cannot inherit (the supertype
+     * mentions the removed parameter, or has no wildcard interface of its own): declared by t's wildcard interface
+     * itself, as t sees it, the bridge calling t's own, through the interface for a default method a class does not
+     * override.
+     */
+    private static final String INHERITED_MODELS = """
+                package a;
+                import java.util.List;
+                class Models {
+                    interface Variable<S, V> {
+                        String name();
+                        List<V> values(S s);
+                        default int ordinal() { return 0; }
+                    }
+                    static class Base<S> {
+                        String label() { return "b"; }
+                        List<S> all() { return null; }
+                    }
+                    static final class Shadow<S, V> extends Base<S> implements Variable<S, V> {
+                        public String name() { return "s"; }
+                        public List<V> values(S s) { return null; }
+                    }
+                    static final class Holder {
+                        final Shadow<?, ?> shadow;
+                        Holder(Shadow<?, ?> shadow) { this.shadow = shadow; }
+                        String describe() { return shadow.name() + shadow.ordinal() + shadow.label(); }
+                    }
+                }
+                """;
+
+    @Test
+    public void wildcardInterfaceInherited() {
+        String cs = translate("Models", INHERITED_MODELS);
+        contains(cs, "internal readonly IShadow shadow;");
+        contains(cs, "string IShadow.Name => Name;");
+        contains(cs, "int IShadow.Ordinal() => ((IVariable<S, V>) this).Ordinal();");
+        contains(cs, "string IShadow.Label() => Label();");
     }
 
     /**

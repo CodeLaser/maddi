@@ -33,10 +33,8 @@ public sealed class Lifecycles {
         return n;
     }
 
-    public interface IActivitySupport {
-        bool IsActive();
-        public sealed class Lambda(Func<bool> f) : IActivitySupport { public bool IsActive() => f(); }
-    }
+    public interface IActivitySupport { bool IsActive(); }
+    public sealed class ActivitySupportLambda(Func<bool> f) : IActivitySupport { public bool IsActive() => f(); }
     public abstract class Base { }
     public class Box<T> : IBox {
         public T Get { get; }
@@ -71,11 +69,9 @@ public sealed class Lifecycles {
         object First();
     }
 
-    public interface IImpacter<G> : IImpacter where G : IGrade<G> {
-        List<G> Impacts();
-        public sealed class Lambda(Func<List<G>> f) : IImpacter<G> { public List<G> Impacts() => f(); }
-    }
+    public interface IImpacter<G> : IImpacter where G : IGrade<G> { List<G> Impacts(); }
     public interface IImpacter { public static IImpacter None() => null; }
+    public sealed class ImpacterLambda<G>(Func<List<G>> f) : IImpacter<G> where G : IGrade<G> { public List<G> Impacts() => f(); }
     public sealed class Key<T> where T : ITuple { internal readonly string name = "k"; }
     public sealed class Named : Box<string> {
         internal Named() : base("n") { }
@@ -105,12 +101,10 @@ public sealed class Lifecycles {
     }
     public interface IScored { internal IImpacter Narrowed(IImpacter raw); }
 
-    public interface ITuple {
-        int Size();
-        public sealed class Lambda(Func<int> f) : ITuple { public int Size() => f(); }
-    }
+    public interface ITuple { int Size(); }
+    public sealed class TupleLambda(Func<int> f) : ITuple { public int Size() => f(); }
 
-    public interface ITupleLifecycle<Tuple_> : IActivitySupport, ITupleLifecycle where Tuple_ : ITuple {
+    public interface ITupleLifecycle<in Tuple_> : IActivitySupport, ITupleLifecycle where Tuple_ : ITuple {
         void Insert(Tuple_ tuple);
         void AfterAllFactsInserted(bool canProduce);
         void ITupleLifecycle.AfterAllFactsInserted(bool canProduce) => AfterAllFactsInserted(canProduce);

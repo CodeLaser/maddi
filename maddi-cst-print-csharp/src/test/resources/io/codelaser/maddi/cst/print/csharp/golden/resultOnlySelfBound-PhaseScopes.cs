@@ -16,13 +16,13 @@ public sealed class PhaseScopes {
         return best.Raw;
     }
     internal interface IAcceptor { }
-    public interface IDirector<Solution_, Score_> : IDirector<Solution_> where Score_ : IScore<Score_> {
+    public interface IDirector<in Solution_, out Score_> : IDirector<Solution_> where Score_ : IScore<Score_> {
         Score_ Calculate(Solution_ solution);
         void Reset();
         IScore IDirector<Solution_>.Calculate(Solution_ solution) => Calculate(solution);
         void IDirector<Solution_>.Reset() => Reset();
     }
-    public interface IDirector<Solution_> {
+    public interface IDirector<in Solution_> {
         IScore Calculate(Solution_ solution);
         void Reset();
     }
@@ -45,10 +45,10 @@ public sealed class PhaseScopes {
 
     public interface IScore<Score_> : IScore where Score_ : IScore<Score_> {
         bool IsZero();
-        public sealed class Lambda(Func<bool> f) : IScore<Score_> { public bool IsZero() => f(); }
         bool IScore.IsZero() => IsZero();
     }
     public interface IScore { bool IsZero(); }
+    public sealed class ScoreLambda<Score_>(Func<bool> f) : IScore<Score_> where Score_ : IScore<Score_> { public bool IsZero() => f(); }
     public sealed record SimpleScore(int Value) : IScore<SimpleScore> { public bool IsZero() => Value == 0; }
     internal sealed class SolverScope<Solution_> {
         private IInner best;

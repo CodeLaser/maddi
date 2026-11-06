@@ -392,10 +392,10 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         });
         String cs = translate("Adapters", ADAPTERS);
         contains(cs, "string? Get(string external, string? @internal);");
-        contains(cs, "public sealed class Lambda(Func<string, string?, string?> f) : IProvider { public string? "
+        contains(cs, "sealed class ProviderLambda(Func<string, string?, string?> f) : IProvider { public string? "
                      + "Get(string external, string? @internal) => f(external, @internal); }");
         // a type parameter's verdict stays out of the adapter: Func<A?, int> would not take a method group of A
-        contains(cs, "public sealed class Lambda(Func<A, int> f) : IMapper<A> { public int Map(A any) => f(any); }");
+        contains(cs, "sealed class MapperLambda<A>(Func<A, int> f) : IMapper<A> { public int Map(A any) => f(any); }");
         contains(cs, "public int CompareTo(Node o) => string.CompareOrdinal(name, o.name);");
         contains(cs, "int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);");
     }
@@ -796,7 +796,69 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
             }
         });
         String cs = translate("Collectors", ERASED_NULLS);
-        contains(cs, "new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_!, x1_, x2_)!)");
+        contains(cs, "new TriFunctionLambda<object, A, B, Action>((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_!, x1_, x2_)!)");
+    }
+
+    /** A bridge of an erased delegate passes the own member's null on, {@code f == null ? null : …}, not dereferenced (CS8602). */
+    @Test
+    public void nullableDelegateBridge() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return "mapping".equals(method.name()) ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+        });
+        String cs = translate("Joiners", """
+                package a;
+                import java.util.function.Function;
+                class Joiners {
+                    static final class Joiner<A> {
+                        private final Function<A, Object> mapping;
+                        Joiner(Function<A, Object> mapping) { this.mapping = mapping; }
+                        Function<A, Object> mapping() { return mapping; }
+                        Function<A, Object> mapping(int i) { return i == 0 ? mapping : null; }
+                    }
+                    static final class Holder {
+                        final Joiner<?> j;
+                        Holder(Joiner<?> j) { this.j = j; }
+                        Object use() { return j.mapping(0) == null ? j.mapping() : null; }
+                    }
+                }
+                """);
+        contains(cs, "Func<object, object>? IJoiner.Mapping() { var f = Mapping(); return f == null ? null : x0_ => f((A) x0_!); }");
+        contains(cs, "Func<object, object>? IJoiner.Mapping(int i) { var f = Mapping(i); return f == null ? null : x0_ => f((A) x0_!); }");
+    }
+
+    /** A cast through object of a value that may be null goes through object? (CS8600). */
+    @Test
+    public void nullableCastThroughObject() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return "mapping".equals(method.name()) ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+        });
+        String cs = translate("Casts", """
+                package a;
+                import java.util.function.Function;
+                class Casts {
+                    interface Listener<S, T> { boolean on(S s); }
+                    static Listener<?, ?> mapping() { return null; }
+                    @SuppressWarnings("unchecked")
+                    static <S> Listener<S, Object> typed() { return (Listener<S, Object>) mapping(); }
+                }
+                """);
+        contains(cs, "(Listener<S, object>?) (object?) Mapping()");
     }
 
     @Language("java")
