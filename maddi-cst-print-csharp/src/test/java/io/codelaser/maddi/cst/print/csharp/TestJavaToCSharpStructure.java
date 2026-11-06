@@ -790,14 +790,13 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     /** Java's var of a conditional is its branches' common supertype; C#'s var needs one of them: declared. */
     @Test
     public void conditionalVars() {
-        compile = false; // #185: a conditional whose common type C# cannot write (a wildcard, an intersection) stays var (CS0173)
         String cs = translate("Nodes", CONDITIONAL_VARS);
         contains(cs, "Node<A> node = joiners ? new Indexed<A>() : new Unindexed<A>();");
         contains(cs, "object beanClass = bean == null ? \"null\" : bean.GetType();");
         contains(cs, "var n = b ? new Indexed<string>() : new Indexed<string>();");
-        // not when C# cannot write Java's common type: with a wildcard, or an intersection of the program's types
-        contains(cs, "var node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, string>();");
-        contains(cs, "var model = genuine ? new Genuine() : new Shadow();");
+        // a common type with a wildcard is its wildcard interface; an intersection the member whose methods the code calls
+        contains(cs, "IExists<A> node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, string>();");
+        contains(cs, "INamed model = genuine ? new Genuine() : new Shadow();");
     }
 
     @Language("java")
@@ -2183,8 +2182,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // the bridges: every IScore<S> is an IScore
         contains(cs, "IScore IScore.Negate() => Negate();");
         contains(cs, "bool IScore.IsZero() => IsZero();");
-        // a result of the removed parameter in a collection has no companion form: History is not the companion's
-        contains(cs, "public interface IDirector<in Solution_> { IScore Calculate(Solution_ solution); }");
+        // a result of the removed parameter in a JDK collection is C#'s non-generic interface of it, cast by the bridge
+        contains(cs, "IList IDirector<Solution_>.History() => (IList) History();");
         contains(cs, "internal static bool AnyZero(List<IScore> scores)");
         contains(cs, "internal static string Describe<S>(IDirector<S> director, S solution)");
         assertFalse(cs.contains("IScore<object>"), cs);
@@ -2345,7 +2344,6 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
      */
     @Test
     public void wildcardInterfaces() {
-        compile = false; // #185: a self-bounded wildcard interface declares no member mentioning the parameter (CS1061)
         String cs = translate("Lifecycles", LIFECYCLES);
         contains(cs, "public interface ITupleLifecycle : IActivitySupport {");
         // its statics, the companion's, which has the wildcard interface's name: one interface
@@ -2359,7 +2357,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal static IBox Any(bool b)");
         // a self-bounded interface with a companion keeps both, as before the companion became the wildcard interface
         // the companion is the wildcard interface, of a self-bounded interface too (two IImpacter are CS0102)
-        contains(cs, "public interface IImpacter { public static IImpacter None() => null; }");
+        contains(cs, "public static IImpacter None() => null;");
+        // a List<G> of the removed G is C#'s non-generic IList, which a List<G> is: impacter.impacts().size()
+        contains(cs, "IList IImpacter.Impacts() => (IList) Impacts();");
+        contains(cs, "impacter.Impacts().Count");
         // the wildcard interface where its class's superclass is expected: a cast
         contains(cs, "Based((Base) n)");
         // a result of the wildcarded parameter is its bound, a parameter's keeps the member out

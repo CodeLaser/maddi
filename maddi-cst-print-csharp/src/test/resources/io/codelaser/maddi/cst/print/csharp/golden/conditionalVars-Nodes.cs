@@ -17,15 +17,21 @@ public sealed class Nodes {
     }
 
     internal static int exists<A, B>(bool joiners) {
-        var node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, string>();
+        IExists<A> node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, string>();
         return node.Size;
     }
 
     internal static string MetaModel(bool genuine) {
-        var model = genuine ? new Genuine() : new Shadow();
+        INamed model = genuine ? new Genuine() : new Shadow();
         return model.Name;
     }
-    internal abstract class Exists<T, R> { internal abstract int Size { get; } }
+
+    internal abstract class Exists<T, R> : IExists<T> {
+        internal abstract int Size { get; }
+        int IExists<T>.Size => Size;
+    }
+    internal interface IExists<T> { internal int Size { get; } }
+
     internal sealed class Genuine : INamed, ISized {
         public string Name => "g";
         public int Size => 1;

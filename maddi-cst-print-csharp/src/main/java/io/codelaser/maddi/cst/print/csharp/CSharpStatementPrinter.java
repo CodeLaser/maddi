@@ -18,6 +18,10 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import java.util.ArrayList;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import java.util.Map;
+import java.util.Deque;
+import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -235,6 +239,7 @@ public final class CSharpStatementPrinter {
         OutputBuilder b = new OutputBuilderImpl();
         ParameterizedType stored = lvc.otherLocalVariables().isEmpty() ? storedArrayType(lv) : null;
         if (stored == null && lvc.otherLocalVariables().isEmpty()) stored = rawFromInitializer(lv);
+        if (stored == null) stored = conditionalType(lvc);
         ParameterizedType type = stored != null ? stored : lv.parameterizedType();
         b.add(text(implicitlyTyped(lvc) ? "var" : local(type, q))).add(SpaceEnum.ONE);
         return b.add(lvc.localVariableStream().map(v -> {
@@ -355,6 +360,99 @@ public final class CSharpStatementPrinter {
         return types.stream().noneMatch(t -> t.typeInfo() != null && CSharpNames.translated(t.typeInfo()));
     }
 
+    /**
+     * A var of a conditional whose branches' common type C# cannot write as Java has it, declared as C# can: a wildcard
+     * use as its wildcard interface, {@code IExists<A> node = joiners ? … : …} for an {@code Exists<A, ?>}; an
+     * intersection, {@code Named & Sized}, as the one of its types that declares every member the code calls on the
+     * variable. Null otherwise, and when the common type is writable as it is.
+     */
+    static ParameterizedType conditionalType(LocalVariableCreation lvc) {
+        if (!lvc.isVar() || !lvc.otherLocalVariables().isEmpty()) return null;
+        LocalVariable lv = lvc.localVariable();
+        Expression init = lv.assignmentExpression();
+        if (init == null || init.isEmpty() || !branchesDiffer(init)) return null;
+        ParameterizedType type = lv.parameterizedType();
+        if (type == null || writableCommonType(type, init)) return null;
+        if (wildcardOnlyWhereRemoved(type)) return type;
+        return intersectionMember(lv, init);
+    }
+
+    /** A var whose conditional's common type is a wildcard use ({@link #conditionalType}): the analysis counts it. */
+    static boolean conditionalWildcard(LocalVariableCreation lvc) {
+        if (!lvc.isVar() || !lvc.otherLocalVariables().isEmpty()) return false;
+        LocalVariable lv = lvc.localVariable();
+        Expression init = lv.assignmentExpression();
+        ParameterizedType type = lv.parameterizedType();
+        return init != null && !init.isEmpty() && type != null && containsWildcard(type) && branchesDiffer(init);
+    }
+
+    /** {@code Exists<A, ?>}: the wildcards are where the wildcard interface removed the type parameters, unbound. */
+    private static boolean wildcardOnlyWhereRemoved(ParameterizedType type) {
+        TypeInfo t = type.typeInfo();
+        if (t == null || type.arrays() != 0 || !CSharpWildcardInterfaces.isWildcardUse(type)
+            || type.parameters().size() != t.typeParameters().size()) {
+            return false;
+        }
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> removed = CSharpWildcardInterfaces.removed(t);
+        for (int i = 0; i < type.parameters().size(); i++) {
+            ParameterizedType a = type.parameters().get(i);
+            if (a.wildcard() != null) {
+                if (!removed.contains(t.typeParameters().get(i))) return false;
+            } else if (containsWildcard(a)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The branches' common supertype, of the program, that declares every method the enclosing method calls on
+     * {@code lv}, which is used only so; the most specific such, first by the first branch's supertypes, breadth
+     * first. Null when there is none.
+     */
+    private static ParameterizedType intersectionMember(LocalVariable lv, Expression init) {
+        Set<ParameterizedType> branches = new HashSet<>();
+        collectBranchTypes(CSharpExpressionPrinter.unwrap(init), branches);
+        List<ParameterizedType> types = new ArrayList<>(branches);
+        if (types.isEmpty() || types.stream().anyMatch(t -> t.typeInfo() == null || t.arrays() != 0)) return null;
+        MethodInfo method = CSharpContext.currentMethod();
+        if (method == null || method.methodBody() == null) return null;
+        List<TypeInfo> called = new ArrayList<>();
+        boolean[] otherUse = {false};
+        method.methodBody().visit((Element e) -> {
+            if (e instanceof MethodCall mc && mc.object() != null
+                && CSharpExpressionPrinter.unwrap(mc.object()) instanceof VariableExpression ve && lv.equals(ve.variable())) {
+                called.add(mc.methodInfo().typeInfo());
+                mc.parameterExpressions().forEach(a -> a.visit((Element x) -> {
+                    if (x instanceof VariableExpression v && lv.equals(v.variable())) otherUse[0] = true;
+                    return true;
+                }));
+                return false;
+            }
+            if (e instanceof VariableExpression ve && lv.equals(ve.variable())) otherUse[0] = true;
+            return true;
+        });
+        if (otherUse[0] || called.isEmpty()) return null;
+        List<ParameterizedType> candidates = new ArrayList<>();
+        Deque<ParameterizedType> todo = new ArrayDeque<>();
+        Set<TypeInfo> seen = new HashSet<>();
+        todo.add(types.getFirst());
+        while (!todo.isEmpty()) {
+            ParameterizedType pt = todo.poll();
+            TypeInfo t = pt.typeInfo();
+            if (t == null || !seen.add(t) || pt.isJavaLangObject()) continue;
+            if (CSharpNames.translated(t) && types.stream().allMatch(b -> pt.equals(CstSupertypes.asSeen(b, t)))) candidates.add(pt);
+            Map<io.codelaser.maddi.cst.api.info.TypeParameter, ParameterizedType> map = CstSupertypes.typeArguments(pt);
+            if (t.parentClass() != null) todo.add(CstSupertypes.substitute(t.parentClass(), map));
+            t.interfacesImplemented().forEach(i -> todo.add(CstSupertypes.substitute(i, map)));
+        }
+        for (ParameterizedType c : candidates) {
+            TypeInfo t = c.typeInfo();
+            if (called.stream().allMatch(owner -> owner.equals(t) || CstSupertypes.asSeen(t, owner) != null)) return c;
+        }
+        return null;
+    }
+
     private static boolean containsWildcard(ParameterizedType t) {
         return t.wildcard() != null || t.parameters().stream().anyMatch(CSharpStatementPrinter::containsWildcard);
     }
@@ -386,7 +484,8 @@ public final class CSharpStatementPrinter {
         // var needs one branch to convert to the other (CS0173): declared, the conditional is target-typed
         if (lvc.isVar()) {
             return !CSharpTypeName.valueReference(lv.parameterizedType())
-                   && !(branchesDiffer(init) && writableCommonType(lv.parameterizedType(), init));
+                   && !(branchesDiffer(init) && writableCommonType(lv.parameterizedType(), init))
+                   && conditionalType(lvc) == null;
         }
         // Map.Entry<K, V> e = map.floorEntry(k): a JavaEntry, null when there is none; a KeyValuePair cannot be
         if (CSharpExpressionPrinter.unwrap(init) instanceof MethodCall mc && CSharpBcl.navigationEntry(mc.methodInfo())) {

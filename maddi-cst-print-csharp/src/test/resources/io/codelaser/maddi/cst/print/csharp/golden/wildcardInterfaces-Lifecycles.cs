@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 namespace Org.Example.Lifecycleses;
@@ -69,8 +70,14 @@ public sealed class Lifecycles {
         object First();
     }
 
-    public interface IImpacter<G> : IImpacter where G : IGrade<G> { List<G> Impacts(); }
-    public interface IImpacter { public static IImpacter None() => null; }
+    public interface IImpacter<G> : IImpacter where G : IGrade<G> {
+        List<G> Impacts();
+        IList IImpacter.Impacts() => (IList) Impacts();
+    }
+    public interface IImpacter {
+        IList Impacts();
+        public static IImpacter None() => null;
+    }
     public sealed class ImpacterLambda<G>(Func<List<G>> f) : IImpacter<G> where G : IGrade<G> { public List<G> Impacts() => f(); }
     public sealed class Key<T> where T : ITuple { internal readonly string name = "k"; }
     public sealed class Named : Box<string> {

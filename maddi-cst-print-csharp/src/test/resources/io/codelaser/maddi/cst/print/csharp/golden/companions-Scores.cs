@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 namespace Org.Example.Scoreses;
 public sealed class Scores {
@@ -13,8 +14,12 @@ public sealed class Scores {
         Score_ Calculate(Solution_ solution);
         List<Score_> History();
         IScore IDirector<Solution_>.Calculate(Solution_ solution) => Calculate(solution);
+        IList IDirector<Solution_>.History() => (IList) History();
     }
-    public interface IDirector<in Solution_> { IScore Calculate(Solution_ solution); }
+    public interface IDirector<in Solution_> {
+        IScore Calculate(Solution_ solution);
+        IList History();
+    }
 
     public sealed record Inner<Score_>(Score_ Raw, int Unassigned)
         : IComparable<Inner<Score_>>, IInner where Score_ : IScore<Score_> {
