@@ -2,7 +2,7 @@
 {"format": "maddi-analysis-results", "version": 1},
 
 {"name": "Tio.vavr.concurrent.Future", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
- {"name": "FDEFAULT_EXECUTOR(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":1}},
+ {"name": "FDEFAULT_EXECUTOR(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1}},
  {"name": "M<clinit>(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MandThen(1,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Paction(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
