@@ -267,6 +267,10 @@ final class CSharpOpeners {
             if (t.parentClass() != null) todo.add(CstSupertypes.substitute(t.parentClass(), map));
             t.interfacesImplemented().forEach(s -> todo.add(CstSupertypes.substitute(s, map)));
         }
+        // the one whose wildcard interface hides the fewest other arguments, breadth first: AndThen's
+        // Collector<A, R, X> rather than AndThen's own wildcard interface, which hides all four
+        ParameterizedType best = null;
+        int fewest = Integer.MAX_VALUE;
         for (ParameterizedType pt : order) {
             TypeInfo t = pt.typeInfo();
             if (!CstQueries.mentionsAny(pt, boundList) || !CSharpWildcardInterfaces.has(t)
@@ -275,13 +279,19 @@ final class CSharpOpeners {
             }
             List<TypeParameter> removed = CSharpWildcardInterfaces.removed(t);
             boolean fits = true;
+            int hiddenOthers = 0;
             for (int i = 0; i < pt.parameters().size() && fits; i++) {
-                ParameterizedType a = pt.parameters().get(i);
-                fits = removed.contains(t.typeParameters().get(i))
-                        || !CstQueries.mentionsAny(a, boundList);
+                boolean mentions = CstQueries.mentionsAny(pt.parameters().get(i), boundList);
+                boolean hidden = removed.contains(t.typeParameters().get(i));
+                fits = hidden || !mentions;
+                if (hidden && !mentions) hiddenOthers++;
             }
-            if (fits) return CstSupertypes.substitute(pt, arguments);
+            if (fits && hiddenOthers < fewest) {
+                best = pt;
+                fewest = hiddenOthers;
+            }
         }
+        if (best != null) return CstSupertypes.substitute(best, arguments);
         for (ParameterizedType pt : order) {
             if (!CstQueries.mentionsAny(pt, boundList) && !pt.isJavaLangObject() && CSharpNames.translated(pt.typeInfo())) {
                 return CstSupertypes.substitute(pt, arguments);

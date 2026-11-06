@@ -3084,6 +3084,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                         public void accumulate(R r, A a) { delegate.accumulate(r, a); }
                         public X finish(R r) { return f.apply(delegate.finish(r)); }
                     }
+                    static AndThen<?, ?, ?, ?> last;
                     static <A, I, X> Collector<A, ?, X> andThen(Collector<A, ?, I> delegate, Function<I, X> f) {
                         return new AndThen<>(delegate, f);
                     }
@@ -3107,6 +3108,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "TOpen_ Open_<TOpen_>(ICollectorOpener_<A, I, TOpen_> o);");
         contains(cs, "With<R>(this)");
         contains(cs, "variable.Open_(new HolderChangeOpener_<S>())");
+        // AndThen's own wildcard interface hides all four: Open_ returns the Collector's, which keeps A and X
+        contains(cs, "internal static IAndThen last;");
+        contains(cs, ": Collectors.ICollectorOpener_<A, I, Collectors.ICollector<A, X>>");
     }
 
     /**

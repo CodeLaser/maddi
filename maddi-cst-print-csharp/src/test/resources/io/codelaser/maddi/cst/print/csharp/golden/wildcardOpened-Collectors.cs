@@ -1,10 +1,11 @@
 using System;
 namespace A;
 internal sealed class Collectors {
+    internal static IAndThen last;
     internal static ICollector<A, X> andThen<A, I, X>(ICollector<A, I> @delegate, Func<I, X> f) => @delegate.Open_(
         new CollectorsAndThenOpener_<A, I, X>(f));
 
-    internal sealed class AndThen<A, R, I, X> : ICollector<A, R, X> {
+    internal sealed class AndThen<A, R, I, X> : ICollector<A, R, X>, IAndThen {
         private readonly ICollector<A, R, I> @delegate;
         private readonly Func<I, X> f;
         internal AndThen(ICollector<A, R, I> @delegate, Func<I, X> f) {
@@ -15,6 +16,7 @@ internal sealed class Collectors {
         public void Accumulate(R r, A a) { @delegate.Accumulate(r, a); }
         public X Finish(R r) => f(@delegate.Finish(r));
     }
+    internal interface IAndThen { }
 
     internal sealed class Change<S, E, V> : IProvider<S> {
         private readonly IVariable<S, E, V> variable;
