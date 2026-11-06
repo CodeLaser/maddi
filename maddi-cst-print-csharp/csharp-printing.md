@@ -428,6 +428,10 @@ implements the interface.
   `NO_WILDCARD_INTERFACE` message: the member reached through the wildcard that the interface could not declare,
   or the generic parameter the wildcard goes into (with the method called and its caller); `messages.txt` of a corpus
   run lists them, the work list of the wildcard design.
+- **Collections of a removed type parameter.** A wildcard interface's member whose result (or field, or record
+  component) is a JDK collection of a removed type parameter, `List<G> impacts()` of a self-bounded `G`, is C#'s
+  non-generic interface of it, `IList Impacts()`, which every `List<T>` is; the bridge casts, an `IList<G>` being no
+  `IList`. `Map` is `IDictionary`, `Iterable` `IEnumerable`, `Collection` and `Set` `ICollection`.
 - **Opening a wildcard into a generic creation.** `new AndThen<>(delegate, f)` of a `Collector<A, ?, I> delegate`:
   Java names the `?` and creates an `AndThen<A, CAP#1, I, X>`, C# infers nothing from the wildcard interface. The
   object names it (`CSharpOpeners`): the wildcard interface declares `TOpen_ Open_<TOpen_>(ICollectorOpener_<A, I,
@@ -592,8 +596,10 @@ differences:
 - **Local variables.** A local is declared `var` when Java says `var`, or when its initializer constructs exactly the
   declared type. Otherwise it keeps its type. Java's `var` of a conditional whose branches differ is their common
   supertype, which C#'s `var` does not infer (CS0173): it is declared, `Node<A> node = c ? new Indexed<A>() : new
-  Unindexed<A>()`, and C# types the conditional from it; not when C# cannot write that type, with a wildcard or as
-  `object` for an intersection of the program's types.
+  Unindexed<A>()`, and C# types the conditional from it. A common type with a wildcard is its wildcard interface,
+  `IExists<A> node = …` for an `Exists<A, ?>` (the wildcard analysis counts such a var); an intersection of the
+  program's types, `Named & Sized`, is the one of them that declares every method the code calls on the variable,
+  `INamed model = …`; otherwise the local stays `var`.
 - **Type tests.** `instanceof` becomes `is`, `x instanceof T t` becomes `x is T t`, and `!(x instanceof T)` becomes
   `x is not T`. A record pattern of the program's record is a property pattern, in a type test and in a `case` alike:
   `o instanceof Line(Point(var x1, var y1), Point to)` becomes `o is Line { From: Point { X: var x1, Y: var y1 }, To:
