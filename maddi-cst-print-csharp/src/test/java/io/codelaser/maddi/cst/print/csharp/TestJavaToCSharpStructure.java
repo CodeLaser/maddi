@@ -3113,6 +3113,49 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, ": Collectors.ICollectorOpener_<A, I, Collectors.ICollector<A, X>>");
     }
 
+    @Test
+    public void wildcardOpenedProbe() {
+        String cs = translate("Probe", """
+                package a;
+                import java.util.Objects;
+                import java.util.function.BiFunction;
+                import java.util.function.Function;
+                import java.util.function.Supplier;
+                class Probe {
+                    interface Collector<A, R, X> {
+                        Supplier<R> supplier();
+                        BiFunction<R, A, Runnable> accumulator();
+                        Function<R, X> finisher();
+                    }
+                    static final class AndThen<A, R, I, X> implements Collector<A, R, X> {
+                        private final Collector<A, R, I> delegate;
+                        private final Function<I, X> mapping;
+                        AndThen(Collector<A, R, I> delegate, Function<I, X> mapping) {
+                            this.delegate = Objects.requireNonNull(delegate);
+                            this.mapping = Objects.requireNonNull(mapping);
+                        }
+                        public Supplier<R> supplier() { return delegate.supplier(); }
+                        public BiFunction<R, A, Runnable> accumulator() { return delegate.accumulator(); }
+                        public Function<R, X> finisher() {
+                            var finisher = delegate.finisher();
+                            return container -> mapping.apply(finisher.apply(container));
+                        }
+                        @Override public boolean equals(Object o) {
+                            if (o instanceof AndThen<?, ?, ?, ?> other) {
+                                return Objects.equals(delegate, other.delegate) && Objects.equals(mapping, other.mapping);
+                            }
+                            return false;
+                        }
+                        @Override public int hashCode() { return Objects.hash(delegate, mapping); }
+                    }
+                    static <A, I, X> Collector<A, ?, X> andThen(Collector<A, ?, I> delegate, Function<I, X> mapping) {
+                        return new AndThen<>(delegate, mapping);
+                    }
+                }
+                """);
+        System.err.println(cs);
+    }
+
     /**
      * A case label with several patterns (JEP 456), {@code case String _, Integer _ ->}: C#'s {@code or} pattern,
      * {@code string or int}, in a switch statement and in a switch expression. Translating only the first pattern
