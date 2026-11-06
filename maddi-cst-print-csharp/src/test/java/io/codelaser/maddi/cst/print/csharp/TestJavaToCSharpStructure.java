@@ -2305,6 +2305,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static int impacts(Impacter<?> impacter) { return impacter.impacts().size(); }
                 public record Overrides<G extends Grade<G>>(java.util.Map<String, G> weights) { }
                 static int weights(Overrides<?> overrides) { return overrides.weights().size(); }
+                public interface Graded<G extends Grade<G>> { java.util.Set<G> grades(); int rank(); }
+                static boolean graded(Graded<?> graded) { return graded.grades() != null; }
                 public abstract static class Base { }
                 public static final class Node2<T> extends Base { public int size() { return 0; } }
                 static Node2<?> node() { return new Node2<String>(); }
@@ -2364,6 +2366,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "IList IImpacter.Impacts() => (IList) Impacts();");
         contains(cs, "impacter.Impacts().Count");
         contains(cs, "IDictionary IOverrides.Weights => (IDictionary) Weights;");
+        // a set is only IEnumerable: a HashSet<T> is no ICollection
+        contains(cs, "IEnumerable IGraded.Grades() => (IEnumerable) Grades();");
         // the wildcard interface where its class's superclass is expected: a cast
         contains(cs, "Based((Base) n)");
         // a result of the wildcarded parameter is its bound, a parameter's keeps the member out

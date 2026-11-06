@@ -431,7 +431,8 @@ implements the interface.
 - **Collections of a removed type parameter.** A wildcard interface's member whose result (or field, or record
   component) is a JDK collection of a removed type parameter, `List<G> impacts()` of a self-bounded `G`, is C#'s
   non-generic interface of it, `IList Impacts()`, which every `List<T>` is; the bridge casts, an `IList<G>` being no
-  `IList`. `Map` is `IDictionary`, `Iterable` `IEnumerable`, `Collection` and `Set` `ICollection`.
+  `IList`. `Map` is `IDictionary`; `Iterable`, `Collection` and `Set` are `IEnumerable` (a `HashSet<T>` is no
+  `ICollection`, the cast would fail when it runs).
 - **Opening a wildcard into a generic creation.** `new AndThen<>(delegate, f)` of a `Collector<A, ?, I> delegate`:
   Java names the `?` and creates an `AndThen<A, CAP#1, I, X>`, C# infers nothing from the wildcard interface. The
   object names it (`CSharpOpeners`): the wildcard interface declares `TOpen_ Open_<TOpen_>(ICollectorOpener_<A, I,

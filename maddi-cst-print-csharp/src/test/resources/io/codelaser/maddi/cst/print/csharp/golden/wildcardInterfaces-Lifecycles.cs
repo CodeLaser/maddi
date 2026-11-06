@@ -16,6 +16,7 @@ public sealed class Lifecycles {
     internal static IBox Any(bool b) => b ? new Box<string>("s") : new Box<int>(1);
     internal static int Impacts(IImpacter impacter) => impacter.Impacts().Count;
     internal static int Weights(IOverrides overrides) => overrides.Weights.Count;
+    internal static bool Graded(IGraded graded) => graded.Grades() != null;
     internal static INode2 node() => new Node2<string>();
     internal static int Based(Base @base) => 1;
     internal static int Nodes() {
@@ -59,6 +60,17 @@ public sealed class Lifecycles {
 
     public interface IGrade<G> : IGrade where G : IGrade<G> { }
     public interface IGrade { }
+
+    public interface IGraded<G> : IGraded where G : IGrade<G> {
+        ISet<G> Grades();
+        int Rank();
+        IEnumerable IGraded.Grades() => (IEnumerable) Grades();
+        int IGraded.Rank() => Rank();
+    }
+    public interface IGraded {
+        IEnumerable Grades();
+        int Rank();
+    }
 
     public sealed class Holder<T> : IHolder {
         internal readonly object[] items = { };

@@ -658,7 +658,7 @@ final class CSharpWildcardInterfaces {
         // Class<A>: C#'s Type, which has no arguments
         if (t != null && !CSharpNames.translated(t) && CSharpTypeName.dropsArguments(t)) return CSharpTypeName.of(pt, q);
         // List<G> of a removed G: C#'s non-generic IList, which every List<T> is (the bridge casts, nonGenericBridge)
-        if (nonGenericErasure(pt, removed)) return CSharpTypeName.nonGeneric(t);
+        if (nonGenericErasure(pt, removed)) return nonGenericName(t);
         if (t == null || !has(t)) return null;
         List<TypeParameter> own = removed(t);
         List<String> printed = new ArrayList<>();
@@ -679,6 +679,15 @@ final class CSharpWildcardInterfaces {
         TypeInfo t = pt.typeInfo();
         return t != null && pt.arrays() == 0 && !CSharpNames.translated(t) && CSharpTypeName.nonGeneric(t) != null
                && !"java.lang.Comparable".equals(t.fullyQualifiedName()) && CstQueries.mentionsAny(pt, removed);
+    }
+
+    /**
+     * The non-generic interface: a set or a collection, which may be a HashSet, is only an {@code IEnumerable} (a
+     * {@code HashSet<T>} is no {@code ICollection}, the cast would fail when it runs).
+     */
+    private static String nonGenericName(TypeInfo t) {
+        String nonGeneric = CSharpTypeName.nonGeneric(t);
+        return "ICollection".equals(nonGeneric) ? "IEnumerable" : nonGeneric;
     }
 
     /** The bridge's value of such a member: cast, an {@code IList<G>} is no {@code IList}. */
