@@ -109,7 +109,19 @@ final class CSharpWildcards {
         return true;
     }
 
+    /**
+     * The method has an overload of the same arity: in the type that declares what it overrides, whose decision an
+     * override follows (an abstract class's private {@code groupBy(keyA, keyB)} must not make its
+     * {@code groupBy(key, collector)} capture where the interface's prints the wildcard interface, CS0535).
+     */
     private static boolean overloaded(MethodInfo method) {
+        List<MethodInfo> overridden = method.overrides().stream()
+                .filter(o -> o != method && CSharpNames.translated(o.typeInfo())).toList();
+        if (!overridden.isEmpty()) return overridden.stream().anyMatch(CSharpWildcards::overloadedInOwnType);
+        return overloadedInOwnType(method);
+    }
+
+    private static boolean overloadedInOwnType(MethodInfo method) {
         return method.typeInfo().methods().stream().anyMatch(m -> m != method && m.name().equals(method.name())
                                                                    && m.parameters().size() == method.parameters().size());
     }

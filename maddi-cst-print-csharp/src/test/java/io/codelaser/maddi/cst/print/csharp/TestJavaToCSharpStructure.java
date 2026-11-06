@@ -3113,47 +3113,37 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, ": Collectors.ICollectorOpener_<A, I, Collectors.ICollector<A, X>>");
     }
 
+    /**
+     * An override prints a wildcard parameter as the method it overrides does: the class's own overload of the same
+     * arity, a private {@code groupBy(keyA, keyB)}, does not make it capture where the interface's prints the wildcard
+     * interface (CS0535).
+     */
     @Test
-    public void wildcardOpenedProbe() {
-        String cs = translate("Probe", """
+    public void wildcardOverloadInClass() {
+        String cs = translate("Streams", """
                 package a;
-                import java.util.Objects;
-                import java.util.function.BiFunction;
-                import java.util.function.Function;
-                import java.util.function.Supplier;
-                class Probe {
-                    interface Collector<A, R, X> {
-                        Supplier<R> supplier();
-                        BiFunction<R, A, Runnable> accumulator();
-                        Function<R, X> finisher();
+                class Streams {
+                    interface Collector<A, R, X> { X finish(); int size(); }
+                    interface Mapper<A, K> { K map(A a); int arity(); }
+                    interface Stream<A> {
+                        <K, X> int groupBy(Mapper<A, K> key, Collector<A, ?, X> collector);
                     }
-                    static final class AndThen<A, R, I, X> implements Collector<A, R, X> {
-                        private final Collector<A, R, I> delegate;
-                        private final Function<I, X> mapping;
-                        AndThen(Collector<A, R, I> delegate, Function<I, X> mapping) {
-                            this.delegate = Objects.requireNonNull(delegate);
-                            this.mapping = Objects.requireNonNull(mapping);
-                        }
-                        public Supplier<R> supplier() { return delegate.supplier(); }
-                        public BiFunction<R, A, Runnable> accumulator() { return delegate.accumulator(); }
-                        public Function<R, X> finisher() {
-                            var finisher = delegate.finisher();
-                            return container -> mapping.apply(finisher.apply(container));
-                        }
-                        @Override public boolean equals(Object o) {
-                            if (o instanceof AndThen<?, ?, ?, ?> other) {
-                                return Objects.equals(delegate, other.delegate) && Objects.equals(mapping, other.mapping);
-                            }
-                            return false;
-                        }
-                        @Override public int hashCode() { return Objects.hash(delegate, mapping); }
+                    static final class Holder<A> {
+                        Collector<A, ?, String> any;
+                        String done() { return any.finish(); }
                     }
-                    static <A, I, X> Collector<A, ?, X> andThen(Collector<A, ?, I> delegate, Function<I, X> mapping) {
-                        return new AndThen<>(delegate, mapping);
+                    static abstract class Base<A> implements Stream<A> {
+                        @Override
+                        public <K, X> int groupBy(Mapper<A, K> key, Collector<A, ?, X> collector) {
+                            collector.finish();
+                            return 1;
+                        }
+                        private <K1, K2> int groupBy(Mapper<A, K1> keyA, Mapper<A, K2> keyB) { return 2; }
                     }
                 }
                 """);
-        System.err.println(cs);
+        contains(cs, "int GroupBy<K, X>(IMapper<A, K> key, ICollector<A, X> collector);");
+        contains(cs, "public int GroupBy<K, X>(IMapper<A, K> key, ICollector<A, X> collector) {");
     }
 
     /**

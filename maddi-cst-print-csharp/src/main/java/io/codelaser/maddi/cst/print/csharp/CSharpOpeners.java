@@ -271,7 +271,6 @@ final class CSharpOpeners {
         // Collector<A, R, X> rather than AndThen's own wildcard interface, which hides all four
         ParameterizedType best = null;
         int fewest = Integer.MAX_VALUE;
-        if (created.simpleName().startsWith("AndThenUni")) System.err.println("OPENER-DEBUG order " + order + " bound " + boundList);
         for (ParameterizedType pt : order) {
             TypeInfo t = pt.typeInfo();
             if (!CstQueries.mentionsAny(pt, boundList) || !CSharpWildcardInterfaces.has(t)
@@ -286,10 +285,6 @@ final class CSharpOpeners {
                 boolean hidden = removed.contains(t.typeParameters().get(i));
                 fits = hidden || !mentions;
                 if (hidden && !mentions) hiddenOthers++;
-            }
-            if (created.simpleName().startsWith("AndThenUni")) {
-                System.err.println("OPENER-DEBUG " + created.simpleName() + " candidate " + pt + " fits " + fits + " hidden " + hiddenOthers
-                                   + " removed " + removed + " bound " + boundList + " mentions " + pt.parameters().stream().map(a -> CstQueries.mentionsAny(a, boundList)).toList());
             }
             if (fits && hiddenOthers < fewest) {
                 best = pt;
