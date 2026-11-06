@@ -878,7 +878,8 @@ final class CSharpWildcardInterfaces {
                 boolean assertNotNull = program.facts().nullabilityAnalysed() && CstQueries.mentionsAny(f.type(), removed)
                                         && !type.endsWith("?");
                 members.add(new Member(type + " " + property + " { get; }",
-                        type + " " + self + "." + property + " => " + property + (assertNotNull ? "!" : "") + ";"));
+                        type + " " + self + "." + property + " => "
+                        + nonGenericBridge(f.type(), removed, type, property + (assertNotNull ? "!" : "")) + ";"));
             }
         }
         for (FieldInfo f : readFields(t, removed)) {
