@@ -27,7 +27,9 @@ import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.StringConstant;
+import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -629,6 +631,27 @@ final class RustJdk {
     }
 
     /** A collection's iterator; a map's {@code keys()}, {@code values()} and {@code iter()} are iterators already. */
+    /**
+     * Whether the function a forEach or ifPresent hands the elements to changes them: a lambda one of whose parameters
+     * the verdicts take exclusively, or an unbound method reference to a {@code &mut self} method ({@code H::touch}).
+     * The elements are then iterated mutably (CodeLaser/maddi-mod#99 gives the receiver that verdict).
+     */
+    static boolean changesElement(Expression function, RustBodyPrinter printer) {
+        RustFacts facts = printer.context().facts;
+        if (function instanceof Lambda lambda) {
+            return lambda.methodInfo().parameters().stream()
+                           .anyMatch(p -> !RustTypes.isCopy(p.parameterizedType())
+                                          && facts.passing(p) == RustFacts.Passing.EXCLUSIVE)
+                   || printer.changesArgument(lambda);
+        }
+        if (function instanceof MethodReference mr && mr.scope() instanceof TypeExpression) {
+            MethodInfo target = mr.methodInfo();
+            return !target.isStatic() && !target.isConstructor() && !target.typeInfo().compilationUnit().externalLibrary()
+                   && facts.receiver(target) == RustFacts.Receiver.EXCLUSIVE;
+        }
+        return false;
+    }
+
     static String iter(String o) {
         return isIterator(o) ? o : o + ".iter()";
     }
@@ -711,7 +734,8 @@ final class RustJdk {
                 printer.context().message(RustPrintCode.SUBLIST_COPY, mc, null);
                 yield value(o + "[" + printer.index(args.get(0)) + ".." + printer.index(args.get(1)) + "].to_vec()");
             }
-            case "forEach/1" -> value(iter(o) + ".for_each(" + printer.text(args.getFirst()) + ")");
+            case "forEach/1" -> value((changesElement(args.getFirst(), printer) && !isIterator(o) ? o + ".iter_mut()" : iter(o))
+                                      + ".for_each(" + printer.text(args.getFirst()) + ")");
             case "removeIf/1" -> value(o + ".retain(|x| !" + printer.applied(args.getFirst(), List.of("x")) + ")");
             case "indexOf/1" -> value(o + ".iter().position(|e| e == " + printer.reference(args.getFirst())
                                       + ").map(|i| i as i32).unwrap_or(-1)");
@@ -762,7 +786,8 @@ final class RustJdk {
                     ? value("{ let v = " + printer.text(args.get(1)) + "; " + o + ".entry(" + printer.ownedText(args.get(0))
                             + ").and_modify(|e| *e = (" + printer.text(args.get(2)) + ")(*e, v)).or_insert(v); }")
                     : null;
-            case "forEach/1" -> value(o + ".iter().for_each(" + printer.tupleLambda(args.getFirst()) + ")");
+            case "forEach/1" -> value(o + (changesElement(args.getFirst(), printer) ? ".iter_mut()" : ".iter()")
+                                      + ".for_each(" + printer.tupleLambda(args.getFirst()) + ")");
             case "values/0" -> value(o + ".values()");
             default -> null;
         };
@@ -825,7 +850,8 @@ final class RustJdk {
                 yield new Printed(r + (f.nullable() ? ".and_then(" : ".map(") + f.text() + ")", Held.VALUE, true);
             }
             case "filter/1" -> new Printed(r + ".filter(" + printer.text(args.getFirst()) + ")", Held.VALUE, true);
-            case "ifPresent/1" -> value(o + ".iter().for_each(" + printer.text(args.getFirst()) + ")");
+            case "ifPresent/1" -> value(o + (changesElement(args.getFirst(), printer) ? ".iter_mut()" : ".iter()")
+                                        + ".for_each(" + printer.text(args.getFirst()) + ")");
             default -> null;
         };
     }
