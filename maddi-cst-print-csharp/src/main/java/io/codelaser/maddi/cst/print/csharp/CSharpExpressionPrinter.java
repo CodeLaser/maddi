@@ -596,7 +596,7 @@ public final class CSharpExpressionPrinter {
                 : mc.methodInfo().isStatic() ? receiver(object, q) : CSharpNullability.dereferenced(object, q);
         List<Expression> parameterExpressions = mc.parameterExpressions();
         List<Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
-                .mapToObj(i -> (Supplier<OutputBuilder>) () -> templateArgument(mc.methodInfo(), i,
+                .mapToObj(i -> (Supplier<OutputBuilder>) () -> templateArgument(mc, i,
                         parameterExpressions.get(i), q)).toList();
         List<Supplier<OutputBuilder>> operands = mc.parameterExpressions().stream()
                 .map(a -> (Supplier<OutputBuilder>) () -> templateOperand(a, q)).toList();
@@ -1654,7 +1654,8 @@ public final class CSharpExpressionPrinter {
      * An argument of a call printed by a template: as {@link #converted}, and a collection's {@code Object} parameter, of {@code get}, {@code contains},
      * {@code remove}, is its element or key: a type argument, the value type itself in C#.
      */
-    private static OutputBuilder templateArgument(MethodInfo method, int i, Expression value, Qualification q) {
+    private static OutputBuilder templateArgument(MethodCall mc, int i, Expression value, Qualification q) {
+        MethodInfo method = mc.methodInfo();
         ParameterizedType type = parameterType(method, i);
         Expression inner = unwrap(value);
         boolean elementOrKey = type != null && type.arrays() == 0
@@ -1673,7 +1674,24 @@ public final class CSharpExpressionPrinter {
         if (type != null && type.isTypeParameter() && type.typeParameter().isMethodTypeParameter() && unboxed(inner)) {
             type = null;
         }
+        // the library type's own T as the receiver has it: reduce(NONE, …) of a Stream<DefaultBiJoiner<A, B>> and a raw NONE
+        ParameterizedType seen = asReceiverHasIt(mc, type);
+        if (seen != null && (rawIntoGeneric(inner, seen) || wildcardIntoGeneric(inner, seen))) type = seen;
         return CSharpNullability.intoParameter(value, method, i, elementOrKey, converted(value, type, q));
+    }
+
+    /** A type parameter of the called method's type, as the receiver's type has it; null when there is none. */
+    private static ParameterizedType asReceiverHasIt(MethodCall mc, ParameterizedType type) {
+        MethodInfo method = mc.methodInfo();
+        if (type == null || !type.isTypeParameter() || type.arrays() != 0 || type.typeParameter().isMethodTypeParameter()
+            || method.isStatic() || mc.object() == null || mc.object().parameterizedType() == null
+            || mc.object().parameterizedType().typeInfo() == null) {
+            return null;
+        }
+        ParameterizedType seen = CstSupertypes.asSeen(mc.object().parameterizedType(), method.typeInfo());
+        if (seen == null) return null;
+        ParameterizedType substituted = CstSupertypes.substitute(type, CstSupertypes.typeArguments(seen));
+        return substituted.isTypeParameter() || substituted.typeInfo() == null ? null : substituted;
     }
 
     /** Whether {@link #converted} changes the value. */

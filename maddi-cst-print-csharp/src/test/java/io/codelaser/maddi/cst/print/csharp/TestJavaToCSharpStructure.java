@@ -2629,6 +2629,32 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "into.InsertAll(0, items);");
     }
 
+    /**
+     * A raw sentinel as {@code reduce}'s identity: Java converts {@code NONE} to the stream's element type unchecked;
+     * C#'s {@code Aggregate} infers its seed's type from both, so the seed is cast as a raw value into the generic type
+     * is (CS0411).
+     */
+    @Test
+    public void rawSeed() {
+        String cs = translate("Joiners", """
+                package a;
+                import java.util.List;
+                final class Joiners<A, B> {
+                    @SuppressWarnings("rawtypes")
+                    private static final Joiners NONE = new Joiners();
+                    private final int size;
+                    Joiners() { this(0); }
+                    Joiners(int size) { this.size = size; }
+                    Joiners<A, B> and(Joiners<A, B> other) { return new Joiners<>(size + other.size); }
+                    @SuppressWarnings("unchecked")
+                    static <A, B> Joiners<A, B> merge(List<Joiners<A, B>> joiners) {
+                        return joiners.stream().reduce(NONE, Joiners::and);
+                    }
+                }
+                """);
+        contains(cs, "joiners.Aggregate((Joiners<A, B>) (object)");
+    }
+
     @Language("java")
     private static final String SELECTORS = """
             package org.example.selectors;
