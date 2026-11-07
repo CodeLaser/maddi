@@ -873,6 +873,13 @@ final class RustBodyPrinter {
             if (owner.typeNature().isEnum() && f.type().typeInfo() == owner) {
                 return value(prefix + "::" + RustNames.variant(f.name()));
             }
+            if (RustTypePrinter.interfaceConstant(f)) {
+                // a module-level const beside the trait
+                String name = RustTypePrinter.staticName(f);
+                String module = RustNames.module(owner.packageName());
+                if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
+                return new Printed(name, RustTypes.isString(f.type()) ? Held.STR : Held.VALUE, nullable);
+            }
             if (RustTypePrinter.mutableStaticValue(f, context) != null) {
                 // Java's static state: a static mut, touched inside the unsafe body of the method
                 String name = RustTypePrinter.staticName(f);

@@ -455,4 +455,42 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "listeners: Vec<Box<dyn RegistryListener>>,");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String INTERFACE_CONSTANTS = """
+            package a.b;
+            public class Codes {
+                public interface CodeConstants {
+                    int TYPE_INT = 1;
+                    int TYPE_LONG = 2;
+                    String NAME = "codes";
+                }
+                public static class Reader implements CodeConstants {
+                    public int width(int type) {
+                        switch (type) {
+                            case TYPE_INT: return 4;
+                            case CodeConstants.TYPE_LONG: return 8;
+                            default: return 0;
+                        }
+                    }
+                    public String name() { return NAME + TYPE_INT; }
+                }
+            }
+            """;
+
+    @DisplayName("an interface's constants are module-level consts, also as match patterns")
+    @Test
+    public void interfaceConstants() throws Exception {
+        List<TypeInfo> types = parse(INTERFACE_CONSTANTS);
+        TypeInfo reader = types.getFirst().findSubType("Reader");
+        nonModifying(reader, "width", "name");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was a 'static mut' never declared: unresolved, and in a match an undeclared name binds (E0408)
+        contains(rust, "pub const CODES_CODE_CONSTANTS_TYPE_INT: i32 = 1;");
+        contains(rust, "pub const CODES_CODE_CONSTANTS_NAME: &'static str = \"codes\";");
+        contains(rust, "CODES_CODE_CONSTANTS_TYPE_LONG => {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
