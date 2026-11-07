@@ -25,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import io.codelaser.maddi.cst.api.element.Element;
@@ -83,7 +84,7 @@ final class CSharpCallOpeners {
      * parameters; -1 when there is none. Of the program's types only: what the code reaches through the wildcard
      * ({@link CSharpWildcardInterfaces}) counts it as opened.
      */
-    static int openedArgument(MethodCall mc) {
+    static int openedArgument(MethodCall mc, Predicate<MethodInfo> erased) {
         MethodInfo m = mc.methodInfo();
         if (m == null || m.typeParameters().isEmpty() || !CSharpNames.translated(m.typeInfo())) return -1;
         List<ParameterInfo> parameters = m.parameters();
@@ -99,7 +100,7 @@ final class CSharpCallOpeners {
         }
         for (int i = 0; i < arguments.size(); i++) {
             Map<TypeParameter, TypeParameter> with = with(m, parameters.get(i).parameterizedType(),
-                    arguments.get(i).parameterizedType());
+                    arguments.get(i).parameterizedType(), erased);
             if (with != null) return i;
         }
         return -1;
@@ -110,9 +111,10 @@ final class CSharpCallOpeners {
      * formal {@code InnerScore<Score_>}, or from a bare {@code Score_} bounded by {@code Score<Score_>}. Null when it
      * names none, or when the formal mentions them elsewhere than there.
      */
-    private static Map<TypeParameter, TypeParameter> with(MethodInfo m, ParameterizedType formal, ParameterizedType actual) {
+    private static Map<TypeParameter, TypeParameter> with(MethodInfo m, ParameterizedType formal, ParameterizedType actual,
+                                                         Predicate<MethodInfo> erased) {
         if (actual == null || formal == null || actual.arrays() != 0 || formal.arrays() != 0) return null;
-        TypeInfo x = openedType(actual);
+        TypeInfo x = openedType(actual, erased);
         if (x == null || x.typeParameters().isEmpty() || !CSharpNames.translated(x)) return null;
         boolean raw = actual.isTypeParameter() || actual.parameters().isEmpty();
         if (!raw && actual.parameters().size() != x.typeParameters().size()) return null;
@@ -131,7 +133,7 @@ final class CSharpCallOpeners {
         Map<TypeParameter, TypeParameter> with = new LinkedHashMap<>();
         for (int j = 0; j < x.typeParameters().size(); j++) {
             ParameterizedType a = raw ? null : actual.parameters().get(j);
-            boolean open = raw || open(a);
+            boolean open = raw || open(a, erased);
             ParameterizedType f = shape.parameters().get(j);
             if (!open) {
                 if (a.wildcard() != null) return null;
@@ -145,7 +147,7 @@ final class CSharpCallOpeners {
         // named only where the wildcards are
         for (int j = 0; j < x.typeParameters().size(); j++) {
             ParameterizedType a = raw ? null : actual.parameters().get(j);
-            boolean open = raw || open(a);
+            boolean open = raw || open(a, erased);
             if (!open && CstQueries.mentionsAny(shape.parameters().get(j), List.copyOf(with.keySet()))) return null;
         }
         return with;
@@ -155,21 +157,22 @@ final class CSharpCallOpeners {
      * A {@code ?} or {@code ? extends B} (a {@code var} of {@code Inner<? extends Score<?>>}), or the type parameter of an
      * erased method that leaks into the call, which C# prints as one.
      */
-    private static boolean open(ParameterizedType a) {
+    private static boolean open(ParameterizedType a, Predicate<MethodInfo> erased) {
         return a.wildcard() != null && (a.wildcard().isUnbound() || a.wildcard().isExtends())
-               || a.isTypeParameter() && a.arrays() == 0 && openedType(a) != null;
+               || a.isTypeParameter() && a.arrays() == 0 && openedType(a, erased) != null;
     }
 
     /**
-     * The type an argument opens: its own, or, for the type parameter of a method C# erased that leaks into the call
+     * The type an argument opens: its own, or, for the type parameter of a method C# erased ({@code erased}) that leaks into the call
      * ({@code scope.best().raw()} of {@code <Score_ extends Score<Score_>> Inner<Score_> best()}), its bound's, raw as
      * C# prints it ({@code IScore}).
      */
-    static TypeInfo openedType(ParameterizedType actual) {
+    static TypeInfo openedType(ParameterizedType actual, Predicate<MethodInfo> erased) {
         if (!actual.isTypeParameter()) return actual.typeInfo();
         TypeParameter tp = actual.typeParameter();
         if (!tp.isMethodTypeParameter()) return null;
         MethodInfo owner = tp.getOwner().getRight();
+        if (!erased.test(owner)) return null;
         if (owner.parameters().stream().anyMatch(p -> CstQueries.mentions(p.parameterizedType(), tp))) return null;
         return tp.typeBounds().stream().filter(b -> b.typeInfo() != null && CstQueries.mentions(b, tp))
                 .map(ParameterizedType::typeInfo).findFirst().orElse(null);
@@ -223,20 +226,21 @@ final class CSharpCallOpeners {
     }
 
     private static Site site(TypeInfo owner, MethodCall mc, Set<String> names) {
-        int k = openedArgument(mc);
+        Predicate<MethodInfo> erased = CSharpContext.program()::erasedGeneric;
+        int k = openedArgument(mc, erased);
         if (k < 0) return null;
         MethodInfo m = mc.methodInfo();
         if (CSharpContext.program().erasedGeneric(m)) return null;
         ParameterizedType actual = mc.parameterExpressions().get(k).parameterizedType();
-        TypeInfo x = openedType(actual);
+        TypeInfo x = openedType(actual, erased);
         if (!CSharpWildcardInterfaces.has(x) || !CSharpOpeners.opened(x)) return null;
-        Map<TypeParameter, TypeParameter> with = with(m, m.parameters().get(k).parameterizedType(), actual);
+        Map<TypeParameter, TypeParameter> with = with(m, m.parameters().get(k).parameterizedType(), actual, erased);
         List<TypeParameter> removed = CSharpWildcardInterfaces.removed(x);
         if (!Set.copyOf(with.values()).equals(Set.copyOf(removed)) || with.size() != removed.size()) return null;
         // the other arguments of x are written
         for (int j = 0; j < x.typeParameters().size() && !actual.parameters().isEmpty(); j++) {
             ParameterizedType a = actual.parameters().get(j);
-            if (removed.contains(x.typeParameters().get(j)) != open(a) || !open(a) && a.wildcard() != null) return null;
+            if (removed.contains(x.typeParameters().get(j)) != open(a, erased) || !open(a, erased) && a.wildcard() != null) return null;
         }
         if (actual.parameters().isEmpty() && !CSharpWildcardInterfaces.remaining(x).isEmpty()) return null;
         // the receiver: the class's own (this, a superclass's), a type's static, or a value of a written type
@@ -317,10 +321,10 @@ final class CSharpCallOpeners {
     private static ParameterizedType captured(ParameterizedType pt) {
         Set<TypeParameter> all = new LinkedHashSet<>();
         collect(pt, all);
-        List<TypeParameter> leaked = all.stream().filter(tp -> openedType(tp.asParameterizedType()) != null).toList();
+        List<TypeParameter> leaked = all.stream().filter(tp -> openedType(tp.asParameterizedType(), CSharpContext.program()::erasedGeneric) != null).toList();
         if (leaked.isEmpty()) return pt;
         if (pt.isTypeParameter() && leaked.contains(pt.typeParameter())) {
-            return openedType(pt).asParameterizedType().withParameters(List.of()); // raw: the wildcard interface
+            return openedType(pt, CSharpContext.program()::erasedGeneric).asParameterizedType().withParameters(List.of()); // raw: the wildcard interface
         }
         return CSharpTypeName.erasedToWildcards(pt, leaked);
     }

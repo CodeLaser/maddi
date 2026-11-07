@@ -54,6 +54,9 @@ internal sealed class Terminations {
             best.Open_(new AssertScoreOpener_(this, "check"));
         }
         private void AssertScore<Score_>(Inner<Score_> score, object what) where Score_ : IScore<Score_> { }
+        internal void Predict<Score_>(Scope<Solution_> scope) where Score_ : IScore<Score_> {
+            this.AssertScore<Score_>((Inner<Score_>) (object) scope.Best(), "predict");
+        }
         internal IScore Doubled() => ((IScore) limit).Open_(new TwiceOpener_(this));
         private bool IsTerminated<Score_>(bool initialized, Score_ score) where Score_ : IScore<Score_> =>
             initialized &&

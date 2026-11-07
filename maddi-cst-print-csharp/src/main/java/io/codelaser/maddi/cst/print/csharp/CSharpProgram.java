@@ -301,7 +301,8 @@ public final class CSharpProgram {
         if (policy.facts().nullabilityAnalysed()) b.notNullKeys = CSharpNotNullKeys.analyze(all);
         // which wildcards are a wildcard interface: the capture of a method's parameter asks which classes are open
         CSharpContext.program(b.build());
-        b.wildcardUses = CSharpWildcardInterfaces.wildcarded(all);
+        Set<MethodInfo> erased = b.erasedGenerics;
+        b.wildcardUses = CSharpWildcardInterfaces.wildcarded(all, erased::contains);
         return b.build();
     }
 

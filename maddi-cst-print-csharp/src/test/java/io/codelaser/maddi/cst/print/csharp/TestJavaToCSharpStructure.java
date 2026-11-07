@@ -3159,6 +3159,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                         <Score_ extends Score<Score_>> double gradient(Inner<Score_> start, Score_ score) { return 0.5; }
                         void check(Scope<Solution_> scope) { var best = scope.best(); assertScore(best, "check"); }
                         private <Score_ extends Score<Score_>> void assertScore(Inner<Score_> score, Object what) { }
+                        <Score_ extends Score<Score_>> void predict(Scope<Solution_> scope) {
+                            this.<Score_>assertScore(scope.best(), "predict");
+                        }
                         Score<?> doubled() { return twice((Score) limit); }
                         private <Score_ extends Score<Score_>> boolean isTerminated(boolean initialized, Score_ score) {
                             return initialized && score.feasible();
@@ -3176,6 +3179,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "(Termination<Solution_> target_, IScore score)");
         contains(cs, "=> target_.Gradient(x, (Score_) score);");
         contains(cs, "best.Open_(new AssertScoreOpener_(this, \"check\"))");
+        // the caller's own Score_, which no parameter mentions but C# keeps: no opener
+        contains(cs, "AssertScore<Score_>(");
     }
 
     /**
