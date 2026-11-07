@@ -718,8 +718,28 @@ public final class CSharpExpressionPrinter {
             match(p.parameterizedType(), args.get(i).parameterizedType(), typeParameters, inferred);
         }
         bounds(typeParameters, inferred);
-        if (!meetBounds(typeParameters, inferred, q)) return "";
-        return typeArgumentList(typeParameters, inferred, true, q);
+        String printed = meetBounds(typeParameters, inferred, q) ? typeArgumentList(typeParameters, inferred, true, q) : "";
+        if (printed.isEmpty() && onlyInClass(method)) {
+            // <T> Class<T> resolveClass(String name): C#'s Type is not generic, any T will do: its bound
+            printed = typeParameters.stream().map(tp -> CSharpTypeName.rawArgument(tp, q))
+                    .collect(Collectors.joining(", ", "<", ">"));
+        }
+        return printed;
+    }
+
+    /** Each of the method's type parameters is unbounded and mentioned only as a {@code Class<T>}, C#'s {@code Type}. */
+    private static boolean onlyInClass(MethodInfo method) {
+        List<ParameterizedType> signature = new ArrayList<>();
+        signature.add(method.returnType());
+        method.parameters().forEach(p -> signature.add(p.parameterizedType()));
+        return method.typeParameters().stream().allMatch(tp -> tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject)
+                && signature.stream().allMatch(t -> onlyInClass(t, tp)));
+    }
+
+    private static boolean onlyInClass(ParameterizedType t, TypeParameter tp) {
+        if (t.isTypeParameter()) return !t.typeParameter().equals(tp);
+        if (t.typeInfo() != null && "java.lang.Class".equals(t.typeInfo().fullyQualifiedName())) return true;
+        return t.parameters().stream().allMatch(a -> onlyInClass(a, tp));
     }
 
     /**

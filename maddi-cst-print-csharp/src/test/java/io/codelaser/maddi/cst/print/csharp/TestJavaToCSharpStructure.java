@@ -2570,6 +2570,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 interface Score<Score_ extends Score<Score_>> { boolean zero(); int level(); }
                 static <A> String justify(java.util.function.BiFunction<A, Score<?>, String> f, A a) { return f.apply(a, null); }
                 String justified() { return justify(get(1), "a"); }
+                @SuppressWarnings("unchecked")
+                static <T> Class<T> resolve(String name, Object context) {
+                    try { return (Class<T>) Class.forName(name); } catch (ClassNotFoundException e) { return null; }
+                }
+                Class<? extends java.util.List<?>> lister(String name) { return resolve(name, this); }
                 String name() {
                     String s = get(0);
                     return Objects.requireNonNullElseGet(s, () -> {
@@ -2590,6 +2595,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "string s = Get<string>(0);");
         // a wildcard use inside, which C# writes as the wildcard interface
         contains(cs, "Justify(Get<Func<string, IScore, string>>(1), \"a\")");
+        // T only as a Class<T>, C#'s Type: any T will do
+        contains(cs, "Resolve<object>(name, this)");
         contains(cs, "s ?? ((Func<string>) (() => {");
         contains(cs, "}))();");
     }
