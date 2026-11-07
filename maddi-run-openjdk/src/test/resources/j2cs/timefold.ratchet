@@ -227,10 +227,15 @@
 # 2026-11-07, a wildcard or raw value passed into a generic method's type parameter opens itself (CSharpCallOpeners):
 # isTerminated(b, score) of a Score<?> is score.Open_(new IsTerminatedOpener_(this, b)) (CS0311 22 -> 9, CS0411
 # 68 -> 60): 1340 -> 1345 compiling files, 591 -> 570 errors.
+#
+# 2026-11-07, inference C# cannot make (mechanism 3, CS0411 60 -> 27): a self-bounded type parameter only the body
+# mentions is erased (doMove, buildTermination); a call's inferred type arguments may hold a wildcard use
+# (Func<A, IScore, …>); a Class<T>-only T gets its bound; reduce's raw seed is cast as the receiver's T; the map and
+# list helpers take Java's ? extends and get(Object): 1345 -> 1355 compiling files, 570 -> 544 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1345
+compilingFiles	1355
 unmappedJdkUses	106
-errors	570
+errors	544
