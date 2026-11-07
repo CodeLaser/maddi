@@ -2594,6 +2594,30 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "}))();");
     }
 
+    /**
+     * Java's {@code Map.get(Object)} takes a key of another type than the map's: a {@code Variable<S, E>} for a map of
+     * {@code Variable<?, ?>}, which C# prints with {@code object} arguments (no wildcard interface). The helper's
+     * overload with an {@code object} key infers the map's types from the map alone (CS0411).
+     */
+    @Test
+    public void mapGetByOtherKey() {
+        String cs = translate("Graphs", """
+                package a;
+                import java.util.HashMap;
+                import java.util.Map;
+                class Graphs {
+                    interface Variable<S, E> { String name(); E entity(S s); }
+                    private final Map<Variable<?, ?>, String> names = new HashMap<>();
+                    <S, E> String lookup(Variable<S, E> v) { return names.get(v); }
+                    <S, E> String lookupOr(Variable<S, E> v) { return names.getOrDefault(v, "none"); }
+                    // entity(S) through the wildcard: no wildcard interface, the map's key is Variable<object, object>
+                    Object first(Variable<?, ?> v) { return v.entity(null); }
+                }
+                """);
+        contains(cs, "names.Get(v)");
+        contains(cs, "names.GetOrDefault(v, \"none\")");
+    }
+
     @Language("java")
     private static final String SELECTORS = """
             package org.example.selectors;
