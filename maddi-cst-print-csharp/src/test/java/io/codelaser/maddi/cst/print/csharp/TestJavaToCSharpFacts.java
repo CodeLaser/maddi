@@ -862,6 +862,32 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     /**
+     * {@code addAll(int, …)} and {@code putAll} of a type parameter's values, which may be null, into a collection of
+     * {@code Object}: the helpers' {@code T2 : T} says nothing of null (CS8631 otherwise).
+     */
+    @Test
+    public void insertAllNullable() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Inserts", """
+                package a;
+                import java.util.List;
+                import java.util.Map;
+                class Inserts {
+                    <T> void insert(List<Object> into, List<T> items) { into.addAll(0, items); }
+                    <V> void merge(Map<String, Object> into, Map<String, V> from) { into.putAll(from); }
+                }
+                """);
+        contains(cs, "into.InsertAll(0, items);");
+        contains(cs, "into.PutAll(from);");
+        assertTrue(nullableWarnings.isEmpty(), nullableWarnings + "\n" + cs);
+    }
+
+    /**
      * A creation opened through the object ({@link CSharpOpeners}): the class's type parameter is a dictionary's key,
      * {@code where E : notnull}, so the variable's own, which the opener passes there, is not null too (CS8714 in the
      * opener otherwise).

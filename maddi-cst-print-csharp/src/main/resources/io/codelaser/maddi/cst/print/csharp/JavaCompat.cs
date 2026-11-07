@@ -151,12 +151,12 @@ public static class JavaCollections
 
     /// <summary>
     /// Map.putAll(Map&lt;? extends K, ? extends V&gt;): a map of a GenuineVariableDescriptor into one of its
-    /// VariableDescriptor; KeyValuePair is a struct, which variance does not convert.
+    /// VariableDescriptor; KeyValuePair is a struct, which variance does not convert. Java checked K2 and V2 against K and
+    /// V; a constraint would say nothing of null (CS8631 for a V2 that may be null into an object).
     /// </summary>
     public static void PutAll<K, V, K2, V2>(this IDictionary<K, V> d, IEnumerable<KeyValuePair<K2, V2>> other)
-        where K2 : K where V2 : V
     {
-        foreach (var (k, v) in other.ToList()) d[k] = v;
+        foreach (var (k, v) in other.ToList()) d[(K) (object) k!] = (V) (object?) v!;
     }
 
     public static V? PutIfAbsent<K, V>(this IDictionary<K, V> d, K key, V value)
@@ -255,10 +255,10 @@ public static class JavaCollections
     }
 
     /// <summary>List.addAll(int, Collection&lt;? extends E&gt;), of a value type too, which variance does not convert.</summary>
-    public static bool InsertAll<T, T2>(this IList<T> l, int index, IEnumerable<T2> items) where T2 : T
+    public static bool InsertAll<T, T2>(this IList<T> l, int index, IEnumerable<T2> items)
     {
         var all = items.ToList();
-        for (var i = 0; i < all.Count; i++) l.Insert(index + i, all[i]);
+        for (var i = 0; i < all.Count; i++) l.Insert(index + i, (T) (object?) all[i]!);
         return all.Count > 0;
     }
 

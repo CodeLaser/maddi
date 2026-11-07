@@ -549,6 +549,8 @@ public final class CSharpExpressionPrinter {
 
     private static boolean erasedResultCast(MethodCall mc) {
         if (!CSharpContext.program().erasedGeneric(mc.methodInfo())) return false;
+        // a result the erasure leaves as it is, buildTermination's Termination<Solution_>: nothing to cast
+        if (!CstQueries.mentionsAny(mc.methodInfo().returnType(), mc.methodInfo().typeParameters())) return false;
         ParameterizedType concrete = mc.concreteReturnType();
         // a type that mentions an enclosing erased method's type parameter is printed erased already
         List<TypeParameter> enclosing = CSharpContext.erasedTypeParameters();
