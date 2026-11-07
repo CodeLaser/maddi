@@ -601,7 +601,7 @@ public final class CSharpTypeName {
     }
 
     /** {@code InnerScore<Score_>} with {@code Score_} erased: {@code InnerScore<?>}. */
-    private static ParameterizedType erasedToWildcards(ParameterizedType pt, List<TypeParameter> erased) {
+    static ParameterizedType erasedToWildcards(ParameterizedType pt, List<TypeParameter> erased) {
         if (pt.parameters().isEmpty()) return pt;
         boolean changed = false;
         List<ParameterizedType> arguments = new ArrayList<>();

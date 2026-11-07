@@ -45,6 +45,10 @@ internal sealed class Terminations {
             ((IScore) score).Open_(new OfOpener_()).Open_(new SetBestOpener_(scope));
         }
         internal void Again(Scope<Solution_> scope) { scope.Last.Open_(new SetBestOpener2_(scope)); }
+        internal double Gradient(Scope<Solution_> scope) => scope.Best().Raw.Open_(new GradientOpener_(
+            this,
+            scope.Best()));
+        internal double Gradient<Score_>(Inner<Score_> start, Score_ score) where Score_ : IScore<Score_> => 0.5;
         internal IScore Doubled() => ((IScore) limit).Open_(new TwiceOpener_(this));
         private bool IsTerminated<Score_>(bool initialized, Score_ score) where Score_ : IScore<Score_> =>
             initialized &&
@@ -64,6 +68,10 @@ internal sealed class Terminations {
 
         private sealed class SetBestOpener2_(Scope<Solution_> target_) : IInnerOpener_<object> {
             object IInnerOpener_<object>.With<Score_>(Inner<Score_> x) { target_.SetBest(x); return this; }
+        }
+
+        private sealed class GradientOpener_(Termination<Solution_> target_, IInner start) : IScoreOpener_<double> {
+            double IScoreOpener_<double>.With<Score_>(IScore<Score_> x) => target_.Gradient((Inner<Score_>) (object) start, (Score_) x);
         }
 
         private sealed class TwiceOpener_(Termination<Solution_> target_) : IScoreOpener_<IScore> {

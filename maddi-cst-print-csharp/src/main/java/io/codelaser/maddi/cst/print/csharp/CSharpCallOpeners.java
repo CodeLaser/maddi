@@ -275,7 +275,7 @@ final class CSharpCallOpeners {
         // the calling method's type parameters, which the opener class takes
         Set<TypeParameter> mentioned = new LinkedHashSet<>();
         for (int i = 0; i < m.parameters().size(); i++) {
-            if (i != k) collect(mc.parameterExpressions().get(i).parameterizedType(), mentioned);
+            if (i != k) collect(captured(mc.parameterExpressions().get(i)), mentioned);
         }
         for (int j = 0; j < actual.parameters().size(); j++) {
             if (!removed.contains(x.typeParameters().get(j))) collect(actual.parameters().get(j), mentioned);
@@ -295,8 +295,25 @@ final class CSharpCallOpeners {
         return new Site(name, owner, mc, k, x, Map.copyOf(with), result, List.copyOf(mentioned), Map.copyOf(callee));
     }
 
+    /**
+     * The type of an argument the opener keeps: as Java has it, but with the type parameters of erased methods that leak
+     * into it ({@link #openedType}) wildcards, as C# prints them: {@code phaseScope.getStartingScore()}'s
+     * {@code InnerScore<Score_>} is {@code InnerScore<?>}.
+     */
+    private static ParameterizedType captured(Expression argument) {
+        ParameterizedType pt = argument.parameterizedType();
+        Set<TypeParameter> all = new LinkedHashSet<>();
+        collect(pt, all);
+        List<TypeParameter> leaked = all.stream().filter(tp -> openedType(tp.asParameterizedType()) != null).toList();
+        if (leaked.isEmpty()) return pt;
+        if (pt.isTypeParameter() && leaked.contains(pt.typeParameter())) {
+            return openedType(pt).asParameterizedType().withParameters(List.of()); // raw: the wildcard interface
+        }
+        return CSharpTypeName.erasedToWildcards(pt, leaked);
+    }
+
     private static void collect(ParameterizedType pt, Set<TypeParameter> into) {
-        if (pt == null) return;
+        if (pt == null || pt.wildcard() != null && pt.wildcard().isUnbound()) return;
         if (pt.isTypeParameter()) into.add(pt.typeParameter());
         pt.parameters().forEach(a -> collect(a, into));
     }
@@ -376,7 +393,7 @@ final class CSharpCallOpeners {
                     continue;
                 }
                 String name = CSharpNames.name(p.name());
-                ParameterizedType type = mc.parameterExpressions().get(i).parameterizedType();
+                ParameterizedType type = captured(mc.parameterExpressions().get(i));
                 fields.add(CSharpTypeName.declared(type, false, program.facts().nullable(p), q) + " " + name);
                 if (!CstQueries.mentionsAny(p.parameterizedType(), List.copyOf(site.with().keySet()))) {
                     passed.add(name);

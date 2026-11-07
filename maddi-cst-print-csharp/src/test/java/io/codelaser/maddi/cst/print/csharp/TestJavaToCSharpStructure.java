@@ -3155,6 +3155,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                             scope.setBest(Inner.of((Score) score));
                         }
                         void again(Scope<Solution_> scope) { scope.setBest(scope.last()); }
+                        double gradient(Scope<Solution_> scope) { return gradient(scope.best(), scope.best().raw()); }
+                        <Score_ extends Score<Score_>> double gradient(Inner<Score_> start, Score_ score) { return 0.5; }
                         Score<?> doubled() { return twice((Score) limit); }
                         private <Score_ extends Score<Score_>> boolean isTerminated(boolean initialized, Score_ score) {
                             return initialized && score.feasible();
@@ -3168,6 +3170,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "=> target_.IsTerminated(initialized, (Score_) x);");
         contains(cs, "=> target_.Twice((Score_) x);");
         contains(cs, "{ target_.SetBest(x); return this; }");
+        // the other argument's type mentions best()'s erased Score_: kept as its wildcard interface, cast to With's
+        contains(cs, "(Termination<Solution_> target_, IInner start)");
+        contains(cs, "=> target_.Gradient((Inner<Score_>) (object) start, (Score_) x);");
     }
 
     /**
