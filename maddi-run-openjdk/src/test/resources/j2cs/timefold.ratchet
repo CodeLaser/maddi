@@ -223,10 +223,14 @@
 # wildcard interface, an intersection the member whose methods the code calls (CS0173 8 -> 4); a wildcard
 # interface's member of a JDK collection of a removed type parameter is C#'s non-generic interface, List<G> as IList
 # (CS1061 62 -> 58): 1336 -> 1340 compiling files, 593 -> 591 errors.
+#
+# 2026-11-07, a wildcard or raw value passed into a generic method's type parameter opens itself (CSharpCallOpeners):
+# isTerminated(b, score) of a Score<?> is score.Open_(new IsTerminatedOpener_(this, b)) (CS0311 22 -> 9, CS0411
+# 68 -> 60): 1340 -> 1345 compiling files, 591 -> 570 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1340
+compilingFiles	1345
 unmappedJdkUses	106
-errors	591
+errors	570
