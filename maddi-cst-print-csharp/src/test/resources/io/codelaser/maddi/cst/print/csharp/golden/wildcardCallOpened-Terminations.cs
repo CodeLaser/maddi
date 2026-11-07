@@ -45,10 +45,15 @@ internal sealed class Terminations {
             ((IScore) score).Open_(new OfOpener_()).Open_(new SetBestOpener_(scope));
         }
         internal void Again(Scope<Solution_> scope) { scope.Last.Open_(new SetBestOpener2_(scope)); }
-        internal double Gradient(Scope<Solution_> scope) => scope.Best().Raw.Open_(new GradientOpener_(
+        internal double Gradient(Scope<Solution_> scope) => scope.Best().Open_(new GradientOpener_(
             this,
-            scope.Best()));
+            scope.Best().Raw));
         internal double Gradient<Score_>(Inner<Score_> start, Score_ score) where Score_ : IScore<Score_> => 0.5;
+        internal void Check(Scope<Solution_> scope) {
+            var best = scope.Best();
+            best.Open_(new AssertScoreOpener_(this, "check"));
+        }
+        private void AssertScore<Score_>(Inner<Score_> score, object what) where Score_ : IScore<Score_> { }
         internal IScore Doubled() => ((IScore) limit).Open_(new TwiceOpener_(this));
         private bool IsTerminated<Score_>(bool initialized, Score_ score) where Score_ : IScore<Score_> =>
             initialized &&
@@ -70,8 +75,12 @@ internal sealed class Terminations {
             object IInnerOpener_<object>.With<Score_>(Inner<Score_> x) { target_.SetBest(x); return this; }
         }
 
-        private sealed class GradientOpener_(Termination<Solution_> target_, IInner start) : IScoreOpener_<double> {
-            double IScoreOpener_<double>.With<Score_>(IScore<Score_> x) => target_.Gradient((Inner<Score_>) (object) start, (Score_) x);
+        private sealed class GradientOpener_(Termination<Solution_> target_, IScore score) : IInnerOpener_<double> {
+            double IInnerOpener_<double>.With<Score_>(Inner<Score_> x) => target_.Gradient(x, (Score_) score);
+        }
+
+        private sealed class AssertScoreOpener_(Termination<Solution_> target_, string what) : IInnerOpener_<object> {
+            object IInnerOpener_<object>.With<Score_>(Inner<Score_> x) { target_.AssertScore(x, what); return this; }
         }
 
         private sealed class TwiceOpener_(Termination<Solution_> target_) : IScoreOpener_<IScore> {

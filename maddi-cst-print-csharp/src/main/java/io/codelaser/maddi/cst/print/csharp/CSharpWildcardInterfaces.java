@@ -514,13 +514,9 @@ final class CSharpWildcardInterfaces {
                 if (opened >= 0) {
                     Expression arg = mc.parameterExpressions().get(opened);
                     ParameterizedType pt = arg.parameterizedType();
+                    // a raw Score, a leaked type parameter of an erased method, a wildcard: the wildcard interface
                     TypeInfo x = CSharpCallOpeners.openedType(pt);
-                    if ((pt.isTypeParameter() || pt.parameters().isEmpty()) && wildcarded.containsKey(x)) {
-                        // a raw Score: as its wildcard
-                        reached.computeIfAbsent(x, k -> new HashSet<>()).add(CSharpOpeners.OPENED);
-                    } else {
-                        through.accept(arg, CSharpOpeners.OPENED);
-                    }
+                    if (wildcarded.containsKey(x)) reached.computeIfAbsent(x, k -> new HashSet<>()).add(CSharpOpeners.OPENED);
                 }
                 passed(mc.methodInfo(), mc.parameterExpressions(), caller, through);
             }
