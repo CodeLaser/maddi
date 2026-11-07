@@ -412,4 +412,47 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(jrt, "pub struct Throwable;");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String GENERIC_METHOD = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Registry {
+                public interface Listener {
+                    void onEvent(String event);
+                    <T> T convert(T t);
+                }
+                public static class Printer implements Listener {
+                    private final List<String> seen = new ArrayList<>();
+                    public void onEvent(String event) { seen.add(event); }
+                    public <T> T convert(T t) { return t; }
+                }
+                private final List<Listener> listeners = new ArrayList<>();
+                public void add(Listener l) { listeners.add(l); }
+                public void fire(String event) { for (Listener l : listeners) l.onEvent(event); }
+            }
+            """;
+
+    @DisplayName("an interface with a generic method is still a trait object: the method is kept out of the vtable")
+    @Test
+    public void genericMethodInTrait() throws Exception {
+        List<TypeInfo> types = parse(GENERIC_METHOD);
+        TypeInfo registry = types.getFirst();
+        TypeInfo listener = registry.findSubType("Listener");
+        TypeInfo printer = registry.findSubType("Printer");
+        modifying(listener, "onEvent");
+        nonModifying(listener, "convert");
+        modifying(printer, "onEvent");
+        nonModifying(printer, "convert");
+        modifying(registry, "add", "fire");
+        kept(method(registry, "add").parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'fn convert<T>(&self, t: T) -> T;' alone: Box<dyn RegistryListener> was E0038, the struct removed
+        contains(rust, "where Self: Sized;");
+        contains(rust, "listeners: Vec<Box<dyn RegistryListener>>,");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

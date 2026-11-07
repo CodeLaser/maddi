@@ -154,6 +154,9 @@ final class RustTypePrinter {
             boolean bodyless = m.isAbstract() || body == null || body.isEmpty();
             // a declaration without a body has no bindings: no 'mut' on its parameters
             String signature = signature(m, false);
+            // a generic method has no place in a vtable: kept out of it, the trait stays dyn compatible (E0038), and
+            // only a call of the method on a Box<dyn ..> is rustc's error
+            if (!m.typeParameters().isEmpty()) signature += " where Self: Sized";
             sb.append(INDENT).append(bodyless ? signature.replaceAll("\\bmut ((r#)?\\w+): ", "$1: ") : signature);
             if (bodyless) sb.append(";\n");
             else sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
