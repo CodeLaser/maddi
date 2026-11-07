@@ -385,7 +385,10 @@ final class RustTypes {
             // a struct with borrowed fields: its lifetime, elided where a signature allows it; in its own impl, the
             // impl's, so that a static method returning one says what it borrows from
             if (context.borrows.hasLifetime(ti)) {
-                String lifetime = ti == context.type ? RustBorrows.LIFETIME : "'_";
+                // ... and so in a struct carrying the lifetime itself: its fields cannot elide it (E0106)
+                String lifetime = ti == context.type
+                                  || context.type != null && context.borrows.hasLifetime(context.type)
+                        ? RustBorrows.LIFETIME : "'_";
                 return base + "<" + Stream.concat(Stream.of(lifetime),
                         type.parameters().stream().map(p -> owned(p, context, where))).collect(Collectors.joining(", ")) + ">";
             }
