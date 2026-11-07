@@ -217,6 +217,9 @@ Analyzer issues the oracle found, each with a minimal repro:
   temporary moved out; an untranslated `todo!(...)` is returned without a `&`.
 - A place written through (the object of a modifying call, an assignment's target) is reached exclusively: a
   nullable scope is `as_mut().unwrap()`, a map's value `get_mut(k)`; the arguments and indices in it are only read.
+  A local written through, also by way of a cast or a JDK accessor on it (`vlist.get(i).put(..)`, `e.getValue().clear()`),
+  is initialised as such a place (`get_mut`, `downcast_mut`), and a for-each whose elements are modified iterates
+  mutably (`iter_mut()`, a map's `iter_mut()`/`values_mut()`), the outer loop of a nested one too.
 - A getter returning one of its object's fields (`return items;`) that some caller modifies through
   (`b.items().clear()`) gets an exclusive twin, `items_mut(&mut self) -> &mut T`, which those callers call
   (`RustGetters`). An interface's getter (`items()` that a default method's `items().add(s)` modifies through) has

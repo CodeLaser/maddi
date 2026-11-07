@@ -184,6 +184,9 @@ final class RustJdk {
             case "Vec" -> mutating && "subList".equals(name) ? null : vec(o, name, args, printer, mc);
             case "HashMap", "BTreeMap" -> mutating && "get".equals(name) && args.size() == 1
                     ? RustBodyPrinter.printed(o + ".get_mut(" + printer.reference(args.getFirst()) + ")", Held.EXCLUSIVE, true)
+                    // entries or values modified while iterated ('e.getValue().clear()'): the mutable iteration
+                    : mutating && "entrySet".equals(name) && args.isEmpty() ? value(o + ".iter_mut()")
+                    : mutating && "values".equals(name) && args.isEmpty() ? value(o + ".values_mut()")
                     : map(o, name, args, printer, mc);
             case "HashSet", "BTreeSet" -> set(o, name, args, printer);
             case "VecDeque" -> deque(o, name, args, printer);
@@ -631,7 +634,8 @@ final class RustJdk {
     }
 
     static boolean isIterator(String o) {
-        return o.endsWith(".keys()") || o.endsWith(".values()") || o.endsWith(".iter()");
+        return o.endsWith(".keys()") || o.endsWith(".values()") || o.endsWith(".iter()") || o.endsWith(".values_mut()")
+               || o.endsWith(".iter_mut()");
     }
 
     private static String paren(String text) {

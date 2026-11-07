@@ -244,11 +244,14 @@ final class RustBodyPrinter {
             String type = RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), nullable);
             return "let " + (reassigned ? "mut " : "") + name + ": " + type;
         }
+        boolean mutated = mutated(lv);
+        // a cast of an Object the local modifies: downcast_mut (cast)
+        boolean mutableCast = mutated && CstQueries.unwrap(init) instanceof Cast;
         Printed value = isClosure(init) && RustTypes.isFunctional(lv.parameterizedType())
-                ? closure(init, lv.parameterizedType()) : widen(expression(init), init, lv.parameterizedType());
+                ? closure(init, lv.parameterizedType())
+                : widen(mutableCast ? mutable(init) : expression(init), init, lv.parameterizedType());
         nullable |= value.nullable;
         nullableLocals.put(lv, nullable);
-        boolean mutated = mutated(lv);
         String text = value.text;
         Held held = value.held;
         if (reassigned && (held == Held.SHARED || held == Held.STR) && RustTypes.isString(lv.parameterizedType())
@@ -419,8 +422,8 @@ final class RustBodyPrinter {
         String pad = INDENT.repeat(depth);
         LocalVariable lv = fe.initializer().localVariable();
         String name = RustNames.snake(lv.simpleName());
-        Printed collection = expression(fe.expression());
         boolean mutated = mutated(lv);
+        Printed collection = mutated ? mutable(fe.expression()) : expression(fe.expression());
         String iterator;
         if (RustJdk.isIterator(collection.text)) {
             iterator = collection.text;
@@ -1222,8 +1225,11 @@ final class RustBodyPrinter {
             // a Box<dyn Any>: downcast, a panic where Java throws
             context.message(RustPrintCode.DOWNCAST, c, to.fullyQualifiedName());
             String target = RustTypes.owned(to, context, c);
-            String text = inner.text + (inner.nullable ? ".unwrap()" : "") + ".downcast_ref::<" + target + ">().unwrap()";
-            return RustTypes.isCopy(to) ? value("*" + text) : new Printed(text, Held.SHARED, false);
+            boolean exclusive = mutatingPlace && !RustTypes.isCopy(to);
+            String text = inner.text + (inner.nullable ? (exclusive ? ".as_mut().unwrap()" : ".unwrap()") : "")
+                          + (exclusive ? ".downcast_mut::<" : ".downcast_ref::<") + target + ">().unwrap()";
+            return RustTypes.isCopy(to) ? value("*" + text)
+                    : new Printed(text, exclusive ? Held.EXCLUSIVE : Held.SHARED, false);
         }
         if (to.isPrimitiveExcludingVoid() && to.arrays() == 0) {
             if (to.typeInfo().isChar()) {
@@ -2051,6 +2057,10 @@ final class RustBodyPrinter {
                                                           && rootedIn(other.assignmentExpression(), lv)
                                                           && mutated(other))
                         .findFirst().ifPresent(other -> found[0] = true);
+            } else if (e instanceof ForEachStatement fe && fe.initializer().localVariable() != lv
+                       && rootedIn(fe.expression(), lv) && fe.initializer().localVariable() != null
+                       && mutated(fe.initializer().localVariable())) {
+                found[0] = true; // 'for (Item i : l) i.touch()': the elements of l, modified through the loop
             } else if (e instanceof Assignment a && a.target().variable() instanceof FieldReference fr
                        && rootedIn(fr.scope(), lv)) {
                 found[0] = true;
@@ -2078,7 +2088,16 @@ final class RustBodyPrinter {
 
     /* the local, or a field of the object it holds ('a.list1.add(x)' modifies what 'a' owns) */
     private static boolean rootedIn(Expression e, LocalVariable lv) {
+        e = CstQueries.unwrap(e);
         if (isLocal(e, lv)) return true;
+        // a cast of it, or what a JDK accessor hands out of it ('vlist.get(n - 1).put(..)', 'e.getValue().clear()'):
+        // part of the object it holds
+        if (e instanceof Cast c) return rootedIn(c.expression(), lv);
+        if (e instanceof MethodCall mc && mc.object() != null && !mc.methodInfo().isStatic()
+            && mc.methodInfo().typeInfo().compilationUnit().externalLibrary() && !RustJdk.modifies(mc)
+            && !RustTypes.isCopy(mc.methodInfo().returnType()) && !RustTypes.isString(mc.methodInfo().returnType())) {
+            return rootedIn(mc.object(), lv);
+        }
         // or an element of the array it holds ('slots[0].v = 3')
         if (e instanceof VariableExpression ve && ve.variable() instanceof DependentVariable dv) {
             return rootedIn(dv.arrayExpression(), lv);

@@ -240,4 +240,61 @@ public class TestJavaToRustStatements extends CommonJavaToRust {
         contains(rust, "return *self.data.get(key).unwrap().downcast_ref::<i32>().unwrap();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String WRITTEN_THROUGH = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.Set;
+            public class W {
+                public static class Item {
+                    private int n;
+                    public void touch() { n++; }
+                }
+                private final Map<String, List<Map<String, String>>> versions = new HashMap<>();
+                public void labelVersion(String id, int n, String label) {
+                    List<Map<String, String>> vlist = versions.get(id);
+                    if (vlist != null && n > 0 && n <= vlist.size()) vlist.get(n - 1).put("label", label);
+                }
+                @SuppressWarnings("unchecked")
+                public static boolean setAdd(Object object, String s) {
+                    Set<String> set = (Set<String>) object;
+                    return set.add(s);
+                }
+                public static void touchNested(List<List<Item>> lists) {
+                    for (List<Item> l : lists) {
+                        for (Item i : l) i.touch();
+                    }
+                }
+                public static void clearAll(Map<String, List<String>> m) {
+                    for (Map.Entry<String, List<String>> e : m.entrySet()) e.getValue().clear();
+                }
+            }
+            """;
+
+    @DisplayName("a local written through holds its object exclusively: get_mut, downcast_mut, iter_mut")
+    @Test
+    public void writtenThroughLocals() throws Exception {
+        List<TypeInfo> types = parse(WRITTEN_THROUGH);
+        TypeInfo w = types.getFirst();
+        modifying(w, "labelVersion");
+        exclusive(method(w, "setAdd").parameters().getFirst());
+        exclusive(method(w, "touchNested").parameters().getFirst());
+        exclusive(method(w, "clearAll").parameters().getFirst());
+
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // the list in the map, an element of which is modified: the mutable lookup (was get, E0596)
+        contains(rust, "let mut vlist = self.versions.get_mut(");
+        // a cast of an Object that is modified (was downcast_ref, E0596)
+        contains(rust, "downcast_mut::<HashSet<String>>()");
+        // the outer loop of a nested loop that modifies the elements (was iter, E0596)
+        contains(rust, "for l in lists.iter_mut() {");
+        // a map's entries, a value modified through getValue() (was iter, E0596)
+        contains(rust, "for e in m.iter_mut() {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
