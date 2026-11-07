@@ -376,4 +376,40 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "pub fn new(b: &NestS) -> Self {\nSelf { b: b.clone() }");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String OPAQUE = """
+            package a.b;
+            import java.net.URI;
+            public class Holder {
+                public record Link(String name, URI uri) { }
+                private final Throwable cause;
+                private final Class<?> kind;
+                private int hits;
+                public Holder(Throwable cause, Class<?> kind) {
+                    this.cause = cause;
+                    this.kind = kind;
+                }
+                public Throwable cause() { return cause; }
+                public void hit() { hits++; }
+                public int hits() { return hits; }
+            }
+            """;
+
+    @DisplayName("an external type without a Rust counterpart is an opaque stand-in: what holds it still compiles")
+    @Test
+    public void opaqueExternalTypes() throws Exception {
+        List<TypeInfo> types = parse(OPAQUE);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'URI', 'Throwable', 'Class<?>' as written: no such Rust type, and the struct went with them (E0412)
+        contains(rust, "pub uri: crate::jrt::URI,");
+        contains(rust, "cause: crate::jrt::Throwable,");
+        contains(rust, "kind: crate::jrt::Class,");
+        String jrt = module("jrt");
+        contains(jrt, "/// `java.net.URI`, not translated.");
+        contains(jrt, "pub struct Throwable;");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

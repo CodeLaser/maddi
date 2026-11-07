@@ -66,8 +66,15 @@ public final class RustTranslator {
     /** ... with the getters the whole program modifies through ({@link RustGetters}). */
     private static Module module(String packageName, List<TypeInfo> types, RustFacts facts, List<String> crashes,
                                  Set<MethodInfo> mutableGetters, Set<ParameterInfo> mutatingFunctions) {
+        return module(packageName, types, facts, crashes, mutableGetters, mutatingFunctions, new TreeMap<>());
+    }
+
+    private static Module module(String packageName, List<TypeInfo> types, RustFacts facts, List<String> crashes,
+                                 Set<MethodInfo> mutableGetters, Set<ParameterInfo> mutatingFunctions,
+                                 Map<String, String> opaque) {
         String name = RustNames.module(packageName);
         RustContext context = new RustContext(facts, name);
+        context.opaque = opaque;
         context.mutableGetters = mutableGetters;
         context.mutatingFunctions = mutatingFunctions;
         StringBuilder items = new StringBuilder();
@@ -107,8 +114,9 @@ public final class RustTranslator {
         List<TypeInfo> all = byPackage.values().stream().flatMap(List::stream).toList();
         Set<MethodInfo> mutableGetters = RustGetters.modifiedThrough(all, facts);
         Set<ParameterInfo> mutatingFunctions = RustClosures.mutating(all, facts);
+        Map<String, String> opaque = new TreeMap<>();
         for (Map.Entry<String, List<TypeInfo>> e : byPackage.entrySet()) {
-            Module module = module(e.getKey(), e.getValue(), facts, crashes, mutableGetters, mutatingFunctions);
+            Module module = module(e.getKey(), e.getValue(), facts, crashes, mutableGetters, mutatingFunctions, opaque);
             messages.addAll(module.messages());
             Path file = src.resolve(module.name() + ".rs");
             Files.writeString(file, module.text());
@@ -117,7 +125,7 @@ public final class RustTranslator {
         }
         lib.append("pub mod jrt;\n");
         Path jrt = src.resolve("jrt.rs");
-        Files.writeString(jrt, JRT);
+        Files.writeString(jrt, JRT + opaqueTypes(opaque));
         files.add(jrt.toAbsolutePath().normalize());
         Path librs = src.resolve("lib.rs");
         Files.writeString(librs, lib.toString());
@@ -127,6 +135,20 @@ public final class RustTranslator {
     }
 
     /** What the translation needs of Java's runtime that {@code std} has no counterpart for. */
+    /**
+     * The opaque stand-ins of the external types without a Rust counterpart ({@link RustContext#opaque}): unit structs
+     * deriving what a holder may derive, so that a struct or record holding one compiles, and only a call into it
+     * (a method, a constructor) is rustc's error, in the function that makes it.
+     */
+    static String opaqueTypes(Map<String, String> opaque) {
+        if (opaque.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder("\n// Opaque stand-ins for the external types the translation has no counterpart for.\n");
+        opaque.forEach((fqn, name) -> sb.append("\n/// `").append(fqn).append("`, not translated.\n")
+                .append("#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]\n")
+                .append("pub struct ").append(name).append(";\n"));
+        return sb.toString();
+    }
+
     static final String JRT = """
             // Java's runtime, as far as the translated crate needs it.
             #![allow(dead_code)]

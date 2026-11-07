@@ -257,6 +257,10 @@ Analyzer issues the oracle found, each with a minimal repro:
   result new on one path and existing on the other: moved in, returned owned.
 - `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`
   (`TIME_AS_SYSTEM_TIME`): both change behaviour, and are reported.
+- An external type without a Rust counterpart (`URI`, `Throwable`, `Class`, a library's) is an opaque stand-in:
+  `crate::jrt::URI`, a unit struct in `jrt.rs` deriving `Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default`,
+  without type arguments. What holds one compiles; only a call into it (a method, a constructor) is rustc's error, in
+  the function that makes it. It has no state, so it is cloned where an immutable value would be.
 - The JDK maps onto `std`: the collections (`Vec`, `HashMap`, `HashSet`, `BTreeMap`, `VecDeque`), `Option`,
   `String`, and a table of methods (`RustJdk`). An index is a `usize` in Rust: `i as usize`, and a size goes back to
   `i32`, so the arithmetic around it stays Java's. Java's implicit numeric widening is spelled out.
