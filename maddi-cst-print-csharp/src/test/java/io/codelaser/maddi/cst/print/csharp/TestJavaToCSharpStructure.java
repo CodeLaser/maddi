@@ -3170,15 +3170,16 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     }
                 }
                 """);
-        contains(cs, "scope.Best().Raw.Open_(new IsTerminatedOpener_(this, true))");
+        contains(cs, "new IsTerminatedOpener_(this, true, scope.Best().Raw).Call()");
+        contains(cs, "internal bool Call() => score.Open_(this);");
         contains(cs, "TOpen_ With<Score_>(IScore<Score_> x) where Score_ : IScore<Score_>;");
         contains(cs, "=> target_.IsTerminated(initialized, (Score_) x);");
         contains(cs, "=> target_.Twice((Score_) x);");
         contains(cs, "{ target_.SetBest(x); return this; }");
         // the other argument's type mentions best()'s erased Score_: kept as its wildcard interface, cast to With's
-        contains(cs, "(Termination<Solution_> target_, IScore score)");
+        contains(cs, "(Termination<Solution_> target_, IInner start, IScore score)");
         contains(cs, "=> target_.Gradient(x, (Score_) score);");
-        contains(cs, "best.Open_(new AssertScoreOpener_(this, \"check\"))");
+        contains(cs, "new AssertScoreOpener_(this, best, \"check\").Call();");
         // the caller's own Score_, which no parameter mentions but C# keeps: no opener
         contains(cs, "AssertScore<Score_>(");
     }

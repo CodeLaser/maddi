@@ -57,10 +57,10 @@ import io.codelaser.maddi.cst.print.translate.CstSupertypes;
  * Score_ score)}, where no C# type argument satisfies {@code where Score_ : IScore<Score_>} (CS0311), or an
  * {@code InnerScore<?>} given to {@code <Score_ …> void setBestScore(InnerScore<Score_> score)}, from whose wildcard
  * interface C# infers nothing (CS0411). The value names its type argument: the call becomes
- * {@code score.Open_(new IsTerminatedOpener_(this, b))}, whose
- * {@code With<Score_>(IScore<Score_> x) => target_.IsTerminated(b, (Score_) x)} makes the call with it. The opener
- * class is nested in the calling class, which may call its own private methods; the other arguments, and the receiver,
- * are evaluated before the call, after the opened one.
+ * {@code new IsTerminatedOpener_(this, b, score).Call()}, which keeps the receiver and the arguments, in Java's
+ * order, and opens the value, {@code score.Open_(this)}: its {@code With<Score_>(IScore<Score_> x) =>
+ * target_.IsTerminated(b, (Score_) x)} makes the call. The opener class is nested in the calling class, which may call
+ * its own private methods.
  */
 final class CSharpCallOpeners {
 
@@ -68,6 +68,7 @@ final class CSharpCallOpeners {
     }
 
     private static final String TARGET = "target_";
+    private static final String CALL = "Call";
 
     /**
      * An opener: its class's name, the type whose code calls, the call, the argument opened, the opened argument's
@@ -302,7 +303,7 @@ final class CSharpCallOpeners {
             return null;
         }
         List<String> parameterNames = m.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
-        if (parameterNames.contains(TARGET) || parameterNames.contains("x")) return null;
+        if (parameterNames.contains(TARGET) || parameterNames.contains("x") || parameterNames.contains(CALL)) return null;
         String base = CSharpNames.method(m) + "Opener";
         String name = base + "_";
         for (int n = 2; !names.add(name); n++) name = base + n + "_";
@@ -335,7 +336,10 @@ final class CSharpCallOpeners {
         pt.parameters().forEach(a -> collect(a, into));
     }
 
-    /** {@code score.Open_(new IsTerminatedOpener_(this, b))}. */
+    /**
+     * {@code new IsTerminatedOpener_(this, b, score).Call()}: the receiver and the arguments, the opened one too, in
+     * Java's order; {@code Call} opens the value.
+     */
     static OutputBuilder call(Site site, Qualification q) {
         MethodCall mc = site.mc();
         MethodInfo m = mc.methodInfo();
@@ -344,16 +348,12 @@ final class CSharpCallOpeners {
             passed.add(implicitThis(mc) ? new OutputBuilderImpl().add(new TextImpl("this"))
                     : CSharpExpressionPrinter.print(mc.object(), q));
         }
-        List<Expression> arguments = mc.parameterExpressions();
-        for (int i = 0; i < arguments.size(); i++) {
-            if (i != site.argument()) passed.add(CSharpExpressionPrinter.print(arguments.get(i), q));
-        }
-        OutputBuilder creation = new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
+        mc.parameterExpressions().forEach(a -> passed.add(CSharpExpressionPrinter.print(a, q)));
+        return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
                 .add(new TextImpl(site.name() + CSharpNames.typeParameters(site.typeParameters())))
                 .add(passed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())));
-        return new OutputBuilderImpl().add(CSharpNullability.dereferenced(arguments.get(site.argument()), q))
-                .add(SymbolEnum.DOT).add(new TextImpl("Open_")).add(SymbolEnum.LEFT_PARENTHESIS).add(creation)
+                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())))
+                .add(SymbolEnum.DOT).add(new TextImpl(CALL)).add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
@@ -402,16 +402,20 @@ final class CSharpCallOpeners {
                 ParameterizedType receiver = implicitThis(mc) ? owner.asParameterizedType() : mc.object().parameterizedType();
                 fields.add(CSharpTypeName.of(receiver, q) + " " + TARGET);
             }
+            String openedValue = null;
             for (int i = 0; i < m.parameters().size(); i++) {
                 ParameterInfo p = m.parameters().get(i);
                 ParameterizedType formal = CstSupertypes.substitute(p.parameterizedType(), withTypes);
-                if (i == site.argument()) {
-                    passed.add(p.parameterizedType().isTypeParameter() ? "(" + CSharpTypeName.of(formal, q) + ") x" : "x");
-                    continue;
-                }
                 String name = CSharpNames.name(p.name());
                 ParameterizedType type = captured(mc.parameterExpressions().get(i));
-                fields.add(CSharpTypeName.declared(type, false, program.facts().nullable(p), q) + " " + name);
+                String declared = CSharpTypeName.declared(type, false, program.facts().nullable(p), q);
+                fields.add(declared + " " + name);
+                if (i == site.argument()) {
+                    passed.add(p.parameterizedType().isTypeParameter() ? "(" + CSharpTypeName.of(formal, q) + ") x" : "x");
+                    // the value opened, as Java passes it, which the call dereferences
+                    openedValue = name + (declared.endsWith("?") ? "!" : "");
+                    continue;
+                }
                 if (!CstQueries.mentionsAny(p.parameterizedType(), List.copyOf(site.with().keySet()))) {
                     passed.add(name);
                 } else if (formal.isTypeParameter()) {
@@ -431,8 +435,10 @@ final class CSharpCallOpeners {
                                + CSharpTypeName.of(opened, q) + " x)";
             String with = site.result() == null ? signature + " { " + call + "; return this; }"
                     : signature + " => " + call + ";";
+            String open = "internal " + result + " " + CALL + "() => " + openedValue + ".Open_(this);";
             out.add(new OutputBuilderImpl().add(new TextImpl(header.toString())).add(SpaceEnum.ONE)
-                    .add(CSharpStatementPrinter.braces(List.of(new OutputBuilderImpl().add(new TextImpl(with))))));
+                    .add(CSharpStatementPrinter.braces(List.of(new OutputBuilderImpl().add(new TextImpl(open)),
+                            new OutputBuilderImpl().add(new TextImpl(with))))));
         }
         return out;
     }

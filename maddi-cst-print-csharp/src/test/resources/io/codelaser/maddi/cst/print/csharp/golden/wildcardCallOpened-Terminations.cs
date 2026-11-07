@@ -40,53 +40,59 @@ internal sealed class Terminations {
     internal sealed class Termination<Solution_> {
         private readonly IScore limit;
         internal Termination(IScore limit) { this.limit = limit; }
-        internal bool Terminated(Scope<Solution_> scope) => scope.Best().Raw.Open_(new IsTerminatedOpener_(this, true));
+        internal bool Terminated(Scope<Solution_> scope) => new IsTerminatedOpener_(this, true, scope.Best().Raw).Call();
         internal void Reset(Scope<Solution_> scope, IScore score) {
-            ((IScore) score).Open_(new OfOpener_()).Open_(new SetBestOpener_(scope));
+            new SetBestOpener_(scope, new OfOpener_((IScore) score).Call()).Call();
         }
-        internal void Again(Scope<Solution_> scope) { scope.Last.Open_(new SetBestOpener2_(scope)); }
-        internal double Gradient(Scope<Solution_> scope) => scope.Best().Open_(new GradientOpener_(
-            this,
-            scope.Best().Raw));
+        internal void Again(Scope<Solution_> scope) { new SetBestOpener2_(scope, scope.Last).Call(); }
+        internal double Gradient(Scope<Solution_> scope) => new GradientOpener_(this, scope.Best(), scope.Best().Raw)
+            .Call();
         internal double Gradient<Score_>(Inner<Score_> start, Score_ score) where Score_ : IScore<Score_> => 0.5;
         internal void Check(Scope<Solution_> scope) {
             var best = scope.Best();
-            best.Open_(new AssertScoreOpener_(this, "check"));
+            new AssertScoreOpener_(this, best, "check").Call();
         }
         private void AssertScore<Score_>(Inner<Score_> score, object what) where Score_ : IScore<Score_> { }
         internal void Predict<Score_>(Scope<Solution_> scope) where Score_ : IScore<Score_> {
             this.AssertScore<Score_>((Inner<Score_>) (object) scope.Best(), "predict");
         }
-        internal IScore Doubled() => ((IScore) limit).Open_(new TwiceOpener_(this));
+        internal IScore Doubled() => new TwiceOpener_(this, (IScore) limit).Call();
         private bool IsTerminated<Score_>(bool initialized, Score_ score) where Score_ : IScore<Score_> =>
             initialized &&
             score.Feasible();
         private Score_ Twice<Score_>(Score_ score) where Score_ : IScore<Score_> => score.Add(score);
-        private sealed class IsTerminatedOpener_(Termination<Solution_> target_, bool initialized) : IScoreOpener_<bool> {
+        private sealed class IsTerminatedOpener_(Termination<Solution_> target_, bool initialized, IScore score) : IScoreOpener_<bool> {
+            internal bool Call() => score.Open_(this);
             bool IScoreOpener_<bool>.With<Score_>(IScore<Score_> x) => target_.IsTerminated(initialized, (Score_) x);
         }
 
-        private sealed class SetBestOpener_(Scope<Solution_> target_) : IInnerOpener_<object> {
+        private sealed class SetBestOpener_(Scope<Solution_> target_, IInner score) : IInnerOpener_<object> {
+            internal object Call() => score.Open_(this);
             object IInnerOpener_<object>.With<Score_>(Inner<Score_> x) { target_.SetBest(x); return this; }
         }
 
-        private sealed class OfOpener_ : IScoreOpener_<IInner> {
+        private sealed class OfOpener_(IScore score) : IScoreOpener_<IInner> {
+            internal IInner Call() => score.Open_(this);
             IInner IScoreOpener_<IInner>.With<Score_>(IScore<Score_> x) => Inner.Of((Score_) x);
         }
 
-        private sealed class SetBestOpener2_(Scope<Solution_> target_) : IInnerOpener_<object> {
+        private sealed class SetBestOpener2_(Scope<Solution_> target_, IInner score) : IInnerOpener_<object> {
+            internal object Call() => score.Open_(this);
             object IInnerOpener_<object>.With<Score_>(Inner<Score_> x) { target_.SetBest(x); return this; }
         }
 
-        private sealed class GradientOpener_(Termination<Solution_> target_, IScore score) : IInnerOpener_<double> {
+        private sealed class GradientOpener_(Termination<Solution_> target_, IInner start, IScore score) : IInnerOpener_<double> {
+            internal double Call() => start.Open_(this);
             double IInnerOpener_<double>.With<Score_>(Inner<Score_> x) => target_.Gradient(x, (Score_) score);
         }
 
-        private sealed class AssertScoreOpener_(Termination<Solution_> target_, string what) : IInnerOpener_<object> {
+        private sealed class AssertScoreOpener_(Termination<Solution_> target_, IInner score, string what) : IInnerOpener_<object> {
+            internal object Call() => score.Open_(this);
             object IInnerOpener_<object>.With<Score_>(Inner<Score_> x) { target_.AssertScore(x, what); return this; }
         }
 
-        private sealed class TwiceOpener_(Termination<Solution_> target_) : IScoreOpener_<IScore> {
+        private sealed class TwiceOpener_(Termination<Solution_> target_, IScore score) : IScoreOpener_<IScore> {
+            internal IScore Call() => score.Open_(this);
             IScore IScoreOpener_<IScore>.With<Score_>(IScore<Score_> x) => target_.Twice((Score_) x);
         }
     }

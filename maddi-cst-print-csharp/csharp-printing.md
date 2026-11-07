@@ -446,16 +446,16 @@ implements the interface.
 - **Opening a wildcard into a generic method's call.** A `Score<?>` or a raw `Score` given to `<Score_ extends
   Score<Score_>> boolean isTerminated(boolean b, Score_ score)` has no C# type argument (CS0311: `IScore` is no
   `IScore<IScore>`), nor does C# infer `Score_` from the `IInnerScore` given to `setBestScore(InnerScore<Score_>)`
-  (CS0411). The value opens itself as for a creation (`CSharpCallOpeners`): `score.Open_(new
-  IsTerminatedOpener_(this, b))`, whose `With<Score_>(IScore<Score_> x) => target_.IsTerminated(b, (Score_) x)`
-  makes the call. The opener class is nested in the calling class, so it calls private methods; it keeps the
-  receiver (`this`, a value, none for a static) and the other arguments, and casts those whose formal names the
-  opened type parameter to With's (`(InnerScore<Score_>) (object) start`). What opens: a `?`, a `? extends B`, a raw
+  (CS0411). The value opens itself as for a creation (`CSharpCallOpeners`): `new IsTerminatedOpener_(this, b,
+  score).Call()` keeps the receiver (`this`, a value, none for a static) and the arguments, in Java's order, and its
+  `Call()` is `score.Open_(this)`, whose `With<Score_>(IScore<Score_> x) => target_.IsTerminated(b, (Score_) x)`
+  makes the call, casting the arguments whose formal names the opened type parameter to With's
+  (`(InnerScore<Score_>) (object) start`). The opener class is nested in the calling class, so it calls private
+  methods. What opens: a `?`, a `? extends B`, a raw
   type, and the type parameter of a method C# erased that leaks into the call (`scope.getBestScore().raw()`, see
   Self-bounded type parameters only a result mentions). A void method's With returns the opener (`object`). Not
   opened: an argument a collection holds (`List<PhaseConfig>` into `List<Config_>`, `Map<String, Score>`), a
-  method type parameter no parameter mentions, a call in a companion or of an outer instance. **Order:** the opened
-  argument is evaluated before the receiver and the other arguments, where Java goes left to right.
+  method type parameter no parameter mentions, a call in a companion or of an outer instance.
 - **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
   type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
   `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
