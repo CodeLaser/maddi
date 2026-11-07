@@ -803,7 +803,7 @@ public final class CSharpExpressionPrinter {
                     continue;
                 }
             }
-            if (t == null || !writable(t, typeParameters)) return "";
+            if (t == null || !writableArgument(t, typeParameters)) return "";
             if (call && t.isJavaLangObject() && tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return "";
             printed.add(CSharpTypeName.argument(t, q));
         }
@@ -865,6 +865,25 @@ public final class CSharpExpressionPrinter {
      * A type C# can write as a type argument: no wildcard, none of the called method's own type parameters, and only
      * type parameters in scope where it is printed.
      */
+    /**
+     * As {@link #writable}, but a wildcard use of a type with a wildcard interface inside counts, as C# writes it:
+     * {@code BiFunction<A, Score<?>, ConstraintJustification>} is {@code Func<A, IScore, IConstraintJustification>}.
+     */
+    private static boolean writableArgument(ParameterizedType t, List<TypeParameter> typeParameters) {
+        if (t.wildcard() != null || t.isTypeParameter() || t.typeInfo() == null) return writable(t, typeParameters);
+        if (!t.parameters().isEmpty() && CSharpWildcardInterfaces.isWildcardUse(t)) {
+            List<TypeParameter> removed = CSharpWildcardInterfaces.removed(t.typeInfo());
+            for (int i = 0; i < t.parameters().size() && i < t.typeInfo().typeParameters().size(); i++) {
+                if (!removed.contains(t.typeInfo().typeParameters().get(i))
+                    && !writableArgument(t.parameters().get(i), typeParameters)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return t.parameters().stream().allMatch(a -> writableArgument(a, typeParameters));
+    }
+
     static boolean writable(ParameterizedType t, List<TypeParameter> typeParameters) {
         if (t.wildcard() != null) return false;
         // nor one C# cannot name here: a static member's in the companion class, an override's declaration's

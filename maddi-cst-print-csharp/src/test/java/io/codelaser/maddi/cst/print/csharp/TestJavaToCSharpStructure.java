@@ -2567,6 +2567,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 private final Object[] values = new Object[4];
                 @SuppressWarnings("unchecked")
                 <V> V get(int i) { return (V) values[i]; }
+                interface Score<Score_ extends Score<Score_>> { boolean zero(); int level(); }
+                static <A> String justify(java.util.function.BiFunction<A, Score<?>, String> f, A a) { return f.apply(a, null); }
+                String justified() { return justify(get(1), "a"); }
                 String name() {
                     String s = get(0);
                     return Objects.requireNonNullElseGet(s, () -> {
@@ -2585,6 +2588,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void inferredAndSupplied() {
         String cs = translate("Store", STORE);
         contains(cs, "string s = Get<string>(0);");
+        // a wildcard use inside, which C# writes as the wildcard interface
+        contains(cs, "Justify(Get<Func<string, IScore, string>>(1), \"a\")");
         contains(cs, "s ?? ((Func<string>) (() => {");
         contains(cs, "}))();");
     }
