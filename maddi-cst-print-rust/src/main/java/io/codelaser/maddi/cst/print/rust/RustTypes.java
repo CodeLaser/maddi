@@ -102,6 +102,8 @@ final class RustTypes {
             return owner.isLeft() && facts.immutableHc(owner.getLeft());
         }
         TypeInfo ti = type.typeInfo();
+        // an opaque stand-in has no state: a copy of it cannot be told from the shared one
+        if (isOpaque(ti)) return true;
         return ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()
                && !ti.typeNature().isEnum() && (facts.immutable(ti) || facts.immutableHc(ti));
     }
@@ -230,7 +232,18 @@ final class RustTypes {
     }
 
     private static boolean isInterface(TypeInfo ti) {
-        return ti.isInterface() && JDK.get(ti.fullyQualifiedName()) == null;
+        return ti.isInterface() && JDK.get(ti.fullyQualifiedName()) == null && !isOpaque(ti);
+    }
+
+    /**
+     * An external type without a Rust counterpart: printed as its opaque stand-in in {@code jrt.rs}
+     * ({@link RustContext#opaque}), a unit struct also for an interface. Mirrors the external branch of
+     * {@link #named}, after the special forms of {@link #owned}.
+     */
+    static boolean isOpaque(TypeInfo ti) {
+        return ti != null && ti.compilationUnit().externalLibrary() && JDK.get(ti.fullyQualifiedName()) == null
+               && !ti.isJavaLangObject() && !ti.isPrimitiveExcludingVoid() && !"java.util.Iterator".equals(ti.fullyQualifiedName())
+               && !isFunctional(ti) && !isEntry(ti) && !"java.util.stream".equals(ti.packageName());
     }
 
     /**
@@ -363,7 +376,8 @@ final class RustTypes {
                 return "Iterator<Item = " + owned(type.parameters().getFirst(), context, where) + ">";
             }
             context.message(RustPrintCode.UNMAPPED_JDK, where, ti.fullyQualifiedName());
-            base = ti.simpleName();
+            // an opaque stand-in (jrt.rs): what holds one still compiles, only what calls into it does not
+            return "crate::jrt::" + context.opaque(ti);
         } else {
             base = RustNames.type(ti);
             String module = RustNames.module(ti.packageName());
@@ -371,7 +385,10 @@ final class RustTypes {
             // a struct with borrowed fields: its lifetime, elided where a signature allows it; in its own impl, the
             // impl's, so that a static method returning one says what it borrows from
             if (context.borrows.hasLifetime(ti)) {
-                String lifetime = ti == context.type ? RustBorrows.LIFETIME : "'_";
+                // ... and so in a struct carrying the lifetime itself: its fields cannot elide it (E0106)
+                String lifetime = ti == context.type
+                                  || context.type != null && context.borrows.hasLifetime(context.type)
+                        ? RustBorrows.LIFETIME : "'_";
                 return base + "<" + Stream.concat(Stream.of(lifetime),
                         type.parameters().stream().map(p -> owned(p, context, where))).collect(Collectors.joining(", ")) + ">";
             }

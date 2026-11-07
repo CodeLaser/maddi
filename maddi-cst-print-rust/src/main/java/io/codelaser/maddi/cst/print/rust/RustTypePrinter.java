@@ -100,7 +100,7 @@ final class RustTypePrinter {
      */
     static List<Expression> constantField(FieldInfo f) {
         TypeInfo e = f.owner();
-        if (f.isStatic() || !e.typeNature().isEnum() || !f.isFinal() || e.constructors().size() != 1) return null;
+        if (f.isStatic() || !e.typeNature().isEnum() || !isFinal(f) || e.constructors().size() != 1) return null;
         ParameterizedType type = f.type();
         if (type.arrays() > 0 || !type.isPrimitiveExcludingVoid() && !RustTypes.isString(type)) return null;
         MethodInfo constructor = e.constructors().getFirst();
@@ -144,6 +144,10 @@ final class RustTypePrinter {
         StringBuilder sb = new StringBuilder(doc(typeInfo));
         sb.append(visibility(typeInfo.isPrivate())).append("trait ").append(RustNames.type(typeInfo))
                 .append(generics(typeInfo.typeParameters())).append(supertraits(typeInfo)).append(" {\n");
+        // the interface's constants and static state: module-level items beside the trait (statics)
+        for (FieldInfo f : typeInfo.fields()) {
+            if (!f.isSynthetic()) staticField(f);
+        }
         for (MethodInfo m : typeInfo.methods()) {
             if (m.isSynthetic()) continue;
             if (m.isStatic()) {
@@ -154,6 +158,9 @@ final class RustTypePrinter {
             boolean bodyless = m.isAbstract() || body == null || body.isEmpty();
             // a declaration without a body has no bindings: no 'mut' on its parameters
             String signature = signature(m, false);
+            // a generic method has no place in a vtable: kept out of it, the trait stays dyn compatible (E0038), and
+            // only a call of the method on a Box<dyn ..> is rustc's error
+            if (!m.typeParameters().isEmpty()) signature += " where Self: Sized";
             sb.append(INDENT).append(bodyless ? signature.replaceAll("\\bmut ((r#)?\\w+): ", "$1: ") : signature);
             if (bodyless) sb.append(";\n");
             else sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
@@ -579,7 +586,7 @@ final class RustTypePrinter {
      * type must be shareable between threads ({@code Sync}): not a {@code dyn} value.
      */
     static boolean lazyStatic(FieldInfo f, RustContext context) {
-        if (!f.isStatic() || !f.isFinal() || f.initializer() == null || f.initializer().isEmpty()
+        if (!f.isStatic() || !isFinal(f) || f.initializer() == null || f.initializer().isEmpty()
             || constant(f) || !context.facts.unmodified(f)) {
             return false;
         }
@@ -609,7 +616,7 @@ final class RustTypePrinter {
      */
     static String mutableStaticValue(FieldInfo f, RustContext context) {
         if (!f.isStatic() || f.owner().compilationUnit().externalLibrary()) return null;
-        if (f.isFinal() && (f.type().isPrimitiveExcludingVoid() || RustTypes.isString(f.type())
+        if (isFinal(f) && (f.type().isPrimitiveExcludingVoid() || RustTypes.isString(f.type())
                             || context.facts.unmodified(f))) {
             return null;
         }
@@ -636,6 +643,19 @@ final class RustTypePrinter {
         return context.unsafety.unsafe(m, context);
     }
 
+    /** Final as Java has it: also a field of an interface, implicitly {@code static final}. */
+    static boolean isFinal(FieldInfo f) {
+        return f.isFinal() || f.owner().isInterface();
+    }
+
+    /**
+     * A constant of an interface ({@code int TYPE_OBJECT = 8;}): a module-level {@code const}, named like a lazy
+     * static ({@link #staticName}), as a trait's associated const cannot be named without a type.
+     */
+    static boolean interfaceConstant(FieldInfo f) {
+        return f.owner().isInterface() && constant(f);
+    }
+
     /** The module-level name of a {@link #lazyStatic} field: its owner's name and its own. */
     static String staticName(FieldInfo f) {
         return RustNames.constant(RustNames.type(f.owner()) + "_" + f.name());
@@ -643,7 +663,7 @@ final class RustTypePrinter {
 
     /** A {@code static final} primitive or string with a literal value: an associated {@code const}. */
     static boolean constant(FieldInfo f) {
-        return f.isFinal() && f.initializer() instanceof ConstantExpression<?>
+        return isFinal(f) && f.initializer() instanceof ConstantExpression<?>
                && (f.type().isPrimitiveExcludingVoid() || RustTypes.isString(f.type()));
     }
 
@@ -674,6 +694,12 @@ final class RustTypePrinter {
         }
         String type = RustTypes.isString(f.type()) ? "&'static str" : RustTypes.owned(f.type(), context, f);
         String value = new RustBodyPrinter(context).text(init);
+        if (f.owner().isInterface()) {
+            statics.append("\n/// Translated from the constant `").append(f.owner().fullyQualifiedName()).append(".")
+                    .append(f.name()).append("`.\npub const ").append(staticName(f)).append(": ").append(type)
+                    .append(" = ").append(value).append(";\n");
+            return "";
+        }
         return INDENT + visibility(f.access().isPrivate()) + "const " + RustNames.constant(f.name()) + ": " + type + " = "
                + value + ";\n";
     }

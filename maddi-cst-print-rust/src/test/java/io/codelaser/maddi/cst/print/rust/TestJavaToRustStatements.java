@@ -297,4 +297,53 @@ public class TestJavaToRustStatements extends CommonJavaToRust {
         contains(rust, "for e in m.iter_mut() {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String FOR_EACH_CHANGES = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.Optional;
+            public class F {
+                public static class H {
+                    private final List<String> paths = new ArrayList<>();
+                    public List<String> getPaths() { return paths; }
+                    public void touch() { paths.add("x"); }
+                    public int size() { return paths.size(); }
+                }
+                public static void viaForEachGetter(List<H> hs) { hs.forEach(h -> h.getPaths().add("x")); }
+                public static void viaForEachRef(List<H> hs) { hs.forEach(H::touch); }
+                public static void viaLoopGetter(List<H> hs) { for (H h : hs) h.getPaths().add("x"); }
+                public static void viaMapForEach(Map<String, H> hs) { hs.forEach((k, h) -> h.touch()); }
+                public static void viaIfPresent(Optional<H> hs) { hs.ifPresent(H::touch); }
+                public static void reads(List<H> hs) { hs.forEach(h -> System.out.println(h.size())); }
+            }
+            """;
+
+    @DisplayName("forEach, ifPresent and a loop whose function changes the elements iterate mutably (maddi-mod#99)")
+    @Test
+    public void elementsChangedByForEach() throws Exception {
+        List<TypeInfo> types = parse(FOR_EACH_CHANGES);
+        TypeInfo f = types.getFirst();
+        TypeInfo h = f.findSubType("H");
+        nonModifying(h, "getPaths", "size");
+        dependentResult(h, "getPaths");
+        modifying(h, "touch");
+        for (String m : List.of("viaForEachGetter", "viaForEachRef", "viaLoopGetter", "viaMapForEach", "viaIfPresent")) {
+            exclusive(method(f, m).parameters().getFirst());
+        }
+        borrowed(method(f, "reads").parameters().getFirst());
+
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // each was iter(), and rustc's E0596 against the printer once the verdict was right
+        contains(rust, "hs.iter_mut().for_each(|h| { h.get_paths_mut().push(\"x\".to_string()); });");
+        contains(rust, "hs.iter().for_each(|h| { println!(");
+        contains(rust, "hs.iter_mut().for_each(|x| x.touch());");
+        contains(rust, "for h in hs.iter_mut() {");
+        contains(rust, "hs.iter_mut().for_each(|(k, h)| { h.touch(); });");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

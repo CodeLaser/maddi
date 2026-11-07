@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 import io.codelaser.maddi.cst.api.element.Element;
@@ -56,6 +57,23 @@ final class RustContext {
     Set<MethodInfo> mutableGetters = Set.of();
     // the function parameters a call site passes a closure that writes what it captures: FnMut (RustClosures)
     Set<ParameterInfo> mutatingFunctions = Set.of();
+    // the JDK and library types without a Rust counterpart, by fully qualified name: their opaque stand-ins in jrt.rs,
+    // shared by all modules of the crate (RustTypes.named, RustTranslator.opaqueTypes)
+    Map<String, String> opaque = new TreeMap<>();
+
+    /** The opaque stand-in for an unmapped external type: a unit struct in {@code jrt.rs}, unique by simple name. */
+    String opaque(TypeInfo type) {
+        String existing = opaque.get(type.fullyQualifiedName());
+        if (existing != null) return existing;
+        String base = type.simpleName().replaceAll("[^A-Za-z0-9_]", "_");
+        String name = base;
+        for (int i = 2; opaque.containsValue(name) || RESERVED_IN_JRT.contains(name); i++) name = base + i;
+        opaque.put(type.fullyQualifiedName(), name);
+        return name;
+    }
+
+    private static final Set<String> RESERVED_IN_JRT = Set.of("Before", "After", "Null", "Any", "Box", "Option",
+            "Result", "String", "Vec");
     /** The module being printed: a type in it needs no {@code use}. */
     final String module;
     private final List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();

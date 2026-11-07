@@ -2014,4 +2014,54 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         contains(rust, "return (f)(&list[0]);");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String HOLDS_VIEW = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.HashMap;
+            public class Outer {
+                public static class View {
+                    private final List<String> list;
+                    public View(List<String> list) { this.list = list; }
+                    public int size() { return list.size(); }
+                }
+                private final View view;
+                private final Map<String, View> byName = new HashMap<>();
+                public Outer(View view) { this.view = view; }
+                public int size() { return view.size(); }
+                public static int use() {
+                    List<String> l = new ArrayList<>();
+                    l.add("x");
+                    Outer o = new Outer(new View(l));
+                    return o.size();
+                }
+            }
+            """;
+
+    /*
+     A struct holding a struct that borrows (a field, or inside a type argument) carries the lifetime too: a struct
+     field cannot elide it. Was 'view: OuterView<'_>' (E0106), and the struct was removed with all that used it.
+     */
+    @DisplayName("row 7, transitively: a struct holding a borrowing struct carries its lifetime")
+    @Test
+    public void dependentFieldTransitive() throws Exception {
+        List<TypeInfo> types = parse(HOLDS_VIEW);
+        TypeInfo outer = types.getFirst();
+        TypeInfo view = outer.findSubType("View");
+        nonModifying(view, "size");
+        nonModifying(outer, "size");
+        unmodifiedField(view, "list");
+        kept(view.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        kept(outer.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub struct Outer<'a> {");
+        contains(rust, "view: OuterView<'a>,");
+        contains(rust, "by_name: HashMap<String, OuterView<'a>>,");
+        contains(rust, "impl<'a> Outer<'a> {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

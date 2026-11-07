@@ -873,6 +873,13 @@ final class RustBodyPrinter {
             if (owner.typeNature().isEnum() && f.type().typeInfo() == owner) {
                 return value(prefix + "::" + RustNames.variant(f.name()));
             }
+            if (RustTypePrinter.interfaceConstant(f)) {
+                // a module-level const beside the trait
+                String name = RustTypePrinter.staticName(f);
+                String module = RustNames.module(owner.packageName());
+                if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
+                return new Printed(name, RustTypes.isString(f.type()) ? Held.STR : Held.VALUE, nullable);
+            }
             if (RustTypePrinter.mutableStaticValue(f, context) != null) {
                 // Java's static state: a static mut, touched inside the unsafe body of the method
                 String name = RustTypePrinter.staticName(f);
@@ -2032,8 +2039,22 @@ final class RustBodyPrinter {
     /** The local is the object of a modifying call, or passed where a {@code &mut} is expected. */
     private boolean mutated(LocalVariable lv) {
         if (context.method == null || context.method.methodBody() == null) return false;
+        return mutated(lv, context.method.methodBody());
+    }
+
+    /**
+     * Whether the lambda changes what it is handed: one of its parameters is mutated in its body, by the same rules as
+     * a local. A lambda's parameters carry no verdicts of their own in every run (RustJdk.changesElement).
+     */
+    boolean changesArgument(Lambda lambda) {
+        Element body = lambda.methodBody();
+        return body != null && lambda.methodInfo().parameters().stream()
+                .anyMatch(p -> !RustTypes.isCopy(p.parameterizedType()) && mutated(p, body));
+    }
+
+    private boolean mutated(Variable lv, Element scope) {
         boolean[] found = {false};
-        context.method.methodBody().visit(e -> {
+        scope.visit(e -> {
             if (found[0]) return false;
             if (e instanceof MethodCall mc) {
                 if (rootedIn(mc.object(), lv) && modifies(mc)) found[0] = true;
@@ -2055,11 +2076,11 @@ final class RustBodyPrinter {
                 lvc.localVariableStream().filter(other -> other != lv && other.assignmentExpression() != null
                                                           && !isLocal(other.assignmentExpression(), lv)
                                                           && rootedIn(other.assignmentExpression(), lv)
-                                                          && mutated(other))
+                                                          && mutated(other, scope))
                         .findFirst().ifPresent(other -> found[0] = true);
             } else if (e instanceof ForEachStatement fe && fe.initializer().localVariable() != lv
                        && rootedIn(fe.expression(), lv) && fe.initializer().localVariable() != null
-                       && mutated(fe.initializer().localVariable())) {
+                       && mutated(fe.initializer().localVariable(), scope)) {
                 found[0] = true; // 'for (Item i : l) i.touch()': the elements of l, modified through the loop
             } else if (e instanceof Assignment a && a.target().variable() instanceof FieldReference fr
                        && rootedIn(fr.scope(), lv)) {
@@ -2082,17 +2103,21 @@ final class RustBodyPrinter {
         return context.facts.receiver(callee) == Receiver.EXCLUSIVE;
     }
 
-    private static boolean isLocal(Expression e, LocalVariable lv) {
+    private static boolean isLocal(Expression e, Variable lv) {
         return e instanceof VariableExpression ve && lv.equals(ve.variable());
     }
 
     /* the local, or a field of the object it holds ('a.list1.add(x)' modifies what 'a' owns) */
-    private static boolean rootedIn(Expression e, LocalVariable lv) {
+    private static boolean rootedIn(Expression e, Variable lv) {
         e = CstQueries.unwrap(e);
         if (isLocal(e, lv)) return true;
         // a cast of it, or what a JDK accessor hands out of it ('vlist.get(n - 1).put(..)', 'e.getValue().clear()'):
         // part of the object it holds
         if (e instanceof Cast c) return rootedIn(c.expression(), lv);
+        // a getter handing out one of its object's fields ('h.getPaths().pop()'), whose exclusive twin the call uses
+        if (e instanceof MethodCall g && g.object() != null && RustGetters.field(g.methodInfo()) != null) {
+            return rootedIn(g.object(), lv);
+        }
         if (e instanceof MethodCall mc && mc.object() != null && !mc.methodInfo().isStatic()
             && mc.methodInfo().typeInfo().compilationUnit().externalLibrary() && !RustJdk.modifies(mc)
             && !RustTypes.isCopy(mc.methodInfo().returnType()) && !RustTypes.isString(mc.methodInfo().returnType())) {

@@ -29,6 +29,7 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
@@ -61,8 +62,37 @@ final class RustBorrows {
         return fields.computeIfAbsent(typeInfo, this::compute);
     }
 
+    private final Map<TypeInfo, Boolean> lifetime = new HashMap<>();
+
+    /**
+     * Whether the struct carries the lifetime {@code 'a}: it borrows a field itself, or an instance field holds (also
+     * inside type arguments: {@code HashMap<String, Node<'a>>}) a struct that carries one. A struct field cannot elide
+     * it ({@code '_}, E0106). A cycle through the struct itself adds nothing.
+     */
     boolean hasLifetime(TypeInfo typeInfo) {
-        return typeInfo != null && !fields(typeInfo).isEmpty();
+        if (typeInfo == null) return false;
+        Boolean known = lifetime.get(typeInfo);
+        if (known != null) return known;
+        lifetime.put(typeInfo, false); // in progress
+        boolean has = !fields(typeInfo).isEmpty();
+        if (!has && !typeInfo.compilationUnit().externalLibrary() && !typeInfo.isInterface()) {
+            for (FieldInfo f : typeInfo.fields()) {
+                if (!f.isStatic() && !f.isSynthetic() && mentionsLifetime(f.type())) {
+                    has = true;
+                    break;
+                }
+            }
+        }
+        lifetime.put(typeInfo, has);
+        return has;
+    }
+
+    private boolean mentionsLifetime(ParameterizedType type) {
+        if (type.typeInfo() != null && !type.typeInfo().compilationUnit().externalLibrary()
+            && hasLifetime(type.typeInfo())) {
+            return true;
+        }
+        return type.parameters().stream().anyMatch(this::mentionsLifetime);
     }
 
     /** The form of a constructor parameter stored in a borrowed field; {@code null} for any other parameter. */
