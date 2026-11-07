@@ -2597,7 +2597,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     /**
      * Java's {@code Map.get(Object)} takes a key of another type than the map's: a {@code Variable<S, E>} for a map of
      * {@code Variable<?, ?>}, which C# prints with {@code object} arguments (no wildcard interface). The helper's
-     * overload with an {@code object} key infers the map's types from the map alone (CS0411).
+     * overload with an {@code object} key infers the map's types from the map alone (CS0411). And the helpers of
+     * {@code putAll} and {@code addAll(int, …)} take Java's {@code ? extends}: KeyValuePair is a struct, and variance
+     * converts no value type.
      */
     @Test
     public void mapGetByOtherKey() {
@@ -2612,10 +2614,19 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     <S, E> String lookupOr(Variable<S, E> v) { return names.getOrDefault(v, "none"); }
                     // entity(S) through the wildcard: no wildcard interface, the map's key is Variable<object, object>
                     Object first(Variable<?, ?> v) { return v.entity(null); }
+                    static class Descriptor { }
+                    static final class Genuine extends Descriptor { }
+                    private final Map<String, Descriptor> all = new HashMap<>();
+                    private final Map<String, Genuine> genuine = new HashMap<>();
+                    void merge() { all.putAll(genuine); }
+                    <T> void insert(java.util.List<Object> into, java.util.List<T> items) { into.addAll(0, items); }
                 }
                 """);
         contains(cs, "names.Get(v)");
         contains(cs, "names.GetOrDefault(v, \"none\")");
+        // putAll(Map<? extends K, ? extends V>), addAll(int, Collection<? extends E>): of a subtype, a type parameter
+        contains(cs, "all.PutAll(genuine);");
+        contains(cs, "into.InsertAll(0, items);");
     }
 
     @Language("java")

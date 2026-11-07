@@ -149,7 +149,12 @@ public static class JavaCollections
 
     public static V? RemoveKeyObject<K, V>(this IDictionary<K, V> d, object? o) => o is K k ? d.RemoveAndGet(k) : default;
 
-    public static void PutAll<K, V>(this IDictionary<K, V> d, IEnumerable<KeyValuePair<K, V>> other)
+    /// <summary>
+    /// Map.putAll(Map&lt;? extends K, ? extends V&gt;): a map of a GenuineVariableDescriptor into one of its
+    /// VariableDescriptor; KeyValuePair is a struct, which variance does not convert.
+    /// </summary>
+    public static void PutAll<K, V, K2, V2>(this IDictionary<K, V> d, IEnumerable<KeyValuePair<K2, V2>> other)
+        where K2 : K where V2 : V
     {
         foreach (var (k, v) in other.ToList()) d[k] = v;
     }
@@ -249,7 +254,8 @@ public static class JavaCollections
         return true;
     }
 
-    public static bool InsertAll<T>(this IList<T> l, int index, IEnumerable<T> items)
+    /// <summary>List.addAll(int, Collection&lt;? extends E&gt;), of a value type too, which variance does not convert.</summary>
+    public static bool InsertAll<T, T2>(this IList<T> l, int index, IEnumerable<T2> items) where T2 : T
     {
         var all = items.ToList();
         for (var i = 0; i < all.Count; i++) l.Insert(index + i, all[i]);
