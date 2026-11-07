@@ -16,6 +16,14 @@ public sealed class PhaseScopes {
         return best.Raw;
     }
     internal interface IAcceptor { }
+    internal sealed class Decider<Solution_> {
+        internal void DoMove(PhaseScope<Solution_> scope) {
+            IInner best = scope.GetBest();
+            if (best.Zero()) { scope.GetDirector().Reset(); }
+        }
+        internal void Step(PhaseScope<Solution_> scope) { DoMove(scope); }
+    }
+
     public interface IDirector<in Solution_, out Score_> : IDirector<Solution_> where Score_ : IScore<Score_> {
         Score_ Calculate(Solution_ solution);
         void Reset();

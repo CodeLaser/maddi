@@ -2457,6 +2457,13 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     Director<Solution_, Score_> d = scope.getDirector();
                     return d.calculate(s);
                 }
+                static class Decider<Solution_> {
+                    <Score_ extends Score<Score_>> void doMove(PhaseScope<Solution_> scope) {
+                        Inner<Score_> best = scope.getBest();
+                        if (best.zero()) scope.getDirector().reset();
+                    }
+                    void step(PhaseScope<Solution_> scope) { doMove(scope); }
+                }
                 interface Acceptor { }
                 static <T> T newInstance(Object bean, String name, Class<T> clazz) {
                     return null;
@@ -2471,8 +2478,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
             """;
 
     /**
-     * A self-bounded type parameter that only the result mentions: Java infers a raw or captured type, which no C#
-     * type argument is. The method is printed with it erased, its result the companion or the wildcard's bound, and
+     * A self-bounded type parameter that only the result, or only the body, mentions: Java infers a raw or captured
+     * type, which no C# type argument is. The method is printed with it erased, its result the companion or the wildcard's bound, and
      * a call where Java's type is writable casts to it. A record's companion has its components. A {@code Class<T>} is C#'s {@code Type}, from which C#
      * infers nothing: T is the wildcard's bound.
      */
@@ -2490,6 +2497,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Inner<SimpleScore> best = (Inner<SimpleScore>) (object) scope.GetBest();");
         contains(cs, "NewInstance<IAcceptor>(null, \"a\", c)");
         contains(cs, "NewInstance<object>(null, \"a\", c)");
+        // only the body mentions Score_: erased too, so that the call needs no type argument
+        contains(cs, "internal void DoMove(PhaseScope<Solution_> scope) {");
+        contains(cs, "internal void Step(PhaseScope<Solution_> scope) { DoMove(scope); }");
     }
 
     @Language("java")
@@ -2557,6 +2567,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 private final Object[] values = new Object[4];
                 @SuppressWarnings("unchecked")
                 <V> V get(int i) { return (V) values[i]; }
+                interface Score<Score_ extends Score<Score_>> { boolean zero(); int level(); }
+                static <A> String justify(java.util.function.BiFunction<A, Score<?>, String> f, A a) { return f.apply(a, null); }
+                String justified() { return justify(get(1), "a"); }
                 String name() {
                     String s = get(0);
                     return Objects.requireNonNullElseGet(s, () -> {
@@ -2575,8 +2588,34 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void inferredAndSupplied() {
         String cs = translate("Store", STORE);
         contains(cs, "string s = Get<string>(0);");
+        // a wildcard use inside, which C# writes as the wildcard interface
+        contains(cs, "Justify(Get<Func<string, IScore, string>>(1), \"a\")");
         contains(cs, "s ?? ((Func<string>) (() => {");
         contains(cs, "}))();");
+    }
+
+    /**
+     * Java's {@code Map.get(Object)} takes a key of another type than the map's: a {@code Variable<S, E>} for a map of
+     * {@code Variable<?, ?>}, which C# prints with {@code object} arguments (no wildcard interface). The helper's
+     * overload with an {@code object} key infers the map's types from the map alone (CS0411).
+     */
+    @Test
+    public void mapGetByOtherKey() {
+        String cs = translate("Graphs", """
+                package a;
+                import java.util.HashMap;
+                import java.util.Map;
+                class Graphs {
+                    interface Variable<S, E> { String name(); E entity(S s); }
+                    private final Map<Variable<?, ?>, String> names = new HashMap<>();
+                    <S, E> String lookup(Variable<S, E> v) { return names.get(v); }
+                    <S, E> String lookupOr(Variable<S, E> v) { return names.getOrDefault(v, "none"); }
+                    // entity(S) through the wildcard: no wildcard interface, the map's key is Variable<object, object>
+                    Object first(Variable<?, ?> v) { return v.entity(null); }
+                }
+                """);
+        contains(cs, "names.Get(v)");
+        contains(cs, "names.GetOrDefault(v, \"none\")");
     }
 
     @Language("java")
@@ -3119,6 +3158,69 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // AndThen's own wildcard interface hides all four: Open_ returns the Collector's, which keeps A and X
         contains(cs, "internal static IAndThen last;");
         contains(cs, ": Collectors.ICollectorOpener_<A, I, Collectors.ICollector<A, X>>");
+    }
+
+    /**
+     * A wildcard, or a raw type, passed into a generic method's type parameter: no C# type argument satisfies a
+     * self-bounded {@code where Score_ : IScore<Score_>} (CS0311), nor does C# infer {@code Score_} from an
+     * {@code IInner} (CS0411). The value opens itself into an opener nested in the calling class, which calls with
+     * With's type parameter.
+     */
+    @Test
+    public void wildcardCallOpened() {
+        String cs = translate("Terminations", """
+                package a;
+                class Terminations {
+                    interface Score<Score_ extends Score<Score_>> extends Comparable<Score_> {
+                        Score_ add(Score_ other);
+                        boolean feasible();
+                    }
+                    record Inner<Score_ extends Score<Score_>>(Score_ raw, int unassigned) {
+                        static <Score_ extends Score<Score_>> Inner<Score_> of(Score_ score) { return new Inner<>(score, 0); }
+                    }
+                    static final class Scope<Solution_> {
+                        private Inner<?> best;
+                        <Score_ extends Score<Score_>> Inner<Score_> best() { return (Inner<Score_>) best; }
+                        Inner<?> last() { return best; }
+                        <Score_ extends Score<Score_>> void setBest(Inner<Score_> score) { best = score; }
+                    }
+                    static final class Termination<Solution_> {
+                        private final Score<?> limit;
+                        Termination(Score<?> limit) { this.limit = limit; }
+                        boolean terminated(Scope<Solution_> scope) {
+                            return isTerminated(true, scope.best().raw());
+                        }
+                        void reset(Scope<Solution_> scope, Score<?> score) {
+                            scope.setBest(Inner.of((Score) score));
+                        }
+                        void again(Scope<Solution_> scope) { scope.setBest(scope.last()); }
+                        double gradient(Scope<Solution_> scope) { return gradient(scope.best(), scope.best().raw()); }
+                        <Score_ extends Score<Score_>> double gradient(Inner<Score_> start, Score_ score) { return 0.5; }
+                        void check(Scope<Solution_> scope) { var best = scope.best(); assertScore(best, "check"); }
+                        private <Score_ extends Score<Score_>> void assertScore(Inner<Score_> score, Object what) { }
+                        <Score_ extends Score<Score_>> void predict(Scope<Solution_> scope, Score_ hint) {
+                            this.<Score_>assertScore(scope.best(), "predict");
+                        }
+                        Score<?> doubled() { return twice((Score) limit); }
+                        private <Score_ extends Score<Score_>> boolean isTerminated(boolean initialized, Score_ score) {
+                            return initialized && score.feasible();
+                        }
+                        private <Score_ extends Score<Score_>> Score_ twice(Score_ score) { return score.add(score); }
+                    }
+                }
+                """);
+        contains(cs, "new IsTerminatedOpener_(this, true, scope.Best().Raw).Call()");
+        contains(cs, "internal bool Call() => score.Open_(this);");
+        contains(cs, "TOpen_ With<Score_>(IScore<Score_> x) where Score_ : IScore<Score_>;");
+        contains(cs, "=> target_.IsTerminated(initialized, (Score_) x);");
+        contains(cs, "=> target_.Twice((Score_) x);");
+        contains(cs, "{ target_.SetBest(x); return this; }");
+        // the other argument's type mentions best()'s erased Score_: kept as its wildcard interface, cast to With's
+        contains(cs, "(Termination<Solution_> target_, IInner start, IScore score)");
+        contains(cs, "=> target_.Gradient(x, (Score_) score);");
+        contains(cs, "new AssertScoreOpener_(this, best, \"check\").Call();");
+        // the caller's own Score_, which C# keeps: no opener
+        contains(cs, "AssertScore<Score_>(");
     }
 
     /**

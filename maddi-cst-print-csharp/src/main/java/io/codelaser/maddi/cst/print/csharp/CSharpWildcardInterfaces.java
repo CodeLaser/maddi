@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -422,7 +423,7 @@ final class CSharpWildcardInterfaces {
         static final Uses NONE = new Uses(Map.of(), Map.of());
     }
 
-    static Uses wildcarded(List<TypeInfo> all) {
+    static Uses wildcarded(List<TypeInfo> all, Predicate<MethodInfo> erased) {
         Map<TypeInfo, Set<TypeParameter>> wildcarded = new HashMap<>();
         Consumer<ParameterizedType> declared = pt -> wildcarded(pt, wildcarded);
         for (TypeInfo t : all) {
@@ -465,10 +466,10 @@ final class CSharpWildcardInterfaces {
         Map<TypeInfo, Set<Object>> reached = new HashMap<>();
         for (TypeInfo owner : all) {
             for (MethodInfo method : owner.constructorsAndMethods()) {
-                if (method.methodBody() != null) reaches(owner, method, method.methodBody(), result, reached);
+                if (method.methodBody() != null) reaches(owner, method, method.methodBody(), result, reached, erased);
             }
             for (FieldInfo f : owner.fields()) {
-                if (f.initializer() != null && !f.initializer().isEmpty()) reaches(owner, null, f.initializer(), result, reached);
+                if (f.initializer() != null && !f.initializer().isEmpty()) reaches(owner, null, f.initializer(), result, reached, erased);
             }
         }
         Map<TypeInfo, Set<Object>> reachedCopy = new HashMap<>();
@@ -482,7 +483,7 @@ final class CSharpWildcardInterfaces {
      * parameters ({@link #ownUse}): {@code that.parent} in {@code equals}, after {@code (Node<?>) o}.
      */
     private static void reaches(TypeInfo owner, MethodInfo method, Element code, Map<TypeInfo, Set<TypeParameter>> wildcarded,
-                                Map<TypeInfo, Set<Object>> reached) {
+                                Map<TypeInfo, Set<Object>> reached, Predicate<MethodInfo> erased) {
         BiConsumer<Expression, Object> through = (scope, member) -> {
             if (scope == null) return;
             ParameterizedType pt = scope.parameterizedType();
@@ -508,7 +509,18 @@ final class CSharpWildcardInterfaces {
             if (e instanceof MethodCall mc && !mc.methodInfo().isStatic()) through.accept(mc.object(), mc.methodInfo());
             // a wildcard passed where the type is declared with arguments, getAttribute(Key<T> key): the
             // wildcard interface infers no T (CS0411)
-            if (e instanceof MethodCall mc) passed(mc.methodInfo(), mc.parameterExpressions(), caller, through);
+            if (e instanceof MethodCall mc) {
+                // isTerminated(b, score) of a Score<?>: the wildcard interface's Open_ (CSharpCallOpeners)
+                int opened = CSharpCallOpeners.openedArgument(mc, erased);
+                if (opened >= 0) {
+                    Expression arg = mc.parameterExpressions().get(opened);
+                    ParameterizedType pt = arg.parameterizedType();
+                    // a raw Score, a leaked type parameter of an erased method, a wildcard: the wildcard interface
+                    TypeInfo x = CSharpCallOpeners.openedType(pt, erased);
+                    if (wildcarded.containsKey(x)) reached.computeIfAbsent(x, k -> new HashSet<>()).add(CSharpOpeners.OPENED);
+                }
+                passed(mc.methodInfo(), mc.parameterExpressions(), caller, through);
+            }
             if (e instanceof ConstructorCall cc && cc.constructor() != null) {
                 // new AndThen<>(delegate, f) of a Collector<A, ?, I>: the wildcard interface's Open_ (CSharpOpeners)
                 int opened = CSharpOpeners.openedArgument(cc);

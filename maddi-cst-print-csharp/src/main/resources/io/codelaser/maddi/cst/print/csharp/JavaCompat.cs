@@ -49,6 +49,20 @@ public static class JavaCollections
     public static V GetOrDefault<K, V>(this IDictionary<K, V> d, K key, V def) =>
         d.TryGetValue(key, out var v) ? v : def;
 
+    /// <summary>
+    /// Map.get(Object) with a key of another type than the map's, a VariableMetaModel&lt;S, E, V&gt; for a map of
+    /// VariableMetaModel&lt;?, ?, ?&gt;: the map's own types are inferred from the map alone; a key that is no K is absent.
+    /// A key Java finds through an erasure adapter (Erased_) is not found here: the adapters do not delegate equality.
+    /// </summary>
+    public static V? Get<K, V>(this IDictionary<K, V> d, object? key) =>
+        key is K k && d.TryGetValue(k, out var v) ? v : default;
+
+    public static V? GetValueOrNull<K, V>(this IDictionary<K, V> d, object? key) where V : struct =>
+        key is K k && d.TryGetValue(k, out var v) ? v : null;
+
+    public static V GetOrDefault<K, V>(this IDictionary<K, V> d, object? key, V def) =>
+        key is K k && d.TryGetValue(k, out var v) ? v : def;
+
     /// <summary>Collection.removeAll: whether anything was removed.</summary>
     public static bool RemoveAllOf<T>(this ICollection<T> c, IEnumerable<T> items)
     {
