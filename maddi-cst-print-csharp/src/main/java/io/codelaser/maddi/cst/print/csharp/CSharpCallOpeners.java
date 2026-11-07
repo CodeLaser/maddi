@@ -348,7 +348,13 @@ final class CSharpCallOpeners {
             passed.add(implicitThis(mc) ? new OutputBuilderImpl().add(new TextImpl("this"))
                     : CSharpExpressionPrinter.print(mc.object(), q));
         }
-        mc.parameterExpressions().forEach(a -> passed.add(CSharpExpressionPrinter.print(a, q)));
+        List<Expression> arguments = mc.parameterExpressions();
+        for (int i = 0; i < arguments.size(); i++) {
+            // the value Call() dereferences: asserted not null where C# thinks it may be, as a receiver is
+            passed.add(i == site.argument() && CSharpNullability.mayBeNull(arguments.get(i))
+                    ? CSharpNullability.dereferenced(arguments.get(i), q)
+                    : CSharpExpressionPrinter.print(arguments.get(i), q));
+        }
         return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
                 .add(new TextImpl(site.name() + CSharpNames.typeParameters(site.typeParameters())))
                 .add(passed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
