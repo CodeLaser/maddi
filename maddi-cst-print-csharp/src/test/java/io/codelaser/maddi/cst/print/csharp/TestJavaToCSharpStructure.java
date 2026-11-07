@@ -2457,6 +2457,13 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     Director<Solution_, Score_> d = scope.getDirector();
                     return d.calculate(s);
                 }
+                static class Decider<Solution_> {
+                    <Score_ extends Score<Score_>> void doMove(PhaseScope<Solution_> scope) {
+                        Inner<Score_> best = scope.getBest();
+                        if (best.zero()) scope.getDirector().reset();
+                    }
+                    void step(PhaseScope<Solution_> scope) { doMove(scope); }
+                }
                 interface Acceptor { }
                 static <T> T newInstance(Object bean, String name, Class<T> clazz) {
                     return null;
@@ -2471,8 +2478,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
             """;
 
     /**
-     * A self-bounded type parameter that only the result mentions: Java infers a raw or captured type, which no C#
-     * type argument is. The method is printed with it erased, its result the companion or the wildcard's bound, and
+     * A self-bounded type parameter that only the result, or only the body, mentions: Java infers a raw or captured
+     * type, which no C# type argument is. The method is printed with it erased, its result the companion or the wildcard's bound, and
      * a call where Java's type is writable casts to it. A record's companion has its components. A {@code Class<T>} is C#'s {@code Type}, from which C#
      * infers nothing: T is the wildcard's bound.
      */
@@ -2490,6 +2497,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Inner<SimpleScore> best = (Inner<SimpleScore>) (object) scope.GetBest();");
         contains(cs, "NewInstance<IAcceptor>(null, \"a\", c)");
         contains(cs, "NewInstance<object>(null, \"a\", c)");
+        // only the body mentions Score_: erased too, so that the call needs no type argument
+        contains(cs, "internal void DoMove(PhaseScope<Solution_> scope) {");
+        contains(cs, "internal void Step(PhaseScope<Solution_> scope) { DoMove(scope); }");
     }
 
     @Language("java")
@@ -3159,7 +3169,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                         <Score_ extends Score<Score_>> double gradient(Inner<Score_> start, Score_ score) { return 0.5; }
                         void check(Scope<Solution_> scope) { var best = scope.best(); assertScore(best, "check"); }
                         private <Score_ extends Score<Score_>> void assertScore(Inner<Score_> score, Object what) { }
-                        <Score_ extends Score<Score_>> void predict(Scope<Solution_> scope) {
+                        <Score_ extends Score<Score_>> void predict(Scope<Solution_> scope, Score_ hint) {
                             this.<Score_>assertScore(scope.best(), "predict");
                         }
                         Score<?> doubled() { return twice((Score) limit); }
@@ -3180,7 +3190,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "(Termination<Solution_> target_, IInner start, IScore score)");
         contains(cs, "=> target_.Gradient(x, (Score_) score);");
         contains(cs, "new AssertScoreOpener_(this, best, \"check\").Call();");
-        // the caller's own Score_, which no parameter mentions but C# keeps: no opener
+        // the caller's own Score_, which C# keeps: no opener
         contains(cs, "AssertScore<Score_>(");
     }
 

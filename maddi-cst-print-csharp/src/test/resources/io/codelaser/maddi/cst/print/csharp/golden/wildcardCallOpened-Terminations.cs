@@ -53,7 +53,7 @@ internal sealed class Terminations {
             new AssertScoreOpener_(this, best, "check").Call();
         }
         private void AssertScore<Score_>(Inner<Score_> score, object what) where Score_ : IScore<Score_> { }
-        internal void Predict<Score_>(Scope<Solution_> scope) where Score_ : IScore<Score_> {
+        internal void Predict<Score_>(Scope<Solution_> scope, Score_ hint) where Score_ : IScore<Score_> {
             this.AssertScore<Score_>((Inner<Score_>) (object) scope.Best(), "predict");
         }
         internal IScore Doubled() => new TwiceOpener_(this, (IScore) limit).Call();
