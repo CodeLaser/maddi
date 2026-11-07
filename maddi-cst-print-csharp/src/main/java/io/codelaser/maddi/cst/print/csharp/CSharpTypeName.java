@@ -94,6 +94,16 @@ public final class CSharpTypeName {
             "java.util.Set", "IReadOnlyCollection",
             "java.lang.Iterable", "IEnumerable");
 
+    /**
+     * C#'s non-generic interface of a JDK collection, {@code IList} for a {@code List}, which every generic one is
+     * (with its using); null for another type.
+     */
+    static String nonGeneric(TypeInfo t) {
+        String nonGeneric = t == null ? null : NON_GENERIC.get(t.fullyQualifiedName());
+        if (nonGeneric != null) CSharpContext.using("IComparable".equals(nonGeneric) ? "System" : "System.Collections");
+        return nonGeneric;
+    }
+
     private static final ThreadLocal<Boolean> EXPRESSION = ThreadLocal.withInitial(() -> false);
 
     /** The record whose positional parameter list is printed ({@link #inHeader}); null otherwise. */

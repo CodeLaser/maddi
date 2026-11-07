@@ -104,6 +104,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     ? CSharpTypeName.inHeader(typeInfo, () -> CSharpErasures.adapter(typeInfo, typeAccess(), importData.insideType()))
                     : null;
             if (erasure != null) type.add(SpaceEnum.NEWLINE).add(erasure);
+            // the openers of its creations from a wildcard (CSharpOpeners), beside it as the adapters are
+            if (doTypeDeclaration) {
+                for (OutputBuilder opener : CSharpTypeName.inHeader(typeInfo,
+                        () -> CSharpOpeners.classDeclarations(typeInfo, importData.insideType()))) {
+                    type.add(SpaceEnum.NEWLINE).add(opener);
+                }
+            }
             return type;
         } finally {
             CSharpContext.popType();
@@ -258,6 +265,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             List<OutputBuilder> statics = companionInWildcardInterface()
                     ? companionMembers(q, methodPrinterFactory, fieldPrinterFactory) : List.of();
             out.add(SpaceEnum.NEWLINE).add(CSharpWildcardInterfaces.declaration(typeInfo, typeAccess(), q, statics));
+            if (CSharpOpeners.opened(typeInfo)) {
+                out.add(SpaceEnum.NEWLINE).add(CSharpOpeners.interfaceDeclaration(typeInfo, typeAccess(), q));
+            }
         }
         return out;
     }

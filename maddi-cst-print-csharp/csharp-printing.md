@@ -426,8 +426,23 @@ implements the interface.
   `Filter<String, Integer>`, prints its type arguments from the target, `NewInstance<IFilter<string, int>>`
   (`CSharpContext.callTarget`, set by `converted`). A type that gets no wildcard interface says why in a
   `NO_WILDCARD_INTERFACE` message: the member reached through the wildcard that the interface could not declare,
-  or the generic parameter the wildcard goes into; `messages.txt` of a corpus run lists them, the work list of the
-  wildcard design.
+  or the generic parameter the wildcard goes into (with the method called and its caller); `messages.txt` of a corpus
+  run lists them, the work list of the wildcard design.
+- **Collections of a removed type parameter.** A wildcard interface's member whose result (or field, or record
+  component) is a JDK collection of a removed type parameter, `List<G> impacts()` of a self-bounded `G`, is C#'s
+  non-generic interface of it, `IList Impacts()`, which every `List<T>` is; the bridge casts, an `IList<G>` being no
+  `IList`. `Map` is `IDictionary`; `Iterable`, `Collection` and `Set` are `IEnumerable` (a `HashSet<T>` is no
+  `ICollection`, the cast would fail when it runs).
+- **Opening a wildcard into a generic creation.** `new AndThen<>(delegate, f)` of a `Collector<A, ?, I> delegate`:
+  Java names the `?` and creates an `AndThen<A, CAP#1, I, X>`, C# infers nothing from the wildcard interface. The
+  object names it (`CSharpOpeners`): the wildcard interface declares `TOpen_ Open_<TOpen_>(ICollectorOpener_<A, I,
+  TOpen_> o)`, which the type implements as `o.With<R>(this)`; the creation is `delegate.Open_(new
+  CollectorsAndThenOpener_<A, I, X>(f))`, and the opener class, the creating type's sibling, creates `new AndThen<A,
+  R, I, X>(delegate, f)` in `With<R>`. The opener interface's variance is the wildcard interface's reversed, as it
+  takes the type in. `Open_` returns the created class's supertype whose wildcard interface hides the fewest other
+  arguments (`ICollector<A, X>`, not `AndThen`'s own, which hides all four). Only a creation whose one wildcard
+  argument goes into bare, unbounded type parameters of the class, and which names the class's other arguments,
+  opens; a call of a generic method, a raw creation, or a type argument nothing passes stays "passed as".
 - **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
   type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
   `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
@@ -582,8 +597,10 @@ differences:
 - **Local variables.** A local is declared `var` when Java says `var`, or when its initializer constructs exactly the
   declared type. Otherwise it keeps its type. Java's `var` of a conditional whose branches differ is their common
   supertype, which C#'s `var` does not infer (CS0173): it is declared, `Node<A> node = c ? new Indexed<A>() : new
-  Unindexed<A>()`, and C# types the conditional from it; not when C# cannot write that type, with a wildcard or as
-  `object` for an intersection of the program's types.
+  Unindexed<A>()`, and C# types the conditional from it. A common type with a wildcard is its wildcard interface,
+  `IExists<A> node = …` for an `Exists<A, ?>` (the wildcard analysis counts such a var); an intersection of the
+  program's types, `Named & Sized`, is the one of them that declares every method the code calls on the variable,
+  `INamed model = …`; otherwise the local stays `var`.
 - **Type tests.** `instanceof` becomes `is`, `x instanceof T t` becomes `x is T t`, and `!(x instanceof T)` becomes
   `x is not T`. A record pattern of the program's record is a property pattern, in a type test and in a `case` alike:
   `o instanceof Line(Point(var x1, var y1), Point to)` becomes `o is Line { From: Point { X: var x1, Y: var y1 }, To:

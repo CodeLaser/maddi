@@ -790,14 +790,13 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     /** Java's var of a conditional is its branches' common supertype; C#'s var needs one of them: declared. */
     @Test
     public void conditionalVars() {
-        compile = false; // #185: a conditional whose common type C# cannot write (a wildcard, an intersection) stays var (CS0173)
         String cs = translate("Nodes", CONDITIONAL_VARS);
         contains(cs, "Node<A> node = joiners ? new Indexed<A>() : new Unindexed<A>();");
         contains(cs, "object beanClass = bean == null ? \"null\" : bean.GetType();");
         contains(cs, "var n = b ? new Indexed<string>() : new Indexed<string>();");
-        // not when C# cannot write Java's common type: with a wildcard, or an intersection of the program's types
-        contains(cs, "var node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, string>();");
-        contains(cs, "var model = genuine ? new Genuine() : new Shadow();");
+        // a common type with a wildcard is its wildcard interface; an intersection the member whose methods the code calls
+        contains(cs, "IExists<A> node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, string>();");
+        contains(cs, "INamed model = genuine ? new Genuine() : new Shadow();");
     }
 
     @Language("java")
@@ -2183,8 +2182,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // the bridges: every IScore<S> is an IScore
         contains(cs, "IScore IScore.Negate() => Negate();");
         contains(cs, "bool IScore.IsZero() => IsZero();");
-        // a result of the removed parameter in a collection has no companion form: History is not the companion's
-        contains(cs, "public interface IDirector<in Solution_> { IScore Calculate(Solution_ solution); }");
+        // a result of the removed parameter in a JDK collection is C#'s non-generic interface of it, cast by the bridge
+        contains(cs, "IList IDirector<Solution_>.History() => (IList) History();");
         contains(cs, "internal static bool AnyZero(List<IScore> scores)");
         contains(cs, "internal static string Describe<S>(IDirector<S> director, S solution)");
         assertFalse(cs.contains("IScore<object>"), cs);
@@ -2304,6 +2303,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     @SuppressWarnings({"rawtypes", "unchecked"}) Impacter<G> narrowed(Impacter raw) { return raw; }
                 }
                 static int impacts(Impacter<?> impacter) { return impacter.impacts().size(); }
+                public record Overrides<G extends Grade<G>>(java.util.Map<String, G> weights) { }
+                static int weights(Overrides<?> overrides) { return overrides.weights().size(); }
+                public interface Graded<G extends Grade<G>> { java.util.Set<G> grades(); int rank(); }
+                static boolean graded(Graded<?> graded) { return graded.grades() != null; }
                 public abstract static class Base { }
                 public static final class Node2<T> extends Base { public int size() { return 0; } }
                 static Node2<?> node() { return new Node2<String>(); }
@@ -2345,7 +2348,6 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
      */
     @Test
     public void wildcardInterfaces() {
-        compile = false; // #185: a self-bounded wildcard interface declares no member mentioning the parameter (CS1061)
         String cs = translate("Lifecycles", LIFECYCLES);
         contains(cs, "public interface ITupleLifecycle : IActivitySupport {");
         // its statics, the companion's, which has the wildcard interface's name: one interface
@@ -2359,7 +2361,13 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal static IBox Any(bool b)");
         // a self-bounded interface with a companion keeps both, as before the companion became the wildcard interface
         // the companion is the wildcard interface, of a self-bounded interface too (two IImpacter are CS0102)
-        contains(cs, "public interface IImpacter { public static IImpacter None() => null; }");
+        contains(cs, "public static IImpacter None() => null;");
+        // a List<G> of the removed G is C#'s non-generic IList, which a List<G> is: impacter.impacts().size()
+        contains(cs, "IList IImpacter.Impacts() => (IList) Impacts();");
+        contains(cs, "impacter.Impacts().Count");
+        contains(cs, "IDictionary IOverrides.Weights => (IDictionary) Weights;");
+        // a set is only IEnumerable: a HashSet<T> is no ICollection
+        contains(cs, "IEnumerable IGraded.Grades() => (IEnumerable) Grades();");
         // the wildcard interface where its class's superclass is expected: a cast
         contains(cs, "Based((Base) n)");
         // a result of the wildcarded parameter is its bound, a parameter's keeps the member out
@@ -3057,6 +3065,93 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "string IShadow.Name => Name;");
         contains(cs, "int IShadow.Ordinal() => ((IVariable<S, V>) this).Ordinal();");
         contains(cs, "string IShadow.Label() => Label();");
+    }
+
+    /**
+     * A wildcard passed into a generic class's creation, {@code new AndThen<>(delegate, f)} of a
+     * {@code Collector<A, ?, I>}: Java captures the {@code ?}, C# infers nothing from the wildcard interface. The object
+     * names it: the wildcard interface's {@code Open_} calls the opener's {@code With<R>} with itself, which creates
+     * (CSharpOpeners). The result is the first supertype whose wildcard interface hides R, or one without R at all.
+     */
+    @Test
+    public void wildcardOpened() {
+        String cs = translate("Collectors", """
+                package a;
+                import java.util.function.Function;
+                class Collectors {
+                    interface Collector<A, R, I> {
+                        R supply();
+                        void accumulate(R r, A a);
+                        I finish(R r);
+                    }
+                    static final class AndThen<A, R, I, X> implements Collector<A, R, X> {
+                        private final Collector<A, R, I> delegate;
+                        private final Function<I, X> f;
+                        AndThen(Collector<A, R, I> delegate, Function<I, X> f) { this.delegate = delegate; this.f = f; }
+                        public R supply() { return delegate.supply(); }
+                        public void accumulate(R r, A a) { delegate.accumulate(r, a); }
+                        public X finish(R r) { return f.apply(delegate.finish(r)); }
+                    }
+                    static AndThen<?, ?, ?, ?> last;
+                    static <A, I, X> Collector<A, ?, X> andThen(Collector<A, ?, I> delegate, Function<I, X> f) {
+                        return new AndThen<>(delegate, f);
+                    }
+                    interface Provider<S> { int size(); }
+                    interface Variable<S, E, V> { String name(); E entity(); }
+                    static final class Change<S, E, V> implements Provider<S> {
+                        private final Variable<S, E, V> variable;
+                        Change(Variable<S, E, V> variable) { this.variable = variable; }
+                        public int size() { return variable.name().length(); }
+                    }
+                    static final class Holder<S> {
+                        private final Variable<S, ?, ?> variable;
+                        Holder(Object o) { this.variable = (Variable<S, ?, ?>) o; }
+                        Provider<S> change() { return new Change<>(variable); }
+                    }
+                }
+                """);
+        contains(cs, "@delegate.Open_(");
+        contains(cs, "new CollectorsAndThenOpener_<A, I, X>(f));");
+        contains(cs, "=> new Collectors.AndThen<A, R, I, X>(@delegate, f);");
+        contains(cs, "TOpen_ Open_<TOpen_>(ICollectorOpener_<A, I, TOpen_> o);");
+        contains(cs, "With<R>(this)");
+        contains(cs, "variable.Open_(new HolderChangeOpener_<S>())");
+        // AndThen's own wildcard interface hides all four: Open_ returns the Collector's, which keeps A and X
+        contains(cs, "internal static IAndThen last;");
+        contains(cs, ": Collectors.ICollectorOpener_<A, I, Collectors.ICollector<A, X>>");
+    }
+
+    /**
+     * An override prints a wildcard parameter as the method it overrides does: the class's own overload of the same
+     * arity, a private {@code groupBy(keyA, keyB)}, does not make it capture where the interface's prints the wildcard
+     * interface (CS0535).
+     */
+    @Test
+    public void wildcardOverloadInClass() {
+        String cs = translate("Streams", """
+                package a;
+                class Streams {
+                    interface Collector<A, R, X> { X finish(); int size(); }
+                    interface Mapper<A, K> { K map(A a); int arity(); }
+                    interface Stream<A> {
+                        <K, X> int groupBy(Mapper<A, K> key, Collector<A, ?, X> collector);
+                    }
+                    static final class Holder<A> {
+                        Collector<A, ?, String> any;
+                        String done() { return any.finish(); }
+                    }
+                    static abstract class Base<A> implements Stream<A> {
+                        @Override
+                        public <K, X> int groupBy(Mapper<A, K> key, Collector<A, ?, X> collector) {
+                            collector.finish();
+                            return 1;
+                        }
+                        private <K1, K2> int groupBy(Mapper<A, K1> keyA, Mapper<A, K2> keyB) { return 2; }
+                    }
+                }
+                """);
+        contains(cs, "int GroupBy<K, X>(IMapper<A, K> key, ICollector<A, X> collector);");
+        contains(cs, "public int GroupBy<K, X>(IMapper<A, K> key, ICollector<A, X> collector) {");
     }
 
     /**

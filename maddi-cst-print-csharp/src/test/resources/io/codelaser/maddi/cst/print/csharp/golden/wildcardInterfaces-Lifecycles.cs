@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 namespace Org.Example.Lifecycleses;
@@ -14,6 +15,8 @@ public sealed class Lifecycles {
     }
     internal static IBox Any(bool b) => b ? new Box<string>("s") : new Box<int>(1);
     internal static int Impacts(IImpacter impacter) => impacter.Impacts().Count;
+    internal static int Weights(IOverrides overrides) => overrides.Weights.Count;
+    internal static bool Graded(IGraded graded) => graded.Grades() != null;
     internal static INode2 node() => new Node2<string>();
     internal static int Based(Base @base) => 1;
     internal static int Nodes() {
@@ -58,6 +61,17 @@ public sealed class Lifecycles {
     public interface IGrade<G> : IGrade where G : IGrade<G> { }
     public interface IGrade { }
 
+    public interface IGraded<G> : IGraded where G : IGrade<G> {
+        ISet<G> Grades();
+        int Rank();
+        IEnumerable IGraded.Grades() => (IEnumerable) Grades();
+        int IGraded.Rank() => Rank();
+    }
+    public interface IGraded {
+        IEnumerable Grades();
+        int Rank();
+    }
+
     public sealed class Holder<T> : IHolder {
         internal readonly object[] items = { };
         public T First() => default;
@@ -69,8 +83,14 @@ public sealed class Lifecycles {
         object First();
     }
 
-    public interface IImpacter<G> : IImpacter where G : IGrade<G> { List<G> Impacts(); }
-    public interface IImpacter { public static IImpacter None() => null; }
+    public interface IImpacter<G> : IImpacter where G : IGrade<G> {
+        List<G> Impacts();
+        IList IImpacter.Impacts() => (IList) Impacts();
+    }
+    public interface IImpacter {
+        IList Impacts();
+        public static IImpacter None() => null;
+    }
     public sealed class ImpacterLambda<G>(Func<List<G>> f) : IImpacter<G> where G : IGrade<G> { public List<G> Impacts() => f(); }
     public sealed class Key<T> where T : ITuple { internal readonly string name = "k"; }
     public sealed class Named : Box<string> {
@@ -90,6 +110,11 @@ public sealed class Lifecycles {
         int INode2.Size() => Size();
     }
     public interface INode2 { int Size(); }
+
+    public sealed record Overrides<G>(IDictionary<string, G> Weights) : IOverrides where G : IGrade<G> {
+        IDictionary IOverrides.Weights => (IDictionary) Weights;
+    }
+    public interface IOverrides { IDictionary Weights { get; } }
     public sealed record Pair(int Size) : ITuple { int ITuple.Size() => Size; }
     public sealed class PairNode : Node<Pair> {
         internal PairNode(ITupleLifecycle<Pair> next) : base(ITupleLifecycle.Same(next)) { }

@@ -151,7 +151,7 @@ final class CSharpWildcardInterfaces {
     private static Object unreachable(TypeInfo t, List<TypeParameter> removed) {
         Set<Object> declared = declared(t, removed);
         for (Object info : CSharpContext.program().reachedThroughWildcard(t)) {
-            if (declared.contains(info)) continue;
+            if (declared.contains(info) || info == CSharpOpeners.OPENED) continue;
             if (info instanceof MethodInfo m) {
                 // Object's, or an override of Object's (javac resolves tag.toString() to Tag's): every C# object has it
                 if (m.overrides().stream().anyMatch(o -> "java.lang.Object".equals(o.typeInfo().fullyQualifiedName()))
@@ -395,14 +395,15 @@ final class CSharpWildcardInterfaces {
     }
 
     /** A wildcard passed where its type is declared with arguments, which the wildcard interface cannot be. */
-    private record PassedAsGeneric(ParameterizedType formal) {
+    private record PassedAsGeneric(ParameterizedType formal, MethodInfo callee, String caller) {
         @Override
         public String toString() {
-            return "passed as " + formal;
+            return "passed as " + formal + " to " + callee.fullyQualifiedName() + " in " + caller;
         }
     }
 
-    private static void passed(MethodInfo method, List<Expression> arguments, BiConsumer<Expression, Object> through) {
+    private static void passed(MethodInfo method, List<Expression> arguments, String caller,
+                               BiConsumer<Expression, Object> through) {
         List<ParameterInfo> parameters = method.parameters();
         for (int i = 0; i < arguments.size() && !parameters.isEmpty(); i++) {
             ParameterizedType formal = parameters.get(Math.min(i, parameters.size() - 1)).parameterizedType();
@@ -412,7 +413,7 @@ final class CSharpWildcardInterfaces {
                 continue;
             }
             if (formal.parameters().stream().noneMatch(a -> a.wildcard() != null)) {
-                through.accept(arguments.get(i), new PassedAsGeneric(formal));
+                through.accept(arguments.get(i), new PassedAsGeneric(formal, method, caller));
             }
         }
     }
@@ -447,6 +448,10 @@ final class CSharpWildcardInterfaces {
                     // Java's var is C#'s
                     if (e instanceof LocalVariableCreation lvc && !lvc.isVar()) {
                         lvc.localVariableStream().forEach(v -> declared.accept(v.parameterizedType()));
+                    }
+                    // a var of a conditional whose common type is a wildcard use: declared as its wildcard interface
+                    if (e instanceof LocalVariableCreation lvc && CSharpStatementPrinter.conditionalWildcard(lvc)) {
+                        declared.accept(lvc.localVariable().parameterizedType());
                     }
                     if (e instanceof Cast cast) declared.accept(cast.parameterizedType());
                     if (e instanceof InstanceOf instanceOf && instanceOf.testType() != null) declared.accept(instanceOf.testType());
@@ -498,13 +503,20 @@ final class CSharpWildcardInterfaces {
                 }
             }
         };
+        String caller = owner.fullyQualifiedName() + (method == null ? "" : "." + method.name());
         code.visit((Element e) -> {
             if (e instanceof MethodCall mc && !mc.methodInfo().isStatic()) through.accept(mc.object(), mc.methodInfo());
             // a wildcard passed where the type is declared with arguments, getAttribute(Key<T> key): the
             // wildcard interface infers no T (CS0411)
-            if (e instanceof MethodCall mc) passed(mc.methodInfo(), mc.parameterExpressions(), through);
+            if (e instanceof MethodCall mc) passed(mc.methodInfo(), mc.parameterExpressions(), caller, through);
             if (e instanceof ConstructorCall cc && cc.constructor() != null) {
-                passed(cc.constructor(), cc.parameterExpressions(), through);
+                // new AndThen<>(delegate, f) of a Collector<A, ?, I>: the wildcard interface's Open_ (CSharpOpeners)
+                int opened = CSharpOpeners.openedArgument(cc);
+                if (opened >= 0) {
+                    through.accept(cc.parameterExpressions().get(opened), CSharpOpeners.OPENED);
+                } else {
+                    passed(cc.constructor(), cc.parameterExpressions(), caller, through);
+                }
             }
             if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
                 && !fr.fieldInfo().isStatic()) {
@@ -645,6 +657,8 @@ final class CSharpWildcardInterfaces {
         TypeInfo t = pt.typeInfo();
         // Class<A>: C#'s Type, which has no arguments
         if (t != null && !CSharpNames.translated(t) && CSharpTypeName.dropsArguments(t)) return CSharpTypeName.of(pt, q);
+        // List<G> of a removed G: C#'s non-generic IList, which every List<T> is (the bridge casts, nonGenericBridge)
+        if (nonGenericErasure(pt, removed)) return nonGenericName(t);
         if (t == null || !has(t)) return null;
         List<TypeParameter> own = removed(t);
         List<String> printed = new ArrayList<>();
@@ -658,6 +672,28 @@ final class CSharpWildcardInterfaces {
         String name = CSharpTypeName.name(t, q);
         String wildcardInterface = t.isInterface() ? name : qualifiedInterface(name);
         return wildcardInterface + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
+    }
+
+    /** {@code List<G>}, {@code Map<K, G>} of a removed {@code G}: a JDK collection C# has a non-generic interface of. */
+    static boolean nonGenericErasure(ParameterizedType pt, List<TypeParameter> removed) {
+        TypeInfo t = pt.typeInfo();
+        return t != null && pt.arrays() == 0 && !CSharpNames.translated(t) && CSharpTypeName.nonGeneric(t) != null
+               && !"java.lang.Comparable".equals(t.fullyQualifiedName()) && CstQueries.mentionsAny(pt, removed);
+    }
+
+    /**
+     * The non-generic interface: a set or a collection, which may be a HashSet, is only an {@code IEnumerable} (a
+     * {@code HashSet<T>} is no {@code ICollection}, the cast would fail when it runs).
+     */
+    private static String nonGenericName(TypeInfo t) {
+        String nonGeneric = CSharpTypeName.nonGeneric(t);
+        return "ICollection".equals(nonGeneric) ? "IEnumerable" : nonGeneric;
+    }
+
+    /** The bridge's value of such a member: cast, an {@code IList<G>} is no {@code IList}. */
+    private static String nonGenericBridge(ParameterizedType declared, List<TypeParameter> removed, String type,
+                                           String value) {
+        return nonGenericErasure(declared, removed) ? "(" + type + ") " + value : value;
     }
 
     /**
@@ -851,7 +887,8 @@ final class CSharpWildcardInterfaces {
                 boolean assertNotNull = program.facts().nullabilityAnalysed() && CstQueries.mentionsAny(f.type(), removed)
                                         && !type.endsWith("?");
                 members.add(new Member(type + " " + property + " { get; }",
-                        type + " " + self + "." + property + " => " + property + (assertNotNull ? "!" : "") + ";"));
+                        type + " " + self + "." + property + " => "
+                        + nonGenericBridge(f.type(), removed, type, property + (assertNotNull ? "!" : "")) + ";"));
             }
         }
         for (FieldInfo f : readFields(t, removed)) {
@@ -866,7 +903,8 @@ final class CSharpWildcardInterfaces {
             boolean assertNotNull = program.facts().nullabilityAnalysed() && CstQueries.mentionsAny(fieldType, removed)
                                     && !type.endsWith("?");
             members.add(new Member(modifier + type + " " + property + " { get; }",
-                    type + " " + self + "." + property + " => " + property + (assertNotNull ? "!" : "") + ";"));
+                    type + " " + self + "." + property + " => "
+                    + nonGenericBridge(fieldType, removed, type, property + (assertNotNull ? "!" : "")) + ";"));
         }
         for (MethodInfo m : t.methods()) {
             if (!candidate(t, m, removed)) continue;
@@ -880,7 +918,8 @@ final class CSharpWildcardInterfaces {
                 String bridge = CstQueries.mentionsAny(m.returnType(), removed) && erasedDelegate(m.returnType(), removed)
                         // Func<A, B, bool> is no Func<object, object, bool>: the delegate adapted, as a method's is
                         ? returnType + " " + self + "." + property + " { get " + delegateBridge(m, property, removed, q, returnType.endsWith("?")) + " }"
-                        : returnType + " " + self + "." + property + " => " + property + asserted(m, removed, returnType) + ";";
+                        : returnType + " " + self + "." + property + " => "
+                          + nonGenericBridge(m.returnType(), removed, returnType, property + asserted(m, removed, returnType)) + ";";
                 members.add(new Member(modifier + returnType + " " + property + " { get; }", bridge));
                 continue;
             }
@@ -909,7 +948,8 @@ final class CSharpWildcardInterfaces {
                 bridge = returnType + " " + self + "." + signature + " " + delegateBridge(m, own, removed, q, returnType.endsWith("?"));
             } else {
                 String call = name + typeParameters + "(" + String.join(", ", arguments) + ")" + asserted(m, removed, returnType);
-                bridge = returnType + " " + self + "." + signature + " => " + call + ";";
+                bridge = returnType + " " + self + "." + signature + " => "
+                         + nonGenericBridge(m.returnType(), removed, returnType, call) + ";";
             }
             members.add(new Member(declaration, bridge));
         }
@@ -917,6 +957,7 @@ final class CSharpWildcardInterfaces {
             Member member = inheritedMember(t, m, removed, self, signatures, q);
             if (member != null) members.add(member);
         }
+        if (CSharpOpeners.opened(t)) members.add(CSharpOpeners.member(t, self, q));
         return members;
     }
 
