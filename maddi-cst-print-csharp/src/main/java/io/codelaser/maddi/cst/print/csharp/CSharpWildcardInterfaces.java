@@ -508,7 +508,22 @@ final class CSharpWildcardInterfaces {
             if (e instanceof MethodCall mc && !mc.methodInfo().isStatic()) through.accept(mc.object(), mc.methodInfo());
             // a wildcard passed where the type is declared with arguments, getAttribute(Key<T> key): the
             // wildcard interface infers no T (CS0411)
-            if (e instanceof MethodCall mc) passed(mc.methodInfo(), mc.parameterExpressions(), caller, through);
+            if (e instanceof MethodCall mc) {
+                // isTerminated(b, score) of a Score<?>: the wildcard interface's Open_ (CSharpCallOpeners)
+                int opened = CSharpCallOpeners.openedArgument(mc);
+                if (opened >= 0) {
+                    Expression arg = mc.parameterExpressions().get(opened);
+                    ParameterizedType pt = arg.parameterizedType();
+                    TypeInfo x = CSharpCallOpeners.openedType(pt);
+                    if ((pt.isTypeParameter() || pt.parameters().isEmpty()) && wildcarded.containsKey(x)) {
+                        // a raw Score: as its wildcard
+                        reached.computeIfAbsent(x, k -> new HashSet<>()).add(CSharpOpeners.OPENED);
+                    } else {
+                        through.accept(arg, CSharpOpeners.OPENED);
+                    }
+                }
+                passed(mc.methodInfo(), mc.parameterExpressions(), caller, through);
+            }
             if (e instanceof ConstructorCall cc && cc.constructor() != null) {
                 // new AndThen<>(delegate, f) of a Collector<A, ?, I>: the wildcard interface's Open_ (CSharpOpeners)
                 int opened = CSharpOpeners.openedArgument(cc);

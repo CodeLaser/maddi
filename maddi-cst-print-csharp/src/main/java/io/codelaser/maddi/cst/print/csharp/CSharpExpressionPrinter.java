@@ -523,6 +523,9 @@ public final class CSharpExpressionPrinter {
     }
 
     private static OutputBuilder methodCall(MethodCall mc, Qualification q, boolean statement) {
+        // isTerminated(b, score) of a Score<?>: score.Open_(new IsTerminatedOpener_(this, b))
+        CSharpCallOpeners.Site opener = CSharpCallOpeners.site(mc);
+        if (opener != null) return CSharpCallOpeners.call(opener, q);
         OutputBuilder call = inCall(mc, () -> methodCallInCall(mc, q, statement));
         String cast = statement ? null : erasedResultCast(mc, q);
         if (cast == null) return call;

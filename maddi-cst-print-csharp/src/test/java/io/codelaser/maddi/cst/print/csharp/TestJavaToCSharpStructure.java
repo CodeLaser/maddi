@@ -3122,6 +3122,55 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * A wildcard, or a raw type, passed into a generic method's type parameter: no C# type argument satisfies a
+     * self-bounded {@code where Score_ : IScore<Score_>} (CS0311), nor does C# infer {@code Score_} from an
+     * {@code IInner} (CS0411). The value opens itself into an opener nested in the calling class, which calls with
+     * With's type parameter.
+     */
+    @Test
+    public void wildcardCallOpened() {
+        String cs = translate("Terminations", """
+                package a;
+                class Terminations {
+                    interface Score<Score_ extends Score<Score_>> extends Comparable<Score_> {
+                        Score_ add(Score_ other);
+                        boolean feasible();
+                    }
+                    record Inner<Score_ extends Score<Score_>>(Score_ raw, int unassigned) {
+                        static <Score_ extends Score<Score_>> Inner<Score_> of(Score_ score) { return new Inner<>(score, 0); }
+                    }
+                    static final class Scope<Solution_> {
+                        private Inner<?> best;
+                        <Score_ extends Score<Score_>> Inner<Score_> best() { return (Inner<Score_>) best; }
+                        Inner<?> last() { return best; }
+                        <Score_ extends Score<Score_>> void setBest(Inner<Score_> score) { best = score; }
+                    }
+                    static final class Termination<Solution_> {
+                        private final Score<?> limit;
+                        Termination(Score<?> limit) { this.limit = limit; }
+                        boolean terminated(Scope<Solution_> scope) {
+                            return isTerminated(true, scope.best().raw());
+                        }
+                        void reset(Scope<Solution_> scope, Score<?> score) {
+                            scope.setBest(Inner.of((Score) score));
+                        }
+                        void again(Scope<Solution_> scope) { scope.setBest(scope.last()); }
+                        Score<?> doubled() { return twice((Score) limit); }
+                        private <Score_ extends Score<Score_>> boolean isTerminated(boolean initialized, Score_ score) {
+                            return initialized && score.feasible();
+                        }
+                        private <Score_ extends Score<Score_>> Score_ twice(Score_ score) { return score.add(score); }
+                    }
+                }
+                """);
+        contains(cs, "scope.Best().Raw.Open_(new IsTerminatedOpener_(this, true))");
+        contains(cs, "TOpen_ With<Score_>(IScore<Score_> x) where Score_ : IScore<Score_>;");
+        contains(cs, "=> target_.IsTerminated(initialized, (Score_) x);");
+        contains(cs, "=> target_.Twice((Score_) x);");
+        contains(cs, "{ target_.SetBest(x); return this; }");
+    }
+
+    /**
      * An override prints a wildcard parameter as the method it overrides does: the class's own overload of the same
      * arity, a private {@code groupBy(keyA, keyB)}, does not make it capture where the interface's prints the wildcard
      * interface (CS0535).

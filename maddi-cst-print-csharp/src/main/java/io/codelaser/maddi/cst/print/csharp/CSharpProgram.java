@@ -577,6 +577,11 @@ public final class CSharpProgram {
         /** The opener of a creation ({@link CSharpOpeners#site}). */
         final Map<io.codelaser.maddi.cst.api.expression.ConstructorCall, CSharpOpeners.Site> openerSites =
                 java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+        /** The openers of a type's calls ({@link CSharpCallOpeners#sites}). */
+        final Map<TypeInfo, List<CSharpCallOpeners.Site>> callOpeners = new ConcurrentHashMap<>();
+        /** The opener of a call ({@link CSharpCallOpeners#site}). */
+        final Map<io.codelaser.maddi.cst.api.expression.MethodCall, CSharpCallOpeners.Site> callOpenerSites =
+                java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
     }
 
     Memo memo() {
