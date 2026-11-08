@@ -954,8 +954,8 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
 
             @Override
             public NullableState nullable(ParameterInfo parameter) {
-                return parameter.methodInfo().typeInfo().isInterface() ? NullableState.NULLABLE
-                        : NullableState.NONNULL;
+                return parameter.methodInfo().typeInfo().isInterface() || "supplier".equals(parameter.name())
+                        ? NullableState.NULLABLE : NullableState.NONNULL;
             }
         });
         String cs = translate("Lookups", """
@@ -966,11 +966,17 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                     static String name(Object value) { return String.valueOf(value); }
                     static String read(Getter g) { return g.get(null); }
                     static String apply(Mapper m) { return m.map("x"); }
-                    static String use() { return read(e -> "e") + apply(Lookups::name); }
+                    static String use() { return read(e -> "e") + apply(Lookups::name) + run(Context::change); }
+                    interface Impact { String impact(Context context, Object supplier); }
+                    static final class Context { String change(Object supplier) { return "c"; } }
+                    static String run(Impact i) { return i.impact(new Context(), null); }
                 }
                 """);
         contains(cs, "delegate string Getter(object? entity);");
         contains(cs, "delegate string Mapper(object value);");
+        // an unbound reference: its receiver is not null, its lambda's typed parameters as the delegate has them
+        contains(cs, "delegate string Impact(Context context, object? supplier);");
+        contains(cs, "(Context p0, object? p1) => p0.Change(p1)");
         assertTrue(nullableWarnings.isEmpty(), nullableWarnings + "\n" + cs);
     }
 

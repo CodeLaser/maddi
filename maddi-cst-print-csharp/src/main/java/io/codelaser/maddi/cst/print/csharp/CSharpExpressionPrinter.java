@@ -2179,6 +2179,21 @@ public final class CSharpExpressionPrinter {
         return methodReference(mr, null, q);
     }
 
+    /**
+     * The type of a method reference's lambda parameter: the delegate's, {@code T?} where the delegate's parameter is
+     * nullable ({@link CSharpTypePrinter#delegateParameter}), which a lambda's typed parameter must match (CS8622).
+     */
+    private static String typedParameter(MethodReference mr, int i, Qualification q) {
+        ParameterizedType pt = mr.concreteParameterTypes().get(i);
+        String type = CSharpTypeName.argument(pt, q);
+        TypeInfo functional = mr.parameterizedType() == null ? null : mr.parameterizedType().typeInfo();
+        if (functional == null || !CSharpContext.program().delegate(functional)) return type;
+        MethodInfo sam = CSharpProgram.invoked(functional);
+        if (sam == null || i >= sam.parameters().size()) return type;
+        NullableState state = CSharpTypePrinter.delegateParameter(functional, sam, sam.parameters().get(i));
+        return CSharpTypeName.withNullable(pt, type, state);
+    }
+
     /** {@code resultType}: a constructor reference's result as C# is to infer it, the created value cast to it. */
     private static OutputBuilder methodReference(MethodReference mr, ParameterizedType resultType, Qualification q) {
         MethodInfo method = mr.methodInfo();
@@ -2199,8 +2214,8 @@ public final class CSharpExpressionPrinter {
                         + String.join(", ", parameters.subList(1, parameters.size())) + ")");
         }
         if (unboundReceiver && arity > 0) {
-            parameterList = IntStream.range(0, arity).mapToObj(i -> CSharpTypeName.argument(mr.concreteParameterTypes().get(i), q)
-                    + " " + parameters.get(i)).collect(Collectors.joining(", ", "(", ")"));
+            parameterList = IntStream.range(0, arity).mapToObj(i -> typedParameter(mr, i, q) + " " + parameters.get(i))
+                    .collect(Collectors.joining(", ", "(", ")"));
         }
         if (method.isConstructor()) {
             ParameterizedType type = scope.parameterizedType();

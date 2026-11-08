@@ -569,7 +569,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * to the delegate takes null there too: C# converts no method group of a {@code string} parameter to a delegate
      * of a {@code string?} one (CS8622). An unbound reference's receiver, the first parameter, is not null.
      */
-    private NullableState delegateParameter(MethodInfo sam, ParameterInfo p) {
+    static NullableState delegateParameter(TypeInfo typeInfo, MethodInfo sam, ParameterInfo p) {
         CSharpProgram program = CSharpContext.program();
         NullableState verdict = program.facts().nullable(p);
         if (verdict != NullableState.NULLABLE) return verdict;
@@ -597,7 +597,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         String typeParameters = CSharpNames.declaredTypeParameters(typeInfo.typeParameters());
         // with the analysis's verdict, as a method's parameter: a caller may pass null (Lookup's entity)
         String parameters = sam.parameters().stream()
-                .map(p -> CSharpTypeName.declared(p.parameterizedType(), false, delegateParameter(sam, p), q)
+                .map(p -> CSharpTypeName.declared(p.parameterizedType(), false, delegateParameter(typeInfo, sam, p), q)
                           + " " + CSharpNames.name(p.name()))
                 .collect(Collectors.joining(", "));
         StringBuilder sb = new StringBuilder(access == null ? "" : access + " ").append("delegate ")
