@@ -568,8 +568,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         MethodInfo sam = CSharpProgram.invoked(typeInfo);
         String access = typeAccess();
         String typeParameters = CSharpNames.declaredTypeParameters(typeInfo.typeParameters());
+        // with the analysis's verdict, as a method's parameter: a caller may pass null (Lookup's entity)
         String parameters = sam.parameters().stream()
-                .map(p -> CSharpTypeName.of(p.parameterizedType(), q) + " " + CSharpNames.name(p.name()))
+                .map(p -> CSharpTypeName.declared(p.parameterizedType(), false,
+                        CSharpContext.program().facts().nullable(p), q) + " " + CSharpNames.name(p.name()))
                 .collect(Collectors.joining(", "));
         StringBuilder sb = new StringBuilder(access == null ? "" : access + " ").append("delegate ")
                 .append(CSharpTypeName.of(sam.returnType(), q)).append(' ').append(CSharpNames.type(typeInfo))
