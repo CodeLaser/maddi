@@ -237,10 +237,15 @@
 # a raw type test takes the operand's arguments (is IPhaseTermination<Solution_>, which <object> never matched at
 # run time); a wildcard interface declares a reached member whose parameter is a removed type parameter at its
 # bound: 1355 -> 1356 compiling files, 544 -> 539 errors.
+#
+# 2026-11-08, the descriptor and metamodel wildcard interfaces (Bart: "i approve, go ahead"): a collection result
+# of a wildcard-interface type is C#'s covariant read-only collection of that interface; an erased generic member
+# reached through a wildcard is declared as it prints; a type parameter removed in a reached member's result is
+# removed in the result type's wildcard interface too: 1356 -> 1366 compiling files, 539 -> 522 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1356
+compilingFiles	1366
 unmappedJdkUses	106
-errors	539
+errors	522
