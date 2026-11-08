@@ -2570,6 +2570,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 interface Score<Score_ extends Score<Score_>> { boolean zero(); int level(); }
                 static <A> String justify(java.util.function.BiFunction<A, Score<?>, String> f, A a) { return f.apply(a, null); }
                 String justified() { return justify(get(1), "a"); }
+                @SuppressWarnings("unchecked")
+                static <T> Class<T> resolve(String name, Object context) {
+                    try { return (Class<T>) Class.forName(name); } catch (ClassNotFoundException e) { return null; }
+                }
+                Class<? extends java.util.List<?>> lister(String name) { return resolve(name, this); }
                 String name() {
                     String s = get(0);
                     return Objects.requireNonNullElseGet(s, () -> {
@@ -2590,6 +2595,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "string s = Get<string>(0);");
         // a wildcard use inside, which C# writes as the wildcard interface
         contains(cs, "Justify(Get<Func<string, IScore, string>>(1), \"a\")");
+        // T only as a Class<T>, C#'s Type: any T will do
+        contains(cs, "Resolve<object>(name, this)");
         contains(cs, "s ?? ((Func<string>) (() => {");
         contains(cs, "}))();");
     }
@@ -2597,7 +2604,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     /**
      * Java's {@code Map.get(Object)} takes a key of another type than the map's: a {@code Variable<S, E>} for a map of
      * {@code Variable<?, ?>}, which C# prints with {@code object} arguments (no wildcard interface). The helper's
-     * overload with an {@code object} key infers the map's types from the map alone (CS0411).
+     * overload with an {@code object} key infers the map's types from the map alone (CS0411). And the helpers of
+     * {@code putAll} and {@code addAll(int, …)} take Java's {@code ? extends}: KeyValuePair is a struct, and variance
+     * converts no value type.
      */
     @Test
     public void mapGetByOtherKey() {
@@ -2612,10 +2621,45 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     <S, E> String lookupOr(Variable<S, E> v) { return names.getOrDefault(v, "none"); }
                     // entity(S) through the wildcard: no wildcard interface, the map's key is Variable<object, object>
                     Object first(Variable<?, ?> v) { return v.entity(null); }
+                    static class Descriptor { }
+                    static final class Genuine extends Descriptor { }
+                    private final Map<String, Descriptor> all = new HashMap<>();
+                    private final Map<String, Genuine> genuine = new HashMap<>();
+                    void merge() { all.putAll(genuine); }
+                    <T> void insert(java.util.List<Object> into, java.util.List<T> items) { into.addAll(0, items); }
                 }
                 """);
         contains(cs, "names.Get(v)");
         contains(cs, "names.GetOrDefault(v, \"none\")");
+        // putAll(Map<? extends K, ? extends V>), addAll(int, Collection<? extends E>): of a subtype, a type parameter
+        contains(cs, "all.PutAll(genuine);");
+        contains(cs, "into.InsertAll(0, items);");
+    }
+
+    /**
+     * A raw sentinel as {@code reduce}'s identity: Java converts {@code NONE} to the stream's element type unchecked;
+     * C#'s {@code Aggregate} infers its seed's type from both, so the seed is cast as a raw value into the generic type
+     * is (CS0411).
+     */
+    @Test
+    public void rawSeed() {
+        String cs = translate("Joiners", """
+                package a;
+                import java.util.List;
+                final class Joiners<A, B> {
+                    @SuppressWarnings("rawtypes")
+                    private static final Joiners NONE = new Joiners();
+                    private final int size;
+                    Joiners() { this(0); }
+                    Joiners(int size) { this.size = size; }
+                    Joiners<A, B> and(Joiners<A, B> other) { return new Joiners<>(size + other.size); }
+                    @SuppressWarnings("unchecked")
+                    static <A, B> Joiners<A, B> merge(List<Joiners<A, B>> joiners) {
+                        return joiners.stream().reduce(NONE, Joiners::and);
+                    }
+                }
+                """);
+        contains(cs, "joiners.Aggregate((Joiners<A, B>) (object)");
     }
 
     @Language("java")

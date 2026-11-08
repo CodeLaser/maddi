@@ -467,7 +467,10 @@ implements the interface.
   it with a covariant result, and a call through it casts the result to the type Java inferred.
 - **Self-bounded type parameters only a result mentions.** `<Score_ extends Score<Score_>> InnerScore<Score_>
   getScore()`, bounded by a program type (not `Comparable<? super R>`, whose type argument C# infers from a method
-  group's target): where Java infers a raw or captured `Score_`, no C# type argument satisfies the constraint. Such a
+  group's target): where Java infers a raw or captured `Score_`, no C# type argument satisfies the constraint. So too
+  one that only the body mentions, `<Score_ …> void doMove(MoveScope<Solution_> scope)`, from which C# infers nothing
+  at `doMove(scope)`: its body's `Score_` is the wildcard, and a member that takes `Score_` is not there (CS1061, where
+  the call had CS0411); a diamond that would take it (`new DiminishedReturnsTermination<>(…)`) has no type argument. Such a
   method, with all its overrides, is printed with the type parameter erased, a wildcard in its signature and body:
   `InnerScore<IScore> GetScore()`, `IInnerScoreDirector<Solution_> GetScoreDirector()` (the wildcard interface). A
   call where Java's type is writable casts to it through `object`,
@@ -480,7 +483,18 @@ implements the interface.
   nothing: `T` from a `Class<? extends Acceptor>` is `IAcceptor`, from a `Class<?>` its own bound. Nor does C# infer
   from an implicitly typed lambda's parameters: a type parameter that only parameters given a lambda or a method
   reference mention, `oneKeyGroupBy(key, Group1Mapping0CollectorUniNode::new)`'s `Tuple_`, gets them all too; so
-  does one only `null` gives, `ValueRangeItem.of(null, …)`'s `Entity_`.
+  does one only `null` gives, `ValueRangeItem.of(null, …)`'s `Entity_`. A wildcard use inside a type argument is the
+  wildcard interface: `getJustificationMapping()` into a `BiFunction<A, Score<?>, …>` is
+  `GetJustificationMapping<Func<A, IScore, …>>()`. A type parameter only a `Class<T>` mentions, C#'s `Type`, which
+  is not generic, gets its bound where Java's inference is not writable: `ResolveClass<object>(name, …)` into a
+  `Class<? extends SolutionPartitioner<?>>`.
+- **A library call's arguments of the library type's own type parameter** are converted as the receiver has it:
+  `joinerList.stream().reduce(NONE, DefaultBiJoiner::and)` of a raw `NONE` casts the seed, `(DefaultBiJoiner<A, B>)
+  (object) NONE`, as the `Stream<DefaultBiJoiner<A, B>>`'s `T` (C#'s `Aggregate` infers its seed type from both).
+  The helpers take Java's `? extends`: `PutAll` another map's own key and value types, `InsertAll` another
+  collection's element type, cast to the target's inside (`KeyValuePair` is a struct, and variance converts no value
+  type or type parameter; a constraint would say nothing of null, CS8631); `Get` and `GetOrDefault` have an `object` key, as Java's `get(Object)`, a key that is no
+  `K` being absent (an erasure adapter's key is not found: maddi#187).
   A variable arity parameter's type parameter comes from the array passed as such, or from elements of one type;
   elements of different types, and a type parameter nothing else gives, take its bound in the others: `buildMove(a,
   b)` of `<Solution_, Move_ extends Move<Solution_>>` is `BuildMove<Solution_, IMove<Solution_>>(a, b)`, where

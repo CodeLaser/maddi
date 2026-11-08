@@ -46,10 +46,13 @@
 # earns, by letting the compiler see errors it could not before, is written with a note that says so.
 # 2026-11-05, maddi e65b4878d: a class bounding a type parameter is not sealed (CS0701, and the CS0266 its
 # constraint caused): 192 -> 172 errors, compiling files unchanged (301).
+#
+# 2026-11-07, inference C# cannot make (maddi, mechanism 3): wildcard uses in inferred type arguments, Class<T>-only
+# type parameters, reduce's raw seed, the map and list helpers' ? extends and get(Object): 172 -> 171 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	301
+compilingFiles	302
 unmappedJdkUses	151
-errors	172
+errors	171

@@ -1,10 +1,15 @@
 using System;
+using System.Collections;
 namespace Org.Example.Stores;
 public sealed class Store {
     private readonly object[] values = new object[4];
     internal V Get<V>(int i) => (V) values[i];
     internal static string Justify<A>(Func<A, IScore, string> f, A a) => f(a, default);
     internal string Justified() => Justify(Get<Func<string, IScore, string>>(1), "a");
+    internal static Type Resolve<T>(string name, object context) {
+        try { return (Type) (object) Type.GetType(name, true); } catch (TypeLoadException e) { return null; }
+    }
+    internal Type Lister(string name) => Resolve<object>(name, this);
     internal string Name() {
         string s = Get<string>(0);
         return s ?? ((Func<string>) (() => {

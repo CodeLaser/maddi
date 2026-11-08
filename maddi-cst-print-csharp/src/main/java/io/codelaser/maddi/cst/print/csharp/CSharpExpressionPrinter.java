@@ -549,6 +549,8 @@ public final class CSharpExpressionPrinter {
 
     private static boolean erasedResultCast(MethodCall mc) {
         if (!CSharpContext.program().erasedGeneric(mc.methodInfo())) return false;
+        // a result the erasure leaves as it is, buildTermination's Termination<Solution_>: nothing to cast
+        if (!CstQueries.mentionsAny(mc.methodInfo().returnType(), mc.methodInfo().typeParameters())) return false;
         ParameterizedType concrete = mc.concreteReturnType();
         // a type that mentions an enclosing erased method's type parameter is printed erased already
         List<TypeParameter> enclosing = CSharpContext.erasedTypeParameters();
@@ -596,7 +598,7 @@ public final class CSharpExpressionPrinter {
                 : mc.methodInfo().isStatic() ? receiver(object, q) : CSharpNullability.dereferenced(object, q);
         List<Expression> parameterExpressions = mc.parameterExpressions();
         List<Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
-                .mapToObj(i -> (Supplier<OutputBuilder>) () -> templateArgument(mc.methodInfo(), i,
+                .mapToObj(i -> (Supplier<OutputBuilder>) () -> templateArgument(mc, i,
                         parameterExpressions.get(i), q)).toList();
         List<Supplier<OutputBuilder>> operands = mc.parameterExpressions().stream()
                 .map(a -> (Supplier<OutputBuilder>) () -> templateOperand(a, q)).toList();
@@ -718,8 +720,28 @@ public final class CSharpExpressionPrinter {
             match(p.parameterizedType(), args.get(i).parameterizedType(), typeParameters, inferred);
         }
         bounds(typeParameters, inferred);
-        if (!meetBounds(typeParameters, inferred, q)) return "";
-        return typeArgumentList(typeParameters, inferred, true, q);
+        String printed = meetBounds(typeParameters, inferred, q) ? typeArgumentList(typeParameters, inferred, true, q) : "";
+        if (printed.isEmpty() && onlyInClass(method)) {
+            // <T> Class<T> resolveClass(String name): C#'s Type is not generic, any T will do: its bound
+            printed = typeParameters.stream().map(tp -> CSharpTypeName.rawArgument(tp, q))
+                    .collect(Collectors.joining(", ", "<", ">"));
+        }
+        return printed;
+    }
+
+    /** Each of the method's type parameters is unbounded and mentioned only as a {@code Class<T>}, C#'s {@code Type}. */
+    private static boolean onlyInClass(MethodInfo method) {
+        List<ParameterizedType> signature = new ArrayList<>();
+        signature.add(method.returnType());
+        method.parameters().forEach(p -> signature.add(p.parameterizedType()));
+        return method.typeParameters().stream().allMatch(tp -> tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject)
+                && signature.stream().allMatch(t -> onlyInClass(t, tp)));
+    }
+
+    private static boolean onlyInClass(ParameterizedType t, TypeParameter tp) {
+        if (t.isTypeParameter()) return !t.typeParameter().equals(tp);
+        if (t.typeInfo() != null && "java.lang.Class".equals(t.typeInfo().fullyQualifiedName())) return true;
+        return t.parameters().stream().allMatch(a -> onlyInClass(a, tp));
     }
 
     /**
@@ -1654,7 +1676,8 @@ public final class CSharpExpressionPrinter {
      * An argument of a call printed by a template: as {@link #converted}, and a collection's {@code Object} parameter, of {@code get}, {@code contains},
      * {@code remove}, is its element or key: a type argument, the value type itself in C#.
      */
-    private static OutputBuilder templateArgument(MethodInfo method, int i, Expression value, Qualification q) {
+    private static OutputBuilder templateArgument(MethodCall mc, int i, Expression value, Qualification q) {
+        MethodInfo method = mc.methodInfo();
         ParameterizedType type = parameterType(method, i);
         Expression inner = unwrap(value);
         boolean elementOrKey = type != null && type.arrays() == 0
@@ -1673,7 +1696,24 @@ public final class CSharpExpressionPrinter {
         if (type != null && type.isTypeParameter() && type.typeParameter().isMethodTypeParameter() && unboxed(inner)) {
             type = null;
         }
+        // the library type's own T as the receiver has it: reduce(NONE, …) of a Stream<DefaultBiJoiner<A, B>> and a raw NONE
+        ParameterizedType seen = asReceiverHasIt(mc, type);
+        if (seen != null && (rawIntoGeneric(inner, seen) || wildcardIntoGeneric(inner, seen))) type = seen;
         return CSharpNullability.intoParameter(value, method, i, elementOrKey, converted(value, type, q));
+    }
+
+    /** A type parameter of the called method's type, as the receiver's type has it; null when there is none. */
+    private static ParameterizedType asReceiverHasIt(MethodCall mc, ParameterizedType type) {
+        MethodInfo method = mc.methodInfo();
+        if (type == null || !type.isTypeParameter() || type.arrays() != 0 || type.typeParameter().isMethodTypeParameter()
+            || method.isStatic() || mc.object() == null || mc.object().parameterizedType() == null
+            || mc.object().parameterizedType().typeInfo() == null) {
+            return null;
+        }
+        ParameterizedType seen = CstSupertypes.asSeen(mc.object().parameterizedType(), method.typeInfo());
+        if (seen == null) return null;
+        ParameterizedType substituted = CstSupertypes.substitute(type, CstSupertypes.typeArguments(seen));
+        return substituted.isTypeParameter() || substituted.typeInfo() == null ? null : substituted;
     }
 
     /** Whether {@link #converted} changes the value. */
