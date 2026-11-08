@@ -3268,6 +3268,63 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * A type test against a raw generic type takes the arguments the operand's type determines:
+     * {@code termination instanceof PhaseTermination p} of a {@code SolverTermination<S>} is
+     * {@code is IPhaseTermination<S> p}, which an {@code IPhaseTermination<object>} would not match at run time.
+     */
+    @Test
+    public void rawTypeTest() {
+        String cs = translate("Terminations", """
+                package a;
+                class Terminations<S> {
+                    interface SolverTermination<S> { boolean solverDone(S s); }
+                    interface PhaseTermination<S> extends SolverTermination<S> { boolean phaseDone(S s); }
+                    private final SolverTermination<S> termination;
+                    Terminations(SolverTermination<S> termination) { this.termination = termination; }
+                    @SuppressWarnings("unchecked")
+                    boolean done(S s) {
+                        if (termination instanceof PhaseTermination phase) return phase.phaseDone(s);
+                        return termination instanceof PhaseTermination && termination.solverDone(s);
+                    }
+                }
+                """);
+        contains(cs, "if (termination is IPhaseTermination<S> phase) { return phase.PhaseDone(s); }");
+        contains(cs, "return termination is IPhaseTermination<S> && termination.SolverDone(s);");
+    }
+
+    /**
+     * A diamond whose argument is a captured wildcard parameter, {@code new Equal<>(unpacker, …)} of an
+     * {@code Unpacker<?> unpacker} the method captures as {@code TK}: the capture's name, as Java infers the capture.
+     */
+    @Test
+    public void diamondOfCapturedParameter() {
+        String cs = translate("Indexes", """
+                package a;
+                import java.util.Collection;
+                import java.util.function.Supplier;
+                class Indexes {
+                    interface Unpacker<K> { K key(Object o); }
+                    interface Index<T> { int size(); }
+                    static final class Equal<T, K> implements Index<T> {
+                        Equal(Unpacker<K> u, Supplier<Index<T>> s) { }
+                        public int size() { return 0; }
+                    }
+                    static final class Containing<T, K, C extends Collection<K>> implements Index<T> {
+                        Containing(Unpacker<K> u, Supplier<Index<T>> s) { }
+                        public int size() { return 1; }
+                    }
+                    <T> Index<T> build(Unpacker<?> u, Supplier<Index<T>> s, boolean b) {
+                        if (b) return new Equal<>(u, s);
+                        return new Containing<>(u, s);
+                    }
+                }
+                """);
+        contains(cs, "return new Equal<T, TK>(u, s);");
+        // a type parameter no argument determines: its bound, the capture substituted
+        contains(cs, "return new Containing<T, TK, ICollection<TK>>(u, s);");
+    }
+
+    /**
      * An override prints a wildcard parameter as the method it overrides does: the class's own overload of the same
      * arity, a private {@code groupBy(keyA, keyB)}, does not make it capture where the interface's prints the wildcard
      * interface (CS0535).

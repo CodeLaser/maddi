@@ -49,6 +49,7 @@ final class CSharpWildcards {
     private CSharpWildcards() {
     }
 
+    /** {@code q} null: the names only, without the constraints. */
     static Captured captured(MethodInfo method, Qualification q) {
         if (!mayBeGeneric(method)) return Captured.NONE;
         Set<String> taken = new HashSet<>();
@@ -82,7 +83,7 @@ final class CSharpWildcards {
                 forParameter.add(unique);
                 List<ParameterizedType> bounds = bounds(declared, a);
                 if (!constrainable(bounds)) ok = false;
-                if (!bounds.isEmpty()) {
+                if (!bounds.isEmpty() && q != null) {
                     forConstraints.add("where " + unique + " : " + String.join(", ",
                             bounds.stream().map(b -> CSharpTypeName.of(b, q)).toList()));
                 }

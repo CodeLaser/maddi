@@ -293,8 +293,10 @@ public final class CSharpTypeName {
         List<TypeParameter> erased = CSharpContext.erasedTypeParameters();
         if (pt.isTypeParameter()) {
             // in a method C# prints with its type parameters erased (CSharpProgram): the bound
-            return erased.contains(pt.typeParameter()) ? rawArgument(pt.typeParameter(), q)
-                    : CSharpNames.typeParameter(pt.typeParameter());
+            if (erased.contains(pt.typeParameter())) return rawArgument(pt.typeParameter(), q);
+            // a generic type's own, of a captured parameter's type: the capture's name (CSharpContext.capturedName)
+            String captured = CSharpContext.capturedName(pt.typeParameter());
+            return captured != null ? captured : CSharpNames.typeParameter(pt.typeParameter());
         }
         if (!erased.isEmpty()) pt = erasedToWildcards(pt, erased);
         TypeInfo typeInfo = pt.typeInfo();

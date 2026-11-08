@@ -1079,17 +1079,13 @@ public final class CSharpExpressionPrinter {
         TypeInfo created = type.typeInfo();
         if (created == null || type.arrays() != 0 || cc.constructor() == null || type.parameters().isEmpty()) return type;
         List<TypeParameter> own = created.typeParameters();
-        if (type.parameters().stream().noneMatch(a -> a.isTypeParameter() && own.contains(a.typeParameter()))) return type;
+        if (type.parameters().stream().noneMatch(a -> a.isTypeParameter() && own.contains(a.typeParameter()))) {
+            return fromCaptured(cc, type);
+        }
         for (TypeInfo at = CSharpContext.currentType(); at != null; at = CstQueries.enclosing(at)) {
             if (at.equals(created)) return type; // its own type parameters are in scope
         }
-        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
-        List<ParameterInfo> parameters = cc.constructor().parameters();
-        for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
-            if (parameters.get(i).isVarArgs()) break;
-            match(parameters.get(i).parameterizedType(), cc.parameterExpressions().get(i).parameterizedType(), own,
-                    inferred);
-        }
+        Map<TypeParameter, ParameterizedType> inferred = inferredFromArguments(cc, own);
         ParameterizedType target = argumentTarget(cc);
         // the parameter's type, or a supertype of the class, as it extends or implements it in its own type parameters:
         // HashMap<K, V> is a Map<K, V>, ListBasedScalingOrderedSet<E> a Collection<E> through Set<E>
@@ -1109,6 +1105,56 @@ public final class CSharpExpressionPrinter {
             }
         }
         return type.withParameters(arguments);
+    }
+
+    private static Map<TypeParameter, ParameterizedType> inferredFromArguments(ConstructorCall cc,
+                                                                            List<TypeParameter> own) {
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
+        List<ParameterInfo> parameters = cc.constructor().parameters();
+        for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
+            if (parameters.get(i).isVarArgs()) break;
+            Expression arg = unwrap(cc.parameterExpressions().get(i));
+            ParameterizedType captured = CSharpContext.capturedType(arg);
+            match(parameters.get(i).parameterizedType(), captured != null ? captured : arg.parameterizedType(), own,
+                    inferred);
+        }
+        return inferred;
+    }
+
+    /**
+     * A diamond whose arguments Java inferred from a captured wildcard parameter, {@code new Equal<>(u, s)} of an
+     * {@code Unpacker<?> u} the method captures as {@code TK} ({@link CSharpWildcards#captured}): the capture where
+     * the parser has a wildcard, {@code Equal<T, TK>}; a type parameter no argument determines, as its bound has it
+     * ({@code C extends Collection<K>}: {@code ICollection<TK>}). {@code type} itself otherwise.
+     */
+    private static ParameterizedType fromCaptured(ConstructorCall cc, ParameterizedType type) {
+        TypeInfo created = type.typeInfo();
+        List<TypeParameter> own = created.typeParameters();
+        if (type.parameters().size() != own.size() || type.parameters().stream().noneMatch(CSharpExpressionPrinter::hasWildcard)
+            || cc.parameterExpressions().stream().noneMatch(a -> CSharpContext.capturedType(unwrap(a)) != null)) {
+            return type;
+        }
+        Map<TypeParameter, ParameterizedType> inferred = inferredFromArguments(cc, own);
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (int i = 0; i < own.size(); i++) {
+            ParameterizedType a = type.parameters().get(i);
+            if (!hasWildcard(a)) {
+                arguments.add(a);
+                continue;
+            }
+            ParameterizedType t = inferred.get(own.get(i));
+            if (t == null && own.get(i).typeBounds().size() == 1) {
+                ParameterizedType bound = CstSupertypes.substitute(own.get(i).typeBounds().getFirst(), inferred);
+                if (!CstQueries.mentionsAny(bound, own)) t = bound;
+            }
+            if (t == null || !writable(t, List.of())) return type;
+            arguments.add(t);
+        }
+        return type.withParameters(arguments);
+    }
+
+    private static boolean hasWildcard(ParameterizedType t) {
+        return t.wildcard() != null || t.parameters().stream().anyMatch(CSharpExpressionPrinter::hasWildcard);
     }
 
     /**
@@ -2432,8 +2478,9 @@ public final class CSharpExpressionPrinter {
         if (mapped != null && mapped.namespace() != null) CSharpContext.using(mapped.namespace());
         String classPattern = mapped == null ? null : mapped.value();
         if (pattern != null && pattern.localVariable() != null) {
-            return b.add(text(classPattern != null ? classPattern
-                            : CSharpTypeName.pattern(pattern.localVariable().parameterizedType(), q)))
+            ParameterizedType declared = rawTestArguments(pattern.localVariable().parameterizedType(),
+                    io.expression().parameterizedType());
+            return b.add(text(classPattern != null ? classPattern : CSharpTypeName.pattern(declared, q)))
                     .add(SpaceEnum.ONE).add(text(CSharpContext.declare(pattern.localVariable().simpleName())));
         }
         String deconstructed = pattern == null ? null : recordPattern(pattern, null, q);
@@ -2441,7 +2488,36 @@ public final class CSharpExpressionPrinter {
         if (pattern != null) {
             CSharpContext.message(CSharpPrintCode.SWITCH_FORM, io, CSharpContext.describe(io));
         }
-        return b.add(text(classPattern != null ? classPattern : CSharpTypeName.pattern(io.testType(), q)));
+        return b.add(text(classPattern != null ? classPattern
+                : CSharpTypeName.pattern(rawTestArguments(io.testType(), io.expression().parameterizedType()), q)));
+    }
+
+    /**
+     * A type test against a raw generic type, {@code termination instanceof PhaseTermination p} of a
+     * {@code SolverTermination<Solution_>}: the arguments the operand's type determines, as the tested type extends
+     * it, {@code is IPhaseTermination<Solution_> p}. Any object that passes Java's test has them; C#'s
+     * {@code <object>} would match none of them. {@code tested} itself when it is not raw or the operand does not
+     * determine every argument.
+     */
+    private static ParameterizedType rawTestArguments(ParameterizedType tested, ParameterizedType operand) {
+        TypeInfo target = tested == null ? null : tested.typeInfo();
+        if (target == null || tested.arrays() != 0 || !tested.parameters().isEmpty()
+            || target.typeParameters().isEmpty() || !CSharpNames.translated(target) || operand == null
+            || operand.arrays() != 0 || operand.typeInfo() == null || operand.parameters().isEmpty()
+            || target.equals(operand.typeInfo())) {
+            return tested;
+        }
+        ParameterizedType asOperand = CstSupertypes.asSeen(target, operand.typeInfo());
+        if (asOperand == null) return tested;
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
+        match(asOperand, operand, target.typeParameters(), inferred);
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (TypeParameter tp : target.typeParameters()) {
+            ParameterizedType t = inferred.get(tp);
+            if (t == null || !writable(t, List.of())) return tested;
+            arguments.add(t);
+        }
+        return tested.withParameters(arguments);
     }
 
     /**
