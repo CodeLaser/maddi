@@ -51,7 +51,8 @@ import io.codelaser.maddi.cst.print.translate.OverrideFamilies;
  */
 record CSharpProgramIndex(List<TypeInfo> types, Map<MethodInfo, Set<MethodInfo>> overrides,
                           List<List<MethodInfo>> families, Set<MethodInfo> referenced,
-                          Map<MethodInfo, List<List<Expression>>> calls) {
+                          Map<MethodInfo, List<List<Expression>>> calls,
+                          Map<TypeInfo, List<MethodInfo>> referencedAs) {
 
     static CSharpProgramIndex of(List<TypeInfo> all) {
         Map<MethodInfo, Set<MethodInfo>> overrides = new HashMap<>();
@@ -66,11 +67,18 @@ record CSharpProgramIndex(List<TypeInfo> types, Map<MethodInfo, Set<MethodInfo>>
         }
         Set<MethodInfo> referenced = new HashSet<>();
         Map<MethodInfo, List<List<Expression>>> calls = new HashMap<>();
+        Map<TypeInfo, List<MethodInfo>> referencedAs = new HashMap<>();
         for (TypeInfo t : all) {
             for (Element element : CstQueries.code(t)) {
                 element.visit((Element e) -> {
                     switch (e) {
-                        case MethodReference mr -> referenced.add(mr.methodInfo());
+                        case MethodReference mr -> {
+                            referenced.add(mr.methodInfo());
+                            TypeInfo functional = mr.parameterizedType() == null ? null : mr.parameterizedType().typeInfo();
+                            if (functional != null) {
+                                referencedAs.computeIfAbsent(functional, k -> new ArrayList<>()).add(mr.methodInfo());
+                            }
+                        }
                         case MethodCall mc -> call(calls, mc.methodInfo(), mc.parameterExpressions());
                         case ConstructorCall cc when cc.constructor() != null ->
                                 call(calls, cc.constructor(), cc.parameterExpressions());
@@ -83,7 +91,8 @@ record CSharpProgramIndex(List<TypeInfo> types, Map<MethodInfo, Set<MethodInfo>>
                 });
             }
         }
-        return new CSharpProgramIndex(List.copyOf(all), overrides, OverrideFamilies.of(all).families(), referenced, calls);
+        return new CSharpProgramIndex(List.copyOf(all), overrides, OverrideFamilies.of(all).families(), referenced, calls,
+                referencedAs);
     }
 
     private static void call(Map<MethodInfo, List<List<Expression>>> calls, MethodInfo callee, List<Expression> arguments) {

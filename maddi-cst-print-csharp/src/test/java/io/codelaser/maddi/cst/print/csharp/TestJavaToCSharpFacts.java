@@ -941,6 +941,40 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     /**
+     * A delegate's parameter has the analysis's nullability, {@code object? entity} where a caller passes null; not
+     * where a method reference converted to the delegate takes no null there (CS8622).
+     */
+    @Test
+    public void delegateParameterNullable() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(ParameterInfo parameter) {
+                return parameter.methodInfo().typeInfo().isInterface() ? NullableState.NULLABLE
+                        : NullableState.NONNULL;
+            }
+        });
+        String cs = translate("Lookups", """
+                package a;
+                class Lookups {
+                    interface Getter { String get(Object entity); }
+                    interface Mapper { String map(Object value); }
+                    static String name(Object value) { return String.valueOf(value); }
+                    static String read(Getter g) { return g.get(null); }
+                    static String apply(Mapper m) { return m.map("x"); }
+                    static String use() { return read(e -> "e") + apply(Lookups::name); }
+                }
+                """);
+        contains(cs, "delegate string Getter(object? entity);");
+        contains(cs, "delegate string Mapper(object value);");
+        assertTrue(nullableWarnings.isEmpty(), nullableWarnings + "\n" + cs);
+    }
+
+    /**
      * A dictionary's key type parameter, {@code where K : notnull}, takes a captured wildcard parameter's capture
      * (the capture is {@code notnull} too) and the arguments a raw type test infers ({@code is Keyed<K2>}: K2 is
      * {@code notnull}): CS8714 otherwise.

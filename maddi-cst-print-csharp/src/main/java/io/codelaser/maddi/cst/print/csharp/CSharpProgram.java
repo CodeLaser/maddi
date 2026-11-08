@@ -154,6 +154,7 @@ public final class CSharpProgram {
     private final Map<MethodInfo, CSharpProperties.Property> accessors;
     private final CSharpFacts facts;
     private final CSharpReadOnly.Analysis readOnly;
+    private final Map<TypeInfo, List<MethodInfo>> referencedAs;
     private final Set<MethodInfo> erasedGenerics;
     private final Set<TypeInfo> exposedBases;
     private final Map<String, TypeInfo> packageInfos;
@@ -178,6 +179,7 @@ public final class CSharpProgram {
         CSharpProperties.Analysis properties = CSharpProperties.Analysis.NONE;
         CSharpFacts facts = CSharpFacts.NONE;
         CSharpReadOnly.Analysis readOnly = CSharpReadOnly.Analysis.NONE;
+        Map<TypeInfo, List<MethodInfo>> referencedAs = Map.of();
         Set<MethodInfo> erasedGenerics = Set.of();
         Set<TypeInfo> exposedBases = Set.of();
         Map<String, TypeInfo> packageInfos = Map.of();
@@ -212,6 +214,7 @@ public final class CSharpProgram {
         this.accessors = Map.copyOf(accessors);
         facts = b.facts;
         readOnly = b.readOnly;
+        referencedAs = b.referencedAs;
         erasedGenerics = b.erasedGenerics;
         exposedBases = b.exposedBases;
         packageInfos = b.packageInfos;
@@ -292,6 +295,7 @@ public final class CSharpProgram {
             b.properties = CSharpProperties.analyze(index, implementing, delegates);
         }
         b.readOnly = CSharpReadOnly.analyze(index, policy.facts(), delegates);
+        b.referencedAs = index.referencedAs();
         b.erasedGenerics = erasedGenerics(index);
         b.exposedBases = exposedBases(all);
         Map<String, TypeInfo> packageInfos = new HashMap<>();
@@ -693,6 +697,11 @@ public final class CSharpProgram {
     /** The members the code reaches through a wildcard of the type: a method called, a field read. */
     Set<Object> reachedThroughWildcard(TypeInfo typeInfo) {
         return wildcardUses.reached().getOrDefault(typeInfo, Set.of());
+    }
+
+    /** The methods the program's method references name as a value of the functional type. */
+    List<MethodInfo> referencedAs(TypeInfo functional) {
+        return referencedAs.getOrDefault(functional, List.of());
     }
 
     /** The member is reached through the wildcard of some type, its own or a subtype's. */
