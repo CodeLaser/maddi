@@ -967,7 +967,8 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                     static String read(Getter g) { return g.get(null); }
                     static String apply(Mapper m) { return m.map("x"); }
                     static String use() {
-                        return read(e -> "e") + read((Object e) -> "t") + apply(Lookups::name) + run(Context::change);
+                        return read(e -> "e") + read((Object e) -> "t") + apply(Lookups::name) + run(Context::change)
+                               + read(new Getter() { public String get(Object entity) { return "a"; } });
                     }
                     interface Impact { String impact(Context context, Object supplier); }
                     static final class Context { String change(Object supplier) { return "c"; } }
@@ -981,6 +982,7 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "(Context p0, object? p1) => p0.Change(p1)");
         // a lambda Java types: as the delegate types it
         contains(cs, "Read((object? e) => \"t\")");
+        contains(cs, "Read((object? entity) => \"a\")");
         assertTrue(nullableWarnings.isEmpty(), nullableWarnings + "\n" + cs);
     }
 

@@ -2127,7 +2127,8 @@ public final class CSharpExpressionPrinter {
         ParameterizedType functionalType = anonymous.interfacesImplemented().getFirst();
         MethodInfo method = anonymous.methods().stream().filter(m -> !m.isSynthetic()).findFirst().orElseThrow();
         OutputBuilder lambda = lambda(method, () -> method.parameters().stream()
-                .map(p -> CSharpTypeName.argument(p.parameterizedType(), q) + " " + CSharpContext.declare(p.name()))
+                .map(p -> asDelegateHasIt(functionalType.typeInfo(), p.index(), p.parameterizedType(),
+                        CSharpTypeName.argument(p.parameterizedType(), q)) + " " + CSharpContext.declare(p.name()))
                 .collect(Collectors.joining(", ", "(", ")")), false, q);
         return adapted(functionalType, lambda, q);
     }
