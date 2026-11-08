@@ -324,7 +324,7 @@ final class CSharpWildcardInterfaces {
         if (pt.isTypeParameter()) return true;
         TypeInfo t = pt.typeInfo();
         if (t == null) return false;
-        if (!CSharpNames.translated(t)) return CSharpTypeName.dropsArguments(t);
+        if (!CSharpNames.translated(t)) return CSharpTypeName.dropsArguments(t) || covariantElement(pt, removed) != null;
         if (!has(t)) return false;
         List<TypeParameter> own = removed(t);
         for (int i = 0; i < t.typeParameters().size(); i++) {
@@ -688,6 +688,14 @@ final class CSharpWildcardInterfaces {
         TypeInfo t = pt.typeInfo();
         // Class<A>: C#'s Type, which has no arguments
         if (t != null && !CSharpNames.translated(t) && CSharpTypeName.dropsArguments(t)) return CSharpTypeName.of(pt, q);
+        // List<Descriptor<S>> of a removed S: a read-only collection of the element's wildcard interface
+        ParameterizedType element = covariantElement(pt, removed);
+        if (element != null) {
+            String e = erased(element, removed, q);
+            if (e == null) return null;
+            CSharpContext.using("System.Collections.Generic");
+            return (LIST.equals(t.fullyQualifiedName()) ? "IReadOnlyList<" : "IEnumerable<") + e + ">";
+        }
         // List<G> of a removed G: C#'s non-generic IList, which every List<T> is (the bridge casts, nonGenericBridge)
         if (nonGenericErasure(pt, removed)) return nonGenericName(t);
         if (t == null || !has(t)) return null;
@@ -705,10 +713,41 @@ final class CSharpWildcardInterfaces {
         return wildcardInterface + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
     }
 
+    private static final String LIST = "java.util.List";
+
+    /** The JDK's single-element collections whose C# counterpart is an {@code IEnumerable<T>}, a List an {@code IReadOnlyList<T>}. */
+    private static final Set<String> COVARIANT_COLLECTIONS = Set.of(LIST, "java.util.Collection",
+            "java.util.SequencedCollection", "java.util.Set", "java.lang.Iterable");
+
+    /**
+     * The element of a JDK collection, {@code List<Descriptor<S>>} or {@code List<? extends Descriptor<S>>}, that is a
+     * program type mentioning a removed type parameter and with a wildcard interface the erasure can name: C#'s
+     * covariant {@code IReadOnlyList<IDescriptor>} (for a List; {@code IEnumerable<IDescriptor>} for any other) is
+     * what the member's value converts to, without a cast. Not a removed type parameter itself, which covariance does
+     * not convert. Null otherwise.
+     */
+    private static ParameterizedType covariantElement(ParameterizedType pt, List<TypeParameter> removed) {
+        TypeInfo t = pt.typeInfo();
+        if (t == null || pt.arrays() != 0 || pt.parameters().size() != 1 || CSharpNames.translated(t)
+            || !COVARIANT_COLLECTIONS.contains(t.fullyQualifiedName())) {
+            return null;
+        }
+        ParameterizedType a = pt.parameters().getFirst();
+        if (a.wildcard() != null) {
+            if (!a.wildcard().isExtends()) return null;
+            a = a.withWildcard(null);
+        }
+        if (a.arrays() != 0 || a.isTypeParameter() || a.typeInfo() == null || !CSharpNames.translated(a.typeInfo())
+            || !CstQueries.mentionsAny(a, removed) || !erasable(a, removed)) {
+            return null;
+        }
+        return a;
+    }
+
     /** {@code List<G>}, {@code Map<K, G>} of a removed {@code G}: a JDK collection C# has a non-generic interface of. */
     static boolean nonGenericErasure(ParameterizedType pt, List<TypeParameter> removed) {
         TypeInfo t = pt.typeInfo();
-        return t != null && pt.arrays() == 0 && !CSharpNames.translated(t) && CSharpTypeName.nonGeneric(t) != null
+        return t != null && pt.arrays() == 0 && covariantElement(pt, removed) == null && !CSharpNames.translated(t) && CSharpTypeName.nonGeneric(t) != null
                && !"java.lang.Comparable".equals(t.fullyQualifiedName()) && CstQueries.mentionsAny(pt, removed);
     }
 

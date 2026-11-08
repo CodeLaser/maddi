@@ -3268,6 +3268,48 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * A member whose result is a JDK collection of a type that has a wildcard interface, {@code List<Shadow<S>>}: the
+     * wildcard interface declares it as C#'s covariant read-only collection of that interface,
+     * {@code IReadOnlyList<IShadow>} (any other collection {@code IEnumerable<IShadow>}), which the member's value
+     * converts to. Types whose wildcard interfaces need each other's, as the descriptors do, have them all.
+     */
+    @Test
+    public void wildcardInterfaceCollectionResult() {
+        String cs = translate("Descriptors", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.Collection;
+                import java.util.List;
+                class Descriptors {
+                    static final class Entity<S> {
+                        private final List<Shadow<S>> shadows = new ArrayList<>();
+                        List<Shadow<S>> shadows() { return shadows; }
+                        Collection<Shadow<S>> all() { return shadows; }
+                    }
+                    static final class Shadow<S> {
+                        private final Entity<S> entity;
+                        Shadow(Entity<S> entity) { this.entity = entity; }
+                        Entity<S> entity() { return entity; }
+                        String name() { return "s"; }
+                    }
+                    private final Entity<?> entity;
+                    private final Shadow<?> shadow;
+                    Descriptors(Entity<?> entity, Shadow<?> shadow) { this.entity = entity; this.shadow = shadow; }
+                    int count() {
+                        int n = entity.shadows().size();
+                        for (var s : entity.all()) n += s.name().length();
+                        return n + shadow.entity().shadows().get(0).name().length();
+                    }
+                }
+                """);
+        contains(cs, "internal IReadOnlyList<IShadow> Shadows { get; }");
+        contains(cs, "IReadOnlyList<IShadow> IEntity.Shadows => Shadows;");
+        contains(cs, "internal IEnumerable<IShadow> All();");
+        contains(cs, "internal IEntity Entity { get; }");
+        contains(cs, "return n + shadow.Entity.Shadows[0].Name().Length;");
+    }
+
+    /**
      * A member whose parameter is a type parameter the wildcard interface removes, {@code movable(S solution, …)}: the
      * wildcard interface declares it as the bound, and the bridge casts it back; Java passes {@code null} or the
      * capture's own value through the wildcard, which the cast holds for.
