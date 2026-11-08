@@ -277,10 +277,63 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "private readonly IReadOnlyDictionary<string, int> weights = new Dictionary<string, int>();");
         contains(cs, "private readonly IReadOnlyList<string> stored;");
         contains(cs, "internal Registry(IReadOnlyList<string> initial) { this.stored = initial; }");
-        // returned, through the property its getter became: C#'s class
-        contains(cs, "internal List<string> AllKept { get; } = new List<string>();");
+        // returned, through the property its getter became, which no code changes either
+        contains(cs, "internal IReadOnlyList<string> AllKept { get; } = new List<string>();");
         assertFalse(cs.contains("IReadOnlyList<string> viewed"), cs);
         contains(cs, "names.Contains(x)");
+    }
+
+    /**
+     * A method's result is read-only where it returns only read-only fields or the library's unmodifiable values
+     * ({@code List.of}), and each call of it is a read: a library's method that adds and removes nothing, a
+     * {@code foreach}, a read-only parameter. Not one that returns a fresh list (no verdict says nothing is added
+     * to it), nor one whose caller adds to the result, which keeps the field it returns as Java declares it.
+     */
+    @Test
+    public void readOnlyResults() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean structurallyUnmodified(FieldInfo field) {
+                return Set.of("items", "other").contains(field.name());
+            }
+
+            @Override
+            public boolean structurallyNonModifying(MethodInfo method) {
+                return Set.of("size", "contains", "get").contains(method.name());
+            }
+
+            @Override
+            public boolean unmodifiableResult(MethodInfo method) {
+                return "of".equals(method.name());
+            }
+        });
+        String cs = translate("Catalog", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.List;
+                class Catalog {
+                    private final List<String> items = new ArrayList<>();
+                    private final List<String> other = new ArrayList<>();
+                    List<String> items() { return items; }
+                    List<String> fixed(boolean empty) { return empty ? null : List.of("a", "b"); }
+                    List<String> letters() { return List.of("x"); }
+                    List<String> copied() { return new ArrayList<>(items); }
+                    List<String> others() { return other; }
+                    int count(String x) {
+                        int n = 0;
+                        for (String s : items()) n++;
+                        return n + letters().size() + (letters().contains(x) ? 1 : 0) + copied().size();
+                    }
+                    void grow(Catalog c) { c.others().add("x"); }
+                }
+                """);
+        // the getter and its field are one property
+        contains(cs, "internal IReadOnlyList<string> Items { get; } = new List<string>();");
+        contains(cs, "internal IReadOnlyList<string> Fixed(bool empty) => empty ? null : (new List<string> { \"a\", \"b\" });");
+        contains(cs, "internal IReadOnlyList<string> Letters()");
+        contains(cs, "internal List<string> Copied()");
+        contains(cs, "internal List<string> Others { get; } = new List<string>();");
+        contains(cs, "Letters().Contains(x)");
     }
 
     @Language("java")

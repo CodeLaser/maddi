@@ -91,6 +91,15 @@ public interface CSharpFacts extends NullabilityFacts {
         return false;
     }
 
+    /**
+     * A call of the method returns an immutable value or an unmodifiable view ({@code List.of}, {@code List.copyOf},
+     * {@code Collections.unmodifiableList}): a method that returns only such values, or read-only fields, may have
+     * a read-only result ({@link CSharpReadOnly}).
+     */
+    default boolean unmodifiableResult(MethodInfo method) {
+        return false;
+    }
+
     /** {@code NULLABLE}: the field may hold null, its type is {@code T?}. */
     default NullableState nullable(FieldInfo field) {
         return state(field(field));

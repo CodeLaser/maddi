@@ -1032,7 +1032,9 @@ final class CSharpWildcardInterfaces {
      */
     private static String result(MethodInfo m, List<TypeParameter> removed, Qualification q) {
         NullableState nullable = CSharpContext.program().facts().nullable(m);
-        if (!CstQueries.mentionsAny(m.returnType(), removed)) return CSharpTypeName.declared(m.returnType(), false, nullable, q);
+        if (!CstQueries.mentionsAny(m.returnType(), removed)) {
+            return CSharpTypeName.declared(m.returnType(), CSharpContext.program().readOnly(m), nullable, q);
+        }
         String erased = erasedDelegate(m.returnType(), removed) ? erasedDelegateType(m.returnType(), removed, q)
                 : erased(m.returnType(), removed, q);
         if (erased == null) return null;

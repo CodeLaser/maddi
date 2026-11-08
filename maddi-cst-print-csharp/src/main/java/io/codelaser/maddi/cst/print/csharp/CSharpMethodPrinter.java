@@ -169,7 +169,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             return CSharpTypeName.argument(methodInfo.returnType(), q);
         }
         NullableState nullable = CSharpContext.program().facts().nullable(methodInfo);
-        String type = CSharpTypeName.declared(methodInfo.returnType(), false, nullable, q);
+        String type = CSharpTypeName.declared(methodInfo.returnType(), CSharpContext.program().readOnly(methodInfo),
+                nullable, q);
         return nullableTypeParameter(methodInfo.returnType(), methodInfo, nullable) ? type + "?" : type;
     }
 

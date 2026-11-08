@@ -1485,12 +1485,7 @@ public final class CSharpExpressionPrinter {
                             || mc.methodInfo().overrides().stream().anyMatch(o -> "java.util.Map".equals(o.typeInfo()
                 .fullyQualifiedName()));
         if (!mapKeySet || CSharpNames.translated(declaring)) return false;
-        if (mc.object() instanceof VariableExpression ve && (ve.variable() instanceof ParameterInfo pi
-                                                            && CSharpContext.program().readOnly(pi)
-                                                            || ve.variable() instanceof FieldReference fr
-                                                               && CSharpContext.program().readOnly(fr.fieldInfo()))) {
-            return false;
-        }
+        if (CSharpContext.program().readOnly(mc.object())) return false;
         String fqn = target.typeInfo().fullyQualifiedName();
         return "java.util.Set".equals(fqn) || "java.util.SequencedSet".equals(fqn);
     }

@@ -11,8 +11,8 @@ analyses drive what makes the output idiomatic:
 
 - **Nullability** (`NullabilityPass`, maddi-mod) decides where `?` goes under `#nullable enable`, and where `!`
   asserts what the analysis knows (`CSharpFacts`, `CSharpNullability`).
-- **Modification** decides whether a collection parameter or a private collection field can be `IReadOnlyList<T>`
-  (`CSharpReadOnly`, on `ModificationFacts`).
+- **Modification** decides whether a collection parameter, a private collection field or a method's result can be
+  `IReadOnlyList<T>` (`CSharpReadOnly`, on `ModificationFacts`).
 - **The whole program** (`CSharpProgram`) decides what is open for extension, which functional interfaces are
   delegates, which getters and setters are properties (`CSharpProperties`), and which type tokens are type arguments.
 
@@ -109,8 +109,17 @@ implements the interface.
     method, records and a method that a method reference names keep Java's types.
   - A private collection field no code adds to or removes from (`structurallyUnmodified`, the field's elements may
     change) is read-only too, where its uses allow as a parameter's do, and every value it is given converts: a
-    `List<T>`, a copying constructor, a read-only parameter or field. One a method returns keeps Java's type (C#
-    cannot hand an `IReadOnlyList<T>` back as a `List<T>`); so does one that its getter made a property.
+    `List<T>`, a copying constructor, a read-only parameter or field. One a method returns is read-only only where
+    that method's result is (C# cannot hand an `IReadOnlyList<T>` back as a `List<T>`), the property its getter made
+    too.
+  - A method's result is read-only where the method returns read-only fields and parameters, the results of other
+    such methods, or a library's value the archive says nothing is added to (`List.of`, `List.copyOf`,
+    `Collections.unmodifiableList`: `immutableResult`, `unmodifiableResult`), through a conditional's branches too,
+    at least one not `null`; each value converts as a field's does; and each call of it is a read as a parameter's use
+    is, a library's method on it being one the archive contracts as adding and removing nothing (no verdict on the
+    result says so otherwise). Only a class's method that overrides nothing and that nothing overrides: C#'s results
+    are invariant. Not a generic method (a call opener's result is the declared type), nor one a method reference
+    names. A fresh `new ArrayList<>(…)` keeps `List<T>`: no verdict says its callers add nothing.
   - A view of a collection (`entrySet()`, `keySet()`, `iterator()`, `subList()`, …) is a read only where the view is
     iterated, or a library method the archive contracts as not modifying reads it in turn; a removal through a
     view (`map.entrySet().iterator().remove()`) is one the analysis may not see, so a view another view or a

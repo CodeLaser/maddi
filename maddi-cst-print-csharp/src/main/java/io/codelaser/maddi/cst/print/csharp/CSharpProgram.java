@@ -33,10 +33,12 @@ import java.util.stream.Stream;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeModifier;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
@@ -442,6 +444,21 @@ public final class CSharpProgram {
     /** The field holds a collection read-only in C#, {@code IReadOnlyList<T>}: see {@link CSharpReadOnly}. */
     boolean readOnly(FieldInfo field) {
         return readOnly.fields().contains(field);
+    }
+
+    /** The method's result is a collection read-only in C#, {@code IReadOnlyList<T>}: see {@link CSharpReadOnly}. */
+    boolean readOnly(MethodInfo method) {
+        return readOnly.methods().contains(method);
+    }
+
+    /** {@code e} reads a read-only parameter or field, or calls a method with a read-only result. */
+    boolean readOnly(Expression e) {
+        return switch (e == null ? null : CSharpExpressionPrinter.unwrap(e)) {
+            case VariableExpression ve when ve.variable() instanceof ParameterInfo p -> readOnly(p);
+            case VariableExpression ve when ve.variable() instanceof FieldReference fr -> readOnly(fr.fieldInfo());
+            case MethodCall mc -> readOnly(mc.methodInfo());
+            case null, default -> false;
+        };
     }
 
     /** {@code where T : notnull}: a type parameter that is, or is passed as, a dictionary's key (CSharpNotNullKeys). */
