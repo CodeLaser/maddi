@@ -164,6 +164,10 @@ implements the interface.
   or of `null`, from a method the analysis does not find nullable, or from a lambda, whose result is a delegate's type
   argument; a write into an array's element, which C# prints without `?` (`arr[i] = null!`, `{ x, null! }`: the array
   holds the null, as Java's does); an assignment to a field the analysis finds non-null.
+- A delegate's parameter has the analysis's verdict, `object? entity`, where every method a method reference
+  converts to the delegate takes null there too (C# converts no method group of an `object` parameter to it,
+  CS8622; an unbound reference's receiver never is); a lambda with typed parameters (Java's own, a method
+  reference's, an anonymous class's) types them as the delegate does.
 - A reference cast of a value that may be null is to `T?`, `(Exprent?) o`: the cast lets the null through, in C# as
   in Java (CS8600). So is a cast of `null`, which picks an overload: `(AiMessage?) null`. A method's own type
   parameter has no `T?` there, and its operand is asserted instead: `(T) m.Get(k)!`.
@@ -877,7 +881,16 @@ from a map, a stream's collector.
   call through the wildcard interface needs no such cast. A reached member whose parameter is a removed type
   parameter itself, `isMovable(Solution_ workingSolution, Object entity)`, it declares with the parameter's bound,
   `bool IsMovable(object workingSolution, object entity)`, the bridge casting it back, `(Solution_) workingSolution`:
-  Java passes nothing through the wildcard but `null` or the capture's own value, which the cast holds for. Only
+  Java passes nothing through the wildcard but `null` or the capture's own value, which the cast holds for. A
+  result that is a JDK collection of a type with a wildcard interface it declares as C#'s covariant read-only
+  collection of that interface, which the member's value converts to without a cast: `List<VariableDescriptor<S>>
+  GetSourceVariableDescriptorList()` is `IReadOnlyList<IVariableDescriptor>` (a List; any other collection
+  `IEnumerable<…>`). A generic method C# prints erased (`object GetValue(object entity)`) it declares as it prints,
+  where the code calls it through a wildcard; a read-only parameter (`CSharpReadOnly`) read-only, as the member has
+  it. A type parameter removed in the result of a member the code reaches through the wildcard is removed in the
+  result type's wildcard interface too, `VariableMetaModel<?, ?, ?>.entity()` making `PlanningEntityMetaModel`'s
+  remove `Solution_`, until nothing changes (not into a functional interface, which the bridge adapts as a
+  delegate). The refusal (`NO_WILDCARD_INTERFACE`) names every member the interface cannot declare. Only
   where it declares every member the
   code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
   where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
