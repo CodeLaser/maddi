@@ -2497,7 +2497,8 @@ public final class CSharpExpressionPrinter {
      * {@code SolverTermination<Solution_>}: the arguments the operand's type determines, as the tested type extends
      * it, {@code is IPhaseTermination<Solution_> p}. Any object that passes Java's test has them; C#'s
      * {@code <object>} would match none of them. {@code tested} itself when it is not raw or the operand does not
-     * determine every argument.
+     * determine every argument. A tested type that does not extend the operand's takes them through a generic supertype
+     * the two share.
      */
     private static ParameterizedType rawTestArguments(ParameterizedType tested, ParameterizedType operand) {
         TypeInfo target = tested == null ? null : tested.typeInfo();
@@ -2508,9 +2509,17 @@ public final class CSharpExpressionPrinter {
             return tested;
         }
         ParameterizedType asOperand = CstSupertypes.asSeen(target, operand.typeInfo());
-        if (asOperand == null) return tested;
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
-        match(asOperand, operand, target.typeParameters(), inferred);
+        if (asOperand != null) {
+            match(asOperand, operand, target.typeParameters(), inferred);
+        } else {
+            // siblings, PhaseTermination<S> and SolverTermination<S> both a Termination<S>: Java lets no class have a
+            // generic supertype twice, with two arguments, so the shared one determines them
+            ParameterizedType shared = CstSupertypes.firstAsSeen(target, t -> !t.typeParameters().isEmpty()
+                    && CstSupertypes.asSeen(operand, t) != null);
+            if (shared == null) return tested;
+            match(shared, CstSupertypes.asSeen(operand, shared.typeInfo()), target.typeParameters(), inferred);
+        }
         List<ParameterizedType> arguments = new ArrayList<>();
         for (TypeParameter tp : target.typeParameters()) {
             ParameterizedType t = inferred.get(tp);

@@ -333,9 +333,20 @@ final class CSharpWildcardInterfaces {
     }
 
     /**
+     * A parameter that is a removed type parameter itself, {@code isMovable(Solution_ workingSolution, Object entity)}:
+     * the wildcard interface declares it as the bound ({@code object}), and the bridge casts it back. Java's code can
+     * pass nothing else through the wildcard than {@code null} or a value of the capture, the receiver's own, for which
+     * the cast holds.
+     */
+    private static boolean erasedParameter(ParameterInfo p, List<TypeParameter> removed) {
+        ParameterizedType pt = p.parameterizedType();
+        return pt.arrays() == 0 && pt.wildcard() == null && pt.isTypeParameter() && removed.contains(pt.typeParameter());
+    }
+
+    /**
      * A method the wildcard interface may declare: an instance method reachable outside the type, not an override of
      * the program's (the supertype's wildcard interface has it) or of Object's, not a generic method C# prints erased,
-     * with no parameter of a removed type.
+     * with no parameter of a removed type but one that is a removed type parameter ({@link #erasedParameter}).
      */
     private static boolean candidate(TypeInfo t, MethodInfo m, List<TypeParameter> removed) {
         CSharpProgram program = CSharpContext.program();
@@ -364,7 +375,13 @@ final class CSharpWildcardInterfaces {
         }
         CSharpProperties.Property accessor = program.accessorOf(m);
         if (accessor != null && accessor.getter() != m) return false;
-        if (m.parameters().stream().anyMatch(p -> CstQueries.mentionsAny(p.parameterizedType(), removed) || p.isVarArgs())) {
+        if (m.parameters().stream().anyMatch(p -> p.isVarArgs() || CstQueries.mentionsAny(p.parameterizedType(), removed)
+                                                  && !erasedParameter(p, removed))) {
+            return false;
+        }
+        // one with an erased parameter only where the code calls it through the wildcard: the cast is the bridge's
+        if (m.parameters().stream().anyMatch(p -> erasedParameter(p, removed))
+            && !program.reachedThroughWildcard(t).contains(m)) {
             return false;
         }
         return m.typeParameters().stream().noneMatch(tp -> tp.typeBounds().stream().anyMatch(b -> CstQueries.mentionsAny(b, removed)));
@@ -941,9 +958,18 @@ final class CSharpWildcardInterfaces {
             List<String> arguments = new ArrayList<>();
             for (var p : m.parameters()) {
                 String pn = CSharpNames.name(p.name());
+                NullableState nullable = program.facts().nullable(p);
+                if (erasedParameter(p, removed)) {
+                    // the bound, cast back to the type parameter by the bridge: T? where null may come
+                    String bound = CSharpTypeName.rawArgument(p.parameterizedType().typeParameter(), q);
+                    boolean maybeNull = nullable == NullableState.NULLABLE;
+                    parameters.add(bound + (maybeNull && !bound.endsWith("?") ? "?" : "") + " " + pn);
+                    arguments.add("(" + CSharpNames.typeParameter(p.parameterizedType().typeParameter())
+                                  + (maybeNull ? "?" : "") + ") " + pn);
+                    continue;
+                }
                 // with the nullability the type's own member has, which the bridge passes on (CS8604)
-                parameters.add(CSharpTypeName.declared(p.parameterizedType(), false, program.facts().nullable(p), q)
-                               + " " + pn);
+                parameters.add(CSharpTypeName.declared(p.parameterizedType(), false, nullable, q) + " " + pn);
                 arguments.add(pn);
             }
             String signature = name + typeParameters + "(" + String.join(", ", parameters) + ")";

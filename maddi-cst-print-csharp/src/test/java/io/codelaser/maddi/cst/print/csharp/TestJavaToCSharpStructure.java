@@ -2615,11 +2615,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 import java.util.HashMap;
                 import java.util.Map;
                 class Graphs {
-                    interface Variable<S, E> { String name(); E entity(S s); }
+                    interface Variable<S, E> { String name(); E entity(java.util.List<S> s); }
                     private final Map<Variable<?, ?>, String> names = new HashMap<>();
                     <S, E> String lookup(Variable<S, E> v) { return names.get(v); }
                     <S, E> String lookupOr(Variable<S, E> v) { return names.getOrDefault(v, "none"); }
-                    // entity(S) through the wildcard: no wildcard interface, the map's key is Variable<object, object>
+                    // entity(List<S>) through the wildcard: no wildcard interface, the map's key is Variable<object, object>
                     Object first(Variable<?, ?> v) { return v.entity(null); }
                     static class Descriptor { }
                     static final class Genuine extends Descriptor { }
@@ -3268,28 +3268,58 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * A member whose parameter is a type parameter the wildcard interface removes, {@code movable(S solution, …)}: the
+     * wildcard interface declares it as the bound, and the bridge casts it back; Java passes {@code null} or the
+     * capture's own value through the wildcard, which the cast holds for.
+     */
+    @Test
+    public void wildcardInterfaceErasedParameter() {
+        String cs = translate("Entities", """
+                package a;
+                class Entities {
+                    static final class Descriptor<S> {
+                        boolean movable(S solution, Object entity) { return solution != null || entity != null; }
+                        String label() { return "d"; }
+                    }
+                    private final Descriptor<?> descriptor;
+                    Entities(Descriptor<?> descriptor) { this.descriptor = descriptor; }
+                    boolean check(Object e) { return descriptor.movable(null, e) && !descriptor.label().isEmpty(); }
+                }
+                """);
+        contains(cs, "internal bool Movable(object solution, object entity);");
+        contains(cs, "bool IDescriptor.Movable(object solution, object entity) => Movable((S) solution, entity);");
+        contains(cs, "descriptor.Movable(default, e)");
+    }
+
+    /**
      * A type test against a raw generic type takes the arguments the operand's type determines:
      * {@code termination instanceof PhaseTermination p} of a {@code SolverTermination<S>} is
-     * {@code is IPhaseTermination<S> p}, which an {@code IPhaseTermination<object>} would not match at run time.
+     * {@code is IPhaseTermination<S> p}, which an {@code IPhaseTermination<object>} would not match at run time; a
+     * sibling's through the generic supertype both have.
      */
     @Test
     public void rawTypeTest() {
         String cs = translate("Terminations", """
                 package a;
                 class Terminations<S> {
-                    interface SolverTermination<S> { boolean solverDone(S s); }
-                    interface PhaseTermination<S> extends SolverTermination<S> { boolean phaseDone(S s); }
+                    interface Termination<S> { int ordinal(); }
+                    interface SolverTermination<S> extends Termination<S> { boolean solverDone(S s); }
+                    interface PhaseTermination<S> extends Termination<S> { boolean phaseDone(S s); }
+                    interface ChildTermination<S> extends SolverTermination<S> { boolean childDone(S s); }
                     private final SolverTermination<S> termination;
                     Terminations(SolverTermination<S> termination) { this.termination = termination; }
                     @SuppressWarnings("unchecked")
                     boolean done(S s) {
                         if (termination instanceof PhaseTermination phase) return phase.phaseDone(s);
-                        return termination instanceof PhaseTermination && termination.solverDone(s);
+                        if (termination instanceof ChildTermination child) return child.childDone(s);
+                        return termination instanceof ChildTermination && termination.solverDone(s);
                     }
                 }
                 """);
+        // a sibling, through the Termination<S> both are
         contains(cs, "if (termination is IPhaseTermination<S> phase) { return phase.PhaseDone(s); }");
-        contains(cs, "return termination is IPhaseTermination<S> && termination.SolverDone(s);");
+        contains(cs, "if (termination is IChildTermination<S> child) { return child.ChildDone(s); }");
+        contains(cs, "return termination is IChildTermination<S> && termination.SolverDone(s);");
     }
 
     /**
