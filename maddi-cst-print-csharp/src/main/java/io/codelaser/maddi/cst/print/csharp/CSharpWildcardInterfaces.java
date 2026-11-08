@@ -1082,8 +1082,9 @@ final class CSharpWildcardInterfaces {
                                   + (maybeNull ? "?" : "") + ") " + pn);
                     continue;
                 }
-                // with the nullability the type's own member has, which the bridge passes on (CS8604)
-                parameters.add(CSharpTypeName.declared(p.parameterizedType(), false, nullable, q) + " " + pn);
+                // with the nullability the type's own member has, which the bridge passes on (CS8604), read-only as
+                // the member's own (CSharpReadOnly)
+                parameters.add(CSharpTypeName.declared(p.parameterizedType(), program.readOnly(p), nullable, q) + " " + pn);
                 arguments.add(pn);
             }
             String signature = name + typeParameters + "(" + String.join(", ", parameters) + ")";
@@ -1151,8 +1152,8 @@ final class CSharpWildcardInterfaces {
         List<String> arguments = new ArrayList<>();
         for (ParameterInfo p : m.parameters()) {
             String pn = CSharpNames.name(p.name());
-            parameters.add(CSharpTypeName.declared(CstSupertypes.substitute(p.parameterizedType(), seen), false,
-                    program.facts().nullable(p), q) + " " + pn);
+            parameters.add(CSharpTypeName.declared(CstSupertypes.substitute(p.parameterizedType(), seen),
+                    program.readOnly(p), program.facts().nullable(p), q) + " " + pn);
             arguments.add(pn);
         }
         String signature = name + "(" + String.join(", ", parameters) + ")";

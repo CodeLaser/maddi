@@ -941,6 +941,35 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     /**
+     * A wildcard interface declares a member's read-only parameter as the member has it: the bridge passes it on.
+     */
+    @Test
+    public void readOnlyParameterInWildcardInterface() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean unmodified(ParameterInfo parameter) {
+                return "locations".equals(parameter.name());
+            }
+        });
+        String cs = translate("Streams", """
+                package a;
+                import java.util.Set;
+                import java.util.TreeSet;
+                class Streams {
+                    static final class Stream<S> {
+                        private final Set<String> all = new TreeSet<>();
+                        void addLocations(Set<String> locations) { all.addAll(locations); }
+                    }
+                    private final Stream<?> stream;
+                    Streams(Stream<?> stream) { this.stream = stream; }
+                    void add() { stream.addLocations(new TreeSet<>()); }
+                }
+                """);
+        contains(cs, "internal void AddLocations(IReadOnlySet<string> locations);");
+        contains(cs, "void IStream.AddLocations(IReadOnlySet<string> locations) => AddLocations(locations);");
+    }
+
+    /**
      * A delegate's parameter has the analysis's nullability, {@code object? entity} where a caller passes null; not
      * where a method reference converted to the delegate takes no null there (CS8622).
      */
