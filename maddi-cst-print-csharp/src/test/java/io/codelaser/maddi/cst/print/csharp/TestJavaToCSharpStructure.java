@@ -3268,6 +3268,34 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     /**
+     * A generic method C# prints erased, {@code <V> V value(Object entity)} that a non-generic method overrides, is a
+     * member of the wildcard interface as it prints, {@code object Value(object entity)}.
+     */
+    @Test
+    public void wildcardInterfaceErasedGeneric() {
+        String cs = translate("Variables", """
+                package a;
+                import java.util.List;
+                class Variables {
+                    static class Variable<S> {
+                        @SuppressWarnings("unchecked")
+                        <V> V value(Object entity) { return (V) entity; }
+                        S solution() { return null; }
+                    }
+                    static final class ListVariable<S> extends Variable<S> {
+                        @Override
+                        List<Object> value(Object entity) { return List.of(entity); }
+                    }
+                    private final Variable<?> variable;
+                    Variables(Variable<?> variable) { this.variable = variable; }
+                    Object read(Object e) { return variable.value(e); }
+                }
+                """);
+        contains(cs, "internal object Value(object entity);");
+        contains(cs, "object IVariable.Value(object entity) => Value(entity);");
+    }
+
+    /**
      * A member whose result is a JDK collection of a type that has a wildcard interface, {@code List<Shadow<S>>}: the
      * wildcard interface declares it as C#'s covariant read-only collection of that interface,
      * {@code IReadOnlyList<IShadow>} (any other collection {@code IEnumerable<IShadow>}), which the member's value

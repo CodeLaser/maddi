@@ -335,6 +335,18 @@ final class CSharpWildcardInterfaces {
     }
 
     /**
+     * A generic method C# prints erased ({@link CSharpProgram#erasedGeneric}) whose signature then mentions none of
+     * its type parameters, {@code <Value_> Value_ getValue(Object entity)} as {@code object GetValue(object entity)}:
+     * the wildcard interface declares it so. Its parameters mention none, its result is one or mentions none.
+     */
+    private static boolean plainErasure(MethodInfo m) {
+        ParameterizedType r = m.returnType();
+        return m.parameters().stream().noneMatch(p -> CstQueries.mentionsAny(p.parameterizedType(), m.typeParameters()))
+               && (!CstQueries.mentionsAny(r, m.typeParameters())
+                   || r.isTypeParameter() && r.arrays() == 0 && m.typeParameters().contains(r.typeParameter()));
+    }
+
+    /**
      * A parameter that is a removed type parameter itself, {@code isMovable(Solution_ workingSolution, Object entity)}:
      * the wildcard interface declares it as the bound ({@code object}), and the bridge casts it back. Java's code can
      * pass nothing else through the wildcard than {@code null} or a value of the capture, the receiver's own, for which
@@ -365,7 +377,8 @@ final class CSharpWildcardInterfaces {
                                                                      // an interface's redeclaration is ambiguous with
                                                                      // the supertype's on the interface itself (CS0121)
                                                                      || t.isInterface())))
-            || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0 || program.erasedGeneric(m)
+            || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0
+            || program.erasedGeneric(m) && !plainErasure(m)
             || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
             return false;
         }
@@ -994,7 +1007,8 @@ final class CSharpWildcardInterfaces {
                 continue;
             }
             String name = CSharpNames.method(m);
-            String typeParameters = CSharpNames.typeParameters(m.typeParameters());
+            boolean erasedGeneric = program.erasedGeneric(m);
+            String typeParameters = erasedGeneric ? "" : CSharpNames.typeParameters(m.typeParameters());
             List<String> parameters = new ArrayList<>();
             List<String> arguments = new ArrayList<>();
             for (var p : m.parameters()) {
@@ -1018,7 +1032,7 @@ final class CSharpWildcardInterfaces {
                     .collect(Collectors.joining(",")))) {
                 continue;
             }
-            List<String> constraints = CSharpTypeName.constraints(m.typeParameters(), q);
+            List<String> constraints = erasedGeneric ? List.of() : CSharpTypeName.constraints(m.typeParameters(), q);
             String declaration = modifier + returnType + " " + signature
                                  + (constraints.isEmpty() ? "" : " " + String.join(" ", constraints)) + ";";
             String bridge;
@@ -1099,6 +1113,12 @@ final class CSharpWildcardInterfaces {
      */
     private static String result(MethodInfo m, List<TypeParameter> removed, Qualification q) {
         NullableState nullable = CSharpContext.program().facts().nullable(m);
+        if (CSharpContext.program().erasedGeneric(m) && m.returnType().isTypeParameter()
+            && m.typeParameters().contains(m.returnType().typeParameter())) {
+            // as the method prints it, erased: its bound (CSharpMethodPrinter)
+            String bound = CSharpTypeName.rawArgument(m.returnType().typeParameter(), q);
+            return nullable == NullableState.NULLABLE && !bound.endsWith("?") ? bound + "?" : bound;
+        }
         if (!CstQueries.mentionsAny(m.returnType(), removed)) {
             return CSharpTypeName.declared(m.returnType(), CSharpContext.program().readOnly(m), nullable, q);
         }
