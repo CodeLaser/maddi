@@ -493,19 +493,22 @@ final class CSharpWildcardInterfaces {
                 });
             }
         }
-        throughResults(all, wildcarded);
-        Map<TypeInfo, Set<TypeParameter>> result = new HashMap<>();
-        wildcarded.forEach((t, tps) -> result.put(t, Set.copyOf(tps)));
-        // the members the code reaches through such a wildcard: a method called, a field read
-        Map<TypeInfo, Set<Object>> reached = new HashMap<>();
-        for (TypeInfo owner : all) {
-            for (MethodInfo method : owner.constructorsAndMethods()) {
-                if (method.methodBody() != null) reaches(owner, method, method.methodBody(), result, reached, erased);
+        Map<TypeInfo, Set<TypeParameter>> result;
+        Map<TypeInfo, Set<Object>> reached;
+        do {
+            result = new HashMap<>();
+            for (var entry : wildcarded.entrySet()) result.put(entry.getKey(), Set.copyOf(entry.getValue()));
+            // the members the code reaches through such a wildcard: a method called, a field read
+            reached = new HashMap<>();
+            for (TypeInfo owner : all) {
+                for (MethodInfo method : owner.constructorsAndMethods()) {
+                    if (method.methodBody() != null) reaches(owner, method, method.methodBody(), result, reached, erased);
+                }
+                for (FieldInfo f : owner.fields()) {
+                    if (f.initializer() != null && !f.initializer().isEmpty()) reaches(owner, null, f.initializer(), result, reached, erased);
+                }
             }
-            for (FieldInfo f : owner.fields()) {
-                if (f.initializer() != null && !f.initializer().isEmpty()) reaches(owner, null, f.initializer(), result, reached, erased);
-            }
-        }
+        } while (throughResults(reached, wildcarded));
         Map<TypeInfo, Set<Object>> reachedCopy = new HashMap<>();
         reached.forEach((t, members) -> reachedCopy.put(t, Set.copyOf(members)));
         return new Uses(Map.copyOf(result), Map.copyOf(reachedCopy));
@@ -578,25 +581,30 @@ final class CSharpWildcardInterfaces {
     }
 
     /**
-     * A removed type parameter in the result of a member, {@code PlanningEntityMetaModel<Solution_, Entity_> entity()}
-     * of a {@code VariableMetaModel<?, ?, ?>}: the wildcard interface can declare the member only as the result's
-     * wildcard interface without those positions, so they are removed there too, until nothing changes. Through a
-     * JDK collection's element too ({@code List<VariableMetaModel<Solution_, Entity_, ?>>}).
+     * A removed type parameter in the result of a member the code reaches through the wildcard,
+     * {@code PlanningEntityMetaModel<Solution_, Entity_> entity()} of a {@code VariableMetaModel<?, ?, ?>}: the
+     * wildcard interface can declare the member only as the result's wildcard interface without those positions, so
+     * they are removed there too; the reach is then found again, until nothing changes. Through a JDK collection's
+     * element too ({@code List<VariableMetaModel<Solution_, Entity_, ?>>}). True when it removed one.
      */
-    private static void throughResults(List<TypeInfo> all, Map<TypeInfo, Set<TypeParameter>> wildcarded) {
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            for (TypeInfo t : all) {
-                Set<TypeParameter> removed = wildcarded.get(t);
-                if (removed == null || removed.isEmpty()) continue;
-                List<TypeParameter> list = List.copyOf(removed);
-                for (MethodInfo m : t.methods()) {
-                    if (m.isStatic() || m.isConstructor() || m.access() != null && m.access().isPrivate()) continue;
-                    changed |= removeThrough(m.returnType(), list, wildcarded);
+    private static boolean throughResults(Map<TypeInfo, Set<Object>> reached,
+                                          Map<TypeInfo, Set<TypeParameter>> wildcarded) {
+        boolean changed = false;
+        for (var entry : reached.entrySet()) {
+            Set<TypeParameter> removed = wildcarded.get(entry.getKey());
+            if (removed == null || removed.isEmpty()) continue;
+            List<TypeParameter> list = List.copyOf(removed);
+            for (Object member : entry.getValue()) {
+                // the result as the reached type sees it: an inherited method's in the type's own parameters
+                if (member instanceof MethodInfo m && !m.isStatic() && !m.isConstructor()) {
+                    Map<TypeParameter, ParameterizedType> seen = m.typeInfo().equals(entry.getKey()) ? Map.of()
+                            : seenFrom(entry.getKey(), m.typeInfo());
+                    if (seen == null) continue;
+                    changed |= removeThrough(CstSupertypes.substitute(m.returnType(), seen), list, wildcarded);
                 }
             }
         }
+        return changed;
     }
 
     private static boolean removeThrough(ParameterizedType pt, List<TypeParameter> removed,
