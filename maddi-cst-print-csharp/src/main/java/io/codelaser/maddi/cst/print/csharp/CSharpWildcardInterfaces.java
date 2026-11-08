@@ -378,7 +378,8 @@ final class CSharpWildcardInterfaces {
                                                                      // the supertype's on the interface itself (CS0121)
                                                                      || t.isInterface())))
             || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0
-            || program.erasedGeneric(m) && !plainErasure(m)
+            // one C# prints erased only where the code calls it through a wildcard (a subtype's too)
+            || program.erasedGeneric(m) && (!plainErasure(m) || !program.reachedThroughAnyWildcard(m))
             || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
             return false;
         }
@@ -492,6 +493,7 @@ final class CSharpWildcardInterfaces {
                 });
             }
         }
+        throughResults(all, wildcarded);
         Map<TypeInfo, Set<TypeParameter>> result = new HashMap<>();
         wildcarded.forEach((t, tps) -> result.put(t, Set.copyOf(tps)));
         // the members the code reaches through such a wildcard: a method called, a field read
@@ -573,6 +575,55 @@ final class CSharpWildcardInterfaces {
             }
             return true;
         });
+    }
+
+    /**
+     * A removed type parameter in the result of a member, {@code PlanningEntityMetaModel<Solution_, Entity_> entity()}
+     * of a {@code VariableMetaModel<?, ?, ?>}: the wildcard interface can declare the member only as the result's
+     * wildcard interface without those positions, so they are removed there too, until nothing changes. Through a
+     * JDK collection's element too ({@code List<VariableMetaModel<Solution_, Entity_, ?>>}).
+     */
+    private static void throughResults(List<TypeInfo> all, Map<TypeInfo, Set<TypeParameter>> wildcarded) {
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (TypeInfo t : all) {
+                Set<TypeParameter> removed = wildcarded.get(t);
+                if (removed == null || removed.isEmpty()) continue;
+                List<TypeParameter> list = List.copyOf(removed);
+                for (MethodInfo m : t.methods()) {
+                    if (m.isStatic() || m.isConstructor() || m.access() != null && m.access().isPrivate()) continue;
+                    changed |= removeThrough(m.returnType(), list, wildcarded);
+                }
+            }
+        }
+    }
+
+    private static boolean removeThrough(ParameterizedType pt, List<TypeParameter> removed,
+                                         Map<TypeInfo, Set<TypeParameter>> wildcarded) {
+        if (pt == null || pt.arrays() != 0 || pt.typeInfo() == null) return false;
+        TypeInfo b = pt.typeInfo();
+        boolean changed = false;
+        if (!CSharpNames.translated(b)) {
+            if (COVARIANT_COLLECTIONS.contains(b.fullyQualifiedName()) && pt.parameters().size() == 1) {
+                ParameterizedType e = pt.parameters().getFirst();
+                changed = removeThrough(e.wildcard() != null && e.wildcard().isExtends() ? e.withWildcard(null) : e,
+                        removed, wildcarded);
+            }
+            return changed;
+        }
+        // a functional interface's result is adapted as a delegate's (erasedDelegate), not its wildcard interface
+        if (pt.parameters().size() != b.typeParameters().size()
+            || b.isInterface() && CstSupertypes.singleAbstractMethod(b) != null) {
+            return false;
+        }
+        for (int i = 0; i < pt.parameters().size(); i++) {
+            ParameterizedType a = pt.parameters().get(i);
+            if (a.wildcard() == null && CstQueries.mentionsAny(a, removed)) {
+                changed |= wildcarded.computeIfAbsent(b, k -> new HashSet<>()).add(b.typeParameters().get(i));
+            }
+        }
+        return changed;
     }
 
     private static void wildcarded(ParameterizedType pt, Map<TypeInfo, Set<TypeParameter>> wildcarded) {

@@ -695,6 +695,11 @@ public final class CSharpProgram {
         return wildcardUses.reached().getOrDefault(typeInfo, Set.of());
     }
 
+    /** The member is reached through the wildcard of some type, its own or a subtype's. */
+    boolean reachedThroughAnyWildcard(Object member) {
+        return wildcardUses.reached().values().stream().anyMatch(s -> s.contains(member));
+    }
+
     public boolean delegate(TypeInfo typeInfo) {
         return delegates.contains(typeInfo);
     }

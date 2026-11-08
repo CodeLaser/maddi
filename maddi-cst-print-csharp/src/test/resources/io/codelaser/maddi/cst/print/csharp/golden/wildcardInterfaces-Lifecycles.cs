@@ -47,12 +47,10 @@ public sealed class Lifecycles {
         public virtual object Mapping() => default;
         object IBox.Get => Get;
         int IBox.Count() => Count();
-        object IBox.Mapping() => Mapping();
     }
     public interface IBox {
         object Get { get; }
         int Count();
-        object Mapping();
     }
 
     public sealed class Counter<T> {
