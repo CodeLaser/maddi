@@ -123,9 +123,10 @@ final class CSharpWildcardInterfaces {
         List<TypeParameter> candidates = candidates(t);
         List<TypeParameter> selfBounded = t.typeParameters().stream().filter(tp -> selfBounded(t, tp)).toList();
         if (candidates.size() == selfBounded.size()) return candidates;
-        Object unreachable = unreachable(t, candidates);
-        if (unreachable == null) return candidates;
-        CSharpContext.message(CSharpPrintCode.NO_WILDCARD_INTERFACE, t, t.fullyQualifiedName() + ": " + unreachable);
+        List<Object> unreachable = unreachable(t, candidates);
+        if (unreachable.isEmpty()) return candidates;
+        CSharpContext.message(CSharpPrintCode.NO_WILDCARD_INTERFACE, t, t.fullyQualifiedName() + ": "
+                + unreachable.stream().map(String::valueOf).collect(Collectors.joining("; ")));
         return selfBounded;
     }
 
@@ -146,10 +147,11 @@ final class CSharpWildcardInterfaces {
 
     /**
      * What the code reaches through t's wildcard that the wildcard interface without {@code removed} does not
-     * declare: a member, a field written, a generic parameter the wildcard goes into ({@link #wildcarded}); null
+     * declare: a member, a field written, a generic parameter the wildcard goes into ({@link #wildcarded}); empty
      * when it declares everything.
      */
-    private static Object unreachable(TypeInfo t, List<TypeParameter> removed) {
+    private static List<Object> unreachable(TypeInfo t, List<TypeParameter> removed) {
+        List<Object> unreachable = new ArrayList<>();
         Set<Object> declared = declared(t, removed);
         for (Object info : CSharpContext.program().reachedThroughWildcard(t)) {
             if (declared.contains(info) || info == CSharpOpeners.OPENED) continue;
@@ -166,9 +168,9 @@ final class CSharpWildcardInterfaces {
                 // a superclass's method its own wildcard interface declares, which t's extends
                 if (declaredBySuperclass(t, m)) continue;
             }
-            return info;
+            unreachable.add(info);
         }
-        return null;
+        return unreachable;
     }
 
     /**
