@@ -2493,20 +2493,16 @@ public final class CSharpExpressionPrinter {
     }
 
     /**
-     * A type test against a raw generic type, {@code termination instanceof PhaseTermination p} of a
-     * {@code SolverTermination<Solution_>}: the arguments the operand's type determines, as the tested type extends
-     * it, {@code is IPhaseTermination<Solution_> p}. Any object that passes Java's test has them; C#'s
-     * {@code <object>} would match none of them. {@code tested} itself when it is not raw or the operand does not
-     * determine every argument. A tested type that does not extend the operand's takes them through a generic supertype
-     * the two share.
+     * The tested type's type parameters as {@link #rawTestArguments} infers them, some of them maybe; null when the
+     * test is not of a raw generic program type that the operand's type relates to.
      */
-    private static ParameterizedType rawTestArguments(ParameterizedType tested, ParameterizedType operand) {
+    static Map<TypeParameter, ParameterizedType> rawTestInferred(ParameterizedType tested, ParameterizedType operand) {
         TypeInfo target = tested == null ? null : tested.typeInfo();
         if (target == null || tested.arrays() != 0 || !tested.parameters().isEmpty()
             || target.typeParameters().isEmpty() || !CSharpNames.translated(target) || operand == null
             || operand.arrays() != 0 || operand.typeInfo() == null || operand.parameters().isEmpty()
             || target.equals(operand.typeInfo())) {
-            return tested;
+            return null;
         }
         ParameterizedType asOperand = CstSupertypes.asSeen(target, operand.typeInfo());
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
@@ -2517,9 +2513,24 @@ public final class CSharpExpressionPrinter {
             // generic supertype twice, with two arguments, so the shared one determines them
             ParameterizedType shared = CstSupertypes.firstAsSeen(target, t -> !t.typeParameters().isEmpty()
                     && CstSupertypes.asSeen(operand, t) != null);
-            if (shared == null) return tested;
+            if (shared == null) return null;
             match(shared, CstSupertypes.asSeen(operand, shared.typeInfo()), target.typeParameters(), inferred);
         }
+        return inferred;
+    }
+
+    /**
+     * A type test against a raw generic type, {@code termination instanceof PhaseTermination p} of a
+     * {@code SolverTermination<Solution_>}: the arguments the operand's type determines, as the tested type extends
+     * it, {@code is IPhaseTermination<Solution_> p}. Any object that passes Java's test has them; C#'s
+     * {@code <object>} would match none of them. {@code tested} itself when it is not raw or the operand does not
+     * determine every argument. A tested type that does not extend the operand's takes them through a generic supertype
+     * the two share.
+     */
+    private static ParameterizedType rawTestArguments(ParameterizedType tested, ParameterizedType operand) {
+        Map<TypeParameter, ParameterizedType> inferred = rawTestInferred(tested, operand);
+        if (inferred == null) return tested;
+        TypeInfo target = tested.typeInfo();
         List<ParameterizedType> arguments = new ArrayList<>();
         for (TypeParameter tp : target.typeParameters()) {
             ParameterizedType t = inferred.get(tp);

@@ -941,6 +941,45 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     /**
+     * A dictionary's key type parameter, {@code where K : notnull}, takes a captured wildcard parameter's capture
+     * (the capture is {@code notnull} too) and the arguments a raw type test infers ({@code is Keyed<K2>}: K2 is
+     * {@code notnull}): CS8714 otherwise.
+     */
+    @Test
+    public void notNullKeyThroughCaptureAndTypeTest() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Keys", """
+                package a;
+                import java.util.HashMap;
+                import java.util.Map;
+                class Keys {
+                    interface Unpacker<K> { K key(Object o); }
+                    static final class Index<K> {
+                        private final Map<K, Integer> counts = new HashMap<>();
+                        private final Unpacker<K> unpacker;
+                        Index(Unpacker<K> unpacker) { this.unpacker = unpacker; }
+                        int size() { return counts.size(); }
+                    }
+                    interface Source<K> { int ordinal(); }
+                    interface Keyed<K> extends Source<K> { HashMap<K, String> keys(); }
+                    static int build(Unpacker<?> unpacker) { return new Index<>(unpacker).size(); }
+                    @SuppressWarnings("rawtypes")
+                    static <K2> boolean keyed(Source<K2> source) { return source instanceof Keyed; }
+                }
+                """);
+        contains(cs, "new Index<TK>(unpacker)");
+        contains(cs, "where TK : notnull");
+        contains(cs, "where K2 : notnull");
+        contains(cs, "source is IKeyed<K2>");
+        assertTrue(nullableWarnings.isEmpty(), nullableWarnings + "\n" + cs);
+    }
+
+    /**
      * A creation opened through the object ({@link CSharpOpeners}): the class's type parameter is a dictionary's key,
      * {@code where E : notnull}, so the variable's own, which the opener passes there, is not null too (CS8714 in the
      * opener otherwise).
