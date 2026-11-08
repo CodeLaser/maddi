@@ -2137,9 +2137,11 @@ public final class CSharpExpressionPrinter {
         // typed as Java wrote it: (int a, int b) -> …; a C# lambda types all its parameters or none
         boolean typed = !lambda.outputVariants().isEmpty()
                         && lambda.outputVariants().stream().allMatch(Lambda.OutputVariant::isTyped);
+        TypeInfo functional = lambda.abstractFunctionalTypeInfo();
         return lambda(lambda.methodInfo(), () -> params.size() == 1 && !typed
                 ? CSharpContext.declare(params.getFirst().name())
-                : params.stream().map(p -> (typed ? CSharpTypeName.of(p.parameterizedType(), q) + " " : "")
+                : params.stream().map(p -> (typed ? asDelegateHasIt(functional, p.index(), p.parameterizedType(),
+                                                    CSharpTypeName.of(p.parameterizedType(), q)) + " " : "")
                                            + CSharpContext.declare(p.name()))
                         .collect(Collectors.joining(", ", "(", ")")), true, q);
     }
@@ -2185,8 +2187,12 @@ public final class CSharpExpressionPrinter {
      */
     private static String typedParameter(MethodReference mr, int i, Qualification q) {
         ParameterizedType pt = mr.concreteParameterTypes().get(i);
-        String type = CSharpTypeName.argument(pt, q);
-        TypeInfo functional = mr.parameterizedType() == null ? null : mr.parameterizedType().typeInfo();
+        return asDelegateHasIt(mr.parameterizedType() == null ? null : mr.parameterizedType().typeInfo(), i, pt,
+                CSharpTypeName.argument(pt, q));
+    }
+
+    /** {@code type}, a lambda's typed parameter {@code i}, {@code T?} where the delegate's parameter is nullable. */
+    private static String asDelegateHasIt(TypeInfo functional, int i, ParameterizedType pt, String type) {
         if (functional == null || !CSharpContext.program().delegate(functional)) return type;
         MethodInfo sam = CSharpProgram.invoked(functional);
         if (sam == null || i >= sam.parameters().size()) return type;
