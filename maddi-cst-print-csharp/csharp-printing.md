@@ -643,7 +643,11 @@ differences:
   var to }`. A component's own type is `var`, a narrower one a type test; `_` leaves the component out. A library's
   record has no such properties (`SWITCH_FORM`). C# cannot test against an open generic type, and
   `o is Pair<object, object>` does not match a `Pair<string, int>`: in the class itself, `o instanceof Pair<?, ?> p`
-  (its `equals`) becomes `o is Pair<A, B> p`, with the class's own type parameters.
+  (its `equals`) becomes `o is Pair<A, B> p`, with the class's own type parameters. A test against a raw generic
+  type takes the arguments the operand's type determines: `termination instanceof PhaseTermination p` of a
+  `SolverTermination<Solution_>` is `termination is IPhaseTermination<Solution_> p`, every object that passes Java's
+  test having them; a sibling's through the generic supertype both have (`Termination<Solution_>`: Java lets no class
+  have it twice). Those type parameters are `notnull` where the tested type's are (`CSharpNotNullKeys`).
 - **Reference identity.** `==` between two Strings is identity in Java and content equality in C#, so it becomes
   `object.ReferenceEquals(a, b)`. So does `==` on a type parameter's value, which C# does not allow (except against
   `null`).
@@ -841,7 +845,10 @@ from a map, a stream's collector.
   `IList`, `Collection<?>` and `Set<?>` are `ICollection`, `Iterable<?>` is `IEnumerable`, `Map<?, ?>` is
   `IDictionary`, `Comparable<?>` is `IComparable`. A method's parameter of a program type with wildcards, `Context<?> c`, is captured as Java does
   in the body: the method gets a type parameter of its own, `void OnRequest<TEmbedded>(Context<TEmbedded> c)`,
-  constrained by the wildcard's bound or the declared one (`CSharpWildcards`). Not in a constructor, a functional
+  constrained by the wildcard's bound or the declared one (`CSharpWildcards`), and `notnull` where the type's own
+  is a dictionary's key. A diamond whose argument is such a parameter takes the capture where Java infers it,
+  `new EqualIndexer<T, TKey_>(keyUnpacker, …)` of a `KeyUnpacker<?>` captured as `TKey_`, and a type parameter no
+  argument determines its bound with the capture in it (`ICollection<TKey_>`). Not in a constructor, a functional
   interface's method, an override of a library method, or when the bound is no valid C# constraint (string, a
   delegate, a sealed class, a type parameter). Any other `?` of a program type is the type's wildcard interface, as a
   self-bounded type's is (below): the type parameters the program declares with `?`, in a field, a constructor's
@@ -867,7 +874,11 @@ from a map, a stream's collector.
   interface extends declares (the supertype mentions a removed parameter, or has no wildcard interface of its own)
   the wildcard interface declares itself, as the type sees it, an override of it too: `string IShadow.Name => Name;`,
   through the interface for a default method the class does not override, `((IVariable<S, V>) this).Ordinal()`; a
-  call through the wildcard interface needs no such cast. Only where it declares every member the
+  call through the wildcard interface needs no such cast. A reached member whose parameter is a removed type
+  parameter itself, `isMovable(Solution_ workingSolution, Object entity)`, it declares with the parameter's bound,
+  `bool IsMovable(object workingSolution, object entity)`, the bridge casting it back, `(Solution_) workingSolution`:
+  Java passes nothing through the wildcard but `null` or the capture's own value, which the cast holds for. Only
+  where it declares every member the
   code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
   where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
   ResultContainer_, Result_>)`, which C# could not infer from the wildcard interface), keeps the type's wildcards their

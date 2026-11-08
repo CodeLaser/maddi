@@ -232,10 +232,15 @@
 # mentions is erased (doMove, buildTermination); a call's inferred type arguments may hold a wildcard use
 # (Func<A, IScore, …>); a Class<T>-only T gets its bound; reduce's raw seed is cast as the receiver's T; the map and
 # list helpers take Java's ? extends and get(Object): 1345 -> 1355 compiling files, 570 -> 544 errors.
+#
+# 2026-11-08, a diamond of a captured wildcard parameter takes the capture (new EqualIndexer<T, TKey_>, CS1503 x4);
+# a raw type test takes the operand's arguments (is IPhaseTermination<Solution_>, which <object> never matched at
+# run time); a wildcard interface declares a reached member whose parameter is a removed type parameter at its
+# bound: 1355 -> 1356 compiling files, 544 -> 539 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1355
+compilingFiles	1356
 unmappedJdkUses	106
-errors	544
+errors	539
