@@ -84,7 +84,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "TimeSpan.FromTicks((after - before) / 100)");
         contains(cs, "random.Next(6)");
         contains(cs, "Convert.ToBase64String((byte[]) (object) bytes)");
-        contains(cs, "map.ForEach((k, v) => Console.Out.WriteLine(k + v))");
+        contains(cs, "map.ForEach((k, v) => Console.Out.WriteLine(k + JavaString.ValueOf(v)))");
     }
 
     @Language("java")
@@ -389,7 +389,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                 """, "add-only.csmap")));
         String cs = translate("Registry", PUTS);
         contains(cs, "counts.Add(key, 1);");
-        contains(cs, "=> counts.Put(key, 2);");
+        contains(cs, "=> counts.PutValue(key, 2);");
     }
 
     @Language("java")

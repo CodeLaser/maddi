@@ -98,8 +98,8 @@ public final class CSharpExpressionPrinter {
             case Cast cast -> cast(cast, q);
             case InstanceOf io -> instanceOf(io, false, q);
             case InlineConditional ic -> new OutputBuilderImpl().add(booleanOperand(ic.precedence(), ic.condition(), q))
-                    .add(SymbolEnum.QUESTION_MARK).add(operand(ic.precedence(), ic.ifTrue(), q))
-                    .add(SymbolEnum.COLON).add(operand(ic.precedence(), ic.ifFalse(), q));
+                    .add(SymbolEnum.QUESTION_MARK).add(conditionalBranch(ic, ic.ifTrue(), q))
+                    .add(SymbolEnum.COLON).add(conditionalBranch(ic, ic.ifFalse(), q));
             case MethodCall mc -> methodCall(mc, q, false);
             case MethodReference mr -> adapted(mr.parameterizedType(), methodReference(mr, q), q);
             case SwitchExpression se -> CSharpStatementPrinter.switchExpression(se, q);
@@ -2530,7 +2530,8 @@ public final class CSharpExpressionPrinter {
         if (t.isBooleanOrBoxedBoolean() || floatingPoint(t)) return true;
         if (t.isPrimitiveExcludingVoid()) return false;
         if (CSharpNullability.mayBeNull(e)) return true;
-        if (t.isBoxedExcludingVoid()) return false;
+        // an Integer is C#'s int?, whose null concatenates as the empty string
+        if (t.isBoxedExcludingVoid()) return true;
         if (t.isTypeParameter() || t.isJavaLangObject()) return true;
         // the common type of a conditional's String and Class<?>: an intersection, or one of its interfaces, whichever
         // the running JDK's String and Class have in common; any value may be one
@@ -2554,6 +2555,28 @@ public final class CSharpExpressionPrinter {
      */
     private static final Set<String> CONVERTED_DIFFERENTLY = Set.of("java.lang.Iterable", "java.util.Collection",
             "java.util.Map", "java.util.Map$Entry", "java.util.Map.Entry", "java.lang.Number");
+
+    /**
+     * A branch of a conditional. Java types {@code b ? c : 0}, a char and an int constant that fits, as a char; C#
+     * as an int (97 where Java prints a): the constant is cast to the other branch's char, byte or short.
+     */
+    private static OutputBuilder conditionalBranch(InlineConditional ic, Expression branch, Qualification q) {
+        // JLS 15.25: the other operand's char, byte or short, where this one is an int constant that fits it
+        Expression other = branch == ic.ifTrue() ? ic.ifFalse() : ic.ifTrue();
+        ParameterizedType type = other.parameterizedType();
+        ParameterizedType branchType = branch.parameterizedType();
+        TypeInfo ti = type == null || type.arrays() != 0 ? null : type.typeInfo();
+        if (ti != null && (ti.isChar() || ti.isByte() || ti.isShort()) && branchType != null && branchType.arrays() == 0
+            && branchType.typeInfo() != null && branchType.typeInfo().isInt()
+            && unwrap(branch) instanceof ConstantExpression<?> c && c.constant() instanceof Integer i
+            && (ti.isChar() ? i >= 0 && i <= Character.MAX_VALUE : ti.isByte() ? i >= Byte.MIN_VALUE && i <= Byte.MAX_VALUE
+                : i >= Short.MIN_VALUE && i <= Short.MAX_VALUE)) {
+            String to = ti.isChar() ? "char" : ti.isByte() ? "sbyte" : "short";
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(to))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(operand(ic.precedence(), branch, q));
+        }
+        return operand(ic.precedence(), branch, q);
+    }
 
     /** A float or a double, boxed too. */
     private static boolean floatingPoint(ParameterizedType t) {

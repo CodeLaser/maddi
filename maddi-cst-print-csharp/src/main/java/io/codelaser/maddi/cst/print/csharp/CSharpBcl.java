@@ -261,7 +261,15 @@ final class CSharpBcl implements LibraryMapping {
                 ? rule("$0.ContainsKeyObject($1)", COMPAT) : rule("$0.ContainsKey($1)"));
         chooser("java.util.Map.remove/1", (method, call) -> objectArgument(call)
                 ? new Rule("$0.RemoveKeyObject($1)", "$0.RemoveKeyObject($1)", List.of(COMPAT)).withNullableResult()
+                : valueType(call, 1) ? new Rule("$0.RemoveValue($1)", "$0.Remove($1)", List.of(COMPAT)).withNullableResult()
                 : new Rule("$0.RemoveAndGet($1)", "$0.Remove($1)", List.of(COMPAT)).withNullableResult());
+        // a value type's previous value is null when there was none, as Java's Integer: the V? variants; a statement
+        // keeps the file's rule
+        chooser("java.util.Map.put/2", (method, call) -> new Rule(valueType(call, 1) ? "$0.PutValue($1, $2)"
+                : "$0.Put($1, $2)", "$0[$1] = $2", List.of(COMPAT)).withNullableResult());
+        chooser("java.util.Map.putIfAbsent/2", (method, call) -> new Rule(valueType(call, 1)
+                ? "$0.PutIfAbsentValue($1, $2)" : "$0.PutIfAbsent($1, $2)", "$0.TryAdd($1, $2)", List.of(COMPAT))
+                .withNullableResult());
         // a collection of ? is non-generic in C#: LINQ needs its elements as objects
         chooser("java.util.Collection.stream/0", (method, call) -> unboundTyped(call) ? rule("$0.Cast<object>()", LINQ)
                 : rule("$0"));

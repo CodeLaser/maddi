@@ -39,6 +39,30 @@ public static class JavaCollections
         return old;
     }
 
+    /// <summary>Map.put of a map whose values are a value type: the previous value, null when there was none, as in Java.</summary>
+    public static V? PutValue<K, V>(this IDictionary<K, V> d, K key, V value) where V : struct
+    {
+        V? old = d.TryGetValue(key, out var v) ? v : null;
+        d[key] = value;
+        return old;
+    }
+
+    /// <summary>Map.remove of a map whose values are a value type: the removed value, null when there was none.</summary>
+    public static V? RemoveValue<K, V>(this IDictionary<K, V> d, K key) where V : struct
+    {
+        if (!d.TryGetValue(key, out var old)) return null;
+        d.Remove(key);
+        return old;
+    }
+
+    /// <summary>Map.putIfAbsent of a map whose values are a value type: the present value, null when it was absent.</summary>
+    public static V? PutIfAbsentValue<K, V>(this IDictionary<K, V> d, K key, V value) where V : struct
+    {
+        if (d.TryGetValue(key, out var old)) return old;
+        d[key] = value;
+        return null;
+    }
+
     /// <summary>Map.get of a map whose values are a value type: null when the key is absent, as in Java.</summary>
     public static V? GetValueOrNull<K, V>(this IDictionary<K, V> d, K key) where V : struct =>
         d.TryGetValue(key, out var v) ? v : null;

@@ -411,15 +411,11 @@ statement java.util.ArrayDeque.remove/0 -> $0.RemoveAt(0)
 member java.util.Queue.remove/0 -> $0.RemoveFirst() using Maddi.JavaCompat
 statement java.util.Queue.remove/0 -> $0.RemoveAt(0)
 # Map
-member java.util.Map.put/2 ->? $0.Put($1, $2) using Maddi.JavaCompat
-statement java.util.Map.put/2 -> $0[$1] = $2
 member java.util.Map.containsValue/1 -> $0.Values.Contains($1) using System.Linq
 member java.util.Map.entrySet/0 -> $0
 member java.util.Map.keySet/0 -> $0.Keys
 member java.util.Map.values/0 -> $0.Values
 member java.util.Map.putAll/1 -> $0.PutAll($1) using Maddi.JavaCompat
-member java.util.Map.putIfAbsent/2 ->? $0.PutIfAbsent($1, $2) using Maddi.JavaCompat
-statement java.util.Map.putIfAbsent/2 -> $0.TryAdd($1, $2)
 member java.util.Map.computeIfAbsent/2 -> $0.ComputeIfAbsent($1, $2) using Maddi.JavaCompat
 member java.util.Map.compute/2 -> $0.Compute($1, $2) using Maddi.JavaCompat
 member java.util.Map.merge/3 -> $0.Merge($1, $2, $3) using Maddi.JavaCompat
