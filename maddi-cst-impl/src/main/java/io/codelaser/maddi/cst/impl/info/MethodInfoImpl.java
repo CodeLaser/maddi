@@ -449,7 +449,22 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
     @Override
     public Value.FieldValue getSetField() {
-        return analysis().getOrDefault(PropertyImpl.GET_SET_FIELD, ValueImpl.GetSetValueImpl.EMPTY);
+        Value.FieldValue own = analysis().getOrNull(PropertyImpl.GET_SET_FIELD, Value.FieldValue.class);
+        if (own != null) return own;
+        /*
+         A library method without a status of its own inherits the one of the method it overrides: ArrayList.get is
+         List.get's element getter. The modification analysis writes that copy (ShallowMethodAnalyzer, FROM_OVERRIDE)
+         only when it reaches the method, which is after prep; answering it here already means prep reads the same
+         status whether or not the analysis has been there. A cold run preps before it, a warm re-analysis after: the
+         rewire oracle on fernflower's VBStyleCollection (extends ArrayList), 2026-11-09.
+         */
+        if (!isConstructor() && typeInfo().compilationUnit().externalLibrary()) {
+            for (MethodInfo override : overrides()) {
+                Value.FieldValue fv = override.getSetField();
+                if (fv.field() != null) return fv;
+            }
+        }
+        return ValueImpl.GetSetValueImpl.EMPTY;
     }
 
     @Override

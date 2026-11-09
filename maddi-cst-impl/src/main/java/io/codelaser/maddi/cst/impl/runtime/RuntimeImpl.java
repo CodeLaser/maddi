@@ -36,7 +36,6 @@ import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.Variable;
-import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.element.MaddiAnnotationsImpl;
 import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.impl.info.ComputeMethodOverridesImpl;
@@ -335,30 +334,8 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
         return getSetVariable(methodCall, true);
     }
 
-    /*
-     A library method that has no getter/setter status of its own inherits the one of the method it overrides:
-     ArrayList.get is List.get's element getter. The modification analysis copies it (ShallowMethodAnalyzer's
-     FROM_OVERRIDE), but only when it reaches the method, which is after prep. Resolve it here the same way, so that
-     prep sees the same status whether or not the analysis has been there: a cold run preps before it, a warm
-     re-analysis after (the rewire oracle, fernflower's VBStyleCollection, 2026-11-09). Once the analysis has set a
-     value, even an empty one, that value stands.
-     */
-    private static Value.FieldValue getSetFieldOrInherited(MethodInfo methodInfo) {
-        Value.FieldValue own = methodInfo.getSetField();
-        if (own.field() != null
-            || methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.GET_SET_FIELD)
-            || !methodInfo.typeInfo().compilationUnit().externalLibrary()) {
-            return own;
-        }
-        for (MethodInfo override : methodInfo.overrides()) {
-            Value.FieldValue fv = override.getSetField();
-            if (fv != null && fv.field() != null) return fv;
-        }
-        return own;
-    }
-
     private Variable getSetVariable(MethodCall methodCall, boolean setter) {
-        Value.FieldValue getSetField = getSetFieldOrInherited(methodCall.methodInfo());
+        Value.FieldValue getSetField = methodCall.methodInfo().getSetField();
         if (getSetField.field() == null || getSetField.setter() != setter) {
             return null;
         }
