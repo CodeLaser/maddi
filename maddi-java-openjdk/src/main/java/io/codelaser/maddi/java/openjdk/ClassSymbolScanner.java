@@ -1766,6 +1766,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return new ConvertType.SAMDescriptor(methodInfo, samSymbol, methodType);
     }
 
+    /*
+     Set while converting the inferred type of a 'var' (the VAR_TYPE branch of convertTree): an intersection
+     becomes an intersection type rather than its supertype, as the tree javac synthesized up to 26 did (#189).
+     */
+    private static final ThreadLocal<Boolean> KEEP_INTERSECTIONS = ThreadLocal.withInitial(() -> false);
+
     @Override
     public ParameterizedType convert(Type type) {
         return convert(type, null);
@@ -1807,6 +1813,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                                                                        + " supertype_field or alternatives)", type));
         }
         if (type instanceof Type.IntersectionClassType ict) {
+            if (KEEP_INTERSECTIONS.get()) {
+                List<ParameterizedType> bounds = new ArrayList<>();
+                for (Type component : ict.getExplicitComponents()) {
+                    ParameterizedType pt = convert(component, visited);
+                    if (!pt.isJavaLangObject()) bounds.add(pt);
+                }
+                if (bounds.size() == 1) return bounds.getFirst();
+                if (!bounds.isEmpty()) return runtime.newIntersectionType(null, bounds);
+            }
             if (ict.supertype_field != null) {
                 return convert(ict.supertype_field, visited);
             }
@@ -2018,11 +2033,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             assert pt != null;
             TypeInfo ti = pt.typeInfo();
             assert ti != null;
-            // G<String>.In, an inner class named through a parameterized outer type: the outer type's arguments come
-            // first in parameters(), as the bytecode inspector has them (ParameterizedTypePrinter.distributeTypeParameters).
-            // javac's type of In carries them only on its enclosing type (a class type only for an inner class), which
-            // classType does not look at.
-            if (fieldAccess.type instanceof Type.ClassType ct
+            // G<String>.In, an inner class named through a parameterized outer type: convert() has put the outer
+            // type's arguments first in parameters() (classType, #142). Under the gate, the written form only, as before.
+            if (OUTER_ARGUMENTS_OFF && fieldAccess.type instanceof Type.ClassType ct
                 && ct.getEnclosingType() instanceof Type.ClassType outer && outer.isParameterized()) {
                 List<ParameterizedType> parameters = new ArrayList<>(convert(outer).parameters());
                 parameters.addAll(pt.parameters());
@@ -2142,7 +2155,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
          ⚠ Matched by NAME: Tree.Kind.VAR_TYPE and JCVarType do not exist before 27, and maddi still compiles on 25.
          */
         if ("VAR_TYPE".equals(type.getKind().name()) && type instanceof JCTree varTree && varTree.type != null) {
-            return convert(varTree.type);
+            /*
+             ⛔ AN INFERRED INTERSECTION STAYS AN INTERSECTION (#189). 'var c = b ? "x" : o.getClass()' infers
+             Serializable & Constable, 'var l = List.of("a", 1)' a List of one. Up to 26 javac synthesized a type
+             tree for it, whose JCTypeIntersection the branch above turns into an intersection, at any depth; on 27
+             the JCVarType carries the inferred Type, and convert() reduces every IntersectionClassType to its
+             supertype_field, Object. While converting it, keep the intersections as the tree path does.
+             */
+            boolean outer = KEEP_INTERSECTIONS.get();
+            KEEP_INTERSECTIONS.set(true);
+            try {
+                return convert(varTree.type);
+            } finally {
+                KEEP_INTERSECTIONS.set(outer);
+            }
         }
         String resolved = type instanceof JCTree jct && jct.type != null
                 ? jct.type + " (" + jct.type.getClass().getName() + ", tag " + jct.type.getTag() + ")"
@@ -2227,13 +2253,45 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                                                        + ", owner " + ct.tsym.owner) + ") onto a TypeInfo"
                                                     + offClassPathHint(ct));
         }
-        if (ct.getTypeArguments().isEmpty()) {
+        List<ParameterizedType> outerArguments = outerArguments(ct, visited);
+        if (ct.getTypeArguments().isEmpty() && outerArguments.isEmpty()) {
             return typeInfo.asSimpleParameterizedType();
         }
-        List<ParameterizedType> typeParameters = ct.getTypeArguments().stream()
-                .map(ta -> convert(ta, visited))
-                .toList();
-        return runtime.newParameterizedType(typeInfo, typeParameters);
+        List<ParameterizedType> typeParameters = new ArrayList<>(outerArguments);
+        ct.getTypeArguments().forEach(ta -> typeParameters.add(convert(ta, visited)));
+        return runtime.newParameterizedType(typeInfo, List.copyOf(typeParameters));
+    }
+
+    /*
+     ⛔ AN INNER CLASS OF A GENERIC CLASS CARRIES THE OUTER TYPE'S ARGUMENTS (#142). 'Store<String>.Entry' is the type
+     of 'store.add("x")', of a field 'Entry first' read through 'store', of a 'var'; javac has String only on the
+     ClassType's enclosing type, and this method dropped it, so every resolved use was a bare 'Holder.Store.Entry'
+     while the written one had its argument. The convention is the written form's (and the bytecode inspector's):
+     the outer type's arguments come first in parameters() (ParameterizedTypePrinter.distributeTypeParameters).
+     ⚠ NOT INSIDE THE OUTER TYPE ITSELF: there the enclosing type is 'Store<T>' with Store's own type variables, and
+     'Entry' is how the source writes it. Only an instantiation is carried. Gate NOOUTERARGUMENTS (environment).
+     */
+    private List<ParameterizedType> outerArguments(Type.ClassType ct, Set<Type> visited) {
+        if (OUTER_ARGUMENTS_OFF || !(ct.getEnclosingType() instanceof Type.ClassType outer)
+            || !outer.isParameterized() || isOwnInstantiation(outer)) {
+            return List.of();
+        }
+        return convert(outer, visited).parameters();
+    }
+
+    private static final boolean OUTER_ARGUMENTS_OFF = System.getenv("NOOUTERARGUMENTS") != null;
+
+    // the outer type as its own body sees it, 'Store<T>' inside Store<T>, at every level of nesting
+    private static boolean isOwnInstantiation(Type.ClassType outer) {
+        for (Type t = outer; t instanceof Type.ClassType c; t = c.getEnclosingType()) {
+            com.sun.tools.javac.util.List<Type> actual = c.getTypeArguments();
+            com.sun.tools.javac.util.List<Type> formal = c.tsym.type.getTypeArguments();
+            if (actual.size() != formal.size()) return false;
+            for (int i = 0; i < actual.size(); i++) {
+                if (actual.get(i) != formal.get(i)) return false;
+            }
+        }
+        return true;
     }
 
     private ParameterizedType anonymousClassType(Symbol.ClassSymbol cs, Set<Type> visited) {
