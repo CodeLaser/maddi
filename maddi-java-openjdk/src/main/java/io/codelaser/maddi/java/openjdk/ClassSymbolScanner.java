@@ -1766,6 +1766,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return new ConvertType.SAMDescriptor(methodInfo, samSymbol, methodType);
     }
 
+    /*
+     Set while converting the inferred type of a 'var' (the VAR_TYPE branch of convertTree): an intersection
+     becomes an intersection type rather than its supertype, as the tree javac synthesized up to 26 did (#189).
+     */
+    private static final ThreadLocal<Boolean> KEEP_INTERSECTIONS = ThreadLocal.withInitial(() -> false);
+
     @Override
     public ParameterizedType convert(Type type) {
         return convert(type, null);
@@ -1807,6 +1813,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                                                                        + " supertype_field or alternatives)", type));
         }
         if (type instanceof Type.IntersectionClassType ict) {
+            if (KEEP_INTERSECTIONS.get()) {
+                List<ParameterizedType> bounds = new ArrayList<>();
+                for (Type component : ict.getExplicitComponents()) {
+                    ParameterizedType pt = convert(component, visited);
+                    if (!pt.isJavaLangObject()) bounds.add(pt);
+                }
+                if (bounds.size() == 1) return bounds.getFirst();
+                if (!bounds.isEmpty()) return runtime.newIntersectionType(null, bounds);
+            }
             if (ict.supertype_field != null) {
                 return convert(ict.supertype_field, visited);
             }
@@ -2142,7 +2157,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
          ⚠ Matched by NAME: Tree.Kind.VAR_TYPE and JCVarType do not exist before 27, and maddi still compiles on 25.
          */
         if ("VAR_TYPE".equals(type.getKind().name()) && type instanceof JCTree varTree && varTree.type != null) {
-            return convert(varTree.type);
+            /*
+             ⛔ AN INFERRED INTERSECTION STAYS AN INTERSECTION (#189). 'var c = b ? "x" : o.getClass()' infers
+             Serializable & Constable, 'var l = List.of("a", 1)' a List of one. Up to 26 javac synthesized a type
+             tree for it, whose JCTypeIntersection the branch above turns into an intersection, at any depth; on 27
+             the JCVarType carries the inferred Type, and convert() reduces every IntersectionClassType to its
+             supertype_field, Object. While converting it, keep the intersections as the tree path does.
+             */
+            boolean outer = KEEP_INTERSECTIONS.get();
+            KEEP_INTERSECTIONS.set(true);
+            try {
+                return convert(varTree.type);
+            } finally {
+                KEEP_INTERSECTIONS.set(outer);
+            }
         }
         String resolved = type instanceof JCTree jct && jct.type != null
                 ? jct.type + " (" + jct.type.getClass().getName() + ", tag " + jct.type.getTag() + ")"
