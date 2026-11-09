@@ -493,4 +493,51 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "CODES_CODE_CONSTANTS_TYPE_LONG => {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String COLLECTION_SUBCLASS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.HashMap;
+            import java.util.List;
+            public class Coll {
+                public static class Named<E> extends ArrayList<E> {
+                    private final HashMap<String, Integer> index = new HashMap<>();
+                    public Named() { super(); }
+                    public void addNamed(String name, E e) { index.put(name, size()); super.add(e); }
+                    public boolean has(String name) { return index.containsKey(name) && !isEmpty(); }
+                    @Override public boolean add(E e) { index.put("", size()); return super.add(e); }
+                }
+                public static class User {
+                    public int count(Named<String> n) { int c = 0; for (String s : n) if (!s.isEmpty()) c++; return c + n.size(); }
+                    public String first(Named<String> n) { return n.get(0); }
+                    public int all(List<String> l) { return l.size(); }
+                    public int viaList(Named<String> n) { return all(n); }
+                }
+            }
+            """;
+
+    @DisplayName("a class extending a JDK collection keeps the collection as its base, and dereferences to it")
+    @Test
+    public void collectionSubclass() throws Exception {
+        List<TypeInfo> types = parse(COLLECTION_SUBCLASS);
+        TypeInfo named = types.getFirst().findSubType("Named");
+        TypeInfo user = types.getFirst().findSubType("User");
+        modifying(named, "addNamed", "add");
+        nonModifying(named, "has");
+        nonModifying(user, "count", "first", "all", "viaList");
+        for (String m : new String[]{"count", "first", "all", "viaList"}) {
+            borrowed(method(user, m).parameters().getFirst());
+        }
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was a struct without the list: len, push, iter and indexing unresolved (fernflower's VBStyleCollection)
+        contains(rust, "pub base: Vec<E>,");
+        contains(rust, "type Target = Vec<E>;");
+        // super.add is the list's push, not the override's own add; its value Java's true
+        contains(rust, "return { self.base.push(e); true };");
+        contains(rust, "return self.all(n);");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

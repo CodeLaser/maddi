@@ -274,7 +274,7 @@ final class RustTypePrinter {
                 .equals("java.lang.Record")) {
             context.message(RustPrintCode.INHERITANCE, typeInfo, parent.typeInfo().fullyQualifiedName());
         }
-        String baseType = base == null ? null : RustTypes.owned(parent, context, typeInfo);
+        String baseType = base == null ? collectionBase(typeInfo, context) : RustTypes.owned(parent, context, typeInfo);
         // the parent's part of the object, owned by it: not the Rc an object of the parent class is shared in
         if (baseType != null && baseType.startsWith("Rc<") && baseType.endsWith(">")) {
             baseType = baseType.substring("Rc<".length(), baseType.length() - 1);
@@ -289,6 +289,9 @@ final class RustTypePrinter {
         String implGenerics = typestate ? generics
                 : bounded(typeInfo.typeParameters(), context.borrows.hasLifetime(typeInfo));
         List<String> phantom = new ArrayList<>(phantomTypeParameters(typeInfo, fields));
+        // a JDK collection's state holds its type parameters (Vec<E>)
+        String collection = base == null ? baseType : null;
+        if (collection != null) phantom.removeIf(tp -> collection.matches(".*\\b" + tp + "\\b.*"));
         if (typestate) {
             // the state of the transition, a type that no field holds
             phantom.add(RustTypestate.STATE);
@@ -394,6 +397,7 @@ final class RustTypePrinter {
             sb.append("\nimpl").append(implGenerics).append(" ").append(name).append(generics).append(" {\n")
                     .append(inherent).append("}\n");
         }
+        if (base == null && baseType != null) sb.append(derefToBase(name, generics, implGenerics, baseType));
         for (Map.Entry<TypeInfo, List<MethodInfo>> e : byTrait.entrySet()) {
             ParameterizedType traitType = typeInfo.interfacesImplemented().stream()
                     .filter(i -> i.typeInfo() == e.getKey()).findFirst().orElse(e.getKey().asSimpleParameterizedType());
@@ -470,6 +474,7 @@ final class RustTypePrinter {
     /** The parent's state in the subclass's literal: the {@code super(…)} call, or the parent's no-argument one. */
     private String baseValue(List<Statement> statements, RustBodyPrinter printer) {
         String owner = base.replaceFirst("<.*$", "");
+        if (COLLECTION_BASES.contains(owner)) return owner + "::new()";
         if (statements != null) {
             for (Statement s : statements) {
                 if (s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && eci.methodInfo() != null) {
@@ -479,6 +484,34 @@ final class RustTypePrinter {
             }
         }
         return owner + "::new()";
+    }
+
+    /**
+     * The superclass, when it is a JDK collection that Rust has as a standard collection ({@code class Named<E> extends
+     * ArrayList<E>}): its Rust type ({@code Vec<E>}), the {@code base} field the struct dereferences to, so that what
+     * the class inherits ({@code size()}, {@code get(i)}, for-each) is the collection's; {@code null} otherwise.
+     */
+    static String collectionBase(TypeInfo typeInfo, RustContext context) {
+        ParameterizedType parent = typeInfo.parentClass();
+        if (parent == null || parent.typeInfo() == null || parent.typeInfo().isJavaLangObject()
+            || !parent.typeInfo().compilationUnit().externalLibrary()) {
+            return null;
+        }
+        String owned = RustTypes.owned(parent, context, typeInfo);
+        return COLLECTION_BASES.contains(owned.replaceFirst("<.*$", "")) ? owned : null;
+    }
+
+    private static final Set<String> COLLECTION_BASES = Set.of("Vec", "VecDeque", "HashMap", "HashSet", "BTreeMap",
+            "BTreeSet");
+
+    /** {@code Deref} and {@code DerefMut} to the {@link #collectionBase}. */
+    private static String derefToBase(String name, String generics, String implGenerics, String baseType) {
+        String self = name + generics;
+        return "\nimpl" + implGenerics + " std::ops::Deref for " + self + " {\n" + INDENT + "type Target = " + baseType
+               + ";\n" + INDENT + "fn deref(&self) -> &Self::Target {\n" + INDENT + INDENT + "&self.base\n" + INDENT
+               + "}\n}\n\nimpl" + implGenerics + " std::ops::DerefMut for " + self + " {\n" + INDENT
+               + "fn deref_mut(&mut self) -> &mut Self::Target {\n" + INDENT + INDENT + "&mut self.base\n" + INDENT
+               + "}\n}\n";
     }
 
     /** The superclass, when it is a source class: its state becomes a {@code base} field. */

@@ -108,6 +108,8 @@ final class RustBodyPrinter {
     }
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
+    // the expression of the expression statement being printed: its value is dropped
+    private Expression statement;
 
     RustBodyPrinter(RustContext context) {
         this.context = context;
@@ -182,7 +184,18 @@ final class RustBodyPrinter {
             return appends.stream().map(mc -> RustJdk.append(target, mc.parameterExpressions().getFirst(), this))
                     .collect(Collectors.joining(";\n" + pad));
         }
-        return expression(e).text;
+        Expression outer = statement;
+        statement = e;
+        try {
+            return expression(e).text;
+        } finally {
+            statement = outer;
+        }
+    }
+
+    /** {@code e} is an expression statement's: Java drops its value ({@code list.add(x);}). */
+    boolean isStatement(Expression e) {
+        return e == statement;
     }
 
     /** {@code sb.append(a).append(b)…} on a {@code StringBuilder}, innermost first; {@code null} otherwise. */
@@ -819,9 +832,13 @@ final class RustBodyPrinter {
         String alias = aliases.get(variable);
         if (alias != null) return new Printed(alias, Held.SHARED, false);
         return switch (variable) {
-            case This ignored -> {
+            case This t -> {
                 Receiver receiver = context.method == null ? Receiver.EXCLUSIVE : context.facts.receiver(context.method);
-                yield new Printed(context.receiver, context.receiver.equals("this") ? Held.VALUE
+                // 'super.add(e)' on a JDK collection base: the collection's own, not an override the class declares
+                String text = t.writeSuper() && context.type != null
+                              && RustTypePrinter.collectionBase(context.type, context) != null
+                        ? context.receiver + ".base" : context.receiver;
+                yield new Printed(text, context.receiver.equals("this") ? Held.VALUE
                         : receiver == Receiver.SHARED ? Held.SHARED : receiver == Receiver.OWNED ? Held.VALUE
                         : Held.EXCLUSIVE, false);
             }
@@ -1269,7 +1286,14 @@ final class RustBodyPrinter {
             context.method = m;
             if (single != null) {
                 // a Consumer's body is a statement: 'map.put(k, v)' returns a value Rust's 'for_each' does not take
-                Printed p = expression(single);
+                Expression outerStatement = statement;
+                if (m.noReturnValue()) statement = single;
+                Printed p;
+                try {
+                    p = expression(single);
+                } finally {
+                    statement = outerStatement;
+                }
                 String body = p.text;
                 if (m.noReturnValue()) return value("|" + params + "| { " + body + "; }");
                 if (p.nullable && optional) {
