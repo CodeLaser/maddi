@@ -100,8 +100,11 @@ public class RunRewireTests {
          *                  rewired copies before the analysis (the REWIRE cone; {@code ModificationRequest.carryFrom})
          * @param seedPrevious null, or the previous generation's objects of the seed types, for the early cutoff
          *                  ({@code ModificationRequest.seedPrevious})
+         * @return for a seeded analysis ({@code seedTypes} not null): whether it stayed incremental, false when it fell
+         *         back to the cold analysis of everything (the early cutoff found a changed element whose change reaches
+         *         outside the seed). Ignored for a full analysis
          */
-        void analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph, Set<TypeInfo> seedTypes,
+        boolean analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph, Set<TypeInfo> seedTypes,
                      Set<TypeInfo> carryFrom, Set<TypeInfo> seedPrevious);
 
         /** The output of one primary type, comparable between two analyses. */
@@ -112,8 +115,9 @@ public class RunRewireTests {
      * @param reparses         re-parses done
      * @param oracleChecks     oracle checks done
      * @param oracleDifferences every difference an oracle check found; empty is the expected outcome
+     * @param coldFallbacks    re-parses whose seeded analysis fell back to the cold analysis; 0 without the analysis
      */
-    public record Result(int reparses, int oracleChecks, List<String> oracleDifferences) {
+    public record Result(int reparses, int oracleChecks, List<String> oracleDifferences, int coldFallbacks) {
     }
 
     private final InputConfiguration inputConfiguration;
@@ -151,14 +155,15 @@ public class RunRewireTests {
     /** One re-parse: what it touched and what each step took. */
     private record Stats(int iteration, boolean restore, int changed, int cone, int rewiredTypes, int primaryTypes,
                          long reloadMs, long reparseMs, long prepMs, long callGraphMs, long analysisMs,
-                         int vertices, long edges, long heapMb) {
+                         boolean coldFallback, int vertices, long edges, long heapMb) {
         @Override
         public String toString() {
             return String.format("iteration %d%s: %d changed, %d in the REWIRE cone, %d type(s) built by the rewire, of"
                                  + " %d primary types; reload %d ms, re-parse %d ms, prep %d ms (call graph alone %d"
                                  + " ms)%s; call graph %d vertices, %d edges; heap after GC %d MB", iteration,
                     restore ? " (restore)" : "", changed, cone, rewiredTypes, primaryTypes, reloadMs, reparseMs,
-                    prepMs, callGraphMs, analysisMs < 0 ? "" : ", analysis " + analysisMs + " ms", vertices, edges,
+                    prepMs, callGraphMs, analysisMs < 0 ? "" : ", analysis " + analysisMs + " ms"
+                                                              + (coldFallback ? " (fell back to cold)" : ""), vertices, edges,
                     heapMb);
         }
     }
@@ -359,7 +364,7 @@ public class RunRewireTests {
             if (stop) break;
         }
         logSummary();
-        return new Result(stats.size(), oracleChecks, List.copyOf(oracleDifferences));
+        return new Result(stats.size(), oracleChecks, List.copyOf(oracleDifferences), coldFallbacks());
     }
 
     private G<Info> reloadSources(TypeInfo pt, G<Info> infoGraph, int iteration, boolean restore) throws IOException {
@@ -387,6 +392,7 @@ public class RunRewireTests {
         new ComputeCallGraph(javaInspector.runtime(), parseResult1, _ -> false).go();
         long t4 = System.nanoTime();
         long analysisMs = -1;
+        boolean coldFallback = false;
         if (options.analysis() != null) {
             // seeded: the re-parsed types, with the rewired cone's analyzer output carried onto the copies, so the
             // worklist wakes a cone type only when an input it read changed; the kept ones keep their values. Without
@@ -406,13 +412,14 @@ public class RunRewireTests {
                 for (TypeInfo t : dependentPrimaryTypes) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
             }
             seedTypes.remove(null);
-            options.analysis().analyze(javaInspector, parseResult1, graph, seedTypes, carryFrom, seedPrevious);
+            coldFallback = !options.analysis().analyze(javaInspector, parseResult1, graph, seedTypes, carryFrom,
+                    seedPrevious);
             analysisMs = ms(System.nanoTime() - t4);
         }
         InfoMapView view = javaInspector.lastRewireInfoMap();
         Stats s = new Stats(iteration, restore, rr.sourceHasChanged().size(), dependentPrimaryTypes.size(),
                 view == null ? 0 : view.rewiredTypes().size(), parseResult1.primaryTypes().size(),
-                ms(t1 - t0), ms(t2 - t1), ms(t3 - t2), ms(t4 - t3), analysisMs, graph.vertices().size(),
+                ms(t1 - t0), ms(t2 - t1), ms(t3 - t2), ms(t4 - t3), analysisMs, coldFallback, graph.vertices().size(),
                 graph.edgeStream().count(),
                 heapAfterGcMb());
         stats.add(s);
@@ -493,11 +500,16 @@ public class RunRewireTests {
         if (stats.isEmpty()) return;
         LOGGER.info("REWIRE SUMMARY {} re-parse(s) over {} primary types; median cone {}, median rewire-built types {};"
                     + " median ms: reload {}, re-parse {}, prep {}, call graph alone {}, analysis {}; oracle: {}"
-                    + " check(s), {} difference(s)", stats.size(), stats.getLast().primaryTypes(),
+                    + " check(s), {} difference(s); fell back to cold: {}", stats.size(), stats.getLast().primaryTypes(),
                 median(stats.stream().mapToLong(Stats::cone)), median(stats.stream().mapToLong(Stats::rewiredTypes)),
                 median(stats.stream().mapToLong(Stats::reloadMs)), median(stats.stream().mapToLong(Stats::reparseMs)),
                 median(stats.stream().mapToLong(Stats::prepMs)), median(stats.stream().mapToLong(Stats::callGraphMs)),
-                median(stats.stream().mapToLong(Stats::analysisMs)), oracleChecks, oracleDifferences.size());
+                median(stats.stream().mapToLong(Stats::analysisMs)), oracleChecks, oracleDifferences.size(),
+                coldFallbacks());
+    }
+
+    private int coldFallbacks() {
+        return (int) stats.stream().filter(Stats::coldFallback).count();
     }
 
     private static long median(LongStream values) {

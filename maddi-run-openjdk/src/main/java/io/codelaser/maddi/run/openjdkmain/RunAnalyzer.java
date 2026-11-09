@@ -110,9 +110,9 @@ public class RunAnalyzer implements Runnable {
                 false, false, null, false, null);
         return new RunRewireTests.WarmAnalysis() {
             @Override
-            public void analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph,
-                                Set<TypeInfo> seedTypes, Set<TypeInfo> carryFrom,
-                                Set<TypeInfo> seedPrevious) {
+            public boolean analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph,
+                                   Set<TypeInfo> seedTypes, Set<TypeInfo> carryFrom,
+                                   Set<TypeInfo> seedPrevious) {
                 List<Info> order = new ComputeAnalysisOrder().go(graph, parallel);
                 Set<Info> seed = null;
                 if (seedTypes != null) {
@@ -126,8 +126,10 @@ public class RunAnalyzer implements Runnable {
                     }
                 }
                 try {
-                    engine().modification(new ModificationRequest(inspector, order, graph,
-                            parseResult.primaryTypes(), options, null, seed, carryFrom, seedPrevious));
+                    // a seeded analysis says which elements it analysed; one that fell back to the cold analysis of
+                    // everything has no scope, as a cold one
+                    return engine().modification(new ModificationRequest(inspector, order, graph,
+                            parseResult.primaryTypes(), options, null, seed, carryFrom, seedPrevious)).scope() != null;
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
@@ -351,6 +353,14 @@ public class RunAnalyzer implements Runnable {
                     // the incremental path produced something a cold parse does not: that is a defect, not a finding
                     LOGGER.error("Rewire tests: {} oracle difference(s) in {} check(s)",
                             rewireResult.oracleDifferences().size(), rewireResult.oracleChecks());
+                    exitValue = Main.EXIT_INTERNAL_EXCEPTION;
+                }
+                // maddi.rewire.requireIncremental (default false): every seeded analysis must stay incremental. A
+                // fall-back to the cold analysis is correct but slow; on a corpus whose edits are known to stay
+                // incremental it means an analyzer change made a warm run settle elsewhere than a cold one
+                if (Boolean.getBoolean("maddi.rewire.requireIncremental") && rewireResult.coldFallbacks() > 0) {
+                    LOGGER.error("Rewire tests: {} of {} re-parse(s) fell back to the cold analysis",
+                            rewireResult.coldFallbacks(), rewireResult.reparses());
                     exitValue = Main.EXIT_INTERNAL_EXCEPTION;
                 }
                 if (printMemory) {
