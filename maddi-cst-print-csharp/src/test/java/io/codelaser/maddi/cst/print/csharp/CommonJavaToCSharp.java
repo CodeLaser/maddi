@@ -143,6 +143,71 @@ public abstract class CommonJavaToCSharp {
         return csharp;
     }
 
+    /**
+     * The behavioural check: {@code java}, whose first type has a {@code static void main(String[])}, runs on the JVM
+     * and, translated, on .NET; both print the same lines and end with the same exception, the .NET one being what
+     * the translation maps the Java one to ({@link #DOTNET_EXCEPTIONS}). The translation is returned, for the test's
+     * own {@code contains}. Roslyn must accept it, as {@link #translate}'s.
+     */
+    protected String behaves(String name, String java) {
+        boolean compileBefore = compile;
+        compile = false;
+        String csharp;
+        try {
+            csharp = translate(name, java);
+        } finally {
+            compile = compileBefore;
+        }
+        String code = java.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("//[^\\n]*", "");
+        String pkg = code.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
+        String first = code.replaceAll("(?s)^.*?(?<![@\\w])(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
+        JavaRun.Result expected = JavaRun.run(pkg + "." + first, java);
+        Path sample = Path.of("build/csharp-samples").resolve(test + "-" + name + ".cs");
+        CSharpCheck.Judgment actual = CSharpCheck.instance().run(sample, policy, first);
+        List<CSharpCheck.Diagnostic> errors = actual.diagnostics().stream().filter(d -> !"N".equals(d.kind())).toList();
+        nullableWarnings = actual.diagnostics().stream().filter(d -> "N".equals(d.kind())).toList();
+        assertTrue(errors.isEmpty(), () -> "Roslyn rejects the printed C#:\n"
+                                           + errors.stream().map(Object::toString).collect(Collectors.joining("\n"))
+                                           + "\n--- in ---\n" + csharp);
+        String report = "\n--- Java printed ---\n" + String.join("\n", expected.output())
+                        + (expected.exception() == null ? "" : "\n(ended with " + expected.exception() + ": "
+                                                                 + expected.exceptionMessage() + ")")
+                        + "\n--- C# printed ---\n" + String.join("\n", actual.output())
+                        + (actual.exception() == null ? "" : "\n(ended with " + actual.exception() + ": "
+                                                               + actual.exceptionMessage() + ")")
+                        + "\n--- C# ---\n" + csharp;
+        assertEquals(String.join("\n", expected.output()), String.join("\n", actual.output()),
+                () -> "the translation behaves differently" + report);
+        if (expected.exception() == null) {
+            assertTrue(actual.exception() == null, () -> "the translation throws" + report);
+        } else {
+            List<String> allowed = DOTNET_EXCEPTIONS.getOrDefault(expected.exception(), List.of(expected.exception()));
+            assertTrue(actual.exception() != null && allowed.contains(actual.exception()),
+                    () -> "the translation ends with another exception than " + allowed + report);
+        }
+        return csharp;
+    }
+
+    /**
+     * The .NET exceptions a Java exception may be after translation: the library mapping's ({@code
+     * java.lang.NullPointerException -> NullReferenceException}), and the ones the runtime throws for the same fault
+     * (C#'s integer division by zero is a DivideByZeroException, an ArithmeticException).
+     */
+    private static final Map<String, List<String>> DOTNET_EXCEPTIONS = Map.ofEntries(
+            Map.entry("NullPointerException", List.of("NullReferenceException", "ArgumentNullException")),
+            Map.entry("ArithmeticException", List.of("ArithmeticException", "DivideByZeroException", "OverflowException")),
+            Map.entry("ArrayIndexOutOfBoundsException", List.of("IndexOutOfRangeException")),
+            Map.entry("IndexOutOfBoundsException", List.of("ArgumentOutOfRangeException")),
+            Map.entry("StringIndexOutOfBoundsException", List.of("ArgumentOutOfRangeException")),
+            Map.entry("ClassCastException", List.of("InvalidCastException")),
+            Map.entry("IllegalArgumentException", List.of("ArgumentException")),
+            Map.entry("IllegalStateException", List.of("InvalidOperationException")),
+            Map.entry("UnsupportedOperationException", List.of("NotSupportedException")),
+            Map.entry("NumberFormatException", List.of("FormatException")),
+            Map.entry("NoSuchElementException", List.of("InvalidOperationException")),
+            Map.entry("RuntimeException", List.of("Exception")),
+            Map.entry("ConcurrentModificationException", List.of("InvalidOperationException")));
+
     /** Roslyn accepts {@code file}: no syntax error, no error; the nullable warnings are kept, not judged. */
     private void compiles(Path file, String csharp) {
         List<CSharpCheck.Diagnostic> diagnostics = CSharpCheck.instance().check(file, policy);

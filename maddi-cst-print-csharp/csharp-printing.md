@@ -1150,6 +1150,11 @@ got better and worse at once).
   attributes that exist nowhere, or a printer bug on its way to a fix (#185). The nullable warnings of a sample
   translated with facts are in `nullableWarnings`, for a test to assert. Without a .NET SDK on the `PATH` the
   judging is skipped, which the test report shows as skipped tests.
+- `TestJavaToCSharpBehaviour` checks behaviour (`behaves`): a sample with a `main` is compiled with javac and run
+  on the JVM (`JavaRun`), its translation compiled and run on .NET (`csharp-check`'s `-run:<type>`), and both must
+  print the same lines and end with the same exception (the .NET one the mapping's: `NullPointerException` is a
+  `NullReferenceException`). The other tests say what C# is written and that it compiles; only this one says that
+  it does what the Java did. A probe that does not yet is `@Disabled` with the issue that lists it (#188).
 - The structural samples are also compared whole with a golden file, `src/test/resources/…/golden/`: a new one is
   written and its test fails until it has been looked at; `-PupdateGolden` rewrites them after an intended change.
 - `TestJavaToCSharpMessages` asserts the messages, `TestJavaToCSharpPolicies` the policies besides the default, and

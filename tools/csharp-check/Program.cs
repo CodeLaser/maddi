@@ -11,11 +11,18 @@
 //   S <file> <line> <column> <code> <message>   a syntax error, from parsing the file alone
 //   E <file> <line> <column> <code> <message>   an error of the compilation of all syntax-clean files together
 //   N <file> <line> <column> <code> <message>   with -nullable: a nullable warning (CS86xx, CS87xx, CS88xx)
+//   O <text>                                    with -run:<type>: a line the run printed (tabs as \t)
+//   X <exception> <message>                     with -run:<type>: the exception the run ended with
 //   F <files> <syntax-clean files>              the last line: the counts
+//
+// The line -run:<type> runs the static Main of the type of that simple name once the compilation has no error: the
+// behavioural check of the unit tests (CommonJavaToCSharp.behaves), which compare it with the Java's run.
 //
 // Lines and columns are 1-based. The compilation references the assemblies of the running .NET, so the translated
 // code is judged against the BCL as it is.
 
+using System.Reflection;
+using System.Runtime.Loader;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -48,6 +55,7 @@ static class Checker
         var nullable = lines.Contains("-nullable");
         var files = lines.Where(l => !l.StartsWith("-")).ToList();
         var assemblies = lines.Where(l => l.StartsWith("-r:")).Select(l => l.Substring(3)).ToList();
+        var run = lines.Where(l => l.StartsWith("-run:")).Select(l => l.Substring(5)).FirstOrDefault();
         var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
         var clean = new List<SyntaxTree>();
         foreach (var file in files)
@@ -65,12 +73,78 @@ static class Checker
         var compilation = CSharpCompilation.Create("translated", clean, references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
                 nullableContextOptions: nullable ? NullableContextOptions.Enable : NullableContextOptions.Disable));
+        var failed = clean.Count < files.Count;
         foreach (var d in compilation.GetDiagnostics())
         {
-            if (d.Severity == DiagnosticSeverity.Error) Write("E", d);
+            if (d.Severity == DiagnosticSeverity.Error)
+            {
+                Write("E", d);
+                failed = true;
+            }
             else if (nullable && d.Severity == DiagnosticSeverity.Warning && IsNullable(d.Id)) Write("N", d);
         }
+        if (run != null && !failed) Run(compilation, run, assemblies);
         Console.WriteLine($"F\t{files.Count}\t{clean.Count}");
+    }
+
+    /// <summary>
+    /// Runs the static Main of the type named {@code typeName} in the compiled assembly, loaded into a collectible
+    /// context with the -r: assemblies beside it, and writes what it printed (O lines) and the exception it ended
+    /// with (an X line). A run of more than ten seconds ends with the exception "Timeout".
+    /// </summary>
+    static void Run(CSharpCompilation compilation, string typeName, List<string> assemblies)
+    {
+        using var image = new MemoryStream();
+        var emitted = compilation.Emit(image);
+        if (!emitted.Success)
+        {
+            foreach (var d in emitted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)) Write("E", d);
+            return;
+        }
+        image.Position = 0;
+        var context = new AssemblyLoadContext("run", isCollectible: true);
+        var byName = assemblies.ToDictionary(p => Path.GetFileNameWithoutExtension(p), p => p);
+        context.Resolving += (c, name) => name.Name != null && byName.TryGetValue(name.Name, out var path)
+            ? c.LoadFromAssemblyPath(Path.GetFullPath(path)) : null;
+        var output = new StringWriter();
+        var console = Console.Out;
+        string? exception = null;
+        try
+        {
+            var assembly = context.LoadFromStream(image);
+            var main = assembly.GetTypes().Where(t => t.Name == typeName)
+                .Select(t => t.GetMethod("Main", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+                .FirstOrDefault(m => m != null);
+            if (main == null)
+            {
+                exception = "NoMain\tno static Main in a type " + typeName;
+            }
+            else
+            {
+                Console.SetOut(output);
+                var arguments = main.GetParameters().Length == 0 ? null : new object?[] { Array.Empty<string>() };
+                var task = Task.Run(() => main.Invoke(null, arguments));
+                if (!task.Wait(TimeSpan.FromSeconds(10))) exception = "Timeout\tmore than ten seconds";
+            }
+        }
+        catch (Exception e)
+        {
+            var inner = e is AggregateException { InnerException: not null } a ? a.InnerException : e;
+            if (inner is TargetInvocationException { InnerException: not null } t) inner = t.InnerException;
+            exception = inner!.GetType().Name + "\t" + inner.Message.Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ');
+        }
+        finally
+        {
+            Console.SetOut(console);
+            context.Unload();
+        }
+        var printed = output.ToString().Replace("\r\n", "\n");
+        if (printed.EndsWith('\n')) printed = printed[..^1];
+        if (printed.Length > 0 || output.ToString().Length > 0)
+        {
+            foreach (var line in printed.Split('\n')) Console.WriteLine("O\t" + line.Replace("\t", "\\t"));
+        }
+        if (exception != null) Console.WriteLine("X\t" + exception);
     }
 
     static readonly Dictionary<string, MetadataReference> References = new();
