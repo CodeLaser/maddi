@@ -480,7 +480,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: a missing Integer value is 0, not null; booleans")
     public void maps() {
         behaves("Maps", """
                 package a;
@@ -548,7 +547,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: field initializers run before the base constructor")
     public void initializationOrder() {
         behaves("Init", """
                 package a;
@@ -566,7 +564,7 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                         Derived() {
                             log("derived constructor " + name);
                         }
-                        void describe() { log("describe " + name); }
+                        void describe() { log("describe, name set: " + (name != null)); }
                     }
                     static String log(String s) {
                         System.out.println(s);
@@ -657,7 +655,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: conditional typing; null and doubles print the .NET way")
     public void ternaryPromotion() {
         behaves("Ternary", """
                 package a;

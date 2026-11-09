@@ -393,8 +393,11 @@ implements the interface.
   `new Upcoming(other)` for `other.new Upcoming()`, `p0 => new Stepped(this, p0)` for `Stepped::new`. Its instance
   fields' initializers move into the constructors, after `this.outer = outer;`, where Java runs them: a C# field
   initializer cannot use `outer`. So do a class's whose initializer uses `this`, explicitly or through an instance
-  member (`getLogger(getClass())`): Java runs them after `super(…)`, C# before the base constructor. Where no chain
-  of `outer` leads to the instance, `OUTER_THIS`.
+  member (`getLogger(getClass())`): Java runs them after `super(…)`, C# before the base constructor. And so do a
+  class's that extends one of the program's classes, where the order shows: an initializer calls one of the
+  program's methods (its side effects would come before the base constructor's), or a superclass constructor calls
+  an overridable method (which in Java sees the field's default; a final field of a constant excepted). Where no
+  chain of `outer` leads to the instance, `OUTER_THIS`.
 - **Nested types of generic types.** C# makes a nested type generic in its enclosing types' parameters, which a
   Java static nested type is not. A static nested type of a generic type is therefore printed beside its primary
   type, in the namespace, by its simple name; private members of the outer type it uses become `internal`. When
@@ -617,12 +620,15 @@ implements the interface.
 C#'s statements, operators and precedence are mostly Java's, so most of the code prints as it does in Java. The
 differences:
 
+- **Conditional types.** Java types `b ? c : 0`, a `char` and an `int` constant that fits it, as a `char` (JLS
+  15.25), and so a `byte` or a `short`; C# as an `int`. The constant is cast, `b ? c : (char) 0`.
 - **String conversion.** Where Java converts a value to a string by `String.valueOf`, implicitly, C#'s `ToString`
   differs for some: a boolean is `True`, a double `1` or `∞` (Java `1.0`, `Infinity`), a collection its .NET type's
   name (Java `[1, 2]`, `{a=1}`), `null` the empty string. Such an operand of a concatenation (`+`, `+=` on a String)
   is `JavaString.ValueOf(x)`, the compatibility library's Java conversion, which formats the BCL's collections, maps
   and entries as `AbstractCollection` and `AbstractMap` do: a boolean, a float or a double, boxed too, an Object, a
-  type parameter, a library type, a value that may be null. An integer, a char, an enum, an array, and a program
+  type parameter, a library type, a boxed value (an `Integer` is C#'s `int?`, whose null concatenates as the empty
+  string), a value that may be null. An integer, a char, an enum, an array, and a program
   type's value known not to be null stay as they are, C#'s conversion being Java's there. A String the analysis
   finds may be null is `(s ?? "null")`; without the analysis a String is taken not to be null, and a null one prints
   as the empty string. `print`, `println` and `StringBuilder.append` of a boolean, double, float or Object, and
@@ -849,7 +855,9 @@ The translated code uses the BCL, not a port of the JDK. The table follows fernf
 ratchet's report (see below) lists what is left. Its rows are a mapping file, `jdk-bcl.csmap` beside the printer's
 classes, in the format a client's `.csmap` has; `CSharpBcl` reads it, and asks its own choosers first, the rules
 that depend on the call: a receiver that is a read-only parameter or a subclass of `ArrayList`, a value type's absence
-from a map, a stream's collector.
+from a map, a stream's collector. A map of a value type (`Map<String, Integer>`, C#'s `IDictionary<string, int>`)
+answers `null` for an absent key as Java's does: `get` is `GetValueOrNull`, `put`, `remove` and `putIfAbsent` the
+compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each an `int?` (the BCL's would be `0`).
 
 - **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` becomes
   `IDictionary<K, V>` and `Set` becomes `ISet<T>`, because Java implements them with hash and tree collections

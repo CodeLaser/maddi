@@ -23,10 +23,12 @@ import java.util.Map;
 import java.util.Set;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstantExpression;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -145,6 +147,7 @@ final class CSharpInner {
             return false;
         }
         if (withOuter(t)) return true;
+        if (initializedAfterBase(t)) return true;
         for (FieldInfo f : t.fields()) {
             if (f.isStatic() || f.isSynthetic() || f.initializer() == null || f.initializer().isEmpty()) continue;
             boolean[] uses = {false};
@@ -162,6 +165,59 @@ final class CSharpInner {
                 return true;
             });
             if (uses[0]) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Java runs a class's field initializers after its superclass's constructor, C# before it. The difference shows
+     * where the class extends one of the program's classes and an initializer calls one of the program's methods (its
+     * side effects come before the superclass constructor's in C#), or a superclass constructor calls an overridable
+     * method (which in Java sees the field's default, in C# its initialized value).
+     */
+    private static boolean initializedAfterBase(TypeInfo t) {
+        ParameterizedType parent = t.parentClass();
+        if (parent == null || parent.isJavaLangObject() || parent.typeInfo() == null || !CSharpNames.translated(parent.typeInfo())) {
+            return false;
+        }
+        List<FieldInfo> initialized = t.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()
+                && f.initializer() != null && !f.initializer().isEmpty()).toList();
+        if (initialized.isEmpty()) return false;
+        if (initialized.stream().anyMatch(f -> callsAMethod(f.initializer()))) return true;
+        // a final field of a constant is a constant in Java too: the override sees its value
+        boolean nonConstant = initialized.stream().anyMatch(f -> !(f.isFinal()
+                && f.initializer() instanceof ConstantExpression<?>));
+        return nonConstant && superConstructorCallsOverridable(parent.typeInfo());
+    }
+
+    /** A call of one of the program's methods, whose side effects Java orders after the superclass constructor's. */
+    private static boolean callsAMethod(Element code) {
+        boolean[] calls = {false};
+        code.visit((Element e) -> {
+            if (e instanceof MethodCall mc && CSharpNames.translated(mc.methodInfo().typeInfo())) calls[0] = true;
+            return !calls[0];
+        });
+        return calls[0];
+    }
+
+    /** A constructor of {@code s} or of its superclasses calls an instance method of its own a subclass may override. */
+    private static boolean superConstructorCallsOverridable(TypeInfo s) {
+        for (TypeInfo c = s; c != null && CSharpNames.translated(c); ) {
+            for (MethodInfo constructor : c.constructors()) {
+                if (constructor.methodBody() == null) continue;
+                boolean[] calls = {false};
+                constructor.methodBody().visit((Element e) -> {
+                    if (e instanceof MethodCall mc && !mc.methodInfo().isStatic() && !mc.methodInfo().isConstructor()
+                        && (mc.objectIsImplicit() || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This)
+                        && !mc.methodInfo().isFinal() && !(mc.methodInfo().access() != null && mc.methodInfo().access().isPrivate())) {
+                        calls[0] = true;
+                    }
+                    return !calls[0];
+                });
+                if (calls[0]) return true;
+            }
+            ParameterizedType p = c.parentClass();
+            c = p == null || p.isJavaLangObject() ? null : p.typeInfo();
         }
         return false;
     }
