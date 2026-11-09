@@ -205,4 +205,29 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
         contains(rust, "k.clone().unwrap()");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String NULLABLE_ARRAY = """
+            package a.b;
+            public class Instr {
+                private final int[] operands;
+                public Instr(int[] operands) { this.operands = operands; }
+                public int count() { return operands == null ? 0 : operands.length; }
+                public int operand(int i) { return operands[i]; }
+            }
+            """;
+
+    @DisplayName("a nullable array's length and elements are reached through unwrap, as Java's access would throw")
+    @Test
+    public void nullableArray() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_ARRAY);
+        TypeInfo instr = types.getFirst();
+        nonModifying(instr, "count", "operand");
+        translate(types, nullable(java.util.Set.of("operands")));
+        String rust = module("a.b");
+        // was 'self.operands[i as usize]' and 'self.operands.len()' on an Option<Vec<i32>> (E0608, E0599; fernflower)
+        contains(rust, "self.operands.as_ref().unwrap()[i as usize]");
+        contains(rust, "self.operands.as_ref().unwrap().len() as i32");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

@@ -810,7 +810,7 @@ final class RustBodyPrinter {
             case BinaryOperator bo when bo.operator() != null -> binaryOperator(bo);
             case UnaryOperator uo when uo.operator() != null -> unaryOperator(uo);
             case Cast c -> cast(c);
-            case ArrayLength al -> value(expression(al.scope()).text + ".len() as i32");
+            case ArrayLength al -> value(dereference(expression(al.scope())) + ".len() as i32");
             case Lambda lambda -> lambda(lambda);
             case SwitchExpression se -> switchExpression(se);
             case And and -> value(and.expressions().stream().map(this::operand).collect(Collectors.joining(" && ")));
@@ -848,7 +848,8 @@ final class RustBodyPrinter {
             case FieldReference fr -> field(fr);
             case DependentVariable dv -> {
                 if (dv.arrayExpression() == null) yield value(unsupported(where, "array element"));
-                yield new Printed(expression(dv.arrayExpression()).text + "[" + index(dv.indexExpression()) + "]",
+                // a nullable array (Option<Vec<…>>) is unwrapped, as Java's access would throw
+                yield new Printed(dereference(expression(dv.arrayExpression())) + "[" + index(dv.indexExpression()) + "]",
                         Held.PLACE, false);
             }
             default -> value(unsupported(where, variable.getClass().getSimpleName()));
