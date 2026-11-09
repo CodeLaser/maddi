@@ -397,7 +397,8 @@ final class RustTypePrinter {
             sb.append("\nimpl").append(implGenerics).append(" ").append(name).append(generics).append(" {\n")
                     .append(inherent).append("}\n");
         }
-        if (base == null && baseType != null) sb.append(derefToBase(name, generics, implGenerics, baseType));
+        // unbounded: the struct holds any element, and Deref needs nothing of it (an element that is not Clone)
+        if (base == null && baseType != null) sb.append(derefToBase(name, generics, generics, baseType));
         for (Map.Entry<TypeInfo, List<MethodInfo>> e : byTrait.entrySet()) {
             ParameterizedType traitType = typeInfo.interfacesImplemented().stream()
                     .filter(i -> i.typeInfo() == e.getKey()).findFirst().orElse(e.getKey().asSimpleParameterizedType());

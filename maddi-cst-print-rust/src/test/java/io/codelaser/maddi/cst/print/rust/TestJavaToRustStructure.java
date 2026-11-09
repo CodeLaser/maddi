@@ -513,7 +513,10 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                     public String first(Named<String> n) { return n.get(0); }
                     public int all(List<String> l) { return l.size(); }
                     public int viaList(Named<String> n) { return all(n); }
+                    public int blocks(Named<Block> n) { int c = 0; for (Block b : n) c += b.id; return c + n.size(); }
                 }
+                // modified elsewhere, so no derived Clone: the Deref must not ask for one
+                public static class Block { int id; void bump() { id++; } }
             }
             """;
 
@@ -526,7 +529,9 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         modifying(named, "addNamed", "add");
         nonModifying(named, "has");
         nonModifying(user, "count", "first", "all", "viaList");
-        for (String m : new String[]{"count", "first", "all", "viaList"}) {
+        modifying(types.getFirst().findSubType("Block"), "bump");
+        nonModifying(user, "blocks");
+        for (String m : new String[]{"count", "first", "all", "viaList", "blocks"}) {
             borrowed(method(user, m).parameters().getFirst());
         }
         RustTranslator.Result result = translate(types);
@@ -535,6 +540,7 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         // was a struct without the list: len, push, iter and indexing unresolved (fernflower's VBStyleCollection)
         contains(rust, "pub base: Vec<E>,");
         contains(rust, "type Target = Vec<E>;");
+        contains(rust, "impl<E> std::ops::Deref for CollNamed<E> {");
         // super.add is the list's push, not the override's own add; its value Java's true
         contains(rust, "return { self.base.push(e); true };");
         contains(rust, "return self.all(n);");
