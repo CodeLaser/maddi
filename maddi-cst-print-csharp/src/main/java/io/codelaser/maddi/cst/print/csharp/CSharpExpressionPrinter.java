@@ -526,6 +526,8 @@ public final class CSharpExpressionPrinter {
         // isTerminated(b, score) of a Score<?>: score.Open_(new IsTerminatedOpener_(this, b))
         CSharpCallOpeners.Site opener = CSharpCallOpeners.site(mc);
         if (opener != null) return CSharpCallOpeners.call(opener, q);
+        // list.toString(), b.toString() of a Boolean: Java's conversion, where C#'s ToString differs
+        if (!statement && javaToString(mc)) return valueOf(mc.object(), q);
         OutputBuilder call = inCall(mc, () -> methodCallInCall(mc, q, statement));
         String cast = statement ? null : erasedResultCast(mc, q);
         if (cast == null) return call;
@@ -2490,11 +2492,30 @@ public final class CSharpExpressionPrinter {
         return valueOf(e, q);
     }
 
+    /** {@code x.toString()} of a value whose C# {@code ToString} is not Java's ({@link #javaStringConversion}). */
+    static boolean javaToString(MethodCall mc) {
+        MethodInfo m = mc.methodInfo();
+        Expression object = mc.object();
+        return "toString".equals(m.name()) && m.parameters().isEmpty() && !m.isStatic() && object != null
+               && !mc.objectIsImplicit() && !(unwrap(object) instanceof VariableExpression ve && ve.variable() instanceof This)
+               && javaStringConversion(unwrap(object));
+    }
+
     /** {@code JavaString.ValueOf(e)}: Java's string conversion. */
     static OutputBuilder valueOf(Expression e, Qualification q) {
         CSharpContext.using(CSharpCompat.NAMESPACE);
-        return new OutputBuilderImpl().add(text("JavaString.ValueOf")).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(print(e, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        OutputBuilder b = new OutputBuilderImpl().add(text("JavaString.ValueOf")).add(SymbolEnum.LEFT_PARENTHESIS);
+        Expression x = unwrap(e);
+        ParameterizedType t = x.parameterizedType();
+        // Double.valueOf(2) prints as 2, an int to C#: the double's overload, 2.0
+        if (t != null && floatingPoint(t) && (x instanceof ConstantExpression<?>
+                                              || x instanceof MethodCall mc && !CSharpNames.translated(mc.methodInfo().typeInfo()))) {
+            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(t.typeInfo().isFloat()
+                    || "java.lang.Float".equals(t.typeInfo().fullyQualifiedName()) ? "float" : "double"))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(operand(e.precedence(), e, q));
+            return b.add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        return b.add(print(e, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /**
@@ -2512,10 +2533,19 @@ public final class CSharpExpressionPrinter {
         if (t.isBoxedExcludingVoid()) return false;
         if (t.isTypeParameter() || t.isJavaLangObject()) return true;
         TypeInfo ti = t.typeInfo();
-        if (ti == null || ti.typeNature().isEnum()) return false;
-        return !CSharpNames.translated(ti) && !"java.lang.CharSequence".equals(ti.fullyQualifiedName())
-               && !"java.lang.StringBuilder".equals(ti.fullyQualifiedName());
+        if (ti == null || ti.typeNature().isEnum() || CSharpNames.translated(ti)) return false;
+        // a java.util type that is one; not java.nio.file.Path, an Iterable with its own toString
+        return CONVERTED_DIFFERENTLY.contains(ti.fullyQualifiedName())
+               || ti.fullyQualifiedName().startsWith("java.util.")
+                  && ti.recursiveSuperTypeStream().anyMatch(s -> CONVERTED_DIFFERENTLY.contains(s.fullyQualifiedName()));
     }
+
+    /**
+     * The library types whose values C# converts to a string otherwise than Java: the collections, maps and entries
+     * (their .NET type's name), and Number, which a Double or a Float is.
+     */
+    private static final Set<String> CONVERTED_DIFFERENTLY = Set.of("java.lang.Iterable", "java.util.Collection",
+            "java.util.Map", "java.util.Map$Entry", "java.util.Map.Entry", "java.lang.Number");
 
     /** A float or a double, boxed too. */
     private static boolean floatingPoint(ParameterizedType t) {

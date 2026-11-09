@@ -732,7 +732,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         // a value type's function gives null to remove: the int? variant
         contains(cs, "m.ComputeIfPresentValue(\"k\",");
         contains(cs, "m.ComputeIfPresent(\"k\", (k, v) => v + k)");
-        contains(cs, "s + JavaString.ValueOf(CultureInfo.CurrentCulture)");
+        contains(cs, "s + CultureInfo.CurrentCulture");
         contains(cs, "b / ");
         contains(cs, "(((Array) array).Length) > 0 ? (((Array) array).GetValue(0)) : null");
         contains(cs, "c == typeof(int) || c == typeof(bool)");

@@ -243,6 +243,8 @@ final class CSharpNullability {
             case NullConstant nc -> false; // null.m() is no code worth helping
             // not facts().callResultNonNull(mc): C# types the call by the method's declared T?, whatever this call
             // passes, and warns without the ! (fernflower's lstEdgeClosures[i] = GetMaxBreakLift(...), CS8601)
+            // JavaString.ValueOf(o), Java's o.toString(): a string
+            case MethodCall mc when CSharpExpressionPrinter.javaToString(mc) -> false;
             case MethodCall mc -> !mc.methodInfo().isVoid()
                                   && (facts().nullable(mc.methodInfo()) == NullableState.NULLABLE
                                       || CSharpExpressionPrinter.nullableResult(mc) || nullableProperty(mc));

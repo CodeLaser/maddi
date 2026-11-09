@@ -229,6 +229,10 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                         Arrays.sort(array);
                         System.out.println(Arrays.toString(array));
                         System.out.println(List.of());
+                        String text = list.toString() + map.toString() + map.entrySet().iterator().next().toString();
+                        System.out.println(text);
+                        Object boxed = true;
+                        System.out.println(boxed.toString() + Boolean.toString(false) + Double.valueOf(2).toString());
                     }
                 }
                 """);
