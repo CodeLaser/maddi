@@ -869,6 +869,13 @@ from a map, a stream's collector. A map of a value type (`Map<String, Integer>`,
 answers `null` for an absent key as Java's does: `get` is `GetValueOrNull`, `put`, `remove` and `putIfAbsent` the
 compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each an `int?` (the BCL's would be `0`).
 
+- **Natural order.** Java orders Strings by UTF-16 code unit (`"B"` before `"a"`), .NET's default comparer for strings by
+  the culture (`"a"` before `"B"`). Where Java's natural order is implied (`Collections.sort`, `List.sort(null)`,
+  `sorted()`, `naturalOrder()`, `reverseOrder()`, `Comparator.comparing`, a priority queue), the compatibility library
+  compares with `JavaComparer<T>.Natural`: ordinal for a string, a value's `CompareTo` otherwise. Not yet a `TreeMap`
+  or `TreeSet` of String keys without a comparator, whose `SortedDictionary`/`SortedSet` keep the culture's order
+  (#188). `compareToIgnoreCase` is Java's (`JavaString.CompareToIgnoreCase`), as are `Integer.toString(i, radix)` and
+  `Long`'s, a sign and digits in any radix where `Convert.ToString` knows four and prints two's complement.
 - **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` becomes
   `IDictionary<K, V>` and `Set` becomes `ISet<T>`, because Java implements them with hash and tree collections
   alike. `HashMap` becomes `Dictionary<K, V>`, `LinkedHashMap` the insertion-ordered `OrderedDictionary<K, V>`,

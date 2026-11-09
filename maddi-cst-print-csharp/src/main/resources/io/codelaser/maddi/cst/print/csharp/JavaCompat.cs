@@ -300,7 +300,7 @@ public static class JavaCollections
     /// <summary>List.sort and Collections.sort: stable, as Java's.</summary>
     public static void Sort<T>(this IList<T> l, Comparison<T>? comparison)
     {
-        var sorted = l.Order(Comparer<T>.Create(comparison ?? Comparer<T>.Default.Compare)).ToList();
+        var sorted = l.Order(comparison == null ? JavaComparer<T>.Natural : Comparer<T>.Create(comparison)).ToList();
         for (var i = 0; i < sorted.Count; i++) l[i] = sorted[i];
     }
 
@@ -631,15 +631,29 @@ public static class JavaSortedSets
         new(m.Keys, m.Comparer);
 }
 
+/// <summary>
+/// Java's natural order: Comparable's compareTo. A String's is ordinal, by UTF-16 code unit ("B" before "a"), where
+/// .NET's default comparer for strings is the culture's ("a" before "B"); any other type's is its CompareTo.
+/// </summary>
+public static class JavaComparer<T>
+{
+    public static readonly IComparer<T> Natural = typeof(T) == typeof(string)
+        ? (IComparer<T>) (object) StringComparer.Ordinal
+        : typeof(T).IsAssignableFrom(typeof(string))
+            ? Comparer<T>.Create((a, b) => a is string s && b is string t
+                ? string.CompareOrdinal(s, t) : Comparer<T>.Default.Compare(a, b))
+            : Comparer<T>.Default;
+}
+
 public static class JavaComparator
 {
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
-        (a, b) => Comparer<K>.Default.Compare(key(a), key(b));
+        (a, b) => JavaComparer<K>.Natural.Compare(key(a), key(b));
 
     /// <summary>Comparator.comparing with the compared type given, Comparing&lt;T&gt;(o => o.Id): a lambda's
     /// parameter type cannot be inferred from its use.</summary>
     public static Comparison<T> Comparing<T>(Func<T, IComparable> key) =>
-        (a, b) => Comparer<IComparable>.Default.Compare(key(a), key(b));
+        (a, b) => JavaComparer<IComparable>.Natural.Compare(key(a), key(b));
 
     public static Comparison<T> ThenComparing<T, K>(this Comparison<T> first, Func<T, K> key) =>
         first.ThenComparing(Comparing(key));
@@ -653,13 +667,13 @@ public static class JavaComparator
 
     public static Comparison<T> Reversed<T>(this Comparison<T> c) => (a, b) => c(b, a);
 
-    public static Comparison<T> ReverseOrder<T>() => (a, b) => Comparer<T>.Default.Compare(b, a);
+    public static Comparison<T> ReverseOrder<T>() => (a, b) => JavaComparer<T>.Natural.Compare(b, a);
 
     public static Comparison<KeyValuePair<K, V>> ComparingByKey<K, V>() =>
-        (a, b) => Comparer<K>.Default.Compare(a.Key, b.Key);
+        (a, b) => JavaComparer<K>.Natural.Compare(a.Key, b.Key);
 
     public static Comparison<KeyValuePair<K, V>> ComparingByValue<K, V>() =>
-        (a, b) => Comparer<V>.Default.Compare(a.Value, b.Value);
+        (a, b) => JavaComparer<V>.Natural.Compare(a.Value, b.Value);
 }
 
 /// <summary>
@@ -741,6 +755,36 @@ public static class JavaString
     }
 
     public static sbyte[] GetBytes(string s, Encoding encoding) => encoding.GetBytes(s).AsSigned();
+
+    /// <summary>String.compareToIgnoreCase: each char's upper case, then its lower case, compared; the difference.</summary>
+    public static int CompareToIgnoreCase(string a, string b)
+    {
+        var n = Math.Min(a.Length, b.Length);
+        for (var i = 0; i < n; i++)
+        {
+            char c1 = a[i], c2 = b[i];
+            if (c1 == c2) continue;
+            c1 = char.ToUpperInvariant(c1);
+            c2 = char.ToUpperInvariant(c2);
+            if (c1 == c2) continue;
+            c1 = char.ToLowerInvariant(c1);
+            c2 = char.ToLowerInvariant(c2);
+            if (c1 != c2) return c1 - c2;
+        }
+        return a.Length - b.Length;
+    }
+
+    /// <summary>Integer.toString(i, radix) and Long's: a sign and the digits, 0-9 a-z; radix 10 outside 2..36.</summary>
+    public static string ToString(long l, int radix)
+    {
+        if (radix < 2 || radix > 36) radix = 10;
+        if (l == 0) return "0";
+        var negative = l < 0;
+        var digits = new System.Text.StringBuilder();
+        // the minimum's absolute value does not fit: its digits from the negative value
+        for (var v = l; v != 0; v /= radix) digits.Insert(0, "0123456789abcdefghijklmnopqrstuvwxyz"[(int) Math.Abs(v % radix)]);
+        return negative ? "-" + digits : digits.ToString();
+    }
 
     public static string ValueOf(object? o) => o switch
     {
@@ -3644,7 +3688,7 @@ public sealed class JavaPriorityQueue<T> : ICollection<T>
     {
         if (initialCapacity < 1) throw new ArgumentException("initialCapacity " + initialCapacity);
         heap = new List<T>(initialCapacity);
-        this.comparison = comparison ?? Comparer<T>.Default.Compare;
+        this.comparison = comparison ?? JavaComparer<T>.Natural.Compare;
     }
 
     public JavaPriorityQueue(IEnumerable<T> elements) : this(11, (Comparison<T>?) null)

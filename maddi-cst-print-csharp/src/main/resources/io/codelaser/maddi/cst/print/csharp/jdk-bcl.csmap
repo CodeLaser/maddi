@@ -572,6 +572,7 @@ member java.lang.String.getBytes/0 -> JavaString.GetBytes($0, Encoding.UTF8) usi
 member java.lang.String.repeat/1 -> string.Concat(Enumerable.Repeat($0, $1)) using System.Linq
 member java.lang.String.equalsIgnoreCase/1 -> string.Equals($0, $1, StringComparison.OrdinalIgnoreCase) using System
 member java.lang.String.compareTo/1 -> string.CompareOrdinal($0, $1)
+member java.lang.String.compareToIgnoreCase/1 -> JavaString.CompareToIgnoreCase($0, $1) using Maddi.JavaCompat
 member java.lang.String.toCharArray/0 -> $0.ToCharArray()
 member java.lang.String.concat/1 -> $0 + $1
 member java.lang.String.intern/0 -> string.Intern($0)
@@ -640,6 +641,8 @@ member java.lang.Character.toChars/1 -> char.ConvertFromUtf32($1).ToCharArray()
 
 # ---------------------------------------------------------------- numbers
 member java.lang.Integer.toString/1 -> $1.ToString()
+member java.lang.Integer.toString/2 -> JavaString.ToString($1, $2) using Maddi.JavaCompat
+member java.lang.Long.toString/2 -> JavaString.ToString($1, $2) using Maddi.JavaCompat
 member java.lang.Long.toString/1 -> $1.ToString()
 member java.lang.Short.toString/1 -> $1.ToString()
 member java.lang.Byte.toString/1 -> $1.ToString()
@@ -752,7 +755,7 @@ member java.util.stream.Stream.allMatch/1 -> $0.All($1) using System.Linq
 member java.util.stream.Stream.noneMatch/1 -> !$0.Any($1) using System.Linq
 member java.util.stream.Stream.count/0 -> $0.LongCount() using System.Linq
 member java.util.stream.Stream.distinct/0 -> $0.Distinct() using System.Linq
-member java.util.stream.Stream.sorted/0 -> $0.Order() using System.Linq
+member java.util.stream.Stream.sorted/0 -> $0.Order(JavaComparer<{R0}>.Natural) using System.Linq, Maddi.JavaCompat
 member java.util.stream.Stream.sorted/1 -> $0.Sorted($1) using Maddi.JavaCompat
 member java.util.stream.Stream.toList/0 -> $0.ToList() using System.Linq
 member java.util.stream.Stream.findFirst/0 -> $0.FirstOrDefault() using System.Linq
@@ -861,7 +864,7 @@ member java.util.Comparator.thenComparing/1 -> $0.ThenComparing($1) using Maddi.
 member java.util.Comparator.thenComparingInt/1 -> $0.ThenComparing($1) using Maddi.JavaCompat
 member java.util.Comparator.thenComparingLong/1 -> $0.ThenComparing($1) using Maddi.JavaCompat
 member java.util.Comparator.reversed/0 -> $0.Reversed() using Maddi.JavaCompat
-member java.util.Comparator.naturalOrder/0 -> Comparer<{R0}>.Default.Compare
+member java.util.Comparator.naturalOrder/0 -> JavaComparer<{R0}>.Natural.Compare using Maddi.JavaCompat
 member java.util.Comparator.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
 member java.util.Collections.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
 

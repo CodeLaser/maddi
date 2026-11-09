@@ -256,7 +256,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: compareToIgnoreCase is unmapped")
     public void stringOrdering() {
         behaves("Strings", """
                 package a;
@@ -313,7 +312,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: Integer.toString(int, int) is unmapped")
     public void numberParsing() {
         behaves("Parsing", """
                 package a;
