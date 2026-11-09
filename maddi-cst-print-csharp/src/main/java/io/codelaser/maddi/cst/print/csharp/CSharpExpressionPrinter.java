@@ -630,7 +630,7 @@ public final class CSharpExpressionPrinter {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(text(interfaceType(method.typeInfo(), object, q))).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
                     .add(self).add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT)
-                    .add(text(CSharpNames.method(method) + Objects.requireNonNullElse(typeTokenArgument(mc, q), "")))
+                    .add(text(CSharpNames.method(method) + typeArguments(mc, q)))
                     .add(argumentsWithoutTypeToken(mc, q));
         }
         return null;
@@ -683,14 +683,18 @@ public final class CSharpExpressionPrinter {
                     .filter(f -> !f.isStatic() && f.name().equals(method.name())).findFirst().orElseThrow();
             return b.add(text(CSharpNames.field(component)));
         }
+        unmapped(method, mc);
+        b.add(text(CSharpNames.method(method) + typeArguments(mc, q)));
+        return b.add(argumentsWithoutTypeToken(mc, q));
+    }
+
+    /** A call's type arguments: a dropped type token's, Java's explicit ones, or those C# cannot infer. */
+    private static String typeArguments(MethodCall mc, Qualification q) {
         String tokenArgument = typeTokenArgument(mc, q);
-        String typeArguments = tokenArgument != null ? tokenArgument
-                : CSharpContext.program().erasedGeneric(method) ? ""
+        return tokenArgument != null ? tokenArgument
+                : CSharpContext.program().erasedGeneric(mc.methodInfo()) ? ""
                 : mc.typeArguments().isEmpty() ? inferredTypeArguments(mc, q) : mc.typeArguments().stream()
                 .map(t -> CSharpTypeName.argument(t, q)).collect(Collectors.joining(", ", "<", ">"));
-        unmapped(method, mc);
-        b.add(text(CSharpNames.method(method) + typeArguments));
-        return b.add(argumentsWithoutTypeToken(mc, q));
     }
 
     /**

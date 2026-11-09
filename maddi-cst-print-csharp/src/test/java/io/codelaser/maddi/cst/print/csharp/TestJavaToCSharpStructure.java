@@ -3592,4 +3592,38 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "result.Add(entity.Open_(new ProvidersSwapOpener_<S>()));");
         contains(cs, "ISwap<S> IGenuineOpener_<S, ISwap<S>>.With<E>(IGenuine<S, E> entity) => new Swap<S, E>(entity);");
     }
+
+    /**
+     * A kept type token ({@link #typeTokenCollidingOverload}) of an interface's default method, called from an
+     * implementing class: C# infers nothing from a {@code Type}, so the call names the type argument.
+     */
+    @Test
+    public void typeTokenKeptInDefaultMethod() {
+        String cs = translate("Models", """
+                package a;
+                import java.util.List;
+                class Models {
+                    interface Variable<V> { String name(); }
+                    interface Entity {
+                        List<Variable<?>> variables();
+                        @SuppressWarnings("unchecked")
+                        default <V> Variable<V> variable(String name) {
+                            for (var v : variables()) if (v.name().equals(name)) return (Variable<V>) v;
+                            throw new IllegalArgumentException(name);
+                        }
+                        @SuppressWarnings("unchecked")
+                        default <V> Variable<V> variable(String name, Class<V> type) {
+                            for (var v : variables()) if (v.name().equals(name)) return (Variable<V>) v;
+                            throw new IllegalArgumentException(type.getName());
+                        }
+                    }
+                    static final class Genuine implements Entity {
+                        public List<Variable<?>> variables() { return List.of(); }
+                        <V> Variable<V> genuine(String name, Class<V> type) { return checked(variable(name, type)); }
+                        <V> Variable<V> checked(Variable<V> v) { return v; }
+                    }
+                }
+                """);
+        contains(cs, "Checked(((IEntity) this).Variable<V>(name, typeof(V)))");
+    }
 }
