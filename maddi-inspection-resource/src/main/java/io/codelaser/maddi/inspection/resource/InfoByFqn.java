@@ -291,6 +291,17 @@ public class InfoByFqn {
         return typeInfo.compilationUnit().sourceSet() == null;
     }
 
+    /**
+     * A stub a real type has since superseded under its name: nothing resolves to it any more, and it must not be
+     * committed or published (TestMissingAnnotationClassFile).
+     */
+    public synchronized boolean isDisplacedStub(TypeInfo typeInfo) {
+        if (!isStub(typeInfo)) return false;
+        String fqn = typeInfo.fullyQualifiedName();
+        TypeInfo single = singleTypeByFqn.get(fqn);
+        return single != null ? single != typeInfo && !isStub(single) : multiTypeByFqn.containsKey(fqn);
+    }
+
     public synchronized TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {
         TypeInfo ti = singleTypeByFqn.get(fullyQualifiedName);
         if (ti != null) return ti;
