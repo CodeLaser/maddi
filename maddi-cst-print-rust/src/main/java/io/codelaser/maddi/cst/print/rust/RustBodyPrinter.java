@@ -2143,7 +2143,20 @@ final class RustBodyPrinter {
                 .anyMatch(p -> !RustTypes.isCopy(p.parameterizedType()) && mutated(p, body));
     }
 
+    // the locals whose mutation is being decided: a local initialized from another that is initialized from it
+    // (through a pattern variable, a reassigned local) would recurse without end
+    private final Set<Variable> deciding = new HashSet<>();
+
     private boolean mutated(Variable lv, Element scope) {
+        if (!deciding.add(lv)) return false;
+        try {
+            return mutatedOnce(lv, scope);
+        } finally {
+            deciding.remove(lv);
+        }
+    }
+
+    private boolean mutatedOnce(Variable lv, Element scope) {
         boolean[] found = {false};
         scope.visit(e -> {
             if (found[0]) return false;

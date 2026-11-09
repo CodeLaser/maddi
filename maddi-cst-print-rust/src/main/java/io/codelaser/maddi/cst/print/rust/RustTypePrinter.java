@@ -633,7 +633,7 @@ final class RustTypePrinter {
         if (constructors.isEmpty()) {
             sb.append(INDENT).append("pub fn ").append(RustHierarchies.defaultConstructorName(m)).append("() -> Self {\n")
                     .append(INDENT).append(INDENT).append("let mut this = Self::").append(parentNoArgConstructor(m))
-                    .append("();\n").append(intoVariant(m, INDENT.repeat(2)))
+                    .append("();\n").append(intoVariant(m, INDENT.repeat(2), Map.of(), null))
                     .append(INDENT).append(INDENT).append("this\n").append(INDENT).append("}\n");
         }
         for (MethodInfo c : constructors) sb.append(subConstructor(m, c));
@@ -648,7 +648,7 @@ final class RustTypePrinter {
     }
 
     /** {@code this.kind = Kind::M(parent's data…, MData { … });}: the object becomes one of {@code m}. */
-    private String intoVariant(TypeInfo m, String pad) {
+    private String intoVariant(TypeInfo m, String pad, Map<FieldInfo, Expression> assigned, RustBodyPrinter printer) {
         RustHierarchies hs = RustHierarchies.current();
         TypeInfo parent = m.parentClass().typeInfo();
         String kind = hs.kind(m);
@@ -668,8 +668,10 @@ final class RustTypePrinter {
         try {
             List<FieldInfo> fields = instanceFields(m);
             for (int i = 0; i < fields.size(); i++) {
-                data.append(i == 0 ? " " : ", ").append(RustNames.snake(fields.get(i).name())).append(": ")
-                        .append(initial(fields.get(i)));
+                FieldInfo f = fields.get(i);
+                Expression value = assigned.get(f);
+                data.append(i == 0 ? " " : ", ").append(RustNames.snake(f.name())).append(": ")
+                        .append(value == null ? initial(f) : fieldValue(printer, f, value));
             }
         } finally {
             context.type = outer;
@@ -691,6 +693,18 @@ final class RustTypePrinter {
             ExplicitConstructorInvocation eci = statements.stream()
                     .filter(s -> s instanceof ExplicitConstructorInvocation).map(s -> (ExplicitConstructorInvocation) s)
                     .findFirst().orElse(null);
+            // fields the body assigns from what does not read 'this': their values go into the variant's data, the
+            // other statements first, as a root's literal has it; otherwise the data at the initial values
+            List<FieldInfo> fields = instanceFields(m);
+            Map<FieldInfo, Expression> assigned = eci != null && !eci.isSuper() ? null
+                    : simpleAssignments(statements, fields);
+            if (assigned != null) {
+                for (Statement s : statements) {
+                    if (!(s instanceof ExplicitConstructorInvocation) && assignedField(s, fields) == null) {
+                        sb.append(printer.statement(s, 2));
+                    }
+                }
+            }
             if (eci != null && !eci.isSuper()) {
                 // this(...): the other constructor makes it one of m already
                 sb.append(pad).append("let mut this = Self::").append(RustNames.method(eci.methodInfo())).append("(")
@@ -699,12 +713,14 @@ final class RustTypePrinter {
                 String parent = eci == null ? parentNoArgConstructor(m) : RustNames.method(eci.methodInfo());
                 String args = eci == null ? "" : printer.arguments(eci.parameterExpressions(), eci.methodInfo());
                 sb.append(pad).append("let mut this = Self::").append(parent).append("(").append(args).append(");\n");
-                sb.append(intoVariant(m, pad));
+                sb.append(intoVariant(m, pad, assigned == null ? Map.of() : assigned, printer));
             }
             context.receiver = "this";
-            for (Statement s : statements) {
-                if (s instanceof ExplicitConstructorInvocation) continue;
-                sb.append(printer.statement(s, 2));
+            if (assigned == null) {
+                for (Statement s : statements) {
+                    if (s instanceof ExplicitConstructorInvocation) continue;
+                    sb.append(printer.statement(s, 2));
+                }
             }
             return sb.append(pad).append("this\n").append(INDENT).append("}\n").toString();
         } finally {

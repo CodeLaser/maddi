@@ -202,4 +202,40 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
         List<String> errors = rustcErrors();
         assertTrue(errors.stream().anyMatch(e -> e.contains("E0596")), () -> String.join("\n", errors) + "\n" + rust);
     }
+
+    @Language("java")
+    private static final String NESTED = """
+            package a.b;
+            public class Nodes {
+                public abstract static class Node {
+                    public abstract int eval();
+                }
+                public static class Leaf extends Node {
+                    private final int v;
+                    public Leaf(int v) { this.v = v; }
+                    public int eval() { return v; }
+                }
+                public static class Neg extends Node {
+                    private final Node inner;
+                    public Neg(Node inner) { this.inner = inner; }
+                    public int eval() { return -inner.eval(); }
+                }
+            }
+            """;
+
+    @DisplayName("a member holding an object of its own hierarchy is boxed: the root's struct would be infinite")
+    @Test
+    public void recursiveMember() throws Exception {
+        List<TypeInfo> types = parse(NESTED);
+        TypeInfo nodes = types.getFirst();
+        nonModifying(nodes.findSubType("Node"), "eval");
+        nonModifying(nodes.findSubType("Leaf"), "eval");
+        nonModifying(nodes.findSubType("Neg"), "eval");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'inner: NodesNode': E0072, the whole hierarchy removed (fernflower's ArrayExprent)
+        contains(rust, "pub inner: Box<NodesNode>,");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
