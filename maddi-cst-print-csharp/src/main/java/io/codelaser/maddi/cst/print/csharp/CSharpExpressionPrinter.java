@@ -1048,8 +1048,56 @@ public final class CSharpExpressionPrinter {
                     .map(a -> (Supplier<OutputBuilder>) () -> receiver(a, q)).toList();
             return new CSharpTemplate(() -> text("this"), args, operands, null, type, null, q).render(rule.template(false));
         }
+        ParameterizedType resolved = created(cc, type);
+        String comparer = naturalComparer(cc, resolved, q);
+        if (comparer != null) {
+            // new TreeMap<String, V>(): ordered as Java's String.compareTo, not by the culture
+            List<OutputBuilder> args = new ArrayList<>();
+            for (int i = 0; i < cc.parameterExpressions().size(); i++) {
+                args.add(argument(cc.parameterExpressions().get(i), cc.constructor(), i, q));
+            }
+            args.add(text(comparer));
+            return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
+                    .add(text(CSharpTypeName.created(resolved, q)))
+                    .add(args.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                            SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())));
+        }
         return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
-                .add(text(CSharpTypeName.created(created(cc, type), q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+                .add(text(CSharpTypeName.created(resolved, q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+    }
+
+    /** The JDK's sorted collections that C# creates with a comparer argument last: SortedDictionary, SortedSet. */
+    private static final Set<String> SORTED_COLLECTIONS = Set.of("java.util.TreeMap", "java.util.TreeSet");
+
+    /**
+     * {@code JavaComparer<K>.Natural} for a TreeMap or TreeSet created without a comparator whose keys may be
+     * Strings: Java orders them by {@code String.compareTo}, UTF-16 code units, where C#'s default comparer for
+     * strings is the culture's ("a" before "B"). Not for keys of a number, an enum or a program type, whose default
+     * comparer is Java's compareTo already; null then, and for a creation given a comparator or a sorted collection,
+     * whose order it takes.
+     */
+    private static String naturalComparer(ConstructorCall cc, ParameterizedType created, Qualification q) {
+        MethodInfo constructor = cc.constructor();
+        TypeInfo t = created.typeInfo();
+        if (constructor == null || t == null || created.arrays() != 0 || !SORTED_COLLECTIONS.contains(t.fullyQualifiedName())
+            || created.parameters().isEmpty()) {
+            return null;
+        }
+        for (ParameterInfo p : constructor.parameters()) {
+            TypeInfo pt = p.parameterizedType().typeInfo();
+            if (pt == null || !"java.util.Collection".equals(pt.fullyQualifiedName())
+                              && !"java.util.Map".equals(pt.fullyQualifiedName())) {
+                return null;
+            }
+        }
+        ParameterizedType key = created.parameters().getFirst();
+        boolean mayBeString = key.arrays() == 0 && key.wildcard() == null
+                              && (key.isJavaLangString() || key.isJavaLangObject() || key.isTypeParameter()
+                                  || key.typeInfo() != null && Set.of("java.lang.CharSequence", "java.lang.Comparable")
+                                          .contains(key.typeInfo().fullyQualifiedName()));
+        if (!mayBeString) return null;
+        CSharpContext.using(CSharpCompat.NAMESPACE);
+        return "JavaComparer<" + CSharpTypeName.argument(key, q) + ">.Natural";
     }
 
     /**

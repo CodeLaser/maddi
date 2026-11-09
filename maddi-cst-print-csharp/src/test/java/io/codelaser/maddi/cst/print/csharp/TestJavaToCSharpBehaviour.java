@@ -16,11 +16,12 @@
  */
 package io.codelaser.maddi.cst.print.csharp;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
-
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 /**
  * The behavioural check ({@link CommonJavaToCSharp#behaves}): each sample runs on the JVM and, translated, on .NET,
@@ -502,28 +503,70 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 """);
     }
 
+    /**
+     * A HashMap's and a HashSet's iteration order is unspecified in Java and in .NET alike, and differs: Java's
+     * follows the hash buckets, .NET's Dictionary and HashSet the insertions. The translation keeps C#'s (decided 9 Nov
+     * 2026, #188): what this holds is the contents, which code relying on no order sees the same; the order is sorted
+     * here before it is printed.
+     */
     @Test
-    @Disabled("#188: hash order versus insertion order")
-    public void hashMapIterationOrder() {
-        behaves("HashOrder", """
+    public void hashCollectionsContents() {
+        behaves("HashContents", """
                 package a;
+                import java.util.ArrayList;
+                import java.util.Collections;
                 import java.util.HashMap;
                 import java.util.HashSet;
+                import java.util.List;
                 import java.util.Map;
                 import java.util.Set;
-                class HashOrder {
+                class HashContents {
                     public static void main(String[] args) {
                         Map<String, Integer> map = new HashMap<>();
                         for (String k : new String[]{"banana", "apple", "cherry", "date"}) map.put(k, k.length());
-                        System.out.println(String.join(",", map.keySet()));
+                        map.remove("cherry");
+                        List<String> keys = new ArrayList<>(map.keySet());
+                        Collections.sort(keys);
+                        System.out.println(String.join(",", keys) + " " + map.size() + " " + map.get("date"));
                         Set<Integer> set = new HashSet<>();
-                        for (int i : new int[]{40, 3, 17, 1}) set.add(i);
-                        StringBuilder sb = new StringBuilder();
-                        for (int i : set) sb.append(i).append(' ');
-                        System.out.println(sb.toString().trim());
+                        for (int i : new int[]{40, 3, 17, 1, 3}) set.add(i);
+                        List<Integer> sorted = new ArrayList<>(set);
+                        Collections.sort(sorted);
+                        System.out.println(sorted + " " + set.contains(17) + " " + set.contains(2));
                     }
                 }
                 """);
+    }
+
+    /**
+     * A TreeMap's and a TreeSet's order is specified: the keys' compareTo, for Strings by UTF-16 code unit ("B"
+     * before "a"). C#'s SortedDictionary and SortedSet take a JavaComparer for keys that may be Strings, where the
+     * default comparer is the culture's; keys of a number keep the default, which is Java's order.
+     */
+    @Test
+    public void sortedCollectionsOfStrings() {
+        String cs = behaves("SortedStrings", """
+                package a;
+                import java.util.List;
+                import java.util.Map;
+                import java.util.Set;
+                import java.util.TreeMap;
+                import java.util.TreeSet;
+                class SortedStrings {
+                    public static void main(String[] args) {
+                        Map<String, Integer> map = new TreeMap<>();
+                        for (String k : List.of("b", "B", "a", "A", "_", "1", "é")) map.put(k, k.length());
+                        System.out.println(String.join(",", map.keySet()));
+                        Set<String> set = new TreeSet<>(List.of("beta", "Alpha", "alpha", "Beta"));
+                        System.out.println(set);
+                        TreeMap<Integer, String> numbers = new TreeMap<>(Map.of(10, "x", 9, "y", -1, "z"));
+                        System.out.println(numbers.firstKey() + " " + numbers.keySet());
+                    }
+                }
+                """);
+        contains(cs, "new SortedDictionary<string, int>(JavaComparer<string>.Natural)");
+        contains(cs, "new SortedDictionary<int, string>(");
+        assertFalse(cs.contains("JavaComparer<int>"), cs);
     }
 
     @Test

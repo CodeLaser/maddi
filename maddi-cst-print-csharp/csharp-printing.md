@@ -878,12 +878,22 @@ from a map, a stream's collector. A map of a value type (`Map<String, Integer>`,
 answers `null` for an absent key as Java's does: `get` is `GetValueOrNull`, `put`, `remove` and `putIfAbsent` the
 compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each an `int?` (the BCL's would be `0`).
 
+- **Hash order.** A `HashMap` or a `HashSet` iterates in an order neither Java nor .NET specifies, and
+  they differ: Java's follows the hash buckets, .NET's `Dictionary` and `HashSet` the insertions (until a removal
+  frees a slot). The translation keeps .NET's (decided 9 Nov 2026, #188): emulating Java's would need Java's
+  `hashCode` for every key, which a String's randomized .NET hash, an object's identity hash and a record's
+  unspecified one do not give. Code whose output depends on that order (printing a map, taking a set's first
+  element) prints otherwise, as it could on another JDK. A `LinkedHashMap`, whose insertion order Java specifies,
+  keeps it (`OrderedDictionary`); a `LinkedHashSet` is a `HashSet`, which keeps it only until an element is removed
+  (the BCL has no ordered set).
 - **Natural order.** Java orders Strings by UTF-16 code unit (`"B"` before `"a"`), .NET's default comparer for strings by
   the culture (`"a"` before `"B"`). Where Java's natural order is implied (`Collections.sort`, `List.sort(null)`,
   `sorted()`, `naturalOrder()`, `reverseOrder()`, `Comparator.comparing`, a priority queue), the compatibility library
-  compares with `JavaComparer<T>.Natural`: ordinal for a string, a value's `CompareTo` otherwise. Not yet a `TreeMap`
-  or `TreeSet` of String keys without a comparator, whose `SortedDictionary`/`SortedSet` keep the culture's order
-  (#188). `compareToIgnoreCase` is Java's (`JavaString.CompareToIgnoreCase`), as are `Integer.toString(i, radix)` and
+  compares with `JavaComparer<T>.Natural`: ordinal for a string, a value's `CompareTo` otherwise. A `TreeMap` or
+  `TreeSet` created without a comparator, whose keys may be Strings (a String, an Object, a CharSequence, a
+  Comparable, a type parameter), takes it as its comparer: `new SortedDictionary<string, int>(JavaComparer<string>
+  .Natural)`; one of numbers, enums or the program's types keeps the default, which is Java's order there.
+  `compareToIgnoreCase` is Java's (`JavaString.CompareToIgnoreCase`), as are `Integer.toString(i, radix)` and
   `Long`'s, a sign and digits in any radix where `Convert.ToString` knows four and prints two's complement.
 - **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` becomes
   `IDictionary<K, V>` and `Set` becomes `ISet<T>`, because Java implements them with hash and tree collections

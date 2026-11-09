@@ -2108,7 +2108,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // a diamond whose parameter's type is not a type parameter: Map<E, Boolean>, as inferred
         contains(cs, "new Dictionary<T, bool>()");
         // an argument of a creation: the creation's own type arguments, as printed
-        contains(cs, "new SortedDictionary<R, R>()");
+        contains(cs, "new SortedDictionary<R, R>(JavaComparer<R>.Natural)");
         // an override inherits its constraints, and may not repeat them (CS0460)
         // Stream<?>, a bound: the wildcard interface IStream, which every IStream<T> is
         contains(cs, "internal abstract S Build<S>(S s) where S : IStream;");
