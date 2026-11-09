@@ -471,6 +471,7 @@ member java.util.Arrays.stream/1 -> $1
 member java.util.Arrays.equals/2 -> JavaArrays.Equals($1, $2) using Maddi.JavaCompat
 member java.util.Arrays.hashCode/1 -> JavaArrays.HashCode($1) using Maddi.JavaCompat
 member java.util.Arrays.toString/1 -> JavaArrays.ToString($1) using Maddi.JavaCompat
+member java.util.Arrays.deepToString/1 -> JavaArrays.DeepToString($1) using Maddi.JavaCompat
 member java.util.Arrays.fill/2 -> Array.Fill($1, $2) using System
 member java.util.Arrays.sort/1 -> Array.Sort($1) using System
 # navigation, by the compatibility library's extensions (JavaNavigable): an entry is a JavaEntry, null when none

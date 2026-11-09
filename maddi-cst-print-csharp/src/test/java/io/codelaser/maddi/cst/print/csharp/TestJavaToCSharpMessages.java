@@ -58,7 +58,7 @@ public class TestJavaToCSharpMessages extends CommonJavaToCSharp {
                 static class Stack extends ArrayList<String> { @Override public boolean add(String s) { return super.add(s); } }
                 static int match(Object o) { return switch (o) { case R(int a) -> a; default -> 0; }; }
                 static Object type() { return Optional.class; }
-                static int[][] grid(int a, int b) { return new int[a][b]; }
+                static int[][][][][] grid(int a, int b) { return new int[a][b][a][b][a]; }
                 static Object sw(Object o) {
                     return switch (o) { case String s when s.isEmpty() -> 0; default -> { yield 1; } };
                 }

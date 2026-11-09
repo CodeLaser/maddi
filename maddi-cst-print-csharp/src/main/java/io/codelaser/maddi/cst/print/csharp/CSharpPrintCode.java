@@ -82,7 +82,10 @@ public enum CSharpPrintCode implements PrintMessage.Code {
      * attribute classes ({@link CSharpAttributes}).
      */
     ANNOTATION_TYPE(Severity.ERROR),
-    /** {@code new int[a][b]}: a jagged array of more than one sized dimension has no C# creation expression. */
+    /**
+     * {@code new int[a][b][c][d][e]}: a jagged array of more than four sized dimensions, which the compatibility
+     * library's {@code JavaArrays.Jagged} does not create.
+     */
     MULTI_DIMENSIONAL_ARRAY(Severity.ERROR),
     /** A form of a switch C# cannot say (a pattern, a block arm of a switch expression). */
     SWITCH_FORM(Severity.ERROR),

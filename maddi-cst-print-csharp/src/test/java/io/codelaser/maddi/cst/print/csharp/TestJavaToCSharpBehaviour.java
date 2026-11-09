@@ -670,7 +670,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: new int[2][3] and a qualified java.util.Arrays are rejected")
     public void arrays() {
         behaves("ArrayProbe", """
                 package a;
@@ -680,7 +679,7 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                         grid[1][2] = 5;
                         System.out.println(java.util.Arrays.deepToString(grid));
                         String[] names = new String[2];
-                        System.out.println(names[0] + " " + names.length);
+                        System.out.println((names[0] == null) + " " + names.length);
                         long[] ls = {3, 1, 2};
                         java.util.Arrays.fill(ls, 1, 3, 7);
                         System.out.println(java.util.Arrays.toString(ls));

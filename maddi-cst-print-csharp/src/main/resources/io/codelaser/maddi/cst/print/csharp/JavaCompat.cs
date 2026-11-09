@@ -1415,6 +1415,37 @@ public static class JavaArrays
 
     public static string ToString<T>(T[]? a) =>
         a == null ? "null" : "[" + string.Join(", ", a.Select(x => JavaString.ValueOf(x))) + "]";
+
+    /// <summary>Arrays.deepToString: nested arrays as their elements, "[[0, 0], [0, 5]]".</summary>
+    public static string DeepToString(Array? a)
+    {
+        if (a == null) return "null";
+        var parts = new List<string>();
+        foreach (var x in a) parts.Add(x is Array nested && x is not char[] ? DeepToString(nested) : JavaString.ValueOf(x));
+        return "[" + string.Join(", ", parts) + "]";
+    }
+
+    /// <summary>new T[a][b]: Java creates every row, as C#'s jagged array creation does not.</summary>
+    public static T[][] Jagged<T>(int a, int b)
+    {
+        var rows = new T[a][];
+        for (var i = 0; i < a; i++) rows[i] = new T[b];
+        return rows;
+    }
+
+    public static T[][][] Jagged<T>(int a, int b, int c)
+    {
+        var rows = new T[a][][];
+        for (var i = 0; i < a; i++) rows[i] = Jagged<T>(b, c);
+        return rows;
+    }
+
+    public static T[][][][] Jagged<T>(int a, int b, int c, int d)
+    {
+        var rows = new T[a][][][];
+        for (var i = 0; i < a; i++) rows[i] = Jagged<T>(b, c, d);
+        return rows;
+    }
 }
 
 public static class JavaSystem

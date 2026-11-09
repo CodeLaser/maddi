@@ -634,6 +634,9 @@ differences:
 - **Optional.** `get()` of an empty Optional throws as Java's does, `x ?? throw new InvalidOperationException("No
   value present")`, where `x` alone would be null. A `null` given to a library method's own type parameter stays
   `null` for the template (`Optional.ofNullable(null)`), not `default`, which has no type in `default != null`.
+- **Arrays of arrays.** `new int[a][b]` creates every row in Java; C#'s `new int[a][b]` is no expression (CS0178).
+  Up to four sized dimensions it is `JavaArrays.Jagged<int>(a, b)`, `new int[a][b][]` `JavaArrays.Jagged<int[]>(a,
+  b)`. `Arrays.deepToString` is `JavaArrays.DeepToString`.
 - **Results as statements.** A call whose C# is no call, `s.length();` as `s.Length`, is a discard, `_ = s.Length;`
   (CS0201), which still evaluates it.
 - **Conditional types.** Java types `b ? c : 0`, a `char` and an `int` constant that fits it, as a `char` (JLS
@@ -731,7 +734,7 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
 
 - **Not translated:** a local class that captures (`LOCAL_CLASS`), an instance initializer (`INSTANCE_INITIALIZER`),
   an enum constant's body and an anonymous class that is neither a lambda nor hoisted (`ANONYMOUS_CLASS`),
-  `Outer.this` where no `outer` leads to it (`OUTER_THIS`), `new int[a][b]` (`MULTI_DIMENSIONAL_ARRAY`), a switch
+  `Outer.this` where no `outer` leads to it (`OUTER_THIS`), `new int[a][b][c][d][e]`, more than four sized dimensions (`MULTI_DIMENSIONAL_ARRAY`), a switch
   form C# cannot say (`SWITCH_FORM`), an inner class of a generic type (`NESTED_IN_GENERIC`), an annotation type
   that is not translated (`ANNOTATION_TYPE`), and every JDK type or member without a mapping (`UNMAPPED_JDK`, the
   mapping's work list).

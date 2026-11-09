@@ -1086,6 +1086,14 @@ public final class CSharpExpressionPrinter {
                     .add(text(CSharpTypeName.of(type, q))).add(SpaceEnum.ONE).add(arrayInitializer(cc.arrayInitializer(), type, q));
         }
         List<Expression> dimensions = cc.parameterExpressions().stream().filter(x -> !x.isEmpty()).toList();
+        if (dimensions.size() > 1 && dimensions.size() <= 4) {
+            // new int[2][3]: Java creates the rows, C#'s new int[2][3] is no expression (CS0178), and new int[2][]
+            // leaves them null: the compatibility library creates them, JavaArrays.Jagged<int>(2, 3)
+            CSharpContext.using(CSharpCompat.NAMESPACE);
+            ParameterizedType element = type.copyWithArrays(type.arrays() - dimensions.size());
+            return new OutputBuilderImpl().add(text("JavaArrays.Jagged<" + CSharpTypeName.argument(element, q) + ">"))
+                    .add(arguments(dimensions, q));
+        }
         if (dimensions.size() > 1) {
             CSharpContext.message(CSharpPrintCode.MULTI_DIMENSIONAL_ARRAY, cc, CSharpContext.describe(cc));
         }
