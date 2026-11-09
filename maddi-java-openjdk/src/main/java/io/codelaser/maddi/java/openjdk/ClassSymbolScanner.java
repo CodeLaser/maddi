@@ -688,16 +688,19 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     assert parentClass != null;
                     builder.setParentClass(parentClass);
                 }
-                // Do not load the interfaces of a *source* type here: when such a type is referenced before its own
-                // source is scanned, the class scanner reaches it (via lazilyLoadTypeFromClassFile), and then
-                // ScanCompilationUnit also adds the interfaces from source -- since addInterfaceImplemented appends,
-                // the result is a duplicated interface list. A source type's hierarchy is owned by ScanCompilationUnit
-                // (annotations already have this guard: loadAnnotations() returns empty for source symbols).
-                // The typeInterfacesLoaded set additionally guards the LAZILY-then-LOAD_MEMBERS re-entry for genuine
-                // class-file types (a single TypeInfo whose interface block runs twice in one scan).
-                // STOPGAP: the proper fix is a linear inspection-state on the builder (DEFINED_BY_CLASS_SCANNER vs
-                // DEFINED_IN_SOURCE), which would make the double-load impossible (and assertable) rather than guarded.
-                if (!isSourceSymbol(cs) && typeInterfacesLoaded.add(newTypeInfo)) {
+                // This used to skip a *source* type's interfaces: referenced before its own source was scanned, the
+                // class scanner reached it, then ScanCompilationUnit added the interfaces from source as well, and
+                // since addInterfaceImplemented appends, the list was doubled. The typeInterfacesLoaded set guards the
+                // LAZILY-then-LOAD_MEMBERS re-entry (a single TypeInfo whose interface block runs twice in one scan).
+                // ⛔ NO LONGER FOR SOURCE SYMBOLS ONLY. Since ScanCompilationUnit.continueType claims the type on the
+                // shared registry, a source scan that comes AFTER this setup block clears the interfaces it left and
+                // refills them from source, so loading them here cannot double them. Skipping them, on the other
+                // hand, left a type that no source scan finishes without any: a source-entered @interface reached by
+                // a task whose own files were not known yet (no compilationUnitUris: a loader or preload task)
+                // committed with an empty interface list, and TypeInspectionImpl's java.lang.annotation.Annotation
+                // assert failed at commit under -ea (maddi-annotation's NotModified, Independent, Fluent, Modified,
+                // GetSet, parsed as one of 55 source sets with its class directory on the class path).
+                if (typeInterfacesLoaded.add(newTypeInfo)) {
                     for (Type type : cs.getInterfaces()) {
                         ParameterizedType pt = convert(type);
                         builder.addInterfaceImplemented(pt);
