@@ -456,8 +456,15 @@ final class RustBodyPrinter {
         else option = "Some(" + (mutated ? "&mut " : "&") + p.text + ")";
         locals.put(lv, mutated ? Held.EXCLUSIVE : Held.SHARED);
         nullableLocals.put(lv, false);
+        useKind(target);
         return "let Some(" + RustNames.snake(lv.simpleName()) + ") = " + option + ".filter(|o| " + hs.test("o", target)
                + ")";
+    }
+
+    // the kind enum a test names, imported where the hierarchy is another module's
+    private void useKind(TypeInfo member) {
+        String module = RustNames.module(member.packageName());
+        if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustHierarchies.current().kind(member));
     }
 
     /** {@code e instanceof A} in a closed hierarchy: a test of e's kind; false for a null {@code e}, as Java's. */
@@ -465,6 +472,7 @@ final class RustBodyPrinter {
         RustHierarchies hs = RustHierarchies.current();
         Printed p = expression(io.expression());
         TypeInfo target = io.testType().typeInfo();
+        useKind(target);
         if (p.nullable) return value(p.text + ".as_ref().is_some_and(|o| " + hs.test("o", target) + ")");
         return value(hs.test(p.text, target));
     }
