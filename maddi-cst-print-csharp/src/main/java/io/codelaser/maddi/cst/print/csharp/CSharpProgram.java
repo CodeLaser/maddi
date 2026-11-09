@@ -532,6 +532,11 @@ public final class CSharpProgram {
                 }
             }
         }
+        // genuineVariable(String name, Class<V> type) next to genuineVariable(String name): both would be
+        // GenuineVariable<V>(string name) (CS0111), so the token stays a parameter
+        tokens.forEach((m, token) -> {
+            if (m.typeInfo().methods().stream().anyMatch(o -> o != m && collidesWithoutToken(m, token, o))) rejected.add(m);
+        });
         tokens.forEach((m, token) -> {
             for (List<Expression> arguments : index.calls(m)) {
                 if (!concreteClass(arguments.get(token).parameterizedType())) rejected.add(m);
@@ -562,6 +567,25 @@ public final class CSharpProgram {
             }
         }
         return found;
+    }
+
+    /** {@code o} has {@code m}'s name, generic arity and parameters, but for m's type token. */
+    private static boolean collidesWithoutToken(MethodInfo m, int token, MethodInfo o) {
+        if (!o.name().equals(m.name()) || o.typeParameters().size() != m.typeParameters().size()
+            || o.parameters().size() != m.parameters().size() - 1) {
+            return false;
+        }
+        for (int i = 0, j = 0; i < m.parameters().size(); i++) {
+            if (i == token) continue;
+            if (!sameErasure(m.parameters().get(i).parameterizedType(), o.parameters().get(j++).parameterizedType())) return false;
+        }
+        return true;
+    }
+
+    private static boolean sameErasure(ParameterizedType a, ParameterizedType b) {
+        if (a.arrays() != b.arrays() || a.isTypeParameter() != b.isTypeParameter()) return false;
+        if (a.isTypeParameter()) return a.typeParameter().getIndex() == b.typeParameter().getIndex();
+        return Objects.equals(a.typeInfo(), b.typeInfo());
     }
 
     /** {@code Class<X>} of a known {@code X}: the type argument of a call. */

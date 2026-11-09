@@ -3526,4 +3526,34 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal interface IVariable<S, E, V> : IVariable<S, E> {");
         contains(cs, "sb.Append(v.Name).Append(v.Type().Name)");
     }
+
+    /**
+     * A type token whose dropping would make the method its sibling overload, {@code variable(String name, Class<V>
+     * type)} next to {@code variable(String name)}: both would be {@code Variable<V>(string name)} (CS0111), so the
+     * token stays a parameter.
+     */
+    @Test
+    public void typeTokenCollidingOverload() {
+        String cs = translate("Lookup", """
+                package a;
+                import java.util.HashMap;
+                import java.util.Map;
+                class Lookup {
+                    private final Map<String, Object> values = new HashMap<>();
+                    @SuppressWarnings("unchecked")
+                    <V> V variable(String name) { return (V) values.get(name); }
+                    <V> V variable(String name, Class<V> type) { return type.cast(values.get(name)); }
+                    <V> V single(String name, Class<V> type) { return type.cast(values.get(name)); }
+                    String use() {
+                        String a = variable("a", String.class);
+                        String b = single("b", String.class);
+                        String c = variable("c");
+                        return a + b + c;
+                    }
+                }
+                """);
+        contains(cs, "internal V Variable<V>(string name, Type type)");
+        contains(cs, "internal V Single<V>(string name)");
+        contains(cs, "string a = Variable<string>(\"a\", typeof(string));");
+    }
 }
