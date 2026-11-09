@@ -810,4 +810,62 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 }
                 """);
     }
+
+    /**
+     * An inner class of a generic class whose type javac infers (a var, a call's result, a field of the outer's own
+     * instantiation, a subclass creating its base's inner class) carries the outer type's arguments first (#142).
+     */
+    @Test
+    public void innerClassOfGenericOuter() {
+        String cs = behaves("InnerOfGeneric", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.List;
+                class InnerOfGeneric {
+                    static class Store<T> {
+                        final List<Entry> entries = new ArrayList<>();
+                        class Entry {
+                            final T value;
+                            Entry(T value) { this.value = value; }
+                            T value() { return value; }
+                        }
+                        Entry add(T value) {
+                            Entry e = new Entry(value);
+                            entries.add(e);
+                            return e;
+                        }
+                        Entry first() { return entries.get(0); }
+                    }
+                    static class Outer<A> {
+                        class Mid<B> {
+                            class Inner {
+                                String show(A a, B b) { return a + "/" + b; }
+                            }
+                            Inner inner() { return new Inner(); }
+                        }
+                        Mid<Integer> mid() { return new Mid<>(); }
+                    }
+                    static class Base<K, V> {
+                        class Values {
+                            int size() { return 7; }
+                        }
+                    }
+                    static class Derived extends Base<String, Integer> {
+                        int count() { return new Values().size(); }
+                    }
+                    public static void main(String[] args) {
+                        Store<String> store = new Store<>();
+                        var e = store.add("x");
+                        store.add("y");
+                        var f = store.first();
+                        System.out.println(e.value() + f.value() + store.entries.size());
+                        for (var entry : store.entries) System.out.println(entry.value().length());
+                        var inner = new Outer<String>().mid().inner();
+                        System.out.println(inner.show("a", 3));
+                        System.out.println(new Derived().count());
+                    }
+                }
+                """);
+        assertFalse(cs.contains("Base<K, V>.Values"), cs);
+    }
 }
