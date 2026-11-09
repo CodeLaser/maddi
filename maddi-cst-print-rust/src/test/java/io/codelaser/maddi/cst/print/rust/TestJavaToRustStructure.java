@@ -551,4 +551,37 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "return self.all(n);");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String ENUM_WITH_MASK = """
+            package a.b;
+            public class Edges {
+                public enum EdgeType {
+                    REGULAR(1), BREAK(4);
+                    private final int mask;
+                    EdgeType(int mask) { this.mask = mask; }
+                    public int mask() { return mask; }
+                }
+                public static class Edge {
+                    private final EdgeType type;
+                    public Edge(EdgeType type) { this.type = type; }
+                    public EdgeType getType() { return type; }
+                    public boolean isBreak() { return getType() == EdgeType.BREAK; }
+                }
+            }
+            """;
+
+    @DisplayName("an enum with constant state is Copy: its getter returns the value, == compares values")
+    @Test
+    public void enumWithConstantStateIsCopy() throws Exception {
+        List<TypeInfo> types = parse(ENUM_WITH_MASK);
+        TypeInfo edge = types.getFirst().findSubType("Edge");
+        nonModifying(edge, "getType", "isBreak");
+        nonModifying(types.getFirst().findSubType("EdgeType"), "mask");
+        translate(types);
+        String rust = module("a.b");
+        // was '-> &EdgesEdgeType', and '&EdgesEdgeType == EdgesEdgeType' (E0277; fernflower's StatEdge.EdgeType)
+        contains(rust, "pub fn get_type(&self) -> EdgesEdgeType {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

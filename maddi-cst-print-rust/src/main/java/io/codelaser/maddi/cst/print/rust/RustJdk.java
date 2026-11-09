@@ -730,7 +730,9 @@ final class RustJdk {
             case "clear/0" -> value(o + ".clear()");
             case "contains/1" -> stringElements(mc)
                     // Vec<String>::contains takes a &String; a &str compares with each element instead
-                    ? value(o + ".iter().any(|e| e == " + printer.reference(args.getFirst()) + ")")
+                    ? value(o + ".iter().any(|__e| __e == " + printer.reference(args.getFirst()) + ")")
+                    : typeArgument(mc, 0) != null && RustBodyPrinter.equalsIsIdentity(typeArgument(mc, 0))
+                    ? value(o + ".iter().any(|__e| " + elementEquals(mc, args.getFirst(), printer) + ")")
                     : value(o + ".contains(" + printer.reference(args.getFirst()) + ")");
             case "addAll/1" -> value(o + ".extend(" + printer.text(args.getFirst()) + ".iter().cloned())");
             case "getFirst/0" -> RustBodyPrinter.printed(o + "[0]", Held.PLACE, false);
@@ -741,18 +743,31 @@ final class RustJdk {
             case "forEach/1" -> value((changesElement(args.getFirst(), printer) && !isIterator(o) ? o + ".iter_mut()" : iter(o))
                                       + ".for_each(" + printer.text(args.getFirst()) + ")");
             case "removeIf/1" -> value(o + ".retain(|x| !" + printer.applied(args.getFirst(), List.of("x")) + ")");
-            case "indexOf/1" -> value(o + ".iter().position(|e| e == " + printer.reference(args.getFirst())
+            case "indexOf/1" -> value(o + ".iter().position(|__e| " + elementEquals(mc, args.getFirst(), printer)
                                       + ").map(|i| i as i32).unwrap_or(-1)");
             case "remove/1" -> args.getFirst().parameterizedType().isInt()
                     ? value(o + ".remove(" + printer.index(args.getFirst()) + ")")
-                    : value("if let Some(p) = " + o + ".iter().position(|e| e == " + printer.reference(args.getFirst())
-                            + ") { " + o + ".remove(p); }");
+                    : value("if let Some(p) = " + o + ".iter().position(|__e| "
+                            + elementEquals(mc, args.getFirst(), printer) + ") { " + o + ".remove(p); }");
             case "getLast/0" -> RustBodyPrinter.printed(o + "[" + o + ".len() - 1]", Held.PLACE, false);
             // Java throws on an empty list, Rust panics
             case "removeFirst/0" -> value(o + ".remove(0)");
             case "removeLast/0" -> value(o + ".pop().unwrap()");
             default -> null;
         };
+    }
+
+    /**
+     * The list's element {@code __e} equal to {@code arg}, as Java's {@code equals}: identity for a class without one
+     * ({@link RustBodyPrinter#equalsIsIdentity}), {@code PartialEq} otherwise. The closure's parameter has a name no
+     * translated Java name has: 'exprents.remove(e)' compared e with itself.
+     */
+    private static String elementEquals(MethodCall mc, Expression arg, RustBodyPrinter printer) {
+        ParameterizedType element = typeArgument(mc, 0);
+        if (element != null && RustBodyPrinter.equalsIsIdentity(element)) {
+            return "std::ptr::eq(__e, " + printer.reference(arg) + ")";
+        }
+        return "__e == " + printer.reference(arg);
     }
 
     private static Printed map(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
