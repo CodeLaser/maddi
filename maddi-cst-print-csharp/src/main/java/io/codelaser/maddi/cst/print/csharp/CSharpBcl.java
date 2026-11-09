@@ -529,11 +529,7 @@ final class CSharpBcl implements LibraryMapping {
 
     /** The receiver is a collection parameter that is read-only in C# ({@link CSharpReadOnly}). */
     private static boolean readOnlyReceiver(MethodCall call) {
-        return call != null && call.object() != null
-               && CSharpExpressionPrinter.unwrap(call.object()) instanceof Expression e
-               && e instanceof VariableExpression ve
-               && (ve.variable() instanceof ParameterInfo p && CSharpContext.program().readOnly(p)
-                   || ve.variable() instanceof FieldReference fr && CSharpContext.program().readOnly(fr.fieldInfo()));
+        return call != null && CSharpContext.program().readOnly(call.object());
     }
 
     /** The receiver is declared as a Number: C#'s IConvertible. */

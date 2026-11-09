@@ -33,10 +33,12 @@ import java.util.stream.Stream;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeModifier;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
@@ -152,6 +154,7 @@ public final class CSharpProgram {
     private final Map<MethodInfo, CSharpProperties.Property> accessors;
     private final CSharpFacts facts;
     private final CSharpReadOnly.Analysis readOnly;
+    private final Map<TypeInfo, List<MethodInfo>> referencedAs;
     private final Set<MethodInfo> erasedGenerics;
     private final Set<TypeInfo> exposedBases;
     private final Map<String, TypeInfo> packageInfos;
@@ -176,6 +179,7 @@ public final class CSharpProgram {
         CSharpProperties.Analysis properties = CSharpProperties.Analysis.NONE;
         CSharpFacts facts = CSharpFacts.NONE;
         CSharpReadOnly.Analysis readOnly = CSharpReadOnly.Analysis.NONE;
+        Map<TypeInfo, List<MethodInfo>> referencedAs = Map.of();
         Set<MethodInfo> erasedGenerics = Set.of();
         Set<TypeInfo> exposedBases = Set.of();
         Map<String, TypeInfo> packageInfos = Map.of();
@@ -210,6 +214,7 @@ public final class CSharpProgram {
         this.accessors = Map.copyOf(accessors);
         facts = b.facts;
         readOnly = b.readOnly;
+        referencedAs = b.referencedAs;
         erasedGenerics = b.erasedGenerics;
         exposedBases = b.exposedBases;
         packageInfos = b.packageInfos;
@@ -290,6 +295,7 @@ public final class CSharpProgram {
             b.properties = CSharpProperties.analyze(index, implementing, delegates);
         }
         b.readOnly = CSharpReadOnly.analyze(index, policy.facts(), delegates);
+        b.referencedAs = index.referencedAs();
         b.erasedGenerics = erasedGenerics(index);
         b.exposedBases = exposedBases(all);
         Map<String, TypeInfo> packageInfos = new HashMap<>();
@@ -444,6 +450,21 @@ public final class CSharpProgram {
         return readOnly.fields().contains(field);
     }
 
+    /** The method's result is a collection read-only in C#, {@code IReadOnlyList<T>}: see {@link CSharpReadOnly}. */
+    boolean readOnly(MethodInfo method) {
+        return readOnly.methods().contains(method);
+    }
+
+    /** {@code e} reads a read-only parameter or field, or calls a method with a read-only result. */
+    boolean readOnly(Expression e) {
+        return switch (e == null ? null : CSharpExpressionPrinter.unwrap(e)) {
+            case VariableExpression ve when ve.variable() instanceof ParameterInfo p -> readOnly(p);
+            case VariableExpression ve when ve.variable() instanceof FieldReference fr -> readOnly(fr.fieldInfo());
+            case MethodCall mc -> readOnly(mc.methodInfo());
+            case null, default -> false;
+        };
+    }
+
     /** {@code where T : notnull}: a type parameter that is, or is passed as, a dictionary's key (CSharpNotNullKeys). */
     boolean notNullKey(TypeParameter typeParameter) {
         return notNullKeys.contains(typeParameter);
@@ -511,6 +532,11 @@ public final class CSharpProgram {
                 }
             }
         }
+        // genuineVariable(String name, Class<V> type) next to genuineVariable(String name): both would be
+        // GenuineVariable<V>(string name) (CS0111), so the token stays a parameter
+        tokens.forEach((m, token) -> {
+            if (m.typeInfo().methods().stream().anyMatch(o -> o != m && collidesWithoutToken(m, token, o))) rejected.add(m);
+        });
         tokens.forEach((m, token) -> {
             for (List<Expression> arguments : index.calls(m)) {
                 if (!concreteClass(arguments.get(token).parameterizedType())) rejected.add(m);
@@ -541,6 +567,25 @@ public final class CSharpProgram {
             }
         }
         return found;
+    }
+
+    /** {@code o} has {@code m}'s name, generic arity and parameters, but for m's type token. */
+    private static boolean collidesWithoutToken(MethodInfo m, int token, MethodInfo o) {
+        if (!o.name().equals(m.name()) || o.typeParameters().size() != m.typeParameters().size()
+            || o.parameters().size() != m.parameters().size() - 1) {
+            return false;
+        }
+        for (int i = 0, j = 0; i < m.parameters().size(); i++) {
+            if (i == token) continue;
+            if (!sameErasure(m.parameters().get(i).parameterizedType(), o.parameters().get(j++).parameterizedType())) return false;
+        }
+        return true;
+    }
+
+    private static boolean sameErasure(ParameterizedType a, ParameterizedType b) {
+        if (a.arrays() != b.arrays() || a.isTypeParameter() != b.isTypeParameter()) return false;
+        if (a.isTypeParameter()) return a.typeParameter().getIndex() == b.typeParameter().getIndex();
+        return Objects.equals(a.typeInfo(), b.typeInfo());
     }
 
     /** {@code Class<X>} of a known {@code X}: the type argument of a call. */
@@ -676,6 +721,16 @@ public final class CSharpProgram {
     /** The members the code reaches through a wildcard of the type: a method called, a field read. */
     Set<Object> reachedThroughWildcard(TypeInfo typeInfo) {
         return wildcardUses.reached().getOrDefault(typeInfo, Set.of());
+    }
+
+    /** The methods the program's method references name as a value of the functional type. */
+    List<MethodInfo> referencedAs(TypeInfo functional) {
+        return referencedAs.getOrDefault(functional, List.of());
+    }
+
+    /** The member is reached through the wildcard of some type, its own or a subtype's. */
+    boolean reachedThroughAnyWildcard(Object member) {
+        return wildcardUses.reached().values().stream().anyMatch(s -> s.contains(member));
     }
 
     public boolean delegate(TypeInfo typeInfo) {

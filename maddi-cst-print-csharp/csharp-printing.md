@@ -11,8 +11,8 @@ analyses drive what makes the output idiomatic:
 
 - **Nullability** (`NullabilityPass`, maddi-mod) decides where `?` goes under `#nullable enable`, and where `!`
   asserts what the analysis knows (`CSharpFacts`, `CSharpNullability`).
-- **Modification** decides whether a collection parameter or a private collection field can be `IReadOnlyList<T>`
-  (`CSharpReadOnly`, on `ModificationFacts`).
+- **Modification** decides whether a collection parameter, a private collection field or a method's result can be
+  `IReadOnlyList<T>` (`CSharpReadOnly`, on `ModificationFacts`).
 - **The whole program** (`CSharpProgram`) decides what is open for extension, which functional interfaces are
   delegates, which getters and setters are properties (`CSharpProperties`), and which type tokens are type arguments.
 
@@ -109,8 +109,17 @@ implements the interface.
     method, records and a method that a method reference names keep Java's types.
   - A private collection field no code adds to or removes from (`structurallyUnmodified`, the field's elements may
     change) is read-only too, where its uses allow as a parameter's do, and every value it is given converts: a
-    `List<T>`, a copying constructor, a read-only parameter or field. One a method returns keeps Java's type (C#
-    cannot hand an `IReadOnlyList<T>` back as a `List<T>`); so does one that its getter made a property.
+    `List<T>`, a copying constructor, a read-only parameter or field. One a method returns is read-only only where
+    that method's result is (C# cannot hand an `IReadOnlyList<T>` back as a `List<T>`), the property its getter made
+    too.
+  - A method's result is read-only where the method returns read-only fields and parameters, the results of other
+    such methods, or a library's value the archive says nothing is added to (`List.of`, `List.copyOf`,
+    `Collections.unmodifiableList`: `immutableResult`, `unmodifiableResult`), through a conditional's branches too,
+    at least one not `null`; each value converts as a field's does; and each call of it is a read as a parameter's use
+    is, a library's method on it being one the archive contracts as adding and removing nothing (no verdict on the
+    result says so otherwise). Only a class's method that overrides nothing and that nothing overrides: C#'s results
+    are invariant. Not a generic method (a call opener's result is the declared type), nor one a method reference
+    names. A fresh `new ArrayList<>(…)` keeps `List<T>`: no verdict says its callers add nothing.
   - A view of a collection (`entrySet()`, `keySet()`, `iterator()`, `subList()`, …) is a read only where the view is
     iterated, or a library method the archive contracts as not modifying reads it in turn; a removal through a
     view (`map.entrySet().iterator().remove()`) is one the analysis may not see, so a view another view or a
@@ -155,6 +164,10 @@ implements the interface.
   or of `null`, from a method the analysis does not find nullable, or from a lambda, whose result is a delegate's type
   argument; a write into an array's element, which C# prints without `?` (`arr[i] = null!`, `{ x, null! }`: the array
   holds the null, as Java's does); an assignment to a field the analysis finds non-null.
+- A delegate's parameter has the analysis's verdict, `object? entity`, where every method a method reference
+  converts to the delegate takes null there too (C# converts no method group of an `object` parameter to it,
+  CS8622; an unbound reference's receiver never is); a lambda with typed parameters (Java's own, a method
+  reference's, an anonymous class's) types them as the delegate does.
 - A reference cast of a value that may be null is to `T?`, `(Exprent?) o`: the cast lets the null through, in C# as
   in Java (CS8600). So is a cast of `null`, which picks an overload: `(AiMessage?) null`. A method's own type
   parameter has no `T?` there, and its operand is asserted instead: `(T) m.Get(k)!`.
@@ -634,7 +647,11 @@ differences:
   var to }`. A component's own type is `var`, a narrower one a type test; `_` leaves the component out. A library's
   record has no such properties (`SWITCH_FORM`). C# cannot test against an open generic type, and
   `o is Pair<object, object>` does not match a `Pair<string, int>`: in the class itself, `o instanceof Pair<?, ?> p`
-  (its `equals`) becomes `o is Pair<A, B> p`, with the class's own type parameters.
+  (its `equals`) becomes `o is Pair<A, B> p`, with the class's own type parameters. A test against a raw generic
+  type takes the arguments the operand's type determines: `termination instanceof PhaseTermination p` of a
+  `SolverTermination<Solution_>` is `termination is IPhaseTermination<Solution_> p`, every object that passes Java's
+  test having them; a sibling's through the generic supertype both have (`Termination<Solution_>`: Java lets no class
+  have it twice). Those type parameters are `notnull` where the tested type's are (`CSharpNotNullKeys`).
 - **Reference identity.** `==` between two Strings is identity in Java and content equality in C#, so it becomes
   `object.ReferenceEquals(a, b)`. So does `==` on a type parameter's value, which C# does not allow (except against
   `null`).
@@ -832,7 +849,10 @@ from a map, a stream's collector.
   `IList`, `Collection<?>` and `Set<?>` are `ICollection`, `Iterable<?>` is `IEnumerable`, `Map<?, ?>` is
   `IDictionary`, `Comparable<?>` is `IComparable`. A method's parameter of a program type with wildcards, `Context<?> c`, is captured as Java does
   in the body: the method gets a type parameter of its own, `void OnRequest<TEmbedded>(Context<TEmbedded> c)`,
-  constrained by the wildcard's bound or the declared one (`CSharpWildcards`). Not in a constructor, a functional
+  constrained by the wildcard's bound or the declared one (`CSharpWildcards`), and `notnull` where the type's own
+  is a dictionary's key. A diamond whose argument is such a parameter takes the capture where Java infers it,
+  `new EqualIndexer<T, TKey_>(keyUnpacker, …)` of a `KeyUnpacker<?>` captured as `TKey_`, and a type parameter no
+  argument determines its bound with the capture in it (`ICollection<TKey_>`). Not in a constructor, a functional
   interface's method, an override of a library method, or when the bound is no valid C# constraint (string, a
   delegate, a sealed class, a type parameter). Any other `?` of a program type is the type's wildcard interface, as a
   self-bounded type's is (below): the type parameters the program declares with `?`, in a field, a constructor's
@@ -858,7 +878,20 @@ from a map, a stream's collector.
   interface extends declares (the supertype mentions a removed parameter, or has no wildcard interface of its own)
   the wildcard interface declares itself, as the type sees it, an override of it too: `string IShadow.Name => Name;`,
   through the interface for a default method the class does not override, `((IVariable<S, V>) this).Ordinal()`; a
-  call through the wildcard interface needs no such cast. Only where it declares every member the
+  call through the wildcard interface needs no such cast. A reached member whose parameter is a removed type
+  parameter itself, `isMovable(Solution_ workingSolution, Object entity)`, it declares with the parameter's bound,
+  `bool IsMovable(object workingSolution, object entity)`, the bridge casting it back, `(Solution_) workingSolution`:
+  Java passes nothing through the wildcard but `null` or the capture's own value, which the cast holds for. A
+  result that is a JDK collection of a type with a wildcard interface it declares as C#'s covariant read-only
+  collection of that interface, which the member's value converts to without a cast: `List<VariableDescriptor<S>>
+  GetSourceVariableDescriptorList()` is `IReadOnlyList<IVariableDescriptor>` (a List; any other collection
+  `IEnumerable<…>`). A generic method C# prints erased (`object GetValue(object entity)`) it declares as it prints,
+  where the code calls it through a wildcard; a read-only parameter (`CSharpReadOnly`) read-only, as the member has
+  it. A type parameter removed in the result of a member the code reaches through the wildcard is removed in the
+  result type's wildcard interface too, `VariableMetaModel<?, ?, ?>.entity()` making `PlanningEntityMetaModel`'s
+  remove `Solution_`, until nothing changes (not into a functional interface, which the bridge adapts as a
+  delegate). The refusal (`NO_WILDCARD_INTERFACE`) names every member the interface cannot declare. Only
+  where it declares every member the
   code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
   where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
   ResultContainer_, Result_>)`, which C# could not infer from the wildcard interface), keeps the type's wildcards their

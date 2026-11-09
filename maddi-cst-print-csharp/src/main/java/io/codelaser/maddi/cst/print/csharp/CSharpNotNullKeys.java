@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InstanceOf;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -110,6 +111,8 @@ final class CSharpNotNullKeys {
                 else if (ex instanceof ConstructorCall cc && cc.constructor() != null) {
                     call(cc.constructor(), cc.parameterExpressions());
                     opened(cc);
+                } else if (ex instanceof InstanceOf io) {
+                    rawTest(io);
                 }
             } else if (e instanceof LocalVariableCreation lvc) {
                 lvc.localVariableStream().forEach(lv -> use(lv.parameterizedType()));
@@ -126,6 +129,21 @@ final class CSharpNotNullKeys {
         if (result != null && !result.parameters().isEmpty() && plain(result.parameters().getFirst())) {
             seeds.add(result.parameters().getFirst().typeParameter());
         }
+    }
+
+    /**
+     * A type test against a raw generic type, which C# writes with the arguments the operand's type determines
+     * ({@code is IPlanningListVariableMetaModel<Solution_, Entity_, Value_>}): those type parameters are passed.
+     */
+    private void rawTest(InstanceOf io) {
+        ParameterizedType tested = io.patternVariable() != null && io.patternVariable().localVariable() != null
+                ? io.patternVariable().localVariable().parameterizedType() : io.testType();
+        Map<TypeParameter, ParameterizedType> inferred = CSharpExpressionPrinter.rawTestInferred(tested,
+                io.expression().parameterizedType());
+        if (inferred == null) return;
+        inferred.forEach((tp, a) -> {
+            if (plain(a)) link(tp, a.typeParameter());
+        });
     }
 
     /** A generic method's type parameters as its arguments give them. */

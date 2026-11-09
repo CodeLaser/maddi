@@ -96,9 +96,8 @@ final class CSharpOpeners {
         for (int i = 0; i < arguments.size(); i++) {
             ParameterizedType formal = parameters.get(i).parameterizedType();
             ParameterizedType actual = arguments.get(i).parameterizedType();
-            if (actual == null || formal.arrays() != 0 || formal.typeInfo() == null
-                || !formal.typeInfo().equals(actual.typeInfo()) || formal.parameters().isEmpty()
-                || formal.parameters().size() != actual.parameters().size()
+            if (actual == null || formal.arrays() != 0 || actual.arrays() != 0 || formal.parameters().isEmpty()
+                || aligned(formal, actual, created) == null
                 || actual.parameters().stream().noneMatch(CSharpOpeners::open)) {
                 continue;
             }
@@ -131,10 +130,13 @@ final class CSharpOpeners {
         TypeInfo created = cc.constructor().typeInfo();
         ParameterizedType formal = cc.constructor().parameters().get(opened).parameterizedType();
         ParameterizedType actual = cc.parameterExpressions().get(opened).parameterizedType();
+        List<ParameterizedType> aligned = aligned(formal, actual, created);
         Map<TypeParameter, Integer> bound = new HashMap<>();
         for (int j = 0; j < actual.parameters().size(); j++) {
-            ParameterizedType f = formal.parameters().get(j);
+            ParameterizedType f = aligned.get(j);
             if (open(actual.parameters().get(j))) {
+                // a wildcard the formal type does not take: GenuineEntityMetaModel's own
+                if (f == null) continue;
                 if (!f.isTypeParameter() || f.arrays() != 0 || !created.typeParameters().contains(f.typeParameter())
                     || f.typeParameter().typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())
                     || bound.put(f.typeParameter(), j) != null) {
@@ -145,12 +147,48 @@ final class CSharpOpeners {
             }
         }
         // a bound type parameter only where the wildcard is
-        for (int j = 0; j < formal.parameters().size(); j++) {
-            if (!open(actual.parameters().get(j)) && CstQueries.mentionsAny(formal.parameters().get(j), List.copyOf(bound.keySet()))) {
+        for (int j = 0; j < aligned.size(); j++) {
+            if (!open(actual.parameters().get(j)) && aligned.get(j) != null
+                && CstQueries.mentionsAny(aligned.get(j), List.copyOf(bound.keySet()))) {
                 return null;
             }
         }
         return bound;
+    }
+
+    /**
+     * The formal parameter's type arguments by the actual argument's positions: at position j, the formal's argument
+     * where the actual's type passes its type parameter j, {@code PlanningEntityMetaModel<S, E>} for a
+     * {@code GenuineEntityMetaModel<S, ?>} that implements {@code PlanningEntityMetaModel<Solution_, Entity_>}; null
+     * at a position the formal's type does not take. Null when the actual's type is neither the formal's nor a
+     * subtype that passes each of the formal's arguments a bare type parameter or none, and those it passes none
+     * mention none of the created class's type parameters.
+     */
+    private static List<ParameterizedType> aligned(ParameterizedType formal, ParameterizedType actual, TypeInfo created) {
+        TypeInfo x = actual.typeInfo();
+        TypeInfo f = formal.typeInfo();
+        if (x == null || f == null || actual.parameters().size() != x.typeParameters().size()
+            || formal.parameters().size() != f.typeParameters().size()) {
+            return null;
+        }
+        if (x.equals(f)) return formal.parameters();
+        ParameterizedType seen = CstSupertypes.asSeen(x, f);
+        if (seen == null || seen.parameters().size() != f.typeParameters().size()) return null;
+        List<ParameterizedType> aligned = new ArrayList<>();
+        for (int j = 0; j < x.typeParameters().size(); j++) aligned.add(null);
+        for (int i = 0; i < seen.parameters().size(); i++) {
+            ParameterizedType a = seen.parameters().get(i);
+            int j = a.isTypeParameter() && a.arrays() == 0 && a.wildcard() == null
+                    ? x.typeParameters().indexOf(a.typeParameter()) : -1;
+            if (j >= 0) {
+                if (aligned.get(j) != null) return null;
+                aligned.set(j, formal.parameters().get(i));
+            } else if (CstQueries.mentionsAny(a, x.typeParameters())
+                       || CstQueries.mentionsAny(formal.parameters().get(i), created.typeParameters())) {
+                return null;
+            }
+        }
+        return aligned;
     }
 
     private static boolean open(ParameterizedType a) {

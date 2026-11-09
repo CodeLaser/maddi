@@ -30,6 +30,7 @@ import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
@@ -563,13 +564,41 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return out;
     }
 
+    /**
+     * A delegate's parameter is nullable where the analysis says so and each method a method reference converts
+     * to the delegate takes null there too: C# converts no method group of a {@code string} parameter to a delegate
+     * of a {@code string?} one (CS8622). An unbound reference's receiver, the first parameter, is not null.
+     */
+    static NullableState delegateParameter(TypeInfo typeInfo, MethodInfo sam, ParameterInfo p) {
+        CSharpProgram program = CSharpContext.program();
+        NullableState verdict = program.facts().nullable(p);
+        if (verdict != NullableState.NULLABLE) return verdict;
+        int n = sam.parameters().size();
+        for (MethodInfo m : program.referencedAs(typeInfo)) {
+            int i;
+            if (m.parameters().size() == n) {
+                i = p.index();
+            } else if (!m.isStatic() && m.parameters().size() + 1 == n && p.index() > 0) {
+                i = p.index() - 1;
+            } else {
+                return NullableState.UNSPECIFIED;
+            }
+            if (i >= m.parameters().size() || program.facts().nullable(m.parameters().get(i)) != NullableState.NULLABLE) {
+                return NullableState.UNSPECIFIED;
+            }
+        }
+        return verdict;
+    }
+
     /** {@code public delegate int ExprentIterator(Exprent exprent);}: see {@link CSharpProgram}. */
     private OutputBuilder delegate(Qualification q) {
         MethodInfo sam = CSharpProgram.invoked(typeInfo);
         String access = typeAccess();
         String typeParameters = CSharpNames.declaredTypeParameters(typeInfo.typeParameters());
+        // with the analysis's verdict, as a method's parameter: a caller may pass null (Lookup's entity)
         String parameters = sam.parameters().stream()
-                .map(p -> CSharpTypeName.of(p.parameterizedType(), q) + " " + CSharpNames.name(p.name()))
+                .map(p -> CSharpTypeName.declared(p.parameterizedType(), false, delegateParameter(typeInfo, sam, p), q)
+                          + " " + CSharpNames.name(p.name()))
                 .collect(Collectors.joining(", "));
         StringBuilder sb = new StringBuilder(access == null ? "" : access + " ").append("delegate ")
                 .append(CSharpTypeName.of(sam.returnType(), q)).append(' ').append(CSharpNames.type(typeInfo))

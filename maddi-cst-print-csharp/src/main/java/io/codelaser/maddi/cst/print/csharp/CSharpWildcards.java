@@ -49,6 +49,7 @@ final class CSharpWildcards {
     private CSharpWildcards() {
     }
 
+    /** {@code q} null: the names only, without the constraints. */
     static Captured captured(MethodInfo method, Qualification q) {
         if (!mayBeGeneric(method)) return Captured.NONE;
         Set<String> taken = new HashSet<>();
@@ -82,9 +83,14 @@ final class CSharpWildcards {
                 forParameter.add(unique);
                 List<ParameterizedType> bounds = bounds(declared, a);
                 if (!constrainable(bounds)) ok = false;
-                if (!bounds.isEmpty()) {
-                    forConstraints.add("where " + unique + " : " + String.join(", ",
-                            bounds.stream().map(b -> CSharpTypeName.of(b, q)).toList()));
+                // the generic type's own is a dictionary's key (CSharpNotNullKeys): the capture is, as it goes there
+                boolean notNull = q != null && CSharpContext.program().notNullKey(declared)
+                                  && bounds.stream().noneMatch(b -> b.typeInfo() != null && !b.typeInfo().isInterface());
+                if ((!bounds.isEmpty() || notNull) && q != null) {
+                    List<String> parts = new ArrayList<>();
+                    if (notNull) parts.add("notnull");
+                    bounds.forEach(b -> parts.add(CSharpTypeName.of(b, q)));
+                    forConstraints.add("where " + unique + " : " + String.join(", ", parts));
                 }
             }
             if (!ok) continue;

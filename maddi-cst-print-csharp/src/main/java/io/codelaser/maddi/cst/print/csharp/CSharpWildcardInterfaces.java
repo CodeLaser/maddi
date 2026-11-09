@@ -123,9 +123,10 @@ final class CSharpWildcardInterfaces {
         List<TypeParameter> candidates = candidates(t);
         List<TypeParameter> selfBounded = t.typeParameters().stream().filter(tp -> selfBounded(t, tp)).toList();
         if (candidates.size() == selfBounded.size()) return candidates;
-        Object unreachable = unreachable(t, candidates);
-        if (unreachable == null) return candidates;
-        CSharpContext.message(CSharpPrintCode.NO_WILDCARD_INTERFACE, t, t.fullyQualifiedName() + ": " + unreachable);
+        List<Object> unreachable = unreachable(t, candidates);
+        if (unreachable.isEmpty()) return candidates;
+        CSharpContext.message(CSharpPrintCode.NO_WILDCARD_INTERFACE, t, t.fullyQualifiedName() + ": "
+                + unreachable.stream().map(String::valueOf).collect(Collectors.joining("; ")));
         return selfBounded;
     }
 
@@ -146,10 +147,11 @@ final class CSharpWildcardInterfaces {
 
     /**
      * What the code reaches through t's wildcard that the wildcard interface without {@code removed} does not
-     * declare: a member, a field written, a generic parameter the wildcard goes into ({@link #wildcarded}); null
+     * declare: a member, a field written, a generic parameter the wildcard goes into ({@link #wildcarded}); empty
      * when it declares everything.
      */
-    private static Object unreachable(TypeInfo t, List<TypeParameter> removed) {
+    private static List<Object> unreachable(TypeInfo t, List<TypeParameter> removed) {
+        List<Object> unreachable = new ArrayList<>();
         Set<Object> declared = declared(t, removed);
         for (Object info : CSharpContext.program().reachedThroughWildcard(t)) {
             if (declared.contains(info) || info == CSharpOpeners.OPENED) continue;
@@ -163,12 +165,12 @@ final class CSharpWildcardInterfaces {
                         .anyMatch(o -> inheritedClosed(t, o, removed)) || inheritedClosed(t, m.typeInfo(), removed)) {
                     continue;
                 }
-                // a superclass's method its own wildcard interface declares, which t's extends
-                if (declaredBySuperclass(t, m)) continue;
+                // a superclass's method its own wildcard interface declares, which t's extends; a super-interface's
+                if (declaredBySuperclass(t, m) || declaredBySuperinterface(t, m, removed)) continue;
             }
-            return info;
+            unreachable.add(info);
         }
-        return null;
+        return unreachable;
     }
 
     /**
@@ -187,6 +189,25 @@ final class CSharpWildcardInterfaces {
             c = st;
         }
         return declared(owner, removed(owner)).contains(m);
+    }
+
+    /**
+     * {@code m} is a super-interface's, of an interface, declared by that super-interface's wildcard interface, which
+     * t's extends: each super-interface between removes what t passes it of its removed positions, and has a wildcard
+     * interface ({@link #supertypes}, {@link #removeThroughSuperinterfaces}).
+     */
+    private static boolean declaredBySuperinterface(TypeInfo t, MethodInfo m, List<TypeParameter> removed) {
+        TypeInfo owner = m.typeInfo();
+        if (!t.isInterface() || !owner.isInterface() || owner.equals(t)) return false;
+        for (ParameterizedType s : t.interfacesImplemented()) {
+            TypeInfo st = s.typeInfo();
+            if (st == null || !CstQueries.mentionsAny(s, removed) || !has(st) || !erasable(s, removed)) continue;
+            if (st.equals(owner) ? declared(owner, removed(owner)).contains(m)
+                    : st.recursiveSuperTypeStream().anyMatch(owner::equals) && declaredBySuperinterface(st, m, removed(st))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** {@code owner} is an interface the wildcard interface extends: t's, and closed. */
@@ -322,7 +343,7 @@ final class CSharpWildcardInterfaces {
         if (pt.isTypeParameter()) return true;
         TypeInfo t = pt.typeInfo();
         if (t == null) return false;
-        if (!CSharpNames.translated(t)) return CSharpTypeName.dropsArguments(t);
+        if (!CSharpNames.translated(t)) return CSharpTypeName.dropsArguments(t) || covariantElement(pt, removed) != null;
         if (!has(t)) return false;
         List<TypeParameter> own = removed(t);
         for (int i = 0; i < t.typeParameters().size(); i++) {
@@ -333,9 +354,32 @@ final class CSharpWildcardInterfaces {
     }
 
     /**
+     * A generic method C# prints erased ({@link CSharpProgram#erasedGeneric}) whose signature then mentions none of
+     * its type parameters, {@code <Value_> Value_ getValue(Object entity)} as {@code object GetValue(object entity)}:
+     * the wildcard interface declares it so. Its parameters mention none, its result is one or mentions none.
+     */
+    private static boolean plainErasure(MethodInfo m) {
+        ParameterizedType r = m.returnType();
+        return m.parameters().stream().noneMatch(p -> CstQueries.mentionsAny(p.parameterizedType(), m.typeParameters()))
+               && (!CstQueries.mentionsAny(r, m.typeParameters())
+                   || r.isTypeParameter() && r.arrays() == 0 && m.typeParameters().contains(r.typeParameter()));
+    }
+
+    /**
+     * A parameter that is a removed type parameter itself, {@code isMovable(Solution_ workingSolution, Object entity)}:
+     * the wildcard interface declares it as the bound ({@code object}), and the bridge casts it back. Java's code can
+     * pass nothing else through the wildcard than {@code null} or a value of the capture, the receiver's own, for which
+     * the cast holds.
+     */
+    private static boolean erasedParameter(ParameterInfo p, List<TypeParameter> removed) {
+        ParameterizedType pt = p.parameterizedType();
+        return pt.arrays() == 0 && pt.wildcard() == null && pt.isTypeParameter() && removed.contains(pt.typeParameter());
+    }
+
+    /**
      * A method the wildcard interface may declare: an instance method reachable outside the type, not an override of
      * the program's (the supertype's wildcard interface has it) or of Object's, not a generic method C# prints erased,
-     * with no parameter of a removed type.
+     * with no parameter of a removed type but one that is a removed type parameter ({@link #erasedParameter}).
      */
     private static boolean candidate(TypeInfo t, MethodInfo m, List<TypeParameter> removed) {
         CSharpProgram program = CSharpContext.program();
@@ -352,7 +396,9 @@ final class CSharpWildcardInterfaces {
                                                                      // an interface's redeclaration is ambiguous with
                                                                      // the supertype's on the interface itself (CS0121)
                                                                      || t.isInterface())))
-            || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0 || program.erasedGeneric(m)
+            || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0
+            // one C# prints erased only where the code calls it through a wildcard (a subtype's too)
+            || program.erasedGeneric(m) && (!plainErasure(m) || !program.reachedThroughAnyWildcard(m))
             || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
             return false;
         }
@@ -364,7 +410,13 @@ final class CSharpWildcardInterfaces {
         }
         CSharpProperties.Property accessor = program.accessorOf(m);
         if (accessor != null && accessor.getter() != m) return false;
-        if (m.parameters().stream().anyMatch(p -> CstQueries.mentionsAny(p.parameterizedType(), removed) || p.isVarArgs())) {
+        if (m.parameters().stream().anyMatch(p -> p.isVarArgs() || CstQueries.mentionsAny(p.parameterizedType(), removed)
+                                                  && !erasedParameter(p, removed))) {
+            return false;
+        }
+        // one with an erased parameter only where the code calls it through the wildcard: the cast is the bridge's
+        if (m.parameters().stream().anyMatch(p -> erasedParameter(p, removed))
+            && !program.reachedThroughWildcard(t).contains(m)) {
             return false;
         }
         return m.typeParameters().stream().noneMatch(tp -> tp.typeBounds().stream().anyMatch(b -> CstQueries.mentionsAny(b, removed)));
@@ -460,18 +512,22 @@ final class CSharpWildcardInterfaces {
                 });
             }
         }
-        Map<TypeInfo, Set<TypeParameter>> result = new HashMap<>();
-        wildcarded.forEach((t, tps) -> result.put(t, Set.copyOf(tps)));
-        // the members the code reaches through such a wildcard: a method called, a field read
-        Map<TypeInfo, Set<Object>> reached = new HashMap<>();
-        for (TypeInfo owner : all) {
-            for (MethodInfo method : owner.constructorsAndMethods()) {
-                if (method.methodBody() != null) reaches(owner, method, method.methodBody(), result, reached, erased);
+        Map<TypeInfo, Set<TypeParameter>> result;
+        Map<TypeInfo, Set<Object>> reached;
+        do {
+            result = new HashMap<>();
+            for (var entry : wildcarded.entrySet()) result.put(entry.getKey(), Set.copyOf(entry.getValue()));
+            // the members the code reaches through such a wildcard: a method called, a field read
+            reached = new HashMap<>();
+            for (TypeInfo owner : all) {
+                for (MethodInfo method : owner.constructorsAndMethods()) {
+                    if (method.methodBody() != null) reaches(owner, method, method.methodBody(), result, reached, erased);
+                }
+                for (FieldInfo f : owner.fields()) {
+                    if (f.initializer() != null && !f.initializer().isEmpty()) reaches(owner, null, f.initializer(), result, reached, erased);
+                }
             }
-            for (FieldInfo f : owner.fields()) {
-                if (f.initializer() != null && !f.initializer().isEmpty()) reaches(owner, null, f.initializer(), result, reached, erased);
-            }
-        }
+        } while (throughResults(reached, wildcarded));
         Map<TypeInfo, Set<Object>> reachedCopy = new HashMap<>();
         reached.forEach((t, members) -> reachedCopy.put(t, Set.copyOf(members)));
         return new Uses(Map.copyOf(result), Map.copyOf(reachedCopy));
@@ -541,6 +597,89 @@ final class CSharpWildcardInterfaces {
             }
             return true;
         });
+    }
+
+    /**
+     * A removed type parameter in the result of a member the code reaches through the wildcard,
+     * {@code PlanningEntityMetaModel<Solution_, Entity_> entity()} of a {@code VariableMetaModel<?, ?, ?>}: the
+     * wildcard interface can declare the member only as the result's wildcard interface without those positions, so
+     * they are removed there too; the reach is then found again, until nothing changes. Through a JDK collection's
+     * element too ({@code List<VariableMetaModel<Solution_, Entity_, ?>>}). True when it removed one.
+     */
+    private static boolean throughResults(Map<TypeInfo, Set<Object>> reached,
+                                          Map<TypeInfo, Set<TypeParameter>> wildcarded) {
+        boolean changed = false;
+        for (var entry : reached.entrySet()) {
+            Set<TypeParameter> removed = wildcarded.get(entry.getKey());
+            if (removed == null || removed.isEmpty()) continue;
+            List<TypeParameter> list = List.copyOf(removed);
+            for (Object member : entry.getValue()) {
+                // the result as the reached type sees it: an inherited method's in the type's own parameters
+                if (member instanceof MethodInfo m && !m.isStatic() && !m.isConstructor()) {
+                    Map<TypeParameter, ParameterizedType> seen = m.typeInfo().equals(entry.getKey()) ? Map.of()
+                            : seenFrom(entry.getKey(), m.typeInfo());
+                    if (seen == null) continue;
+                    changed |= removeThrough(CstSupertypes.substitute(m.returnType(), seen), list, wildcarded);
+                    // an interface's member a super-interface declares: that one's wildcard interface declares it
+                    if (entry.getKey().isInterface() && m.typeInfo().isInterface()) {
+                        changed |= removeThroughSuperinterfaces(entry.getKey(), m.typeInfo(), list, wildcarded);
+                    }
+                }
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * A super-interface's member reached through an interface's wildcard, {@code name()} of {@code VariableMetaModel}
+     * through a {@code ShadowVariableMetaModel<S, E, ?>}: an interface's wildcard interface cannot redeclare it (the
+     * generic interface would extend both, CS0121), so each super-interface on the way to the declaring one removes
+     * the positions t removes, and t's wildcard interface extends theirs ({@link #declaredBySuperinterface}).
+     */
+    private static boolean removeThroughSuperinterfaces(TypeInfo t, TypeInfo owner, List<TypeParameter> removed,
+                                                        Map<TypeInfo, Set<TypeParameter>> wildcarded) {
+        if (t.equals(owner)) return false;
+        boolean changed = false;
+        for (ParameterizedType s : t.interfacesImplemented()) {
+            TypeInfo st = s.typeInfo();
+            if (st == null || !CSharpNames.translated(st)
+                || !st.equals(owner) && st.recursiveSuperTypeStream().noneMatch(owner::equals)) {
+                continue;
+            }
+            changed |= removeThrough(s, removed, wildcarded);
+            Set<TypeParameter> next = wildcarded.get(st);
+            if (next != null && !next.isEmpty()) {
+                changed |= removeThroughSuperinterfaces(st, owner, List.copyOf(next), wildcarded);
+            }
+        }
+        return changed;
+    }
+
+    private static boolean removeThrough(ParameterizedType pt, List<TypeParameter> removed,
+                                         Map<TypeInfo, Set<TypeParameter>> wildcarded) {
+        if (pt == null || pt.arrays() != 0 || pt.typeInfo() == null) return false;
+        TypeInfo b = pt.typeInfo();
+        boolean changed = false;
+        if (!CSharpNames.translated(b)) {
+            if (COVARIANT_COLLECTIONS.contains(b.fullyQualifiedName()) && pt.parameters().size() == 1) {
+                ParameterizedType e = pt.parameters().getFirst();
+                changed = removeThrough(e.wildcard() != null && e.wildcard().isExtends() ? e.withWildcard(null) : e,
+                        removed, wildcarded);
+            }
+            return changed;
+        }
+        // a functional interface's result is adapted as a delegate's (erasedDelegate), not its wildcard interface
+        if (pt.parameters().size() != b.typeParameters().size()
+            || b.isInterface() && CstSupertypes.singleAbstractMethod(b) != null) {
+            return false;
+        }
+        for (int i = 0; i < pt.parameters().size(); i++) {
+            ParameterizedType a = pt.parameters().get(i);
+            if (a.wildcard() == null && CstQueries.mentionsAny(a, removed)) {
+                changed |= wildcarded.computeIfAbsent(b, k -> new HashSet<>()).add(b.typeParameters().get(i));
+            }
+        }
+        return changed;
     }
 
     private static void wildcarded(ParameterizedType pt, Map<TypeInfo, Set<TypeParameter>> wildcarded) {
@@ -669,6 +808,14 @@ final class CSharpWildcardInterfaces {
         TypeInfo t = pt.typeInfo();
         // Class<A>: C#'s Type, which has no arguments
         if (t != null && !CSharpNames.translated(t) && CSharpTypeName.dropsArguments(t)) return CSharpTypeName.of(pt, q);
+        // List<Descriptor<S>> of a removed S: a read-only collection of the element's wildcard interface
+        ParameterizedType element = covariantElement(pt, removed);
+        if (element != null) {
+            String e = erased(element, removed, q);
+            if (e == null) return null;
+            CSharpContext.using("System.Collections.Generic");
+            return (LIST.equals(t.fullyQualifiedName()) ? "IReadOnlyList<" : "IEnumerable<") + e + ">";
+        }
         // List<G> of a removed G: C#'s non-generic IList, which every List<T> is (the bridge casts, nonGenericBridge)
         if (nonGenericErasure(pt, removed)) return nonGenericName(t);
         if (t == null || !has(t)) return null;
@@ -686,10 +833,41 @@ final class CSharpWildcardInterfaces {
         return wildcardInterface + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
     }
 
+    private static final String LIST = "java.util.List";
+
+    /** The JDK's single-element collections whose C# counterpart is an {@code IEnumerable<T>}, a List an {@code IReadOnlyList<T>}. */
+    private static final Set<String> COVARIANT_COLLECTIONS = Set.of(LIST, "java.util.Collection",
+            "java.util.SequencedCollection", "java.util.Set", "java.lang.Iterable");
+
+    /**
+     * The element of a JDK collection, {@code List<Descriptor<S>>} or {@code List<? extends Descriptor<S>>}, that is a
+     * program type mentioning a removed type parameter and with a wildcard interface the erasure can name: C#'s
+     * covariant {@code IReadOnlyList<IDescriptor>} (for a List; {@code IEnumerable<IDescriptor>} for any other) is
+     * what the member's value converts to, without a cast. Not a removed type parameter itself, which covariance does
+     * not convert. Null otherwise.
+     */
+    private static ParameterizedType covariantElement(ParameterizedType pt, List<TypeParameter> removed) {
+        TypeInfo t = pt.typeInfo();
+        if (t == null || pt.arrays() != 0 || pt.parameters().size() != 1 || CSharpNames.translated(t)
+            || !COVARIANT_COLLECTIONS.contains(t.fullyQualifiedName())) {
+            return null;
+        }
+        ParameterizedType a = pt.parameters().getFirst();
+        if (a.wildcard() != null) {
+            if (!a.wildcard().isExtends()) return null;
+            a = a.withWildcard(null);
+        }
+        if (a.arrays() != 0 || a.isTypeParameter() || a.typeInfo() == null || !CSharpNames.translated(a.typeInfo())
+            || !CstQueries.mentionsAny(a, removed) || !erasable(a, removed)) {
+            return null;
+        }
+        return a;
+    }
+
     /** {@code List<G>}, {@code Map<K, G>} of a removed {@code G}: a JDK collection C# has a non-generic interface of. */
     static boolean nonGenericErasure(ParameterizedType pt, List<TypeParameter> removed) {
         TypeInfo t = pt.typeInfo();
-        return t != null && pt.arrays() == 0 && !CSharpNames.translated(t) && CSharpTypeName.nonGeneric(t) != null
+        return t != null && pt.arrays() == 0 && covariantElement(pt, removed) == null && !CSharpNames.translated(t) && CSharpTypeName.nonGeneric(t) != null
                && !"java.lang.Comparable".equals(t.fullyQualifiedName()) && CstQueries.mentionsAny(pt, removed);
     }
 
@@ -936,14 +1114,25 @@ final class CSharpWildcardInterfaces {
                 continue;
             }
             String name = CSharpNames.method(m);
-            String typeParameters = CSharpNames.typeParameters(m.typeParameters());
+            boolean erasedGeneric = program.erasedGeneric(m);
+            String typeParameters = erasedGeneric ? "" : CSharpNames.typeParameters(m.typeParameters());
             List<String> parameters = new ArrayList<>();
             List<String> arguments = new ArrayList<>();
             for (var p : m.parameters()) {
                 String pn = CSharpNames.name(p.name());
-                // with the nullability the type's own member has, which the bridge passes on (CS8604)
-                parameters.add(CSharpTypeName.declared(p.parameterizedType(), false, program.facts().nullable(p), q)
-                               + " " + pn);
+                NullableState nullable = program.facts().nullable(p);
+                if (erasedParameter(p, removed)) {
+                    // the bound, cast back to the type parameter by the bridge: T? where null may come
+                    String bound = CSharpTypeName.rawArgument(p.parameterizedType().typeParameter(), q);
+                    boolean maybeNull = nullable == NullableState.NULLABLE;
+                    parameters.add(bound + (maybeNull && !bound.endsWith("?") ? "?" : "") + " " + pn);
+                    arguments.add("(" + CSharpNames.typeParameter(p.parameterizedType().typeParameter())
+                                  + (maybeNull ? "?" : "") + ") " + pn);
+                    continue;
+                }
+                // with the nullability the type's own member has, which the bridge passes on (CS8604), read-only as
+                // the member's own (CSharpReadOnly)
+                parameters.add(CSharpTypeName.declared(p.parameterizedType(), program.readOnly(p), nullable, q) + " " + pn);
                 arguments.add(pn);
             }
             String signature = name + typeParameters + "(" + String.join(", ", parameters) + ")";
@@ -951,7 +1140,7 @@ final class CSharpWildcardInterfaces {
                     .collect(Collectors.joining(",")))) {
                 continue;
             }
-            List<String> constraints = CSharpTypeName.constraints(m.typeParameters(), q);
+            List<String> constraints = erasedGeneric ? List.of() : CSharpTypeName.constraints(m.typeParameters(), q);
             String declaration = modifier + returnType + " " + signature
                                  + (constraints.isEmpty() ? "" : " " + String.join(" ", constraints)) + ";";
             String bridge;
@@ -1011,8 +1200,8 @@ final class CSharpWildcardInterfaces {
         List<String> arguments = new ArrayList<>();
         for (ParameterInfo p : m.parameters()) {
             String pn = CSharpNames.name(p.name());
-            parameters.add(CSharpTypeName.declared(CstSupertypes.substitute(p.parameterizedType(), seen), false,
-                    program.facts().nullable(p), q) + " " + pn);
+            parameters.add(CSharpTypeName.declared(CstSupertypes.substitute(p.parameterizedType(), seen),
+                    program.readOnly(p), program.facts().nullable(p), q) + " " + pn);
             arguments.add(pn);
         }
         String signature = name + "(" + String.join(", ", parameters) + ")";
@@ -1032,7 +1221,15 @@ final class CSharpWildcardInterfaces {
      */
     private static String result(MethodInfo m, List<TypeParameter> removed, Qualification q) {
         NullableState nullable = CSharpContext.program().facts().nullable(m);
-        if (!CstQueries.mentionsAny(m.returnType(), removed)) return CSharpTypeName.declared(m.returnType(), false, nullable, q);
+        if (CSharpContext.program().erasedGeneric(m) && m.returnType().isTypeParameter()
+            && m.typeParameters().contains(m.returnType().typeParameter())) {
+            // as the method prints it, erased: its bound (CSharpMethodPrinter)
+            String bound = CSharpTypeName.rawArgument(m.returnType().typeParameter(), q);
+            return nullable == NullableState.NULLABLE && !bound.endsWith("?") ? bound + "?" : bound;
+        }
+        if (!CstQueries.mentionsAny(m.returnType(), removed)) {
+            return CSharpTypeName.declared(m.returnType(), CSharpContext.program().readOnly(m), nullable, q);
+        }
         String erased = erasedDelegate(m.returnType(), removed) ? erasedDelegateType(m.returnType(), removed, q)
                 : erased(m.returnType(), removed, q);
         if (erased == null) return null;

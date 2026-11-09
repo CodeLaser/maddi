@@ -277,10 +277,63 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "private readonly IReadOnlyDictionary<string, int> weights = new Dictionary<string, int>();");
         contains(cs, "private readonly IReadOnlyList<string> stored;");
         contains(cs, "internal Registry(IReadOnlyList<string> initial) { this.stored = initial; }");
-        // returned, through the property its getter became: C#'s class
-        contains(cs, "internal List<string> AllKept { get; } = new List<string>();");
+        // returned, through the property its getter became, which no code changes either
+        contains(cs, "internal IReadOnlyList<string> AllKept { get; } = new List<string>();");
         assertFalse(cs.contains("IReadOnlyList<string> viewed"), cs);
         contains(cs, "names.Contains(x)");
+    }
+
+    /**
+     * A method's result is read-only where it returns only read-only fields or the library's unmodifiable values
+     * ({@code List.of}), and each call of it is a read: a library's method that adds and removes nothing, a
+     * {@code foreach}, a read-only parameter. Not one that returns a fresh list (no verdict says nothing is added
+     * to it), nor one whose caller adds to the result, which keeps the field it returns as Java declares it.
+     */
+    @Test
+    public void readOnlyResults() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean structurallyUnmodified(FieldInfo field) {
+                return Set.of("items", "other").contains(field.name());
+            }
+
+            @Override
+            public boolean structurallyNonModifying(MethodInfo method) {
+                return Set.of("size", "contains", "get").contains(method.name());
+            }
+
+            @Override
+            public boolean unmodifiableResult(MethodInfo method) {
+                return "of".equals(method.name());
+            }
+        });
+        String cs = translate("Catalog", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.List;
+                class Catalog {
+                    private final List<String> items = new ArrayList<>();
+                    private final List<String> other = new ArrayList<>();
+                    List<String> items() { return items; }
+                    List<String> fixed(boolean empty) { return empty ? null : List.of("a", "b"); }
+                    List<String> letters() { return List.of("x"); }
+                    List<String> copied() { return new ArrayList<>(items); }
+                    List<String> others() { return other; }
+                    int count(String x) {
+                        int n = 0;
+                        for (String s : items()) n++;
+                        return n + letters().size() + (letters().contains(x) ? 1 : 0) + copied().size();
+                    }
+                    void grow(Catalog c) { c.others().add("x"); }
+                }
+                """);
+        // the getter and its field are one property
+        contains(cs, "internal IReadOnlyList<string> Items { get; } = new List<string>();");
+        contains(cs, "internal IReadOnlyList<string> Fixed(bool empty) => empty ? null : (new List<string> { \"a\", \"b\" });");
+        contains(cs, "internal IReadOnlyList<string> Letters()");
+        contains(cs, "internal List<string> Copied()");
+        contains(cs, "internal List<string> Others { get; } = new List<string>();");
+        contains(cs, "Letters().Contains(x)");
     }
 
     @Language("java")
@@ -884,6 +937,120 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                 """);
         contains(cs, "into.InsertAll(0, items);");
         contains(cs, "into.PutAll(from);");
+        assertTrue(nullableWarnings.isEmpty(), nullableWarnings + "\n" + cs);
+    }
+
+    /**
+     * A wildcard interface declares a member's read-only parameter as the member has it: the bridge passes it on.
+     */
+    @Test
+    public void readOnlyParameterInWildcardInterface() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean unmodified(ParameterInfo parameter) {
+                return "locations".equals(parameter.name());
+            }
+        });
+        String cs = translate("Streams", """
+                package a;
+                import java.util.Set;
+                import java.util.TreeSet;
+                class Streams {
+                    static final class Stream<S> {
+                        private final Set<String> all = new TreeSet<>();
+                        void addLocations(Set<String> locations) { all.addAll(locations); }
+                    }
+                    private final Stream<?> stream;
+                    Streams(Stream<?> stream) { this.stream = stream; }
+                    void add() { stream.addLocations(new TreeSet<>()); }
+                }
+                """);
+        contains(cs, "internal void AddLocations(IReadOnlySet<string> locations);");
+        contains(cs, "void IStream.AddLocations(IReadOnlySet<string> locations) => AddLocations(locations);");
+    }
+
+    /**
+     * A delegate's parameter has the analysis's nullability, {@code object? entity} where a caller passes null; not
+     * where a method reference converted to the delegate takes no null there (CS8622).
+     */
+    @Test
+    public void delegateParameterNullable() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(ParameterInfo parameter) {
+                return parameter.methodInfo().typeInfo().isInterface() || "supplier".equals(parameter.name())
+                        ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+        });
+        String cs = translate("Lookups", """
+                package a;
+                class Lookups {
+                    interface Getter { String get(Object entity); }
+                    interface Mapper { String map(Object value); }
+                    static String name(Object value) { return String.valueOf(value); }
+                    static String read(Getter g) { return g.get(null); }
+                    static String apply(Mapper m) { return m.map("x"); }
+                    static String use() {
+                        return read(e -> "e") + read((Object e) -> "t") + apply(Lookups::name) + run(Context::change)
+                               + read(new Getter() { public String get(Object entity) { return "a"; } });
+                    }
+                    interface Impact { String impact(Context context, Object supplier); }
+                    static final class Context { String change(Object supplier) { return "c"; } }
+                    static String run(Impact i) { return i.impact(new Context(), null); }
+                }
+                """);
+        contains(cs, "delegate string Getter(object? entity);");
+        contains(cs, "delegate string Mapper(object value);");
+        // an unbound reference: its receiver is not null, its lambda's typed parameters as the delegate has them
+        contains(cs, "delegate string Impact(Context context, object? supplier);");
+        contains(cs, "(Context p0, object? p1) => p0.Change(p1)");
+        // a lambda Java types: as the delegate types it
+        contains(cs, "Read((object? e) => \"t\")");
+        contains(cs, "Read((object? entity) => \"a\")");
+        assertTrue(nullableWarnings.isEmpty(), nullableWarnings + "\n" + cs);
+    }
+
+    /**
+     * A dictionary's key type parameter, {@code where K : notnull}, takes a captured wildcard parameter's capture
+     * (the capture is {@code notnull} too) and the arguments a raw type test infers ({@code is Keyed<K2>}: K2 is
+     * {@code notnull}): CS8714 otherwise.
+     */
+    @Test
+    public void notNullKeyThroughCaptureAndTypeTest() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Keys", """
+                package a;
+                import java.util.HashMap;
+                import java.util.Map;
+                class Keys {
+                    interface Unpacker<K> { K key(Object o); }
+                    static final class Index<K> {
+                        private final Map<K, Integer> counts = new HashMap<>();
+                        private final Unpacker<K> unpacker;
+                        Index(Unpacker<K> unpacker) { this.unpacker = unpacker; }
+                        int size() { return counts.size(); }
+                    }
+                    interface Source<K> { int ordinal(); }
+                    interface Keyed<K> extends Source<K> { HashMap<K, String> keys(); }
+                    static int build(Unpacker<?> unpacker) { return new Index<>(unpacker).size(); }
+                    @SuppressWarnings("rawtypes")
+                    static <K2> boolean keyed(Source<K2> source) { return source instanceof Keyed; }
+                }
+                """);
+        contains(cs, "new Index<TK>(unpacker)");
+        contains(cs, "where TK : notnull");
+        contains(cs, "where K2 : notnull");
+        contains(cs, "source is IKeyed<K2>");
         assertTrue(nullableWarnings.isEmpty(), nullableWarnings + "\n" + cs);
     }
 

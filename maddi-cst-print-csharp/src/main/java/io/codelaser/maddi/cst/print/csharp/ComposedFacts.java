@@ -48,4 +48,9 @@ final class ComposedFacts extends ForwardingNullabilityFacts implements CSharpFa
     public boolean structurallyNonModifying(MethodInfo method) {
         return modification.structurallyNonModifying(method);
     }
+
+    @Override
+    public boolean unmodifiableResult(MethodInfo method) {
+        return modification.immutableResult(method) || modification.unmodifiableResult(method);
+    }
 }
