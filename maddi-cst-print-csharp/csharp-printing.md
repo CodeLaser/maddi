@@ -455,7 +455,10 @@ implements the interface.
   takes the type in. `Open_` returns the created class's supertype whose wildcard interface hides the fewest other
   arguments (`ICollector<A, X>`, not `AndThen`'s own, which hides all four). Only a creation whose one wildcard
   argument goes into bare, unbounded type parameters of the class, and which names the class's other arguments,
-  opens; a raw creation, or a type argument nothing passes stays "passed as".
+  opens; a raw creation, or a type argument nothing passes stays "passed as". The argument may be a subtype of the
+  constructor's parameter type: `new SwapMoveProvider<>(entity)` of a `GenuineEntityMetaModel<S, ?>` where the
+  constructor takes a `PlanningEntityMetaModel<S, E>` opens the subtype, whose positions are matched with the
+  parameter's through how it implements the supertype (`CSharpOpeners.aligned`).
 - **Opening a wildcard into a generic method's call.** A `Score<?>` or a raw `Score` given to `<Score_ extends
   Score<Score_>> boolean isTerminated(boolean b, Score_ score)` has no C# type argument (CS0311: `IScore` is no
   `IScore<IScore>`), nor does C# infer `Score_` from the `IInnerScore` given to `setBestScore(InnerScore<Score_>)`
@@ -473,7 +476,10 @@ implements the interface.
   type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
   `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
   every call passes a `Class<X>` of a known `X` (not a `Class<?>`), no method reference names the method, and the
-  methods it overrides or that override it qualify as well. Otherwise the token stays a `Type` parameter.
+  methods it overrides or that override it qualify as well, and dropping the token does not make it a sibling
+  overload (`variable(String name, Class<V> type)` next to `variable(String name)`, both `Variable<V>(string name)`:
+  CS0111). Otherwise the token stays a `Type` parameter, and a call names the type argument C# cannot infer from a
+  `Type`: `Variable<V>(name, typeof(V))`, through an interface cast for a default method too.
 - **Generic methods overridden by erasure.** Java overrides `<J> J mapping()` with a method that is not generic,
   `TriFunction<…> mapping()`; C# does not. A class's method whose result is its own type parameter, overridden so,
   is printed with it erased to its bound, `object Mapping()`, and so are its generic overrides; the others override
@@ -890,7 +896,10 @@ from a map, a stream's collector.
   it. A type parameter removed in the result of a member the code reaches through the wildcard is removed in the
   result type's wildcard interface too, `VariableMetaModel<?, ?, ?>.entity()` making `PlanningEntityMetaModel`'s
   remove `Solution_`, until nothing changes (not into a functional interface, which the bridge adapts as a
-  delegate). The refusal (`NO_WILDCARD_INTERFACE`) names every member the interface cannot declare. Only
+  delegate). An interface's wildcard interface cannot redeclare a super-interface's member (the generic interface
+  would extend both, CS0121): a super-interface's member reached through it, `name()` of `VariableMetaModel` through
+  a `ShadowVariableMetaModel<S, E, ?>`, makes each super-interface on the way remove the same positions, and the
+  interface's wildcard interface extends theirs, which declare it. The refusal (`NO_WILDCARD_INTERFACE`) names every member the interface cannot declare. Only
   where it declares every member the
   code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
   where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
@@ -1141,6 +1150,11 @@ got better and worse at once).
   attributes that exist nowhere, or a printer bug on its way to a fix (#185). The nullable warnings of a sample
   translated with facts are in `nullableWarnings`, for a test to assert. Without a .NET SDK on the `PATH` the
   judging is skipped, which the test report shows as skipped tests.
+- `TestJavaToCSharpBehaviour` checks behaviour (`behaves`): a sample with a `main` is compiled with javac and run
+  on the JVM (`JavaRun`), its translation compiled and run on .NET (`csharp-check`'s `-run:<type>`), and both must
+  print the same lines and end with the same exception (the .NET one the mapping's: `NullPointerException` is a
+  `NullReferenceException`). The other tests say what C# is written and that it compiles; only this one says that
+  it does what the Java did. A probe that does not yet is `@Disabled` with the issue that lists it (#188).
 - The structural samples are also compared whole with a golden file, `src/test/resources/…/golden/`: a new one is
   written and its test fails until it has been looked at; `-PupdateGolden` rewrites them after an intended change.
 - `TestJavaToCSharpMessages` asserts the messages, `TestJavaToCSharpPolicies` the policies besides the default, and

@@ -109,6 +109,22 @@ final class CSharpCheck {
      * policy's facts are a nullability analysis's.
      */
     synchronized List<Diagnostic> check(Path file, CSharpProgram.Policy policy) {
+        return judge(file, policy, null).diagnostics();
+    }
+
+    /**
+     * What Roslyn says of {@code file}, and, when it compiles, what the static {@code Main} of the type named
+     * {@code runType} printed (one string per line) and the exception it ended with ({@code null} when none, else the
+     * .NET exception's simple name).
+     */
+    record Judgment(List<Diagnostic> diagnostics, List<String> output, String exception, String exceptionMessage) {
+    }
+
+    synchronized Judgment run(Path file, CSharpProgram.Policy policy, String runType) {
+        return judge(file, policy, runType);
+    }
+
+    private Judgment judge(Path file, CSharpProgram.Policy policy, String runType) {
         try {
             CSharpLibraries libraries = policy.libraries();
             LibraryMapping.Requirements requirements = libraries.requirements();
@@ -117,15 +133,29 @@ final class CSharpCheck {
             sources(policy, requirements).forEach(p -> arguments.add(p.toString()));
             packages(requirements).forEach(p -> arguments.add("-r:" + p));
             if (policy.facts().nullabilityAnalysed()) arguments.add("-nullable");
+            if (runType != null) arguments.add("-run:" + runType);
             Path argFile = Files.createTempFile(Path.of("build/csharp-check"), "check", ".args");
             Files.write(argFile, arguments);
             requests.write(argFile.toAbsolutePath().toString());
             requests.newLine();
             requests.flush();
             List<Diagnostic> diagnostics = new ArrayList<>();
+            List<String> output = new ArrayList<>();
+            String exception = null;
+            String exceptionMessage = null;
             String line;
             while ((line = answers.readLine()) != null) {
                 if (line.startsWith("F\t")) break;
+                if (line.startsWith("O\t")) {
+                    output.add(line.substring(2).replace("\\t", "\t"));
+                    continue;
+                }
+                if (line.startsWith("X\t")) {
+                    String[] x = line.split("\t", 3);
+                    exception = x[1];
+                    exceptionMessage = x.length > 2 ? x[2] : "";
+                    continue;
+                }
                 String[] f = line.split("\t", 6);
                 if (f.length < 6) continue;
                 diagnostics.add(new Diagnostic(f[0], Path.of(f[1]), Integer.parseInt(f[2]), Integer.parseInt(f[3]),
@@ -133,7 +163,7 @@ final class CSharpCheck {
             }
             if (line == null) throw new AssertionError("csharp-check stopped; see build/csharp-check/serve.err");
             Files.delete(argFile);
-            return diagnostics;
+            return new Judgment(diagnostics, output, exception, exceptionMessage);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

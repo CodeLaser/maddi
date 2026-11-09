@@ -23,3 +23,8 @@ and each file and code that moved.
 With `-serve` it reads an argument file per line of standard input and answers each with its lines, the `F` line
 last, keeping the BCL's references for the next one: `maddi-cst-print-csharp`'s unit tests judge every sample
 through one such process (`CSharpCheck`).
+
+With a line `-run:<type>` in the argument file, a compilation without errors is also run: the tool loads it in
+memory, calls the static `Main` of the type of that simple name (at most ten seconds), and writes what it printed
+(`O` lines) and the exception it ended with (an `X` line). The unit tests' behavioural check
+(`CommonJavaToCSharp.behaves`, `TestJavaToCSharpBehaviour`) compares that with the Java sample's own run.
