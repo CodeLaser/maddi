@@ -88,8 +88,32 @@ public final class CSharpExpressionPrinter {
      * then have its idiomatic form ({@code map[k] = v} for {@code map.put(k, v)}, see {@link CSharpBcl}).
      */
     public static OutputBuilder printStatement(Expression e, Qualification q) {
-        if (e instanceof MethodCall mc) return methodCall(mc, q, true);
+        if (e instanceof MethodCall mc) {
+            OutputBuilder call = methodCall(mc, q, true);
+            // s.length(); is s.Length, which is no statement in C# (CS0201): a discard keeps the evaluation, and its
+            // NullPointerException
+            return mc.methodInfo().isVoid() || validStatement(call.toString()) ? call
+                    : new OutputBuilderImpl().add(text("_")).add(SymbolEnum.assignment("=")).add(call);
+        }
         return print(e, q);
+    }
+
+    /** A call, an assignment, an increment: what C# takes as an expression statement. */
+    private static boolean validStatement(String printed) {
+        String t = printed.strip();
+        if (t.endsWith(")") && !t.startsWith("(")) return true;
+        int depth = 0;
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            if (c == '(' || c == '[' || c == '{') depth++;
+            else if (c == ')' || c == ']' || c == '}') depth--;
+            else if (depth == 0 && c == '=' && i > 0 && i + 1 < t.length() && t.charAt(i + 1) != '='
+                     && "=!<>".indexOf(t.charAt(i - 1)) < 0) {
+                return true;
+            }
+        }
+        return t.endsWith("++") || t.endsWith("--") || t.startsWith("++") || t.startsWith("--")
+               || t.startsWith("new ") || t.startsWith("await ");
     }
 
     public static OutputBuilder print(Expression e, Qualification q) {
@@ -155,6 +179,17 @@ public final class CSharpExpressionPrinter {
      * parameters: {@code (T) this} in a self-typed builder is {@code (T) (object) this}.
      */
     private static OutputBuilder cast(Cast cast, Qualification q) {
+        // (int) 3.9e10, (long) Double.NaN: Java's saturated value, where C#'s constant conversion is unspecified
+        String literal = CSharpConstants.floatingToIntegral(cast);
+        if (literal != null) {
+            return literal.startsWith("-") || literal.contains(" ") ? parenthesized(text(literal)) : text(literal);
+        }
+        // (byte) 200: Java narrows a constant, C# rejects it (CS0221)
+        if (CSharpConstants.narrowingOverflow(cast)) return unchecked(plainCast(cast, q));
+        return plainCast(cast, q);
+    }
+
+    private static OutputBuilder plainCast(Cast cast, Qualification q) {
         // (Function<A, Object>) mapping of a Function<Object, Object>: no cast C# has, the value wrapped
         OutputBuilder delegateCast = delegateCast(cast.expression(), unwrap(cast.expression()), cast.parameterizedType(), q);
         if (delegateCast != null) return delegateCast;
@@ -2418,6 +2453,8 @@ public final class CSharpExpressionPrinter {
         OutputBuilder increment = Emission.increment(a, target);
         if (increment != null) return increment;
         String operator = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
+        OutputBuilder narrowing = narrowingCompound(a, operator, q);
+        if (narrowing != null) return narrowing;
         if (a.assignmentOperator() == null && a.variableTarget() instanceof DependentVariable && unboxedValue(a.value())) {
             // an array's element is the enum's or the struct's value type, decimal[]: the X? as its value
             OutputBuilder value = unboxCast(CSharpTypeName.argument(a.value().parameterizedType(), q), a.value(), q);
@@ -2431,6 +2468,33 @@ public final class CSharpExpressionPrinter {
         return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
     }
 
+    /**
+     * {@code c += 2} of a char, a byte or a short: Java's compound assignment narrows its result implicitly, C#'s does
+     * not convert an int to a char (CS0266), nor a non-constant int to a byte or a short. Of a plain variable, which
+     * may be read twice: {@code c = (char) (c + 2)}. Null otherwise.
+     */
+    private static OutputBuilder narrowingCompound(Assignment a, String operator, Qualification q) {
+        if (a.assignmentOperator() == null || !operator.endsWith("=") || operator.length() < 2) return null;
+        char target = CSharpConstants.kind(a.variableTarget().parameterizedType());
+        char value = CSharpConstants.kind(a.value().parameterizedType());
+        if (target != 'C' && target != 'B' && target != 'S') return null;
+        boolean fits = target != 'C' && value != 'J' && value != 'F' && value != 'D'
+                       && CSharpConstants.value(a.value()) instanceof Integer i
+                       && (target == 'B' ? i >= Byte.MIN_VALUE && i <= Byte.MAX_VALUE : i >= Short.MIN_VALUE && i <= Short.MAX_VALUE);
+        if (fits || !(a.variableTarget() instanceof LocalVariable || a.variableTarget() instanceof ParameterInfo
+                      || a.variableTarget() instanceof FieldReference fr && (fr.fieldInfo().isStatic() || CstQueries.onThis(fr)))) {
+            return null;
+        }
+        String type = target == 'C' ? "char" : target == 'B' ? "sbyte" : "short";
+        String op = operator.substring(0, operator.length() - 1);
+        return new OutputBuilderImpl().add(variable(a.variableTarget(), q)).add(SymbolEnum.assignment("="))
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(text(type)).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(variable(a.variableTarget(), q))
+                .add(SymbolEnum.binaryOperator(op)).add(atomic(unwrap(a.value())) || unwrap(a.value()) instanceof ConstantExpression<?> c && !negative(c)
+                     ? print(a.value(), q) : parenthesized(print(a.value(), q)))
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
     /** {@code value} is a C# value type (a primitive, an enum C# declares as an enum), {@code other} an Object. */
     private static boolean valueAndObject(Expression value, Expression other) {
         ParameterizedType v = value.parameterizedType();
@@ -2441,6 +2505,18 @@ public final class CSharpExpressionPrinter {
     }
 
     private static OutputBuilder binaryOperator(BinaryOperator bo, Qualification q) {
+        // Integer.MAX_VALUE + 1: Java wraps a constant's overflow, C# rejects it (CS0220)
+        if (CSharpConstants.overflows(bo)) return unchecked(plainBinaryOperator(bo, q));
+        return plainBinaryOperator(bo, q);
+    }
+
+    /** {@code unchecked(e)}: C#'s wrapping arithmetic, Java's, for a constant expression C# would reject. */
+    private static OutputBuilder unchecked(OutputBuilder e) {
+        return new OutputBuilderImpl().add(text("unchecked")).add(SymbolEnum.LEFT_PARENTHESIS).add(e)
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    private static OutputBuilder plainBinaryOperator(BinaryOperator bo, Qualification q) {
         String op = bo.operator().name();
         if (("==".equals(op) || "!=".equals(op)) && (valueAndObject(bo.lhs(), bo.rhs()) || valueAndObject(bo.rhs(), bo.lhs()))) {
             // Java compares a boxed enum or number with an Object by reference; C# cannot compare a value type with

@@ -688,6 +688,9 @@ member java.lang.Double.doubleToRawLongBits/1 -> BitConverter.DoubleToInt64Bits(
 member java.lang.Double.longBitsToDouble/1 -> BitConverter.Int64BitsToDouble($1) using System
 member java.lang.Math.round/1 -> JavaMath.Round($1) using Maddi.JavaCompat
 # the methods .NET's Math has under the same name and with the same meaning; the others are unmapped
+# Java's abs of the minimum is the minimum, C#'s Math.Abs throws: the int's and the long's wrap
+member java.lang.Math.abs(int) -> JavaMath.Abs($1) using Maddi.JavaCompat
+member java.lang.Math.abs(long) -> JavaMath.Abs($1) using Maddi.JavaCompat
 member java.lang.Math.abs -> Math.Abs($*) using System
 member java.lang.Math.max -> Math.Max($*) using System
 member java.lang.Math.min -> Math.Min($*) using System

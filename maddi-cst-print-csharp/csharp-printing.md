@@ -620,6 +620,16 @@ implements the interface.
 C#'s statements, operators and precedence are mostly Java's, so most of the code prints as it does in Java. The
 differences:
 
+- **Constants.** Java wraps a constant's overflow and narrows a constant silently, C# rejects both (CS0220, CS0221):
+  `Integer.MAX_VALUE + 1` is `unchecked(int.MaxValue + 1)`, `(byte) 200` `unchecked((sbyte) 200)`. A constant
+  floating-point value cast to an integer is Java's saturated value, `(int) 3.9e10` `2147483647`, `(long) Double.NaN`
+  `0L`, where C#'s constant conversion is unspecified (`CSharpConstants`, which evaluates Java's constant expressions,
+  the JDK's static final fields by reflection). `Math.abs` of an int or a long is `JavaMath.Abs`: Java's abs of the
+  minimum is the minimum, C#'s throws.
+- **Narrowing compound assignments.** `c += 2` of a char, a byte or a short narrows in Java, not in C# (CS0266): of a
+  local, a parameter or a field of `this`, it is `c = (char) (c + 2)`.
+- **Results as statements.** A call whose C# is no call, `s.length();` as `s.Length`, is a discard, `_ = s.Length;`
+  (CS0201), which still evaluates it.
 - **Conditional types.** Java types `b ? c : 0`, a `char` and an `int` constant that fits it, as a `char` (JLS
   15.25), and so a `byte` or a `short`; C# as an `int`. The constant is cast, `b ? c : (char) 0`.
 - **String conversion.** Where Java converts a value to a string by `String.valueOf`, implicitly, C#'s `ToString`

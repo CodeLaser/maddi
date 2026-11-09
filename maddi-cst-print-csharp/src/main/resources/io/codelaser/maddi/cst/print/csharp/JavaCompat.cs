@@ -953,6 +953,12 @@ public static class JavaCharacter
 
 public static class JavaMath
 {
+    /// <summary>Math.abs(int): the minimum is its own absolute value, as two's complement wraps it.</summary>
+    public static int Abs(int i) => i < 0 ? unchecked(-i) : i;
+
+    /// <summary>Math.abs(long): the minimum is its own absolute value.</summary>
+    public static long Abs(long l) => l < 0 ? unchecked(-l) : l;
+
     // Java's: the nearest, ties up; d + 0.5 would round 0.49999999999999994 up to 1. NaN is 0, an infinity the
     // extreme value, as .NET's saturating conversion has it
     public static long Round(double d)

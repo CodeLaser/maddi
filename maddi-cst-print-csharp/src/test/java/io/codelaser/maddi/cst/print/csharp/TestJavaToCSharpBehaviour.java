@@ -105,7 +105,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: constant overflow and char compound assignment are rejected")
     public void integerArithmetic() {
         behaves("Ints", """
                 package a;
@@ -332,7 +331,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: s.length(); as a statement is rejected")
     public void exceptions() {
         behaves("Exceptions", """
                 package a;
