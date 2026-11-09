@@ -165,8 +165,8 @@ final class CSharpWildcardInterfaces {
                         .anyMatch(o -> inheritedClosed(t, o, removed)) || inheritedClosed(t, m.typeInfo(), removed)) {
                     continue;
                 }
-                // a superclass's method its own wildcard interface declares, which t's extends
-                if (declaredBySuperclass(t, m)) continue;
+                // a superclass's method its own wildcard interface declares, which t's extends; a super-interface's
+                if (declaredBySuperclass(t, m) || declaredBySuperinterface(t, m, removed)) continue;
             }
             unreachable.add(info);
         }
@@ -189,6 +189,25 @@ final class CSharpWildcardInterfaces {
             c = st;
         }
         return declared(owner, removed(owner)).contains(m);
+    }
+
+    /**
+     * {@code m} is a super-interface's, of an interface, declared by that super-interface's wildcard interface, which
+     * t's extends: each super-interface between removes what t passes it of its removed positions, and has a wildcard
+     * interface ({@link #supertypes}, {@link #removeThroughSuperinterfaces}).
+     */
+    private static boolean declaredBySuperinterface(TypeInfo t, MethodInfo m, List<TypeParameter> removed) {
+        TypeInfo owner = m.typeInfo();
+        if (!t.isInterface() || !owner.isInterface() || owner.equals(t)) return false;
+        for (ParameterizedType s : t.interfacesImplemented()) {
+            TypeInfo st = s.typeInfo();
+            if (st == null || !CstQueries.mentionsAny(s, removed) || !has(st) || !erasable(s, removed)) continue;
+            if (st.equals(owner) ? declared(owner, removed(owner)).contains(m)
+                    : st.recursiveSuperTypeStream().anyMatch(owner::equals) && declaredBySuperinterface(st, m, removed(st))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** {@code owner} is an interface the wildcard interface extends: t's, and closed. */
@@ -601,7 +620,36 @@ final class CSharpWildcardInterfaces {
                             : seenFrom(entry.getKey(), m.typeInfo());
                     if (seen == null) continue;
                     changed |= removeThrough(CstSupertypes.substitute(m.returnType(), seen), list, wildcarded);
+                    // an interface's member a super-interface declares: that one's wildcard interface declares it
+                    if (entry.getKey().isInterface() && m.typeInfo().isInterface()) {
+                        changed |= removeThroughSuperinterfaces(entry.getKey(), m.typeInfo(), list, wildcarded);
+                    }
                 }
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * A super-interface's member reached through an interface's wildcard, {@code name()} of {@code VariableMetaModel}
+     * through a {@code ShadowVariableMetaModel<S, E, ?>}: an interface's wildcard interface cannot redeclare it (the
+     * generic interface would extend both, CS0121), so each super-interface on the way to the declaring one removes
+     * the positions t removes, and t's wildcard interface extends theirs ({@link #declaredBySuperinterface}).
+     */
+    private static boolean removeThroughSuperinterfaces(TypeInfo t, TypeInfo owner, List<TypeParameter> removed,
+                                                        Map<TypeInfo, Set<TypeParameter>> wildcarded) {
+        if (t.equals(owner)) return false;
+        boolean changed = false;
+        for (ParameterizedType s : t.interfacesImplemented()) {
+            TypeInfo st = s.typeInfo();
+            if (st == null || !CSharpNames.translated(st)
+                || !st.equals(owner) && st.recursiveSuperTypeStream().noneMatch(owner::equals)) {
+                continue;
+            }
+            changed |= removeThrough(s, removed, wildcarded);
+            Set<TypeParameter> next = wildcarded.get(st);
+            if (next != null && !next.isEmpty()) {
+                changed |= removeThroughSuperinterfaces(st, owner, List.copyOf(next), wildcarded);
             }
         }
         return changed;

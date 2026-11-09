@@ -3485,4 +3485,45 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "case string or int: return \"known\";");
         contains(cs, "string or int => \"known\"");
     }
+
+    /**
+     * A sub-interface reached through a wildcard, {@code Shadow<S, E, ?>}, whose code calls members its generic
+     * super-interface declares, {@code type()} and {@code name()}: its wildcard interface extends the super-interface's.
+     */
+    @Test
+    public void wildcardInterfaceInheritedFromInterface() {
+        String cs = translate("MetaModels", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.List;
+                class MetaModels {
+                    interface Variable<S, E, V> {
+                        Class<V> type();
+                        String name();
+                    }
+                    interface Shadow<S, E, V> extends Variable<S, E, V> {
+                        boolean derived();
+                    }
+                    static final class Impl<S, E, V> implements Shadow<S, E, V> {
+                        private final Class<V> type;
+                        Impl(Class<V> type) { this.type = type; }
+                        public Class<V> type() { return type; }
+                        public String name() { return "n"; }
+                        public boolean derived() { return true; }
+                    }
+                    static final class Entity<S, E> {
+                        private final List<Shadow<S, E, ?>> variables = new ArrayList<>();
+                        void add(Shadow<S, E, ?> v) { variables.add(v); }
+                        String describe() {
+                            StringBuilder sb = new StringBuilder();
+                            for (Shadow<S, E, ?> v : variables) sb.append(v.name()).append(v.type().getSimpleName()).append(v.derived());
+                            return sb.toString();
+                        }
+                    }
+                }
+                """);
+        contains(cs, "internal interface IShadow<S, E> : IVariable<S, E> { bool Derived { get; } }");
+        contains(cs, "internal interface IVariable<S, E, V> : IVariable<S, E> {");
+        contains(cs, "sb.Append(v.Name).Append(v.Type().Name)");
+    }
 }
