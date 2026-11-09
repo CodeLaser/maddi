@@ -721,12 +721,43 @@ public static class JavaString
     public static string ValueOf(object? o) => o switch
     {
         null => "null",
+        string s => s,
         bool b => ValueOf(b),
         double d => ValueOf(d),
         float f => ValueOf(f),
         char[] a => new string(a),
+        _ when Library(o.GetType()) => LibraryValueOf(o),
         _ => o.ToString()!
     };
+
+    /// <summary>A type of the BCL or of this library, whose ToString is not Java's toString.</summary>
+    private static bool Library(Type t) => t.Namespace is { } n
+        && (n.StartsWith("System", StringComparison.Ordinal) || n == "Maddi.JavaCompat");
+
+    /// <summary>
+    /// AbstractCollection's "[a, b]", AbstractMap's "{k=v}", an entry's "k=v", each element as String.valueOf; else
+    /// the object's own ToString.
+    /// </summary>
+    private static string LibraryValueOf(object o)
+    {
+        var t = o.GetType();
+        if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+        {
+            return ValueOf(t.GetProperty("Key")!.GetValue(o)) + "=" + ValueOf(t.GetProperty("Value")!.GetValue(o));
+        }
+        if (o is not System.Collections.IEnumerable e) return o.ToString()!;
+        var map = o is System.Collections.IDictionary || t.GetInterfaces().Any(i => i.IsGenericType
+            && (i.GetGenericTypeDefinition() == typeof(IDictionary<,>)
+                || i.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)));
+        var parts = new List<string>();
+        foreach (var x in e)
+        {
+            parts.Add(x is System.Collections.DictionaryEntry d
+                ? ValueOf(d.Key) + "=" + ValueOf(d.Value)
+                : ReferenceEquals(x, o) ? (map ? "(this Map)" : "(this Collection)") : ValueOf(x));
+        }
+        return map ? "{" + string.Join(", ", parts) + "}" : "[" + string.Join(", ", parts) + "]";
+    }
 
     public static string ValueOf(bool b) => b ? "true" : "false";
 

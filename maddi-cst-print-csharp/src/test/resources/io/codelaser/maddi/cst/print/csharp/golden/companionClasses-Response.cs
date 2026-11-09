@@ -1,9 +1,10 @@
+using Maddi.JavaCompat;
 using System;
 namespace Org.Example.Companion;
 public sealed class Response<T> {
     public T Content { get; }
     internal Response(T content) { this.Content = content; }
-    public string Describe() => Response.EMPTY + Content + Response.Count();
+    public string Describe() => Response.EMPTY + JavaString.ValueOf(Content) + Response.Count();
 }
 public static class Response {
     internal const string EMPTY = "";

@@ -647,8 +647,8 @@ member java.lang.Integer.toString/1 -> $1.ToString()
 member java.lang.Long.toString/1 -> $1.ToString()
 member java.lang.Short.toString/1 -> $1.ToString()
 member java.lang.Byte.toString/1 -> $1.ToString()
-member java.lang.Double.toString/1 -> $1.ToString()
-member java.lang.Float.toString/1 -> $1.ToString()
+member java.lang.Double.toString/1 -> JavaString.ValueOf($1) using Maddi.JavaCompat
+member java.lang.Float.toString/1 -> JavaString.ValueOf($1) using Maddi.JavaCompat
 member java.lang.Integer.compare/2 -> $1.CompareTo($2)
 member java.lang.Long.compare/2 -> $1.CompareTo($2)
 member java.lang.Short.compare/2 -> $1.CompareTo($2)
@@ -916,6 +916,31 @@ member java.lang.System.getProperty/2 ->? JavaSystem.GetProperty($1, $2) using M
 member java.lang.System.exit/1 -> Environment.Exit($1) using System
 member java.lang.System.gc/0 -> GC.Collect() using System
 member java.lang.System.identityHashCode/1 -> RuntimeHelpers.GetHashCode($1) using System.Runtime.CompilerServices
+# Java's string conversion (String.valueOf) where C#'s differs: true, 1.0, [1, 2], null
+member java.io.PrintStream.println(boolean) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.println(double) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.println(float) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.println(Object) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.print(boolean) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.print(double) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.print(float) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.print(Object) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.println(boolean) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.println(double) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.println(float) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.println(Object) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.print(boolean) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.print(double) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.print(float) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.print(Object) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.StringBuilder.append(boolean) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.StringBuilder.append(double) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.StringBuilder.append(float) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.StringBuilder.append(Object) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.append(boolean) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.append(double) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.append(float) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.append(Object) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
 member java.io.PrintStream.println/1 -> $0.WriteLine($1)
 member java.io.PrintStream.println/0 -> $0.WriteLine()
 member java.io.PrintStream.print/1 -> $0.Write($1)

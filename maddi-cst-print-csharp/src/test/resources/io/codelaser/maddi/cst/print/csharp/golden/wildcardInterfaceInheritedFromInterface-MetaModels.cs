@@ -1,3 +1,4 @@
+using Maddi.JavaCompat;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -8,7 +9,9 @@ internal sealed class MetaModels {
         internal void Add(IShadow<S, E> v) { variables.Add(v); }
         internal string Describe() {
             var sb = new StringBuilder();
-            foreach (IShadow<S, E> v in variables) { sb.Append(v.Name).Append(v.Type().Name).Append(v.Derived); }
+            foreach (IShadow<S, E> v in variables) {
+                sb.Append(v.Name).Append(v.Type().Name).Append(JavaString.ValueOf(v.Derived));
+            }
             return sb.ToString();
         }
     }

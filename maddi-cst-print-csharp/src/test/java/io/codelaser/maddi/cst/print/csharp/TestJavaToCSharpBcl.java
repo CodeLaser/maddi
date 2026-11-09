@@ -674,7 +674,8 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "JavaClass.DeclaredMethod(c, \"run\")");
         contains(cs, "JavaClass.DeclaredMethod(c, \"apply\", p, typeof(int))");
         contains(cs, "JavaClass.DeclaredField(c, \"x\")");
-        contains(cs, "JavaClass.IsRecord(c) + \" \" + c.IsNested + \" \" + c.ToString()");
+        contains(cs, "JavaString.ValueOf(JavaClass.IsRecord(c)) + \" \" + JavaString.ValueOf(c");
+        contains(cs, ".IsNested) + \" \" + c.ToString()");
         contains(cs, "s.TrimEnd() + s.TrimStart()");
         contains(cs, "IJavaListIterator<string> it = list.Iterator(list.Count);");
         contains(cs, "while (it.HasPrevious())");
@@ -731,7 +732,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         // a value type's function gives null to remove: the int? variant
         contains(cs, "m.ComputeIfPresentValue(\"k\",");
         contains(cs, "m.ComputeIfPresent(\"k\", (k, v) => v + k)");
-        contains(cs, "s + CultureInfo.CurrentCulture");
+        contains(cs, "s + JavaString.ValueOf(CultureInfo.CurrentCulture)");
         contains(cs, "b / ");
         contains(cs, "(((Array) array).Length) > 0 ? (((Array) array).GetValue(0)) : null");
         contains(cs, "c == typeof(int) || c == typeof(bool)");

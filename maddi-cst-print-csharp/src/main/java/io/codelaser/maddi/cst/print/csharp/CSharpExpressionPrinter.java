@@ -2421,8 +2421,10 @@ public final class CSharpExpressionPrinter {
             OutputBuilder value = unboxCast(CSharpTypeName.argument(a.value().parameterizedType(), q), a.value(), q);
             return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
         }
-        OutputBuilder value = converts(a.value(), a.variableTarget().parameterizedType())
-                ? converted(a.value(), a.variableTarget().parameterizedType(), q) : operand(a.precedence(), a.value(), q);
+        ParameterizedType targetType = a.variableTarget().parameterizedType();
+        OutputBuilder value = "+=".equals(operator) && targetType != null && targetType.isJavaLangString()
+                              && targetType.arrays() == 0 ? stringOperand(a.precedence(), a.value(), q)
+                : converts(a.value(), targetType) ? converted(a.value(), targetType, q) : operand(a.precedence(), a.value(), q);
         if (a.assignmentOperator() == null) value = CSharpNullability.intoVariable(a.value(), a.variableTarget(), value);
         return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
     }
@@ -2452,6 +2454,12 @@ public final class CSharpExpressionPrinter {
             return "==".equals(op) ? call
                     : new OutputBuilderImpl().add(SymbolEnum.UNARY_BOOLEAN_NOT).add(call);
         }
+        if ("+".equals(op) && bo.parameterizedType() != null && bo.parameterizedType().isJavaLangString()
+            && bo.parameterizedType().arrays() == 0) {
+            // Java's string conversion of each operand, String.valueOf, where C#'s ToString differs
+            return new OutputBuilderImpl().add(stringOperand(bo.precedence(), bo.lhs(), q))
+                    .add(SymbolEnum.binaryOperator(op)).add(stringOperand(bo.precedence(), bo.rhs(), q));
+        }
         if (!"==".equals(op) && !"!=".equals(op) && bo.parameterizedType() != null
             && bo.parameterizedType().isPrimitiveExcludingVoid()) {
             // Java unboxes an Integer operand; C# lifts the operation to int?
@@ -2461,6 +2469,60 @@ public final class CSharpExpressionPrinter {
         return new OutputBuilderImpl().add(operand(bo.precedence(), bo.lhs(), q))
                 .add(SymbolEnum.binaryOperator(op))
                 .add(operand(bo.precedence(), bo.rhs(), q));
+    }
+
+    /**
+     * An operand of a string concatenation, converted as Java's {@code String.valueOf} converts it where C#'s
+     * conversion differs ({@link #javaStringConversion}): {@code JavaString.ValueOf(b)} for a boolean ({@code true},
+     * not {@code True}), a double ({@code 1.0}, not {@code 1}), a collection ({@code [1, 2]}, not its type's name), a
+     * value that may be null ({@code null}, not the empty string); a String that may be null is {@code (s ?? "null")}.
+     */
+    static OutputBuilder stringOperand(Precedence precedence, Expression e, Qualification q) {
+        Expression x = unwrap(e);
+        ParameterizedType t = x.parameterizedType();
+        if (x instanceof NullConstant) return text("\"null\"");
+        if (t != null && t.isJavaLangString() && t.arrays() == 0) {
+            if (!CSharpNullability.mayBeNull(x)) return operand(precedence, e, q);
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(precedence, e, q))
+                    .add(text("?? \"null\"")).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        if (!javaStringConversion(x)) return operand(precedence, e, q);
+        return valueOf(e, q);
+    }
+
+    /** {@code JavaString.ValueOf(e)}: Java's string conversion. */
+    static OutputBuilder valueOf(Expression e, Qualification q) {
+        CSharpContext.using(CSharpCompat.NAMESPACE);
+        return new OutputBuilderImpl().add(text("JavaString.ValueOf")).add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(print(e, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    /**
+     * C# converts {@code e} to a string otherwise than Java: a boolean, a float or a double (boxed too), an Object, a
+     * type parameter, a library type (a collection, a map), a value that may be null. Not an integer or a char, an
+     * enum, an array, nor a program type's value known not to be null, whose {@code ToString} is its
+     * {@code toString}.
+     */
+    static boolean javaStringConversion(Expression e) {
+        ParameterizedType t = e.parameterizedType();
+        if (t == null || t.arrays() > 0) return false;
+        if (t.isBooleanOrBoxedBoolean() || floatingPoint(t)) return true;
+        if (t.isPrimitiveExcludingVoid()) return false;
+        if (CSharpNullability.mayBeNull(e)) return true;
+        if (t.isBoxedExcludingVoid()) return false;
+        if (t.isTypeParameter() || t.isJavaLangObject()) return true;
+        TypeInfo ti = t.typeInfo();
+        if (ti == null || ti.typeNature().isEnum()) return false;
+        return !CSharpNames.translated(ti) && !"java.lang.CharSequence".equals(ti.fullyQualifiedName())
+               && !"java.lang.StringBuilder".equals(ti.fullyQualifiedName());
+    }
+
+    /** A float or a double, boxed too. */
+    private static boolean floatingPoint(ParameterizedType t) {
+        TypeInfo ti = t.typeInfo();
+        return t.arrays() == 0 && ti != null && (ti.isFloat() || ti.isDouble()
+                                                 || "java.lang.Float".equals(ti.fullyQualifiedName())
+                                                 || "java.lang.Double".equals(ti.fullyQualifiedName()));
     }
 
     /**
