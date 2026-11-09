@@ -453,12 +453,13 @@ public class RunRewireTests {
         JavaInspector cold = options.coldInspector().get();
         ParseResult coldResult = cold.parse(options.parseOptions()).parseResult();
         G<Info> coldGraph = options.prep().apply(cold, coldResult);
+        // the analysis first: the warm side's prep data has been through it too, and it writes carried-tier values
+        // of its own (the constants of an interface have none before it): compared before, every one of them showed
+        // as a prep difference
+        if (options.analysis() != null) options.analysis().analyze(cold, coldResult, coldGraph, null, null, null);
         List<String> differences = new ArrayList<>(ReparseOracle.differences(javaInspector, lastParseResult, lastGraph,
                 cold, coldResult, coldGraph));
-        if (options.analysis() != null) {
-            options.analysis().analyze(cold, coldResult, coldGraph, null, null, null);
-            differences.addAll(analysisDifferences(cold, coldResult));
-        }
+        if (options.analysis() != null) differences.addAll(analysisDifferences(cold, coldResult));
         ++oracleChecks;
         if (differences.isEmpty()) {
             LOGGER.info("REWIRE ORACLE iteration {}: as a cold parse ({} ms)", iteration, ms(System.nanoTime() - t0));
