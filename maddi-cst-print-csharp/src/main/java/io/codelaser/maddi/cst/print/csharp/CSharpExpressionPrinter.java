@@ -2532,13 +2532,21 @@ public final class CSharpExpressionPrinter {
         if (CSharpNullability.mayBeNull(e)) return true;
         if (t.isBoxedExcludingVoid()) return false;
         if (t.isTypeParameter() || t.isJavaLangObject()) return true;
+        // the common type of a conditional's String and Class<?>: an intersection, or one of its interfaces, whichever
+        // the running JDK's String and Class have in common; any value may be one
+        if (t.isIntersectionType()) return true;
         TypeInfo ti = t.typeInfo();
         if (ti == null || ti.typeNature().isEnum() || CSharpNames.translated(ti)) return false;
+        if (ANY_VALUE.contains(ti.fullyQualifiedName())) return true;
         // a java.util type that is one; not java.nio.file.Path, an Iterable with its own toString
         return CONVERTED_DIFFERENTLY.contains(ti.fullyQualifiedName())
                || ti.fullyQualifiedName().startsWith("java.util.")
                   && ti.recursiveSuperTypeStream().anyMatch(s -> CONVERTED_DIFFERENTLY.contains(s.fullyQualifiedName()));
     }
+
+    /** The JDK's interfaces that values of every kind implement: a Boolean, a Double, a list may be one. */
+    private static final Set<String> ANY_VALUE = Set.of("java.io.Serializable", "java.lang.Comparable",
+            "java.lang.Cloneable", "java.lang.constant.Constable", "java.lang.constant.ConstantDesc");
 
     /**
      * The library types whose values C# converts to a string otherwise than Java: the collections, maps and entries
