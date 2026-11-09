@@ -124,6 +124,10 @@ Analyzer issues the oracle found, each with a minimal repro:
 - A source superclass is composition (`INHERITANCE_AS_COMPOSITION`): a `base: Parent` field built by `super(…)`,
   and an inherited field or method is reached through `.base` (`super.m()` too). A call from the parent to a method
   the subclass overrides stays in the parent; a subclass is not accepted where the parent is expected.
+- A JDK collection as superclass (`class Named<E> extends ArrayList<E>`, Rust's `Vec`, `VecDeque`, `HashMap`,
+  `HashSet`, `BTreeMap`, `BTreeSet`) is the struct's `base` field too, and the struct implements `Deref` and
+  `DerefMut` to it: what the class inherits is the collection's (`len`, `iter`, indexing), and a `&Named` passes
+  where a `&Vec` is taken. `super.add(e)` is `self.base.push(e)`, not an override; `super(n)`'s capacity is dropped.
 - A record is a `struct` with public fields, derived `Debug, Clone, PartialEq`, a positional `new`, and accessors.
 - An enum without state is a plain `enum` deriving `Copy`; its constants become camel-case variants.
 - A nested type is an item of its own, named after its enclosing types (`Outer.Inner` → `OuterInner`).
@@ -271,7 +275,7 @@ the result better than a generic formatter would.
 
 ## Not yet
 
-Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` of an interface or generic type and record patterns,
+Inheritance from a JDK class other than a collection (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` of an interface or generic type and record patterns,
 try/catch (`TRY_BODY_ONLY`), static state of other types (a `HashMap`, an object), generic bounds beyond `Clone`, sorting and collectors
 beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
 `UNSUPPORTED` message.

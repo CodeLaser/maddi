@@ -1782,7 +1782,8 @@ final class RustBodyPrinter {
         // object: a borrowed one is copied where an owned one is expected. Any other type stays a mismatch for rustc.
         if (RustTypes.isImmutableValue(type, context.facts) && (p.held == Held.SHARED || p.held == Held.PLACE
                                                                || p.held == Held.VALUE && isName(p.text))) {
-            return p.text + (p.nullable ? ".cloned()" : ".clone()");
+            // an Option<&T> copies its content with cloned(); an owned Option<T> (a local, a field) is cloned whole
+            return p.text + (p.nullable && p.held == Held.SHARED ? ".cloned()" : ".clone()");
         }
         return p.text;
     }

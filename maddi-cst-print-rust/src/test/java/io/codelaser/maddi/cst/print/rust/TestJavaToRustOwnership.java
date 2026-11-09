@@ -166,4 +166,43 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
         List<String> errors = rustcErrors();
         assertTrue(errors.stream().anyMatch(e -> e.contains("E0502")), () -> String.join("\n", errors) + "\n" + rust);
     }
+
+    @Language("java")
+    private static final String NULLABLE_IMMUTABLE_LOCAL = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Stack {
+                public static final class Kind {
+                    private final int code;
+                    public Kind(int code) { this.code = code; }
+                    public int code() { return code; }
+                }
+                private final List<Kind> items = new ArrayList<>();
+                public void pushIf(boolean b, int code) {
+                    Kind k = null;
+                    if (b) k = new Kind(code);
+                    if (k != null) {
+                        items.add(k);
+                        items.add(k);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("an owned Option of an immutable value is cloned whole, not with Option<&T>'s cloned()")
+    @Test
+    public void nullableImmutableLocal() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_IMMUTABLE_LOCAL);
+        TypeInfo stack = types.getFirst();
+        TypeInfo kind = stack.findSubType("Kind");
+        immutable(kind, ValueImpl.ImmutableImpl.IMMUTABLE);
+        nonModifying(kind, "code");
+        modifying(stack, "pushIf");
+        translate(types);
+        String rust = module("a.b");
+        // was 'k.cloned().unwrap()': no method cloned on Option<StackKind> (E0599; fernflower's InstructionImpact)
+        contains(rust, "k.clone().unwrap()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
