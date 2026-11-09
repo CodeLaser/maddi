@@ -184,6 +184,14 @@ Analyzer issues the oracle found, each with a minimal repro:
 - `equals(Object)` is `impl PartialEq`, the usual preamble (`this == o`, `instanceof`, `getClass()`) left out
   because `other: &Self` already guarantees it; `hashCode()` stays a method and `impl Hash` feeds it to the hasher
   (with `impl Eq` when both are there). A call `a.equals(b)` is `a == b`.
+- A value of a source interface tested or cast to a source class (`obj instanceof Statement st`, `(SupertypeTarget) t`)
+  goes through the trait's conversions: for each class the program converts the interface's values to, the trait has
+  `fn as_statement(&self) -> Option<&Statement<'_>>` (and `_mut` for a struct without a lifetime), `None` by default
+  and `Some(self)` in the struct's impl; for a member below a hierarchy's root the conversion is the root's and the
+  kind is tested. `Any` cannot downcast a struct with a lifetime; these can. A pattern variable that is modified makes
+  the value it tests a modified one (the loop over a list of them `iter_mut`).
+- A pattern variable after a negated test (`if (!(e instanceof A a)) return …;`) is a `let … else`; a pattern in a
+  value (`return e instanceof A a && a.isX();`) is `is_some_and(|a| …)` on the binding's `Option`.
 - `o instanceof T t` of an `Object`, `T` a class without type parameters, is `if let Some(t) = o.downcast_ref::<T>()`
   (`downcast_mut` when `t` is modified, `Some(&t)` for a copy type); without a pattern variable it is `o.is::<T>()`.
   An interface, a generic type and a record pattern stay `todo!()`: `Any` cannot tell them apart.
@@ -292,7 +300,7 @@ the result better than a generic formatter would.
 ## Not yet
 
 Inheritance from a JDK class other than a collection (`INHERITANCE`), dynamic dispatch through a parent outside a closed
-hierarchy, `equals`/`hashCode` in one, anonymous and local classes, `instanceof` of an interface or generic type and record patterns,
+hierarchy, `equals`/`hashCode` in one, anonymous and local classes, `instanceof` of a generic type and record patterns,
 try/catch (`TRY_BODY_ONLY`), static state of other types (a `HashMap`, an object), generic bounds beyond `Clone`, sorting and collectors
 beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
 `UNSUPPORTED` message.

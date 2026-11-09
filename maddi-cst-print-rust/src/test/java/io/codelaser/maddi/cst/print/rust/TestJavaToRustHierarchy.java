@@ -78,6 +78,18 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
                             if (e instanceof Var) ((Var) e).rename("x");
                         }
                     }
+                    public int firstConst(List<Expr> exprs) {
+                        Expr e = exprs.get(0);
+                        if (!(e instanceof Const c)) {
+                            return -1;
+                        }
+                        return c.getValue();
+                    }
+                    public boolean isNamedVar(Expr e) { return e instanceof Var v && v.getId() > 0; }
+                    public boolean ordered(Expr a, Expr b) {
+                        if (!(a instanceof Const c1 && b instanceof Const c2 && c1.getValue() == c2.getValue())) return false;
+                        return c1.getId() < c2.getId();
+                    }
                     public List<Expr> make() {
                         List<Expr> l = new ArrayList<>();
                         l.add(new Const(1, 2));
@@ -103,9 +115,12 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
         nonModifying(var, "precedence", "body");
         modifying(var, "rename");
         nonModifying(recordVar, "body");
-        nonModifying(user, "sum", "make");
+        nonModifying(user, "sum", "make", "firstConst", "isNamedVar", "ordered");
         modifying(user, "renameAll");
         borrowed(method(user, "sum").parameters().getFirst());
+        borrowed(method(user, "firstConst").parameters().getFirst());
+        borrowed(method(user, "isNamedVar").parameters().getFirst());
+        method(user, "ordered").parameters().forEach(CommonJavaToRust::borrowed);
         exclusive(method(user, "renameAll").parameters().getFirst());
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
@@ -124,6 +139,12 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
         // a cast is the object itself; the subclass's construction
         contains(rust, "(e).rename(\"x\".to_string());");
         contains(rust, "l.push(ExprsExpr::new_exprs_record_var(2, \"r\".to_string(), 3));");
+        // a negated pattern: the variable in scope after the statement, a let-else
+        contains(rust, "let Some(c) = Some(&*e).filter(|o| matches!(o.kind, ExprsExprKind::ExprsConst(..))) else {");
+        // ... with a further condition: an if over it, the block repeated
+        contains(rust, "if !(c1.get_value() == c2.get_value()) {");
+        // a pattern in a value: is_some_and, the variable the closure's parameter
+        contains(rust, ".is_some_and(|v| (v.get_id() > 0))");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
@@ -236,6 +257,78 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
         String rust = module("a.b");
         // was 'inner: NodesNode': E0072, the whole hierarchy removed (fernflower's ArrayExprent)
         contains(rust, "pub inner: Box<NodesNode>,");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String MATCHABLES = """
+            package a.b;
+            import java.util.List;
+            public class Ms {
+                public interface Matchable { int weight(); }
+                public abstract static class Stat implements Matchable {
+                    public int weight() { return 1; }
+                }
+                public static class If extends Stat {
+                    private int depth;
+                    public int getDepth() { return depth; }
+                    public void deepen() { depth++; }
+                }
+                public static class Seq extends Stat {
+                }
+                public static class Expr implements Matchable {
+                    private final String text;
+                    public Expr(String text) { this.text = text; }
+                    public int weight() { return text.length(); }
+                    public String getText() { return text; }
+                }
+                public static class User {
+                    public int count(List<Matchable> objs) {
+                        int n = 0;
+                        for (Matchable m : objs) {
+                            if (m instanceof If i) n += i.getDepth();
+                            else if (m instanceof Expr) n += ((Expr) m).getText().length();
+                            else if (m instanceof Stat) n++;
+                        }
+                        return n;
+                    }
+                    public void deepenAll(List<Matchable> objs) {
+                        for (Matchable m : objs) {
+                            if (m instanceof If i) i.deepen();
+                        }
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("a value of an interface tested and cast to a class: the trait's conversions, a kind test in a hierarchy")
+    @Test
+    public void interfaceDowncasts() throws Exception {
+        List<TypeInfo> types = parse(MATCHABLES);
+        TypeInfo ms = types.getFirst();
+        nonModifying(ms.findSubType("Matchable"), "weight");
+        nonModifying(ms.findSubType("Stat"), "weight");
+        nonModifying(ms.findSubType("If"), "getDepth");
+        modifying(ms.findSubType("If"), "deepen");
+        nonModifying(ms.findSubType("Expr"), "weight", "getText");
+        TypeInfo user = ms.findSubType("User");
+        nonModifying(user, "count");
+        modifying(user, "deepenAll");
+        borrowed(method(user, "count").parameters().getFirst());
+        exclusive(method(user, "deepenAll").parameters().getFirst());
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // the trait's conversions, None by default; the struct's impl Some(self)
+        contains(rust, "fn as_ms_stat(&self) -> Option<&MsStat> {\n        None\n    }");
+        contains(rust, "fn as_ms_stat(&self) -> Option<&MsStat> {\n        Some(self)\n    }");
+        // a member below the hierarchy's root: the conversion to the root, its kind tested
+        contains(rust, "if let Some(i) = m.as_ms_stat().filter(|o| matches!(o.kind, MsStatKind::MsIf(..))) {");
+        contains(rust, "} else if m.as_ms_expr().is_some() {");
+        contains(rust, "(m.as_ms_expr().unwrap()).get_text()");
+        // the pattern variable modified: the exclusive conversion, the loop over the list mutable
+        contains(rust, "for m in objs.iter_mut() {");
+        contains(rust, "m.as_ms_stat_mut().filter(");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }
