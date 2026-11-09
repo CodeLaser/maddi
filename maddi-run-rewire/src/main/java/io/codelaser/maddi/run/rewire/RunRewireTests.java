@@ -486,8 +486,10 @@ public class RunRewireTests {
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList()) {
             TypeInfo warmType = lastParseResult.findType(coldType.fullyQualifiedName());
             if (warmType == null) continue; // ReparseOracle reports it
-            List<String> c = options.analysis().dump(cold, coldType).lines().map(String::strip).toList();
-            List<String> w = options.analysis().dump(javaInspector, warmType).lines().map(String::strip).toList();
+            List<String> c = options.analysis().dump(cold, coldType).lines().map(String::strip)
+                    .map(RunRewireTests::linksInOrder).toList();
+            List<String> w = options.analysis().dump(javaInspector, warmType).lines().map(String::strip)
+                    .map(RunRewireTests::linksInOrder).toList();
             if (c.equals(w)) continue;
             StringBuilder sb = new StringBuilder("analysis of " + coldType.fullyQualifiedName() + ":");
             c.stream().filter(l -> !w.contains(l)).forEach(l -> sb.append("\n  - ").append(l));
@@ -495,6 +497,51 @@ public class RunRewireTests {
             differences.add(sb.toString());
         }
         return differences;
+    }
+
+    private static final String LINKS = "\"links\":[";
+
+    /*
+     The links of an element are a set; the dump lists them in the order the analysis added them, which follows the
+     order in which it visited the code. A warm re-analysis visits less, in another order: the same links, listed
+     differently (fernflower's Statement.type, 2026-11-09). Sort the top-level entries of each "links" array before
+     comparing. Quote-aware, because names hold brackets (int[], C<init>).
+     */
+    static String linksInOrder(String line) {
+        int from = 0;
+        StringBuilder sb = new StringBuilder();
+        int at;
+        while ((at = line.indexOf(LINKS, from)) >= 0) {
+            int start = at + LINKS.length();
+            List<String> entries = new ArrayList<>();
+            int depth = 0;
+            boolean inString = false;
+            int entryStart = start;
+            int i = start;
+            for (; i < line.length(); i++) {
+                char ch = line.charAt(i);
+                if (inString) {
+                    if (ch == '\\') i++;
+                    else if (ch == '"') inString = false;
+                } else if (ch == '"') {
+                    inString = true;
+                } else if (ch == '[' || ch == '{') {
+                    depth++;
+                } else if (ch == ']' || ch == '}') {
+                    if (depth == 0) break; // the end of the links array
+                    depth--;
+                } else if (ch == ',' && depth == 0) {
+                    entries.add(line.substring(entryStart, i));
+                    entryStart = i + 1;
+                }
+            }
+            if (i >= line.length()) return line; // not what we expected: compare as is
+            if (i > entryStart) entries.add(line.substring(entryStart, i));
+            entries.sort(null);
+            sb.append(line, from, start).append(String.join(",", entries));
+            from = i;
+        }
+        return sb.append(line, from, line.length()).toString();
     }
 
     private void logSummary() {
