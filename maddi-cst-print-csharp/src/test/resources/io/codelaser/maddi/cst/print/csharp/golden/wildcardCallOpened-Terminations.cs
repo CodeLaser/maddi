@@ -1,7 +1,9 @@
+using Maddi.JavaCompat;
 using System;
 namespace A;
 internal sealed class Terminations {
     internal sealed record Inner<Score_>(Score_ Raw, int Unassigned) : IInner where Score_ : IScore<Score_> {
+        public override string ToString() => "Inner[raw=" + JavaString.ValueOf(Raw) + ", unassigned=" + JavaString.ValueOf(Unassigned) + "]";
         IScore IInner.Raw => Raw;
         int IInner.Unassigned => Unassigned;
         TOpen_ IInner.Open_<TOpen_>(IInnerOpener_<TOpen_> o) => o.With<Score_>(this);

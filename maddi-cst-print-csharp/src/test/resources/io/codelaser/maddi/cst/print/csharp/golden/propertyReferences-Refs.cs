@@ -10,5 +10,7 @@ internal sealed class Refs {
     internal static List<string> Names(List<Location> locations) => locations.Select((Location p0) => p0.ClassName)
         .ToList();
     internal static Func<string> Bound(Location location) => () => location.ClassName;
-    internal sealed record Location(string ClassName, int LineNumber);
+    internal sealed record Location(string ClassName, int LineNumber) {
+        public override string ToString() => "Location[className=" + JavaString.ValueOf(ClassName) + ", lineNumber=" + JavaString.ValueOf(LineNumber) + "]";
+    }
 }

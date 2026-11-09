@@ -1,3 +1,4 @@
+using Maddi.JavaCompat;
 using System;
 namespace Org.Example.Phasescopes;
 public sealed class PhaseScopes {
@@ -37,6 +38,7 @@ public sealed class PhaseScopes {
 
     public sealed record Inner<Score_>(Score_ Raw) : IInner where Score_ : IScore<Score_> {
         internal bool Zero() => Raw.IsZero();
+        public override string ToString() => "Inner[raw=" + JavaString.ValueOf(Raw) + "]";
         IScore IInner.Raw => Raw;
         bool IInner.Zero() => Zero();
     }
@@ -57,7 +59,12 @@ public sealed class PhaseScopes {
     }
     public interface IScore { bool IsZero(); }
     public sealed class ScoreLambda<Score_>(Func<bool> f) : IScore<Score_> where Score_ : IScore<Score_> { public bool IsZero() => f(); }
-    public sealed record SimpleScore(int Value) : IScore<SimpleScore> { public bool IsZero() => Value == 0; }
+
+    public sealed record SimpleScore(int Value) : IScore<SimpleScore> {
+        public bool IsZero() => Value == 0;
+        public override string ToString() => "SimpleScore[value=" + JavaString.ValueOf(Value) + "]";
+    }
+
     internal sealed class SolverScope<Solution_> {
         private IInner best;
         private IDirector<Solution_> director;

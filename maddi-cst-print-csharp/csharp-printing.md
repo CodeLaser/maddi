@@ -342,7 +342,10 @@ implements the interface.
   the interface's method is implemented explicitly, `T IResult<T>.Response() => Response;`. A record's
   `equals(Object)` is `public bool Equals(Point? o)`: C# synthesizes `Equals(object)`, which may not be declared
   (CS0111), and it calls this one with the other record or null. A record with `equals` but no `hashCode` keeps
-  Java's hash of its components, `public override int GetHashCode() => HashCode.Combine(Name, N);` (CS8851).
+  Java's hash of its components, `public override int GetHashCode() => HashCode.Combine(Name, N);` (CS8851). One
+  without its own `toString` prints as Java's, `public override string ToString() => "Point[x=" +
+  JavaString.ValueOf(X) + ", y=" + JavaString.ValueOf(Y) + "]";`, not C#'s `Point { X = 1, Y = 2 }`; and `==` on
+  records is `object.ReferenceEquals`, as Java compares references where C# compares the components.
 - **Annotations.** An annotation type of the program is a sealed attribute class, `ToolAttribute : Attribute`
   (`CSharpAttributes`): its elements are properties with their defaults, a `value` element also the constructor's
   parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Its nested types are the attribute's,
@@ -613,6 +616,18 @@ implements the interface.
 
 C#'s statements, operators and precedence are mostly Java's, so most of the code prints as it does in Java. The
 differences:
+
+- **String conversion.** Where Java converts a value to a string by `String.valueOf`, implicitly, C#'s `ToString`
+  differs for some: a boolean is `True`, a double `1` or `∞` (Java `1.0`, `Infinity`), a collection its .NET type's
+  name (Java `[1, 2]`, `{a=1}`), `null` the empty string. Such an operand of a concatenation (`+`, `+=` on a String)
+  is `JavaString.ValueOf(x)`, the compatibility library's Java conversion, which formats the BCL's collections, maps
+  and entries as `AbstractCollection` and `AbstractMap` do: a boolean, a float or a double, boxed too, an Object, a
+  type parameter, a library type, a value that may be null. An integer, a char, an enum, an array, and a program
+  type's value known not to be null stay as they are, C#'s conversion being Java's there. A String the analysis
+  finds may be null is `(s ?? "null")`; without the analysis a String is taken not to be null, and a null one prints
+  as the empty string. `print`, `println` and `StringBuilder.append` of a boolean, double, float or Object, and
+  `Double.toString`/`Float.toString`, go through `JavaString.ValueOf` by their mappings. The behavioural check
+  (`TestJavaToCSharpBehaviour`) holds each of these to Java's output.
 
 - **Loops and statements.**
   - `for (T x : xs)` becomes `foreach (T x in xs)`. One whose body assigns the loop variable iterates over `vItem`

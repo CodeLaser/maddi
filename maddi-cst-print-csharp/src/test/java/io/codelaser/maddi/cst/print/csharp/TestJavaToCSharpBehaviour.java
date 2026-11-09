@@ -167,7 +167,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: == on records; record toString")
     public void recordEquality() {
         behaves("Records", """
                 package a;

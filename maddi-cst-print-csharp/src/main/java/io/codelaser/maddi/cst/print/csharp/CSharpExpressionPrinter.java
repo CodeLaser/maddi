@@ -2534,7 +2534,14 @@ public final class CSharpExpressionPrinter {
         ParameterizedType l = lhs.parameterizedType();
         ParameterizedType r = rhs.parameterizedType();
         if (l == null || r == null || l.arrays() > 0 || r.arrays() > 0) return false;
-        return l.isJavaLangString() && r.isJavaLangString() || l.isTypeParameter() || r.isTypeParameter();
+        return l.isJavaLangString() && r.isJavaLangString() || l.isTypeParameter() || r.isTypeParameter()
+               || translatedRecord(l) || translatedRecord(r);
+    }
+
+    /** A record of the program: C#'s {@code ==} on it compares the components, Java's the references. */
+    private static boolean translatedRecord(ParameterizedType t) {
+        TypeInfo ti = t.typeInfo();
+        return ti != null && ti.typeNature().isRecord() && CSharpNames.translated(ti);
     }
 
     private static OutputBuilder negation(Negation neg, Qualification q) {
