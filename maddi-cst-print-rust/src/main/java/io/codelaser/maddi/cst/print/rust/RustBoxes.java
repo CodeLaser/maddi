@@ -19,6 +19,7 @@ package io.codelaser.maddi.cst.print.rust;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -46,18 +47,31 @@ final class RustBoxes {
     boolean isBoxed(FieldInfo f) {
         return boxed.computeIfAbsent(f, g -> {
             TypeInfo held = byValue(g);
-            return held != null && reaches(held, g.owner(), new HashSet<>());
+            return held != null && reaches(struct(held), struct(g.owner()), new HashSet<>());
         });
     }
 
     private boolean reaches(TypeInfo from, TypeInfo to, Set<TypeInfo> seen) {
         if (from == to) return true;
         if (!seen.add(from)) return false;
-        for (FieldInfo g : from.fields()) {
+        for (FieldInfo g : fields(from)) {
             TypeInfo held = byValue(g);
-            if (held != null && reaches(held, to, seen)) return true;
+            if (held != null && reaches(struct(held), to, seen)) return true;
         }
         return false;
+    }
+
+    // the struct a type's objects are: a closed hierarchy's members are its root's (RustHierarchies)
+    private static TypeInfo struct(TypeInfo t) {
+        TypeInfo root = RustHierarchies.current().root(t);
+        return root != null ? root : t;
+    }
+
+    // the fields the struct holds by value, with a hierarchy's every member's in its kind
+    private static List<FieldInfo> fields(TypeInfo struct) {
+        RustHierarchies.Hierarchy h = RustHierarchies.current().hierarchy(struct);
+        if (h == null) return struct.fields();
+        return h.members().stream().flatMap(m -> m.fields().stream()).toList();
     }
 
     // the source struct a field holds by value, or null

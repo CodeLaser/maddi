@@ -1,0 +1,241 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2026, CodeLaser BV, https://github.com/CodeLaser/maddi
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package io.codelaser.maddi.cst.print.rust;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+
+/** A closed class hierarchy as one struct with a kind enum (RustHierarchies). */
+public class TestJavaToRustHierarchy extends CommonJavaToRust {
+
+    @Language("java")
+    private static final String EXPRS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Exprs {
+                public abstract static class Expr {
+                    protected int id;
+                    public Expr(int id) { this.id = id; }
+                    public abstract int precedence();
+                    public String toJava() { return "(" + body() + ")"; }
+                    protected String body() { return "?"; }
+                    public int getId() { return id; }
+                }
+                public static class Const extends Expr {
+                    private final int value;
+                    public Const(int id, int value) { super(id); this.value = value; }
+                    public int precedence() { return 0; }
+                    protected String body() { return "" + value; }
+                    public int getValue() { return value; }
+                }
+                public static class Var extends Expr {
+                    private String name;
+                    public Var(int id, String name) { super(id); this.name = name; }
+                    public int precedence() { return 1; }
+                    protected String body() { return name; }
+                    public void rename(String n) { this.name = n; }
+                }
+                public static class RecordVar extends Var {
+                    private int index;
+                    public RecordVar(int id, String name, int index) { super(id, name); this.index = index; }
+                    protected String body() { return super.body() + "#" + index; }
+                }
+                public static class User {
+                    public int sum(List<Expr> exprs) {
+                        int s = 0;
+                        for (Expr e : exprs) {
+                            if (e instanceof Const c) s += c.getValue();
+                            else if (e instanceof Var v && v.getId() > 0) s += v.precedence();
+                        }
+                        return s;
+                    }
+                    public void renameAll(List<Expr> exprs) {
+                        for (Expr e : exprs) {
+                            if (e instanceof Var) ((Var) e).rename("x");
+                        }
+                    }
+                    public List<Expr> make() {
+                        List<Expr> l = new ArrayList<>();
+                        l.add(new Const(1, 2));
+                        l.add(new RecordVar(2, "r", 3));
+                        return l;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("a closed hierarchy is one struct whose kind enum holds each class's fields; overrides dispatch")
+    @Test
+    public void closedHierarchy() throws Exception {
+        List<TypeInfo> types = parse(EXPRS);
+        TypeInfo exprs = types.getFirst();
+        TypeInfo expr = exprs.findSubType("Expr");
+        TypeInfo constant = exprs.findSubType("Const");
+        TypeInfo var = exprs.findSubType("Var");
+        TypeInfo recordVar = exprs.findSubType("RecordVar");
+        TypeInfo user = exprs.findSubType("User");
+        nonModifying(expr, "precedence", "toJava", "body", "getId");
+        nonModifying(constant, "precedence", "body", "getValue");
+        nonModifying(var, "precedence", "body");
+        modifying(var, "rename");
+        nonModifying(recordVar, "body");
+        nonModifying(user, "sum", "make");
+        modifying(user, "renameAll");
+        borrowed(method(user, "sum").parameters().getFirst());
+        exclusive(method(user, "renameAll").parameters().getFirst());
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // each class's own fields in its variant, a subclass of a subclass with its parent's data first
+        contains(rust, "ExprsRecordVar(ExprsVarData, ExprsRecordVarData),");
+        // the template method calls the dispatching body(), which picks the variant's own implementation
+        contains(rust, "return format!(\"({})\", self.body());");
+        contains(rust, "ExprsExprKind::ExprsRecordVar(..) => self.body_exprs_record_var(),");
+        contains(rust, "ExprsExprKind::ExprsExpr => unreachable!(\"abstract\"),");
+        // super.body(): the parent's own implementation
+        contains(rust, "format!(\"{}#{}\", self.body_exprs_var(), self.kind.exprs_record_var().index)");
+        // instanceof with a pattern, in an else-if and in a let chain
+        contains(rust, "if let Some(c) = Some(&*e).filter(|o| matches!(o.kind, ExprsExprKind::ExprsConst(..))) {");
+        contains(rust, "matches!(o.kind, ExprsExprKind::ExprsVar(..) | ExprsExprKind::ExprsRecordVar(..))) && (v.get_id() > 0)");
+        // a cast is the object itself; the subclass's construction
+        contains(rust, "(e).rename(\"x\".to_string());");
+        contains(rust, "l.push(ExprsExpr::new_exprs_record_var(2, \"r\".to_string(), 3));");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String ATTRIBUTES = """
+            package a.b;
+            public class Attrs {
+                public interface Matchable { boolean matches(String s); }
+                public static class Attr implements Matchable {
+                    public static final int KIND_PLAIN = 0;
+                    protected String name;
+                    public Attr(String name) { this.name = name; }
+                    public static Attr create(String name, int code) {
+                        if (code == Code.KIND_CODE) return new Code(name, 7);
+                        return new Attr(name);
+                    }
+                    public boolean matches(String s) { return name.equals(s); }
+                    public String toString() { return name; }
+                    public int size() { return 0; }
+                }
+                public static class Code extends Attr {
+                    public static final int KIND_CODE = 1;
+                    private int length;
+                    public Code(String name, int length) { super(name); this.length = length; }
+                    public boolean matches(String s) { return super.matches(s) || s.isEmpty(); }
+                    public String toString() { return name + ":" + length; }
+                    public int size() { return length; }
+                    public boolean sameLength(Code other) { return other.length == length; }
+                    public void grow() { length++; }
+                }
+            }
+            """;
+
+    @DisplayName("a concrete root, an interface, toString, another object's field and constants of a member")
+    @Test
+    public void concreteRoot() throws Exception {
+        List<TypeInfo> types = parse(ATTRIBUTES);
+        TypeInfo attrs = types.getFirst();
+        TypeInfo attr = attrs.findSubType("Attr");
+        TypeInfo code = attrs.findSubType("Code");
+        nonModifying(attrs.findSubType("Matchable"), "matches");
+        nonModifying(attr, "create", "matches", "toString", "size");
+        nonModifying(code, "matches", "toString", "size", "sameLength");
+        modifying(code, "grow");
+        borrowed(method(code, "sameLength").parameters().getFirst());
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "AttrsAttr,\n    AttrsCode(AttrsCodeData),");
+        contains(rust, "if code == AttrsAttr::ATTRS_CODE_KIND_CODE {");
+        contains(rust, "return self.matches_attrs_attr(s.clone()) || s.is_empty();");
+        contains(rust, "return other.kind.attrs_code().length == self.kind.attrs_code().length;");
+        contains(rust, "self.kind.attrs_code_mut().length += 1;");
+        contains(rust, "impl AttrsMatchable for AttrsAttr {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @DisplayName("an override that modifies where the family's top method does not: rustc's error in the dispatcher")
+    @Test
+    public void overrideThatModifies() throws Exception {
+        List<TypeInfo> types = parse(EXPRS);
+        TypeInfo exprs = types.getFirst();
+        TypeInfo expr = exprs.findSubType("Expr");
+        TypeInfo var = exprs.findSubType("Var");
+        nonModifying(expr, "precedence", "toJava", "body", "getId");
+        nonModifying(exprs.findSubType("Const"), "precedence", "body", "getValue");
+        nonModifying(exprs.findSubType("RecordVar"), "body");
+        // a wrong verdict, as the engine could compute it: Var's body modifies
+        modifying(var, "body", "rename");
+        nonModifying(var, "precedence");
+        nonModifying(exprs.findSubType("User"), "sum", "make");
+        modifying(exprs.findSubType("User"), "renameAll");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().anyMatch(e -> e.contains("E0596")), () -> String.join("\n", errors) + "\n" + rust);
+    }
+
+    @Language("java")
+    private static final String NESTED = """
+            package a.b;
+            public class Nodes {
+                public abstract static class Node {
+                    public abstract int eval();
+                }
+                public static class Leaf extends Node {
+                    private final int v;
+                    public Leaf(int v) { this.v = v; }
+                    public int eval() { return v; }
+                }
+                public static class Neg extends Node {
+                    private final Node inner;
+                    public Neg(Node inner) { this.inner = inner; }
+                    public int eval() { return -inner.eval(); }
+                }
+            }
+            """;
+
+    @DisplayName("a member holding an object of its own hierarchy is boxed: the root's struct would be infinite")
+    @Test
+    public void recursiveMember() throws Exception {
+        List<TypeInfo> types = parse(NESTED);
+        TypeInfo nodes = types.getFirst();
+        nonModifying(nodes.findSubType("Node"), "eval");
+        nonModifying(nodes.findSubType("Leaf"), "eval");
+        nonModifying(nodes.findSubType("Neg"), "eval");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'inner: NodesNode': E0072, the whole hierarchy removed (fernflower's ArrayExprent)
+        contains(rust, "pub inner: Box<NodesNode>,");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+}

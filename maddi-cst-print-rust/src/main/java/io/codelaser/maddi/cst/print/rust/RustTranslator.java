@@ -59,8 +59,11 @@ public final class RustTranslator {
 
     /** The types of one package as one Rust module. {@code crashes} receives what could not be printed. */
     public static Module module(String packageName, List<TypeInfo> types, RustFacts facts, List<String> crashes) {
-        return module(packageName, types, facts, crashes, RustGetters.modifiedThrough(types, facts),
-                RustClosures.mutating(types, facts));
+        // the hierarchies among the package's types, when no translation of the whole program is in progress
+        RustHierarchies hierarchies = RustHierarchies.current() == RustHierarchies.NONE ? RustHierarchies.of(types)
+                : RustHierarchies.current();
+        return RustHierarchies.with(hierarchies, () -> module(packageName, types, facts, crashes,
+                RustGetters.modifiedThrough(types, facts), RustClosures.mutating(types, facts)));
     }
 
     /** ... with the getters the whole program modifies through ({@link RustGetters}). */
@@ -107,11 +110,21 @@ public final class RustTranslator {
         }
         Path src = out.resolve("src");
         Files.createDirectories(src);
+        StringBuilder lib = new StringBuilder("// The crate root: one module per Java package.\n\n");
+        List<TypeInfo> all = byPackage.values().stream().flatMap(List::stream).toList();
+        RustHierarchies outer = RustHierarchies.enter(RustHierarchies.of(all));
+        try {
+            return translate(byPackage, all, facts, out, src, lib);
+        } finally {
+            RustHierarchies.restore(outer);
+        }
+    }
+
+    private static Result translate(Map<String, List<TypeInfo>> byPackage, List<TypeInfo> all, RustFacts facts,
+                                    Path out, Path src, StringBuilder lib) throws IOException {
         List<Path> files = new ArrayList<>();
         List<String> crashes = new ArrayList<>();
         List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();
-        StringBuilder lib = new StringBuilder("// The crate root: one module per Java package.\n\n");
-        List<TypeInfo> all = byPackage.values().stream().flatMap(List::stream).toList();
         Set<MethodInfo> mutableGetters = RustGetters.modifiedThrough(all, facts);
         Set<ParameterInfo> mutatingFunctions = RustClosures.mutating(all, facts);
         Map<String, String> opaque = new TreeMap<>();

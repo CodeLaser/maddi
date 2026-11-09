@@ -266,11 +266,12 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
             """;
 
     /**
-     * A superclass is a {@code base} field; inherited members are reached through it. The interface method has no
-     * verdict, so its trait takes {@code &mut self}; the implementation's own {@code &self} is an inherent method the
-     * trait's delegates to.
+     * A class and its subclass are one struct with a kind (RustHierarchies, TestJavaToRustHierarchy): an inherited
+     * member is the struct's own, the subclass's field is in its variant's data. The interface method has no verdict,
+     * so its trait takes {@code &mut self}; the implementation's own {@code &self} is an inherent method the trait's
+     * delegates to.
      */
-    @DisplayName("inheritance as composition, trait impl delegating to the implementation's own verdicts: compiles")
+    @DisplayName("a closed hierarchy as one struct, trait impl delegating to the implementation's own verdicts: compiles")
     @Test
     public void inheritance() throws Exception {
         List<TypeInfo> types = parse(CONTROLLERS);
@@ -287,11 +288,12 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
-        contains(rust, "pub base: ControllersBase,");
-        contains(rust, "base: ControllersBase::new(\"orders\".to_string()),");
-        contains(rust, "self.base.audit(\"placed\");");
-        contains(rust, "self.base.name.len() as i32 > 0");
-        contains(rust, "return orders.base.log_size();");
+        contains(rust, "ControllersOrders(ControllersOrdersData),");
+        contains(rust, "let mut this = Self::new_controllers_base(\"orders\".to_string());");
+        contains(rust, "self.kind.controllers_orders_mut().count += 1;");
+        contains(rust, "self.audit(\"placed\");");
+        contains(rust, "(self.name.len() as i32 > 0)");
+        contains(rust, "return orders.log_size();");
         contains(rust, """
                 fn is_valid(&mut self) -> bool {
                     Self::is_valid(self)
@@ -305,18 +307,21 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
             package a.b;
             import java.util.List;
             public class Stmts {
-                static class Statement {
-                    private final List<String> labels;
-                    Statement(List<String> labels) { this.labels = labels; }
+                static class Statement<T> {
+                    private final List<T> labels;
+                    Statement(List<T> labels) { this.labels = labels; }
                     int count() { return labels.size(); }
                 }
-                static class Switch extends Statement {
+                static class Switch extends Statement<String> {
                     Switch() { super(List.of()); }
                 }
             }
             """;
 
-    /** A superclass whose objects are shared in an {@code Rc} is still owned as the {@code base} part. */
+    /**
+     * A superclass whose objects are shared in an {@code Rc} is still owned as the {@code base} part. A generic
+     * superclass keeps composition: a closed hierarchy is one struct only without type parameters.
+     */
     @DisplayName("a base whose class is shared in an Rc is the plain struct: compiles")
     @Test
     public void sharedBase() throws Exception {
@@ -326,7 +331,7 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         nonModifying(statement, "count");
         translate(types);
         String rust = module("a.b");
-        contains(rust, "pub base: StmtsStatement,");
+        contains(rust, "pub base: StmtsStatement<String>,");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
@@ -491,6 +496,59 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "pub const CODES_CODE_CONSTANTS_TYPE_INT: i32 = 1;");
         contains(rust, "pub const CODES_CODE_CONSTANTS_NAME: &'static str = \"codes\";");
         contains(rust, "CODES_CODE_CONSTANTS_TYPE_LONG => {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String COLLECTION_SUBCLASS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.HashMap;
+            import java.util.List;
+            public class Coll {
+                public static class Named<E> extends ArrayList<E> {
+                    private final HashMap<String, Integer> index = new HashMap<>();
+                    public Named() { super(); }
+                    public void addNamed(String name, E e) { index.put(name, size()); super.add(e); }
+                    public boolean has(String name) { return index.containsKey(name) && !isEmpty(); }
+                    @Override public boolean add(E e) { index.put("", size()); return super.add(e); }
+                }
+                public static class User {
+                    public int count(Named<String> n) { int c = 0; for (String s : n) if (!s.isEmpty()) c++; return c + n.size(); }
+                    public String first(Named<String> n) { return n.get(0); }
+                    public int all(List<String> l) { return l.size(); }
+                    public int viaList(Named<String> n) { return all(n); }
+                    public int blocks(Named<Block> n) { int c = 0; for (Block b : n) c += b.id; return c + n.size(); }
+                }
+                // modified elsewhere, so no derived Clone: the Deref must not ask for one
+                public static class Block { int id; void bump() { id++; } }
+            }
+            """;
+
+    @DisplayName("a class extending a JDK collection keeps the collection as its base, and dereferences to it")
+    @Test
+    public void collectionSubclass() throws Exception {
+        List<TypeInfo> types = parse(COLLECTION_SUBCLASS);
+        TypeInfo named = types.getFirst().findSubType("Named");
+        TypeInfo user = types.getFirst().findSubType("User");
+        modifying(named, "addNamed", "add");
+        nonModifying(named, "has");
+        nonModifying(user, "count", "first", "all", "viaList");
+        modifying(types.getFirst().findSubType("Block"), "bump");
+        nonModifying(user, "blocks");
+        for (String m : new String[]{"count", "first", "all", "viaList", "blocks"}) {
+            borrowed(method(user, m).parameters().getFirst());
+        }
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was a struct without the list: len, push, iter and indexing unresolved (fernflower's VBStyleCollection)
+        contains(rust, "pub base: Vec<E>,");
+        contains(rust, "type Target = Vec<E>;");
+        contains(rust, "impl<E> std::ops::Deref for CollNamed<E> {");
+        // super.add is the list's push, not the override's own add; its value Java's true
+        contains(rust, "return { self.base.push(e); true };");
+        contains(rust, "return self.all(n);");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

@@ -18,6 +18,8 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,20 +73,42 @@ final class RustBorrows {
      */
     boolean hasLifetime(TypeInfo typeInfo) {
         if (typeInfo == null) return false;
-        Boolean known = lifetime.get(typeInfo);
+        // a closed hierarchy is one struct: it carries the lifetime when any of its members does (RustHierarchies)
+        TypeInfo root = RustHierarchies.current().root(typeInfo);
+        TypeInfo struct = root != null ? root : typeInfo;
+        // reachability: a cache of answers made during a cycle would keep the 'no' of a struct still in progress
+        return lifetime.computeIfAbsent(struct, t -> reaches(t, new HashSet<>()));
+    }
+
+    // a struct reachable from t through instance fields (and their type arguments) borrows a field
+    private boolean reaches(TypeInfo t, Set<TypeInfo> seen) {
+        if (t.compilationUnit().externalLibrary() || t.isInterface()) return false;
+        RustHierarchies.Hierarchy h = RustHierarchies.current().hierarchy(t);
+        TypeInfo struct = h != null ? h.root() : t;
+        if (!seen.add(struct)) return false;
+        Boolean known = lifetime.get(struct);
         if (known != null) return known;
-        lifetime.put(typeInfo, false); // in progress
-        boolean has = !fields(typeInfo).isEmpty();
-        if (!has && !typeInfo.compilationUnit().externalLibrary() && !typeInfo.isInterface()) {
-            for (FieldInfo f : typeInfo.fields()) {
-                if (!f.isStatic() && !f.isSynthetic() && mentionsLifetime(f.type())) {
-                    has = true;
-                    break;
-                }
+        for (TypeInfo member : h != null ? h.members() : List.of(t)) {
+            if (!fields(member).isEmpty()) return true;
+            for (FieldInfo f : member.fields()) {
+                if (!f.isStatic() && !f.isSynthetic() && mentions(f.type(), seen)) return true;
             }
         }
-        lifetime.put(typeInfo, has);
-        return has;
+        return false;
+    }
+
+    private boolean mentions(ParameterizedType type, Set<TypeInfo> seen) {
+        if (type.typeInfo() != null && reaches(type.typeInfo(), seen)) return true;
+        return type.parameters().stream().anyMatch(p -> mentions(p, seen));
+    }
+
+    /** An instance field of the type itself holds a struct carrying the lifetime. */
+    boolean fieldsMentionLifetime(TypeInfo typeInfo) {
+        if (typeInfo.compilationUnit().externalLibrary() || typeInfo.isInterface()) return false;
+        for (FieldInfo f : typeInfo.fields()) {
+            if (!f.isStatic() && !f.isSynthetic() && mentionsLifetime(f.type())) return true;
+        }
+        return false;
     }
 
     private boolean mentionsLifetime(ParameterizedType type) {
@@ -110,7 +134,7 @@ final class RustBorrows {
     private Map<FieldInfo, Form> compute(TypeInfo typeInfo) {
         Map<FieldInfo, Form> out = new LinkedHashMap<>();
         if (typeInfo.typeNature().isRecord() || typeInfo.isInterface() || typeInfo.typeNature().isEnum()
-            || RustTypePrinter.sourceParent(typeInfo) != null) {
+            || RustTypePrinter.sourceParent(typeInfo) != null || RustHierarchies.current().isSubMember(typeInfo)) {
             return out;
         }
         List<MethodInfo> constructors = typeInfo.constructors().stream().filter(c -> !c.isSynthetic()).toList();

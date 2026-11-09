@@ -166,4 +166,105 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
         List<String> errors = rustcErrors();
         assertTrue(errors.stream().anyMatch(e -> e.contains("E0502")), () -> String.join("\n", errors) + "\n" + rust);
     }
+
+    @Language("java")
+    private static final String NULLABLE_IMMUTABLE_LOCAL = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Stack {
+                public static final class Kind {
+                    private final int code;
+                    public Kind(int code) { this.code = code; }
+                    public int code() { return code; }
+                }
+                private final List<Kind> items = new ArrayList<>();
+                public void pushIf(boolean b, int code) {
+                    Kind k = null;
+                    if (b) k = new Kind(code);
+                    if (k != null) {
+                        items.add(k);
+                        items.add(k);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("an owned Option of an immutable value is cloned whole, not with Option<&T>'s cloned()")
+    @Test
+    public void nullableImmutableLocal() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_IMMUTABLE_LOCAL);
+        TypeInfo stack = types.getFirst();
+        TypeInfo kind = stack.findSubType("Kind");
+        immutable(kind, ValueImpl.ImmutableImpl.IMMUTABLE);
+        nonModifying(kind, "code");
+        modifying(stack, "pushIf");
+        translate(types);
+        String rust = module("a.b");
+        // was 'k.cloned().unwrap()': no method cloned on Option<StackKind> (E0599; fernflower's InstructionImpact)
+        contains(rust, "k.clone().unwrap()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String NULLABLE_ARRAY = """
+            package a.b;
+            public class Instr {
+                private final int[] operands;
+                public Instr(int[] operands) { this.operands = operands; }
+                public int count() { return operands == null ? 0 : operands.length; }
+                public int operand(int i) { return operands[i]; }
+            }
+            """;
+
+    @DisplayName("a nullable array's length and elements are reached through unwrap, as Java's access would throw")
+    @Test
+    public void nullableArray() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_ARRAY);
+        TypeInfo instr = types.getFirst();
+        nonModifying(instr, "count", "operand");
+        translate(types, nullable(java.util.Set.of("operands")));
+        String rust = module("a.b");
+        // was 'self.operands[i as usize]' and 'self.operands.len()' on an Option<Vec<i32>> (E0608, E0599; fernflower)
+        contains(rust, "self.operands.as_ref().unwrap()[i as usize]");
+        contains(rust, "self.operands.as_ref().unwrap().len() as i32");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String LIFETIME_CYCLE = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Cyc {
+                public static class Holder {
+                    private final List<String> names;
+                    public Holder(List<String> names) { this.names = names; }
+                    public int n() { return names.size(); }
+                }
+                public static class A {
+                    private final List<B> bs = new ArrayList<>();
+                    private Holder h;
+                }
+                public static class B {
+                    private A a;
+                }
+            }
+            """;
+
+    @DisplayName("a struct on a cycle with a struct carrying the lifetime carries it too, whichever is asked first")
+    @Test
+    public void lifetimeThroughCycle() throws Exception {
+        List<TypeInfo> types = parse(LIFETIME_CYCLE);
+        TypeInfo holder = types.getFirst().findSubType("Holder");
+        nonModifying(holder, "n");
+        unmodifiedField(holder, "names");
+        kept(holder.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        translate(types, nullable(java.util.Set.of("h", "a")));
+        String rust = module("a.b");
+        // was 'pub struct CycB {' with 'a: Option<Box<CycA<'_>>>': E0106, B decided without a lifetime while A was
+        // in progress (fernflower's StatEdge and Statement)
+        contains(rust, "pub struct CycB<'a> {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

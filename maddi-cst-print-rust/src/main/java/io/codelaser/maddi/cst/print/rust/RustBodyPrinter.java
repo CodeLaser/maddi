@@ -108,6 +108,8 @@ final class RustBodyPrinter {
     }
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
+    // the expression of the expression statement being printed: its value is dropped
+    private Expression statement;
 
     RustBodyPrinter(RustContext context) {
         this.context = context;
@@ -182,7 +184,18 @@ final class RustBodyPrinter {
             return appends.stream().map(mc -> RustJdk.append(target, mc.parameterExpressions().getFirst(), this))
                     .collect(Collectors.joining(";\n" + pad));
         }
-        return expression(e).text;
+        Expression outer = statement;
+        statement = e;
+        try {
+            return expression(e).text;
+        } finally {
+            statement = outer;
+        }
+    }
+
+    /** {@code e} is an expression statement's: Java drops its value ({@code list.add(x);}). */
+    boolean isStatement(Expression e) {
+        return e == statement;
     }
 
     /** {@code sb.append(a).append(b)…} on a {@code StringBuilder}, innermost first; {@code null} otherwise. */
@@ -392,7 +405,20 @@ final class RustBodyPrinter {
      * {@code downcast_mut} when {@code t} is modified. {@code null} for anything else.
      */
     private String downcastPattern(Expression condition) {
-        if (!(CstQueries.unwrap(condition) instanceof InstanceOf io) || io.patternVariable() == null) return null;
+        Expression unwrapped = CstQueries.unwrap(condition);
+        if (unwrapped instanceof And and && and.expressions().stream()
+                .anyMatch(x -> CstQueries.unwrap(x) instanceof InstanceOf io && hierarchyPattern(io) != null)) {
+            // 'e instanceof A a && a.isX()': a let chain (Rust 2024), each binding in scope for what follows it
+            List<String> parts = new ArrayList<>();
+            for (Expression x : and.expressions()) {
+                String binding = CstQueries.unwrap(x) instanceof InstanceOf io ? hierarchyPattern(io) : null;
+                parts.add(binding != null ? binding : operand(x));
+            }
+            return String.join(" && ", parts);
+        }
+        if (!(unwrapped instanceof InstanceOf io) || io.patternVariable() == null) return null;
+        String inHierarchy = hierarchyPattern(io);
+        if (inHierarchy != null) return inHierarchy;
         LocalVariable lv = io.patternVariable().localVariable();
         if (lv == null || !isObject(io.expression().parameterizedType())) return null;
         ParameterizedType type = lv.parameterizedType();
@@ -407,6 +433,55 @@ final class RustBodyPrinter {
                 ? tested.text + (mutated ? ".as_mut()" : ".as_ref()") + ".and_then(|o| o." + downcast + ")"
                 : tested.text + "." + downcast;
         return "let Some(" + (copy && !mutated ? "&" : "") + RustNames.snake(lv.simpleName()) + ") = " + value;
+    }
+
+    /**
+     * {@code e instanceof A a} in a closed hierarchy (RustHierarchies): {@code a} is {@code e} itself, when its kind is
+     * one of A's: {@code let Some(a) = Some(e).filter(|o| matches!(o.kind, …))}, mutably when {@code a} is modified.
+     * {@code null} for any other test.
+     */
+    private String hierarchyPattern(InstanceOf io) {
+        if (io.patternVariable() == null || io.patternVariable().localVariable() == null) return null;
+        RustHierarchies hs = RustHierarchies.current();
+        TypeInfo tested = io.expression().parameterizedType().typeInfo();
+        TypeInfo target = io.testType().typeInfo();
+        if (!hs.isMember(target) || hs.root(tested) != hs.root(target) || io.testType().arrays() > 0) return null;
+        LocalVariable lv = io.patternVariable().localVariable();
+        boolean mutated = mutated(lv);
+        Printed p = mutated ? mutable(io.expression()) : expression(io.expression());
+        String option;
+        if (p.nullable) option = p.text + (mutated ? ".as_mut()" : ".as_ref()");
+        else if (p.held == Held.SHARED || p.held == Held.EXCLUSIVE && !mutated) option = "Some(&*" + p.text + ")";
+        else if (p.held == Held.EXCLUSIVE) option = "Some(&mut *" + p.text + ")";
+        else option = "Some(" + (mutated ? "&mut " : "&") + p.text + ")";
+        locals.put(lv, mutated ? Held.EXCLUSIVE : Held.SHARED);
+        nullableLocals.put(lv, false);
+        useKind(target);
+        return "let Some(" + RustNames.snake(lv.simpleName()) + ") = " + option + ".filter(|o| " + hs.test("o", target)
+               + ")";
+    }
+
+    // the kind enum a test names, imported where the hierarchy is another module's
+    private void useKind(TypeInfo member) {
+        String module = RustNames.module(member.packageName());
+        if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustHierarchies.current().kind(member));
+    }
+
+    /** {@code e instanceof A} in a closed hierarchy: a test of e's kind; false for a null {@code e}, as Java's. */
+    private Printed hierarchyTest(InstanceOf io) {
+        RustHierarchies hs = RustHierarchies.current();
+        Printed p = expression(io.expression());
+        TypeInfo target = io.testType().typeInfo();
+        useKind(target);
+        if (p.nullable) return value(p.text + ".as_ref().is_some_and(|o| " + hs.test("o", target) + ")");
+        return value(hs.test(p.text, target));
+    }
+
+    private static boolean isHierarchyTest(InstanceOf io) {
+        RustHierarchies hs = RustHierarchies.current();
+        TypeInfo target = io.testType().typeInfo();
+        return io.patternVariable() == null && io.testType().arrays() == 0 && hs.isMember(target)
+               && hs.root(io.expression().parameterizedType().typeInfo()) == hs.root(target);
     }
 
     /** {@code o instanceof T} of an Object, T a class: {@code o.is::<T>()}. */
@@ -797,7 +872,7 @@ final class RustBodyPrinter {
             case BinaryOperator bo when bo.operator() != null -> binaryOperator(bo);
             case UnaryOperator uo when uo.operator() != null -> unaryOperator(uo);
             case Cast c -> cast(c);
-            case ArrayLength al -> value(expression(al.scope()).text + ".len() as i32");
+            case ArrayLength al -> value(dereference(expression(al.scope())) + ".len() as i32");
             case Lambda lambda -> lambda(lambda);
             case SwitchExpression se -> switchExpression(se);
             case And and -> value(and.expressions().stream().map(this::operand).collect(Collectors.joining(" && ")));
@@ -805,6 +880,7 @@ final class RustBodyPrinter {
             case TypeExpression te -> value(RustTypes.owned(te.parameterizedType(), context, te));
             case MethodReference mr -> methodReference(mr);
             case ArrayInitializer ai -> arrayInitializer(ai.expressions(), ai.parameterizedType());
+            case InstanceOf io when isHierarchyTest(io) -> hierarchyTest(io);
             case InstanceOf io when io.patternVariable() == null && isObject(io.expression().parameterizedType())
                                     && RustTypes.isDowncastTarget(io.testType()) -> isInstance(io);
             default -> value(unsupported(e, e.getClass().getSimpleName()));
@@ -819,9 +895,13 @@ final class RustBodyPrinter {
         String alias = aliases.get(variable);
         if (alias != null) return new Printed(alias, Held.SHARED, false);
         return switch (variable) {
-            case This ignored -> {
+            case This t -> {
                 Receiver receiver = context.method == null ? Receiver.EXCLUSIVE : context.facts.receiver(context.method);
-                yield new Printed(context.receiver, context.receiver.equals("this") ? Held.VALUE
+                // 'super.add(e)' on a JDK collection base: the collection's own, not an override the class declares
+                String text = t.writeSuper() && context.type != null
+                              && RustTypePrinter.collectionBase(context.type, context) != null
+                        ? context.receiver + ".base" : context.receiver;
+                yield new Printed(text, context.receiver.equals("this") ? Held.VALUE
                         : receiver == Receiver.SHARED ? Held.SHARED : receiver == Receiver.OWNED ? Held.VALUE
                         : Held.EXCLUSIVE, false);
             }
@@ -831,7 +911,8 @@ final class RustBodyPrinter {
             case FieldReference fr -> field(fr);
             case DependentVariable dv -> {
                 if (dv.arrayExpression() == null) yield value(unsupported(where, "array element"));
-                yield new Printed(expression(dv.arrayExpression()).text + "[" + index(dv.indexExpression()) + "]",
+                // a nullable array (Option<Vec<…>>) is unwrapped, as Java's access would throw
+                yield new Printed(dereference(expression(dv.arrayExpression())) + "[" + index(dv.indexExpression()) + "]",
                         Held.PLACE, false);
             }
             default -> value(unsupported(where, variable.getClass().getSimpleName()));
@@ -895,7 +976,7 @@ final class RustBodyPrinter {
                 return new Printed(name, Held.PLACE, nullable);
             }
             // a string constant is a &'static str
-            return new Printed(prefix + "::" + RustNames.constant(f.name()),
+            return new Printed(prefix + "::" + RustTypePrinter.constantName(f),
                                RustTypes.isString(f.type()) && RustTypePrinter.constant(f) ? Held.STR : Held.VALUE, nullable);
         }
         boolean own = fr.scopeIsThis() || fr.isDefaultScope();
@@ -909,6 +990,11 @@ final class RustBodyPrinter {
         // an inherited field is in the base
         String path = scopeType == null ? "" : RustTypePrinter.basePath(scopeType, f.owner());
         String place = scope + path + "." + RustNames.snake(f.name());
+        if (RustHierarchies.current().isSubMember(f.owner())) {
+            // a field a class below a hierarchy's root adds: in its data, in the kind (RustHierarchies)
+            place = scope + ".kind." + RustHierarchies.accessor(f.owner()) + (mutatingPlace ? "_mut()" : "()") + "."
+                    + RustNames.snake(f.name());
+        }
         if (own && context.cells.isCell(f)) {
             // a RefCell: directly where the object is held exclusively, else borrowed for the statement
             MethodInfo m = context.method;
@@ -1269,7 +1355,14 @@ final class RustBodyPrinter {
             context.method = m;
             if (single != null) {
                 // a Consumer's body is a statement: 'map.put(k, v)' returns a value Rust's 'for_each' does not take
-                Printed p = expression(single);
+                Expression outerStatement = statement;
+                if (m.noReturnValue()) statement = single;
+                Printed p;
+                try {
+                    p = expression(single);
+                } finally {
+                    statement = outerStatement;
+                }
                 String body = p.text;
                 if (m.noReturnValue()) return value("|" + params + "| { " + body + "; }");
                 if (p.nullable && optional) {
@@ -1445,6 +1538,11 @@ final class RustBodyPrinter {
         // a getter the caller modifies through: its exclusive twin (RustGetters)
         boolean mutableGetter = mutatingPlace && context.mutableGetters.contains(callee);
         String name = RustNames.method(callee) + (mutableGetter ? RustGetters.SUFFIX : "");
+        if (mc.object() instanceof VariableExpression sve && sve.variable() instanceof This t && t.writeSuper()
+            && RustHierarchies.current().isMember(callee.typeInfo())) {
+            // super.m() in a closed hierarchy: the parent's own implementation, not the dispatching method
+            name = RustHierarchies.current().implementationName(callee);
+        }
         boolean exclusive = !callee.isStatic() && (mutableGetter || context.facts.receiver(callee) == Receiver.EXCLUSIVE);
         String args = exclusive ? withoutSelfBorrows(mc.parameterExpressions(), callee)
                 : arguments(mc.parameterExpressions(), callee);
@@ -1758,7 +1856,8 @@ final class RustBodyPrinter {
         // object: a borrowed one is copied where an owned one is expected. Any other type stays a mismatch for rustc.
         if (RustTypes.isImmutableValue(type, context.facts) && (p.held == Held.SHARED || p.held == Held.PLACE
                                                                || p.held == Held.VALUE && isName(p.text))) {
-            return p.text + (p.nullable ? ".cloned()" : ".clone()");
+            // an Option<&T> copies its content with cloned(); an owned Option<T> (a local, a field) is cloned whole
+            return p.text + (p.nullable && p.held == Held.SHARED ? ".cloned()" : ".clone()");
         }
         return p.text;
     }
@@ -2052,7 +2151,20 @@ final class RustBodyPrinter {
                 .anyMatch(p -> !RustTypes.isCopy(p.parameterizedType()) && mutated(p, body));
     }
 
+    // the locals whose mutation is being decided: a local initialized from another that is initialized from it
+    // (through a pattern variable, a reassigned local) would recurse without end
+    private final Set<Variable> deciding = new HashSet<>();
+
     private boolean mutated(Variable lv, Element scope) {
+        if (!deciding.add(lv)) return false;
+        try {
+            return mutatedOnce(lv, scope);
+        } finally {
+            deciding.remove(lv);
+        }
+    }
+
+    private boolean mutatedOnce(Variable lv, Element scope) {
         boolean[] found = {false};
         scope.visit(e -> {
             if (found[0]) return false;

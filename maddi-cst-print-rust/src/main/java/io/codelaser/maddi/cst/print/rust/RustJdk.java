@@ -713,7 +713,11 @@ final class RustJdk {
     private static Printed vec(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         int n = args.size();
         return switch (name + "/" + n) {
-            case "add/1" -> value(o + ".push(" + printer.ownedAs(args.getFirst(), typeArgument(mc, 0)) + ")");
+            case "add/1" -> {
+                String push = o + ".push(" + printer.ownedAs(args.getFirst(), typeArgument(mc, 0)) + ")";
+                // Java's add answers true, Rust's push nothing
+                yield value(printer.isStatement(mc) ? push : "{ " + push + "; true }");
+            }
             case "sort/1" -> {
                 String c = comparator(args.getFirst(), printer);
                 yield c == null ? null : value(o + ".sort_by(" + c + ")");

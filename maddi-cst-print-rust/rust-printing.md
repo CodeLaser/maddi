@@ -121,9 +121,29 @@ Analyzer issues the oracle found, each with a minimal repro:
   impl repeat the trait's signature, so an implementation with other verdicts (`&self` where the trait has
   `&mut self`) is an inherent method with its own, and the trait's method delegates to it: the body is still judged
   against its own verdict, and `self.m()` resolves to the inherent method first.
-- A source superclass is composition (`INHERITANCE_AS_COMPOSITION`): a `base: Parent` field built by `super(…)`,
-  and an inherited field or method is reached through `.base` (`super.m()` too). A call from the parent to a method
-  the subclass overrides stays in the parent; a subclass is not accepted where the parent is expected.
+- A closed class hierarchy is one struct with a kind enum (`HIERARCHY_AS_ENUM`, `RustHierarchies`). Closed: a source
+  root without type parameters whose subclasses are all named source classes of its package, at any depth. Every
+  object of a member is an object of the root's struct, which holds the root's fields and `kind`; the kind's
+  variant per member carries a data struct for each class of its chain below the root
+  (`ExprentKind::RecordVar(VarExprentData, RecordVarExprentData)`), reached through the kind's accessors
+  (`self.kind.var_exprent().name`, `_mut` in a modifying place). A member type prints as the root's; a cast between
+  members is the object itself; `instanceof` is `matches!(e.kind, …)`, with a pattern variable
+  `let Some(v) = Some(&*e).filter(|o| matches!(o.kind, …))`, also in a let chain (`&&`). Constructors are the
+  root's associated functions (`new_assignment_exprent`): a subclass's starts from the parent's that `super(…)`
+  names and moves the parent's data into its own variant. The methods of all members are the root's: a method no
+  member overrides keeps its name; overridden ones are a family (overriding each other, or the same method outside
+  the hierarchy, as `toString` or an interface's), each implementation named after its class
+  (`body_record_var_exprent`, `super.body()` calls the parent's), and the family's name a method that matches on the
+  kind. It has the top method's verdict: an implementation that modifies where the top does not is rustc's error
+  (E0596) in the arm that calls it, which checks the analysis's verdicts of overrides. The members' interfaces are
+  implemented by the root, through the families; `equals` and `hashCode` in a hierarchy are not yet translated.
+- Any other source superclass is composition (`INHERITANCE_AS_COMPOSITION`): a `base: Parent` field built by
+  `super(…)`, and an inherited field or method is reached through `.base` (`super.m()` too). A call from the parent
+  to a method the subclass overrides stays in the parent; a subclass is not accepted where the parent is expected.
+- A JDK collection as superclass (`class Named<E> extends ArrayList<E>`, Rust's `Vec`, `VecDeque`, `HashMap`,
+  `HashSet`, `BTreeMap`, `BTreeSet`) is the struct's `base` field too, and the struct implements `Deref` and
+  `DerefMut` to it: what the class inherits is the collection's (`len`, `iter`, indexing), and a `&Named` passes
+  where a `&Vec` is taken. `super.add(e)` is `self.base.push(e)`, not an override; `super(n)`'s capacity is dropped.
 - A record is a `struct` with public fields, derived `Debug, Clone, PartialEq`, a positional `new`, and accessors.
 - An enum without state is a plain `enum` deriving `Copy`; its constants become camel-case variants.
 - A nested type is an item of its own, named after its enclosing types (`Outer.Inner` → `OuterInner`).
@@ -271,7 +291,8 @@ the result better than a generic formatter would.
 
 ## Not yet
 
-Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` of an interface or generic type and record patterns,
+Inheritance from a JDK class other than a collection (`INHERITANCE`), dynamic dispatch through a parent outside a closed
+hierarchy, `equals`/`hashCode` in one, anonymous and local classes, `instanceof` of an interface or generic type and record patterns,
 try/catch (`TRY_BODY_ONLY`), static state of other types (a `HashMap`, an object), generic bounds beyond `Clone`, sorting and collectors
 beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
 `UNSUPPORTED` message.
