@@ -1290,6 +1290,13 @@ public class JavaInspectorImpl implements JavaInspector {
         for (TypeInfo typeInfo : loaded) {
             // TODO completing is a choice, and may be an unnecessary and expensive operation.
             //  offer this choice to the user
+            // ⛔ A STUB THIS SCAN'S SOURCES HAVE SUPERSEDED. The preload pass runs on a task without the sources, so a
+            // preloaded class-path type annotated from them (the server's transform-support jar, carrying maddi's
+            // @NotModified while the project defines maddi-annotation as source) mints a stub, handed over here as a
+            // pending preload. visitClass then registered the real type over it. Committing the stub anyway loaded
+            // it from THIS task's symbol, the source annotation: annotation nature, no interfaces (its setup ran in
+            // the preload), and commit's java.lang.annotation.Annotation assert threw under -ea.
+            if (infoByFqn.isDisplacedStub(typeInfo)) continue;
             try {
                 if (typeInfo.isPrimaryType() && !typeInfo.hasBeenInspected()) {
                     commitLoaded(scanCompilationUnits, typeInfo);

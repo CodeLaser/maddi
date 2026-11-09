@@ -2411,8 +2411,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 assert isStub(known) || sourceSetOfCurrentTask.equals(knownCu.sourceSet())
                         : "a type of a file this set is parsing resolved to " + knownCu.sourceSet() + "'s copy: " + known;
                 if (cs.sourcefile != null
-                    && !knownCu.uri().equals(topCs.sourcefile.toUri())) {
-                    // so if the source file does not agree with known, we must load the class file
+                    && (isStub(known) || !knownCu.uri().equals(topCs.sourcefile.toUri()))) {
+                    // so if the source file does not agree with known, we must load the class file. A stub (no URI)
+                    // never agrees: a preloaded class file named this source type before the scan, and a use met
+                    // before its declaration must not get the placeholder (TestMissingAnnotationClassFile); the load
+                    // reuses the file's registered CompilationUnit, and visitClass adopts the result
                     typeInfo = lazilyLoadTypeFromClassFile(cs);
                 } else {
                     typeInfo = known;
