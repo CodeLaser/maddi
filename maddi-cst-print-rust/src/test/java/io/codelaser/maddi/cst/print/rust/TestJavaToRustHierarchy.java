@@ -78,6 +78,18 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
                             if (e instanceof Var) ((Var) e).rename("x");
                         }
                     }
+                    public int firstConst(List<Expr> exprs) {
+                        Expr e = exprs.get(0);
+                        if (!(e instanceof Const c)) {
+                            return -1;
+                        }
+                        return c.getValue();
+                    }
+                    public boolean isNamedVar(Expr e) { return e instanceof Var v && v.getId() > 0; }
+                    public boolean ordered(Expr a, Expr b) {
+                        if (!(a instanceof Const c1 && b instanceof Const c2 && c1.getValue() == c2.getValue())) return false;
+                        return c1.getId() < c2.getId();
+                    }
                     public List<Expr> make() {
                         List<Expr> l = new ArrayList<>();
                         l.add(new Const(1, 2));
@@ -103,9 +115,12 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
         nonModifying(var, "precedence", "body");
         modifying(var, "rename");
         nonModifying(recordVar, "body");
-        nonModifying(user, "sum", "make");
+        nonModifying(user, "sum", "make", "firstConst", "isNamedVar", "ordered");
         modifying(user, "renameAll");
         borrowed(method(user, "sum").parameters().getFirst());
+        borrowed(method(user, "firstConst").parameters().getFirst());
+        borrowed(method(user, "isNamedVar").parameters().getFirst());
+        method(user, "ordered").parameters().forEach(CommonJavaToRust::borrowed);
         exclusive(method(user, "renameAll").parameters().getFirst());
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
@@ -124,6 +139,12 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
         // a cast is the object itself; the subclass's construction
         contains(rust, "(e).rename(\"x\".to_string());");
         contains(rust, "l.push(ExprsExpr::new_exprs_record_var(2, \"r\".to_string(), 3));");
+        // a negated pattern: the variable in scope after the statement, a let-else
+        contains(rust, "let Some(c) = Some(&*e).filter(|o| matches!(o.kind, ExprsExprKind::ExprsConst(..))) else {");
+        // ... with a further condition: an if over it, the block repeated
+        contains(rust, "if !(c1.get_value() == c2.get_value()) {");
+        // a pattern in a value: is_some_and, the variable the closure's parameter
+        contains(rust, ".is_some_and(|v| (v.get_id() > 0))");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

@@ -385,6 +385,11 @@ final class RustBodyPrinter {
     }
 
     private String ifElse(IfElseStatement ife, int depth) {
+        String negated = negatedPatterns(ife, depth);
+        return negated != null ? negated : ifElse(ife, depth, true);
+    }
+
+    private String ifElse(IfElseStatement ife, int depth, boolean statement) {
         String pad = INDENT.repeat(depth);
         String downcast = downcastPattern(ife.expression());
         StringBuilder sb = new StringBuilder("if " + (downcast != null ? downcast : condition(ife.expression())) + " {\n"
@@ -392,7 +397,7 @@ final class RustBodyPrinter {
         Block elseBlock = ife.elseBlock();
         if (elseBlock != null && !elseBlock.statements().isEmpty()) {
             if (elseBlock.statements().size() == 1 && elseBlock.statements().getFirst() instanceof IfElseStatement nested) {
-                sb.append(" else ").append(ifElse(nested, depth));
+                sb.append(" else ").append(ifElse(nested, depth, false));
             } else {
                 sb.append(" else {\n").append(statements(elseBlock, depth + 1)).append(pad).append("}");
             }
@@ -401,26 +406,26 @@ final class RustBodyPrinter {
     }
 
     /**
-     * {@code o instanceof T t} of an Object, T a class: {@code let Some(t) = o.downcast_ref::<T>()}, or
-     * {@code downcast_mut} when {@code t} is modified. {@code null} for anything else.
+     * A pattern variable's binding: {@code pattern} binds it from the {@code Some} of {@code option}, the tested value
+     * as the pattern's type or {@code None} ({@code &t} for a copy).
      */
-    private String downcastPattern(Expression condition) {
-        Expression unwrapped = CstQueries.unwrap(condition);
-        if (unwrapped instanceof And and && and.expressions().stream()
-                .anyMatch(x -> CstQueries.unwrap(x) instanceof InstanceOf io && hierarchyPattern(io) != null)) {
-            // 'e instanceof A a && a.isX()': a let chain (Rust 2024), each binding in scope for what follows it
-            List<String> parts = new ArrayList<>();
-            for (Expression x : and.expressions()) {
-                String binding = CstQueries.unwrap(x) instanceof InstanceOf io ? hierarchyPattern(io) : null;
-                parts.add(binding != null ? binding : operand(x));
-            }
-            return String.join(" && ", parts);
+    private record Binding(String pattern, String option) {
+        String let() {
+            return "let Some(" + pattern + ") = " + option;
         }
-        if (!(unwrapped instanceof InstanceOf io) || io.patternVariable() == null) return null;
-        String inHierarchy = hierarchyPattern(io);
+    }
+
+    /**
+     * {@code o instanceof T t} with a pattern variable: of an Object, T a class, {@code o.downcast_ref::<T>()}
+     * ({@code downcast_mut} when {@code t} is modified); in a closed hierarchy ({@link #hierarchyBinding}) the object
+     * itself when its kind is one of T's. {@code null} for anything else.
+     */
+    private Binding binding(InstanceOf io) {
+        if (io.patternVariable() == null || io.patternVariable().localVariable() == null) return null;
+        Binding inHierarchy = hierarchyBinding(io);
         if (inHierarchy != null) return inHierarchy;
         LocalVariable lv = io.patternVariable().localVariable();
-        if (lv == null || !isObject(io.expression().parameterizedType())) return null;
+        if (!isObject(io.expression().parameterizedType())) return null;
         ParameterizedType type = lv.parameterizedType();
         if (!RustTypes.isDowncastTarget(type)) return null;
         context.message(RustPrintCode.DOWNCAST, io, type.fullyQualifiedName());
@@ -432,16 +437,104 @@ final class RustBodyPrinter {
         String value = tested.nullable
                 ? tested.text + (mutated ? ".as_mut()" : ".as_ref()") + ".and_then(|o| o." + downcast + ")"
                 : tested.text + "." + downcast;
-        return "let Some(" + (copy && !mutated ? "&" : "") + RustNames.snake(lv.simpleName()) + ") = " + value;
+        return new Binding((copy && !mutated ? "&" : "") + RustNames.snake(lv.simpleName()), value);
+    }
+
+    private Binding binding(Expression e) {
+        return CstQueries.unwrap(e) instanceof InstanceOf io ? binding(io) : null;
+    }
+
+    private static boolean bindsPattern(Expression e) {
+        return CstQueries.unwrap(e) instanceof InstanceOf io && io.patternVariable() != null
+               && io.patternVariable().localVariable() != null;
+    }
+
+    /**
+     * The condition of an {@code if} that binds pattern variables: {@code let Some(t) = …}, and in a conjunction a let
+     * chain (Rust 2024), each binding in scope for what follows it. {@code null} for a condition without one.
+     */
+    private String downcastPattern(Expression condition) {
+        Expression unwrapped = CstQueries.unwrap(condition);
+        if (unwrapped instanceof And and && and.expressions().stream().anyMatch(RustBodyPrinter::bindsPattern)) {
+            List<String> parts = new ArrayList<>();
+            for (Expression x : and.expressions()) {
+                Binding b = binding(x);
+                parts.add(b != null ? b.let() : operand(x));
+            }
+            return String.join(" && ", parts);
+        }
+        Binding b = binding(unwrapped);
+        return b == null ? null : b.let();
+    }
+
+    /**
+     * A conjunction with pattern variables as a value ({@code return e instanceof A a && a.isX();}): each binding's
+     * {@code Option} tested with {@code is_some_and}, the closure's parameter the variable for the rest.
+     */
+    private Printed andWithBindings(And and) {
+        return value(andWithBindings(and.expressions(), 0));
+    }
+
+    private String andWithBindings(List<Expression> operands, int from) {
+        List<String> parts = new ArrayList<>();
+        for (int i = from; i < operands.size(); i++) {
+            Binding b = binding(operands.get(i));
+            if (b != null) {
+                String rest = i + 1 < operands.size() ? andWithBindings(operands, i + 1) : "true";
+                parts.add(b.option() + ".is_some_and(|" + b.pattern() + "| " + rest + ")");
+                break;
+            }
+            parts.add(operand(operands.get(i)));
+        }
+        return parts.size() == 1 ? parts.getFirst() : "(" + String.join(" && ", parts) + ")";
+    }
+
+    private static boolean isNot(Expression e) {
+        return e instanceof UnaryOperator uo && uo.operator() != null && "!".equals(uo.operator().name());
+    }
+
+    /**
+     * {@code if (!(e instanceof A a && …)) { return …; }}: Java's pattern variable is in scope after the statement,
+     * as the block cannot complete normally. Each binding is a {@code let … else} with the block, each other operand
+     * an {@code if !(…)} with it. {@code null} for another statement.
+     */
+    private String negatedPatterns(IfElseStatement ife, int depth) {
+        if (!isNot(CstQueries.unwrap(ife.expression())) || ife.elseBlock() != null && !ife.elseBlock().isEmpty()
+            || !exits(ife.block())) {
+            return null;
+        }
+        Expression inner = CstQueries.unwrap(((UnaryOperator) CstQueries.unwrap(ife.expression())).expression());
+        List<Expression> operands = inner instanceof And and ? and.expressions() : List.of(inner);
+        if (operands.stream().noneMatch(RustBodyPrinter::bindsPattern)) return null;
+        String pad = INDENT.repeat(depth);
+        StringBuilder sb = new StringBuilder();
+        for (Expression x : operands) {
+            Binding b = binding(x);
+            if (b == null && bindsPattern(x)) return null;
+            String block = statements(ife.block(), depth + 1);
+            if (sb.length() > 0) sb.append(pad);
+            if (b != null) sb.append(b.let()).append(" else {\n").append(block).append(pad).append("};\n");
+            else sb.append("if !").append(operand(x)).append(" {\n").append(block).append(pad).append("}\n");
+        }
+        return sb.substring(0, sb.length() - 1);
+    }
+
+    /** The block cannot complete normally: it ends in a return, a throw, a break or a continue. */
+    private static boolean exits(Block block) {
+        if (block == null || block.statements().isEmpty()) return false;
+        Statement last = block.statements().getLast();
+        return last instanceof ReturnStatement || last instanceof ThrowStatement || last instanceof BreakStatement
+               || last instanceof ContinueStatement
+               || last instanceof Block b && exits(b)
+               || last instanceof IfElseStatement i && exits(i.block()) && i.elseBlock() != null && exits(i.elseBlock());
     }
 
     /**
      * {@code e instanceof A a} in a closed hierarchy (RustHierarchies): {@code a} is {@code e} itself, when its kind is
-     * one of A's: {@code let Some(a) = Some(e).filter(|o| matches!(o.kind, …))}, mutably when {@code a} is modified.
-     * {@code null} for any other test.
+     * one of A's: {@code Some(e).filter(|o| matches!(o.kind, …))}, mutably when {@code a} is modified. {@code null}
+     * for any other test.
      */
-    private String hierarchyPattern(InstanceOf io) {
-        if (io.patternVariable() == null || io.patternVariable().localVariable() == null) return null;
+    private Binding hierarchyBinding(InstanceOf io) {
         RustHierarchies hs = RustHierarchies.current();
         TypeInfo tested = io.expression().parameterizedType().typeInfo();
         TypeInfo target = io.testType().typeInfo();
@@ -457,8 +550,7 @@ final class RustBodyPrinter {
         locals.put(lv, mutated ? Held.EXCLUSIVE : Held.SHARED);
         nullableLocals.put(lv, false);
         useKind(target);
-        return "let Some(" + RustNames.snake(lv.simpleName()) + ") = " + option + ".filter(|o| " + hs.test("o", target)
-               + ")";
+        return new Binding(RustNames.snake(lv.simpleName()), option + ".filter(|o| " + hs.test("o", target) + ")");
     }
 
     // the kind enum a test names, imported where the hierarchy is another module's
@@ -875,6 +967,7 @@ final class RustBodyPrinter {
             case ArrayLength al -> value(dereference(expression(al.scope())) + ".len() as i32");
             case Lambda lambda -> lambda(lambda);
             case SwitchExpression se -> switchExpression(se);
+            case And and when and.expressions().stream().anyMatch(RustBodyPrinter::bindsPattern) -> andWithBindings(and);
             case And and -> value(and.expressions().stream().map(this::operand).collect(Collectors.joining(" && ")));
             case Or or -> value(or.expressions().stream().map(this::operand).collect(Collectors.joining(" || ")));
             case TypeExpression te -> value(RustTypes.owned(te.parameterizedType(), context, te));
