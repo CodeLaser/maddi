@@ -592,7 +592,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: an anonymous Comparator into list.sort is rejected")
     public void innerAndAnonymous() {
         behaves("Inner", """
                 package a;
@@ -719,7 +718,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: Optional.ofNullable(null) is rejected")
     public void optionals() {
         behaves("Optionals", """
                 package a;

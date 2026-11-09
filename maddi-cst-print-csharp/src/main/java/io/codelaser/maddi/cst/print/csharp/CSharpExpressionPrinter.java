@@ -1778,6 +1778,12 @@ public final class CSharpExpressionPrinter {
         if (type != null && type.isTypeParameter() && type.typeParameter().isMethodTypeParameter() && unboxed(inner)) {
             type = null;
         }
+        // and a null literal stays null: Optional.ofNullable(null) is the template's $1, whose default would have no
+        // type in (default) != null (CS0034)
+        if (type != null && type.isTypeParameter() && type.typeParameter().isMethodTypeParameter()
+            && inner instanceof NullConstant) {
+            type = null;
+        }
         // the library type's own T as the receiver has it: reduce(NONE, …) of a Stream<DefaultBiJoiner<A, B>> and a raw NONE
         ParameterizedType seen = asReceiverHasIt(mc, type);
         if (seen != null && (rawIntoGeneric(inner, seen) || wildcardIntoGeneric(inner, seen))) type = seen;
@@ -2153,8 +2159,10 @@ public final class CSharpExpressionPrinter {
         TypeInfo anonymous = cc.anonymousClass();
         if (!CSharpProgram.lambdaLike(anonymous)) return false;
         ParameterizedType functionalType = anonymous.interfacesImplemented().getFirst();
+        // a library's that C# has as a delegate too: new Comparator<String>() { compare … } is a Comparison<string>
         return functionalType.typeInfo() != null && (CSharpNames.lambdaAdapter(functionalType.typeInfo())
-                                                     || CSharpContext.program().delegate(functionalType.typeInfo()));
+                                                     || CSharpContext.program().delegate(functionalType.typeInfo())
+                                                     || CSharpTypeName.libraryDelegate(functionalType.typeInfo()));
     }
 
     /**

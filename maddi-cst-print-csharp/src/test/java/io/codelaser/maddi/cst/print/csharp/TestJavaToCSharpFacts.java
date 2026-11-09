@@ -685,9 +685,10 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         // a primitive local: the unboxing asserts, once
         contains(cs, "int i = (int) m.GetValueOrNull(k)!;");
         assertFalse(cs.contains("!!"), cs);
-        // an empty Optional is null: Optional<T> is T?, and get() is asserted where it is dereferenced
+        // an empty Optional is null: Optional<T> is T?, and get() throws on it as Java's does, which C# then knows
         contains(cs, "internal static string? Find(List<string> l) => l.FirstOrDefault();");
-        contains(cs, "Find(l)!.Length");
+        contains(cs, "(Find(l) ?? throw new InvalidOperationException(\"No value present\"))");
+        contains(cs, ".Length;");
     }
 
     @Language("java")

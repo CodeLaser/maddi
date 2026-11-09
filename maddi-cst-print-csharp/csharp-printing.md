@@ -628,6 +628,12 @@ differences:
   minimum is the minimum, C#'s throws.
 - **Narrowing compound assignments.** `c += 2` of a char, a byte or a short narrows in Java, not in C# (CS0266): of a
   local, a parameter or a field of `this`, it is `c = (char) (c + 2)`.
+- **Anonymous classes of library delegates.** An anonymous class of a library interface C# has as a delegate,
+  `new Comparator<String>() { compare … }`, is a lambda, as one of the program's functional interfaces is: its
+  hoisted class would be no `Comparison<string>` (CS1503).
+- **Optional.** `get()` of an empty Optional throws as Java's does, `x ?? throw new InvalidOperationException("No
+  value present")`, where `x` alone would be null. A `null` given to a library method's own type parameter stays
+  `null` for the template (`Optional.ofNullable(null)`), not `default`, which has no type in `default != null`.
 - **Results as statements.** A call whose C# is no call, `s.length();` as `s.Length`, is a discard, `_ = s.Length;`
   (CS0201), which still evaluates it.
 - **Conditional types.** Java types `b ? c : 0`, a `char` and an `int` constant that fits it, as a `char` (JLS
