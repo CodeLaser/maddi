@@ -424,6 +424,13 @@ final class RustBodyPrinter {
         if (io.patternVariable() == null || io.patternVariable().localVariable() == null) return null;
         Binding inHierarchy = hierarchyBinding(io);
         if (inHierarchy != null) return inHierarchy;
+        if (interfaceDowncast(io.expression(), io.testType()) != null) {
+            LocalVariable lv = io.patternVariable().localVariable();
+            boolean mutated = mutated(lv) && !context.borrows.hasLifetime(io.testType().typeInfo());
+            locals.put(lv, mutated ? Held.EXCLUSIVE : Held.SHARED);
+            nullableLocals.put(lv, false);
+            return new Binding(RustNames.snake(lv.simpleName()), interfaceOption(io.expression(), io.testType(), mutated));
+        }
         LocalVariable lv = io.patternVariable().localVariable();
         if (!isObject(io.expression().parameterizedType())) return null;
         ParameterizedType type = lv.parameterizedType();
@@ -567,6 +574,35 @@ final class RustBodyPrinter {
         useKind(target);
         if (p.nullable) return value(p.text + ".as_ref().is_some_and(|o| " + hs.test("o", target) + ")");
         return value(hs.test(p.text, target));
+    }
+
+    /**
+     * A value of a source interface tested or cast to a source class: the struct the trait converts to
+     * ({@link RustHierarchies#downcasts}); else {@code null}.
+     */
+    private static TypeInfo interfaceDowncast(Expression tested, ParameterizedType to) {
+        ParameterizedType from = tested.parameterizedType();
+        if (from.arrays() > 0 || to.arrays() > 0) return null;
+        return RustHierarchies.current().downcastStruct(from.typeInfo(), to.typeInfo());
+    }
+
+    /** {@code x.as_statement()}: the interface's value as the struct, or None; a member's kind tested too. */
+    private String interfaceOption(Expression tested, ParameterizedType to, boolean exclusive) {
+        RustHierarchies hs = RustHierarchies.current();
+        TypeInfo struct = interfaceDowncast(tested, to);
+        String conversion = RustHierarchies.downcastName(struct) + (exclusive ? "_mut" : "") + "()";
+        Printed p = exclusive ? mutable(tested) : expression(tested);
+        String option = p.nullable ? p.text + (exclusive ? ".as_mut()" : ".as_ref()") + ".and_then(|o| o." + conversion + ")"
+                : p.text + "." + conversion;
+        if (hs.isSubMember(to.typeInfo())) {
+            useKind(to.typeInfo());
+            option += ".filter(|o| " + hs.test("o", to.typeInfo()) + ")";
+        }
+        return option;
+    }
+
+    private static boolean isInterfaceTest(InstanceOf io) {
+        return io.patternVariable() == null && interfaceDowncast(io.expression(), io.testType()) != null;
     }
 
     private static boolean isHierarchyTest(InstanceOf io) {
@@ -974,6 +1010,8 @@ final class RustBodyPrinter {
             case MethodReference mr -> methodReference(mr);
             case ArrayInitializer ai -> arrayInitializer(ai.expressions(), ai.parameterizedType());
             case InstanceOf io when isHierarchyTest(io) -> hierarchyTest(io);
+            case InstanceOf io when isInterfaceTest(io) -> value(interfaceOption(io.expression(), io.testType(), false)
+                                                                 + ".is_some()");
             case InstanceOf io when io.patternVariable() == null && isObject(io.expression().parameterizedType())
                                     && RustTypes.isDowncastTarget(io.testType()) -> isInstance(io);
             default -> value(unsupported(e, e.getClass().getSimpleName()));
@@ -1416,6 +1454,15 @@ final class RustBodyPrinter {
                           + (exclusive ? ".downcast_mut::<" : ".downcast_ref::<") + target + ">().unwrap()";
             return RustTypes.isCopy(to) ? value("*" + text)
                     : new Printed(text, exclusive ? Held.EXCLUSIVE : Held.SHARED, false);
+        }
+        TypeInfo struct = interfaceDowncast(c.expression(), to);
+        if (struct != null) {
+            // a value of an interface as a class: the trait's conversion, a panic where Java throws
+            boolean exclusive = mutatingPlace && !context.borrows.hasLifetime(struct);
+            String text = (inner.nullable ? inner.text + (exclusive ? ".as_mut().unwrap()" : ".as_ref().unwrap()")
+                    : inner.text) + "."
+                          + RustHierarchies.downcastName(struct) + (exclusive ? "_mut" : "") + "().unwrap()";
+            return new Printed(text, exclusive ? Held.EXCLUSIVE : Held.SHARED, false);
         }
         if (to.isPrimitiveExcludingVoid() && to.arrays() == 0) {
             if (to.typeInfo().isChar()) {
@@ -2287,6 +2334,10 @@ final class RustBodyPrinter {
                        && rootedIn(fe.expression(), lv) && fe.initializer().localVariable() != null
                        && mutated(fe.initializer().localVariable(), scope)) {
                 found[0] = true; // 'for (Item i : l) i.touch()': the elements of l, modified through the loop
+            } else if (e instanceof InstanceOf io && io.patternVariable() != null
+                       && io.patternVariable().localVariable() != null && rootedIn(io.expression(), lv)
+                       && mutated(io.patternVariable().localVariable(), scope)) {
+                found[0] = true; // 'if (m instanceof If i) i.deepen()': the pattern variable is m's object
             } else if (e instanceof Assignment a && a.target().variable() instanceof FieldReference fr
                        && rootedIn(fr.scope(), lv)) {
                 found[0] = true;

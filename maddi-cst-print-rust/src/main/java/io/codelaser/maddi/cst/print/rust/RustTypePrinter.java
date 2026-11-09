@@ -176,6 +176,7 @@ final class RustTypePrinter {
             else sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
             if (bodyless && context.mutableGetters.contains(m)) sb.append(INDENT).append(mutableGetterSignature(m)).append(";\n");
         }
+        for (TypeInfo struct : RustHierarchies.current().downcasts(typeInfo)) sb.append(conversions(struct, false));
         sb.append("}\n");
         MethodInfo sam = functionalMethod(typeInfo);
         if (sam != null && context.facts.receiver(sam) != Receiver.OWNED && !context.facts.resultBorrowsReceiver(sam)) {
@@ -423,6 +424,7 @@ final class RustTypePrinter {
                     sb.append(method(m, true));
                 }
             }
+            if (RustHierarchies.current().downcasts(e.getKey()).contains(typeInfo)) sb.append(conversions(typeInfo, true));
             sb.append("}\n");
         }
         if (equals != null) sb.append(partialEq(equals, name, generics, implGenerics));
@@ -448,6 +450,28 @@ final class RustTypePrinter {
                     .append(" {\n").append(INDENT).append("fn hash<H: std::hash::Hasher>(&self, state: &mut H) {\n")
                     .append(INDENT).append(INDENT).append("state.write_i32(self.hash_code());\n").append(INDENT)
                     .append("}\n}\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * A trait's conversions of its value to {@code struct} ({@link RustHierarchies#downcasts}): {@code None} in the
+     * trait, {@code Some(self)} in the struct's impl. The exclusive one only for a struct without a lifetime, a
+     * {@code &mut} being invariant in it.
+     */
+    private String conversions(TypeInfo struct, boolean impl) {
+        String name = RustHierarchies.downcastName(struct);
+        boolean lifetime = context.borrows.hasLifetime(struct);
+        String type = RustNames.ownType(struct) + (lifetime ? "<'_>" : "");
+        String module = RustNames.module(struct.packageName());
+        if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.ownType(struct));
+        String value = impl ? "Some(self)" : "None";
+        StringBuilder sb = new StringBuilder(INDENT).append("fn ").append(name).append("(&self) -> Option<&")
+                .append(type).append("> {\n").append(INDENT).append(INDENT).append(value).append("\n").append(INDENT)
+                .append("}\n");
+        if (!lifetime) {
+            sb.append(INDENT).append("fn ").append(name).append("_mut(&mut self) -> Option<&mut ").append(type)
+                    .append("> {\n").append(INDENT).append(INDENT).append(value).append("\n").append(INDENT).append("}\n");
         }
         return sb.toString();
     }
@@ -785,6 +809,7 @@ final class RustTypePrinter {
                 if (impl == null) continue;
                 sb.append(delegate(impl, d));
             }
+            if (RustHierarchies.current().downcasts(i).contains(h.root())) sb.append(conversions(h.root(), true));
             sb.append("}\n");
         }
         return sb.toString();

@@ -48,7 +48,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
  */
 final class RustHierarchies {
 
-    static final RustHierarchies NONE = new RustHierarchies(Map.of());
+    static final RustHierarchies NONE = new RustHierarchies(Map.of(), Map.of());
 
     private static final ThreadLocal<RustHierarchies> CURRENT = ThreadLocal.withInitial(() -> NONE);
 
@@ -95,8 +95,16 @@ final class RustHierarchies {
 
     private final Map<TypeInfo, Hierarchy> byMember;
 
-    private RustHierarchies(Map<TypeInfo, Hierarchy> byMember) {
+    /*
+     The source structs the program tests or casts a value of a source interface to ('obj instanceof Statement st',
+     '(SupertypeTarget) targetInfo'), per interface: the trait gets a conversion to each (downcastName), None by
+     default, Some(self) in the struct's impl. Any cannot downcast a struct with a lifetime; these can.
+     */
+    private final Map<TypeInfo, Set<TypeInfo>> downcasts;
+
+    private RustHierarchies(Map<TypeInfo, Hierarchy> byMember, Map<TypeInfo, Set<TypeInfo>> downcasts) {
         this.byMember = byMember;
+        this.downcasts = downcasts;
     }
 
     /** The closed hierarchies among {@code types} and their nested types. */
@@ -117,7 +125,55 @@ final class RustHierarchies {
             Hierarchy h = new Hierarchy(root, List.copyOf(members), families(root, members));
             members.forEach(m -> byMember.put(m, h));
         }
-        return new RustHierarchies(byMember);
+        RustHierarchies partial = new RustHierarchies(byMember, Map.of());
+        return new RustHierarchies(byMember, partial.downcasts(all));
+    }
+
+    private Map<TypeInfo, Set<TypeInfo>> downcasts(List<TypeInfo> all) {
+        Map<TypeInfo, Set<TypeInfo>> out = new HashMap<>();
+        for (TypeInfo t : all) {
+            t.constructorAndMethodStream().filter(m -> m.methodBody() != null).forEach(m -> m.methodBody().visit(e -> {
+                ParameterizedType from = null;
+                ParameterizedType to = null;
+                if (e instanceof io.codelaser.maddi.cst.api.expression.InstanceOf io) {
+                    from = io.expression().parameterizedType();
+                    to = io.testType();
+                } else if (e instanceof io.codelaser.maddi.cst.api.expression.Cast c) {
+                    from = c.expression().parameterizedType();
+                    to = c.parameterizedType();
+                }
+                TypeInfo i = from == null ? null : from.typeInfo();
+                TypeInfo c = to == null ? null : to.typeInfo();
+                if (i != null && c != null && from.arrays() == 0 && to.arrays() == 0 && i.isInterface()
+                    && !i.compilationUnit().externalLibrary() && !c.isInterface()
+                    && !c.compilationUnit().externalLibrary() && c.typeParameters().isEmpty()
+                    && !c.typeNature().isEnum() && !c.typeNature().isRecord()) {
+                    TypeInfo root = root(c);
+                    out.computeIfAbsent(i, k -> new java.util.TreeSet<>(
+                            java.util.Comparator.comparing(TypeInfo::fullyQualifiedName))).add(root != null ? root : c);
+                }
+                return true;
+            }));
+        }
+        return out;
+    }
+
+    /** The structs a value of interface {@code i} is tested or cast to: the trait's conversions. */
+    Set<TypeInfo> downcasts(TypeInfo i) {
+        return downcasts.getOrDefault(i, Set.of());
+    }
+
+    /** {@code as_statement}: the conversion of an interface's value to a struct, {@code Option<&Statement>}. */
+    static String downcastName(TypeInfo struct) {
+        return "as_" + RustNames.snake(RustNames.ownType(struct));
+    }
+
+    /** The struct a cast or {@code instanceof} of interface {@code i} to {@code target} converts to; else null. */
+    TypeInfo downcastStruct(TypeInfo i, TypeInfo target) {
+        if (i == null || target == null) return null;
+        TypeInfo root = root(target);
+        TypeInfo struct = root != null ? root : target;
+        return downcasts(i).contains(struct) ? struct : null;
     }
 
     private static TypeInfo sourceParentClass(TypeInfo t) {
