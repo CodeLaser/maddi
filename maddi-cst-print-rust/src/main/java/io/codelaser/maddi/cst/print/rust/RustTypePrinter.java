@@ -67,6 +67,12 @@ final class RustTypePrinter {
     /** The parent's type when the struct being printed has a source superclass: its {@code base} field. */
     private String base;
 
+    /** The name {@link #signature} gives the method, where it is not {@link RustNames#method}'s: an implementation. */
+    private String methodName;
+
+    /** The root of a closed hierarchy's {@code kind} in its constructor's literal ({@link RustHierarchies}). */
+    private String kindInit;
+
     RustTypePrinter(RustContext context) {
         this.context = context;
     }
@@ -78,7 +84,11 @@ final class RustTypePrinter {
         context.type = typeInfo;
         try {
             if (typeInfo.typeNature().isAnnotation()) return "";
-            if (typeInfo.isInterface()) sb.append(trait(typeInfo));
+            RustHierarchies hierarchies = RustHierarchies.current();
+            if (hierarchies.isSubMember(typeInfo)) {
+                // printed with its root, as a variant of the root's kind
+            } else if (hierarchies.isMember(typeInfo)) sb.append(hierarchyType(typeInfo));
+            else if (typeInfo.isInterface()) sb.append(trait(typeInfo));
             else if (typeInfo.typeNature().isEnum()) sb.append(enumType(typeInfo));
             else sb.append(structType(typeInfo));
         } finally {
@@ -442,6 +452,328 @@ final class RustTypePrinter {
         return sb.toString();
     }
 
+    // ---- a closed hierarchy (RustHierarchies)
+
+    /**
+     * The root of a closed hierarchy and all its members: the root's struct with the root's fields and the
+     * {@code kind}; the kind's enum, a variant per member, carrying the data structs of the member's chain below the
+     * root; those data structs; the kind's accessors of each data; and one impl with every member's constructors,
+     * constants and methods, an overridden method's family dispatched on the kind.
+     */
+    private String hierarchyType(TypeInfo root) {
+        RustHierarchies hs = RustHierarchies.current();
+        RustHierarchies.Hierarchy h = hs.hierarchy(root);
+        context.message(RustPrintCode.HIERARCHY_AS_ENUM, root, root.fullyQualifiedName());
+        String name = RustNames.ownType(root);
+        String kind = hs.kind(root);
+        boolean lifetime = context.borrows.hasLifetime(root);
+        String generics = lifetime ? "<" + RustBorrows.LIFETIME + ">" : "";
+        boolean kindLifetime = h.members().stream().anyMatch(m -> m != root && dataLifetime(m));
+        String kindGenerics = kindLifetime ? "<" + RustBorrows.LIFETIME + ">" : "";
+
+        StringBuilder sb = new StringBuilder(doc(root));
+        sb.append(visibility(root.isPrivate())).append("struct ").append(name).append(generics).append(" {\n");
+        for (FieldInfo f : instanceFields(root)) {
+            sb.append(INDENT).append(f.access().isPrivate() ? "" : "pub ").append(RustNames.snake(f.name()))
+                    .append(": ").append(fieldType(f)).append(",\n");
+        }
+        sb.append(INDENT).append("pub kind: ").append(kind).append(kindGenerics).append(",\n}\n");
+
+        sb.append("\n/// The class of an object of `").append(root.fullyQualifiedName())
+                .append("`, with the fields each class below it adds.\npub enum ").append(kind).append(kindGenerics)
+                .append(" {\n");
+        for (TypeInfo m : h.members()) {
+            sb.append(INDENT).append(RustHierarchies.variant(m));
+            if (m != root) {
+                sb.append("(").append(hs.chain(m).stream().map(this::dataType).collect(Collectors.joining(", ")))
+                        .append(")");
+            }
+            sb.append(",\n");
+        }
+        sb.append("}\n");
+
+        TypeInfo outer = context.type;
+        try {
+            for (TypeInfo m : h.members()) {
+                if (m == root) continue;
+                context.type = m;
+                sb.append("\n/// The fields `").append(m.fullyQualifiedName()).append("` adds.\npub struct ")
+                        .append(dataType(m)).append(" {\n");
+                for (FieldInfo f : instanceFields(m)) {
+                    sb.append(INDENT).append("pub ").append(RustNames.snake(f.name())).append(": ")
+                            .append(fieldType(f)).append(",\n");
+                }
+                sb.append("}\n");
+            }
+        } finally {
+            context.type = outer;
+        }
+
+        sb.append(kindAccessors(h, kind, kindGenerics));
+
+        StringBuilder inherent = new StringBuilder();
+        StringBuilder traits = new StringBuilder();
+        try {
+            for (TypeInfo m : h.members()) {
+                context.type = m;
+                for (FieldInfo f : m.fields()) {
+                    if (f.isStatic() && !f.isSynthetic()) inherent.append(staticField(f));
+                }
+                inherent.append(hierarchyConstructors(h, m));
+                for (MethodInfo method : m.methods()) {
+                    if (method.isSynthetic()) continue;
+                    if (method.isStaticInitializer() || method.isInstanceInitializer()) {
+                        context.message(RustPrintCode.STATIC_STATE, method, method.isStaticInitializer()
+                                ? "static initializer" : "instance initializer");
+                        continue;
+                    }
+                    if (isEquals(method) || isHashCode(method)) {
+                        context.message(RustPrintCode.UNSUPPORTED, method, "equals or hashCode in a class hierarchy");
+                        continue;
+                    }
+                    RustHierarchies.Family family = hs.family(method);
+                    if (family.dispatched() && (method.isAbstract() || method.methodBody() == null)) continue;
+                    methodName = hs.implementationName(method);
+                    try {
+                        inherent.append(method(method));
+                    } finally {
+                        methodName = null;
+                    }
+                }
+            }
+            context.type = root;
+            Set<RustHierarchies.Family> done = new HashSet<>();
+            for (TypeInfo m : h.members()) {
+                for (MethodInfo method : m.methods()) {
+                    RustHierarchies.Family family = hs.family(method);
+                    if (family == null || !family.dispatched() || !done.add(family)) continue;
+                    if (isEquals(method) || isHashCode(method)) continue;
+                    inherent.append(dispatcher(h, family));
+                }
+            }
+            traits.append(hierarchyTraits(h, name, generics));
+        } finally {
+            context.type = outer;
+        }
+        sb.append("\nimpl").append(generics).append(" ").append(name).append(generics).append(" {\n").append(inherent)
+                .append("}\n").append(traits);
+        if (h.members().stream().anyMatch(RustTypePrinter::hasToString)) {
+            sb.append("\nimpl").append(generics).append(" std::fmt::Display for ").append(name).append(generics)
+                    .append(" {\n").append(INDENT)
+                    .append("fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n")
+                    .append(INDENT).append(INDENT).append("write!(f, \"{}\", ").append(name)
+                    .append("::to_string(self))\n").append(INDENT).append("}\n}\n");
+        }
+        return sb.toString();
+    }
+
+    private static List<FieldInfo> instanceFields(TypeInfo t) {
+        return t.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
+    }
+
+    /** A member's data struct carries the lifetime when one of its fields does. */
+    private boolean dataLifetime(TypeInfo member) {
+        return context.borrows.fieldsMentionLifetime(member);
+    }
+
+    private String dataType(TypeInfo member) {
+        return RustHierarchies.data(member) + (dataLifetime(member) ? "<" + RustBorrows.LIFETIME + ">" : "");
+    }
+
+    /** {@code fn assignment_exprent(&self) -> &AssignmentExprentData}, and its {@code _mut} twin, on the kind. */
+    private String kindAccessors(RustHierarchies.Hierarchy h, String kind, String kindGenerics) {
+        RustHierarchies hs = RustHierarchies.current();
+        StringBuilder sb = new StringBuilder();
+        for (TypeInfo k : h.members()) {
+            if (k == h.root()) continue;
+            for (boolean exclusive : new boolean[]{false, true}) {
+                sb.append(INDENT).append("pub fn ").append(RustHierarchies.accessor(k)).append(exclusive ? "_mut" : "")
+                        .append("(").append(exclusive ? "&mut self" : "&self").append(") -> ")
+                        .append(exclusive ? "&mut " : "&").append(dataType(k)).append(" {\n")
+                        .append(INDENT).append(INDENT).append("match self {\n");
+                for (TypeInfo d : hs.descendantsOrSelf(k)) {
+                    List<TypeInfo> chain = hs.chain(d);
+                    int at = chain.indexOf(k);
+                    List<String> parts = new ArrayList<>();
+                    for (int i = 0; i < chain.size(); i++) parts.add(i == at ? "data" : "_");
+                    sb.append(INDENT.repeat(3)).append(kind).append("::").append(RustHierarchies.variant(d))
+                            .append("(").append(String.join(", ", parts)).append(") => data,\n");
+                }
+                sb.append(INDENT.repeat(3)).append("_ => panic!(\"ClassCastException: not a ")
+                        .append(k.simpleName()).append("\"),\n")
+                        .append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n");
+            }
+        }
+        if (sb.isEmpty()) return "";
+        return "\nimpl" + kindGenerics + " " + kind + kindGenerics + " {\n" + sb + "}\n";
+    }
+
+    /*
+     A member's constructors, associated functions of the root. The root's build the struct with its kind at the
+     root's variant; a member's below it start from the parent's constructor its super(...) names, move the parent's
+     data into the member's variant with the member's fields at their initial values, then run the body.
+     */
+    private String hierarchyConstructors(RustHierarchies.Hierarchy h, TypeInfo m) {
+        RustHierarchies hs = RustHierarchies.current();
+        List<MethodInfo> constructors = m.constructors().stream().filter(c -> !c.isSynthetic()).toList();
+        StringBuilder sb = new StringBuilder();
+        if (m == h.root()) {
+            kindInit = hs.kind(m) + "::" + RustHierarchies.variant(m);
+            try {
+                List<FieldInfo> fields = instanceFields(m);
+                if (constructors.isEmpty()) {
+                    sb.append(defaultConstructor(RustHierarchies.defaultConstructorName(m), fields, List.of()));
+                }
+                for (MethodInfo c : constructors) sb.append(constructor(c, fields, List.of()));
+            } finally {
+                kindInit = null;
+            }
+            return sb.toString();
+        }
+        if (constructors.isEmpty()) {
+            sb.append(INDENT).append("pub fn ").append(RustHierarchies.defaultConstructorName(m)).append("() -> Self {\n")
+                    .append(INDENT).append(INDENT).append("let mut this = Self::").append(parentNoArgConstructor(m))
+                    .append("();\n").append(intoVariant(m, INDENT.repeat(2)))
+                    .append(INDENT).append(INDENT).append("this\n").append(INDENT).append("}\n");
+        }
+        for (MethodInfo c : constructors) sb.append(subConstructor(m, c));
+        return sb.toString();
+    }
+
+    private static String parentNoArgConstructor(TypeInfo m) {
+        TypeInfo parent = m.parentClass().typeInfo();
+        return parent.constructors().stream().filter(c -> !c.isSynthetic() && c.parameters().isEmpty()).findFirst()
+                .map(RustHierarchies::constructorName)
+                .orElse(RustHierarchies.defaultConstructorName(parent));
+    }
+
+    /** {@code this.kind = Kind::M(parent's data…, MData { … });}: the object becomes one of {@code m}. */
+    private String intoVariant(TypeInfo m, String pad) {
+        RustHierarchies hs = RustHierarchies.current();
+        TypeInfo parent = m.parentClass().typeInfo();
+        String kind = hs.kind(m);
+        StringBuilder sb = new StringBuilder();
+        List<String> parts = new ArrayList<>();
+        if (hs.isSubMember(parent)) {
+            int n = hs.chain(parent).size();
+            for (int i = 0; i < n; i++) parts.add("d" + i);
+            sb.append(pad).append("let ").append(kind).append("::").append(RustHierarchies.variant(parent)).append("(")
+                    .append(String.join(", ", parts)).append(") = std::mem::replace(&mut this.kind, ")
+                    .append(kind).append("::").append(RustHierarchies.variant(hs.root(m)))
+                    .append(") else { unreachable!() };\n");
+        }
+        StringBuilder data = new StringBuilder(RustHierarchies.data(m)).append(" {");
+        TypeInfo outer = context.type;
+        context.type = m;
+        try {
+            List<FieldInfo> fields = instanceFields(m);
+            for (int i = 0; i < fields.size(); i++) {
+                data.append(i == 0 ? " " : ", ").append(RustNames.snake(fields.get(i).name())).append(": ")
+                        .append(initial(fields.get(i)));
+            }
+        } finally {
+            context.type = outer;
+        }
+        parts.add(data.append(" }").toString());
+        return sb.append(pad).append("this.kind = ").append(kind).append("::").append(RustHierarchies.variant(m))
+                .append("(").append(String.join(", ", parts)).append(");\n").toString();
+    }
+
+    private String subConstructor(TypeInfo m, MethodInfo c) {
+        context.method = c;
+        String outerReceiver = context.receiver;
+        try {
+            StringBuilder sb = new StringBuilder(INDENT + visibility(c.access().isPrivate()) + "fn "
+                                                 + RustNames.method(c) + "(" + parameters(c) + ") -> Self {\n");
+            String pad = INDENT.repeat(2);
+            List<Statement> statements = c.methodBody() == null ? List.of() : c.methodBody().statements();
+            RustBodyPrinter printer = new RustBodyPrinter(context);
+            ExplicitConstructorInvocation eci = statements.stream()
+                    .filter(s -> s instanceof ExplicitConstructorInvocation).map(s -> (ExplicitConstructorInvocation) s)
+                    .findFirst().orElse(null);
+            if (eci != null && !eci.isSuper()) {
+                // this(...): the other constructor makes it one of m already
+                sb.append(pad).append("let mut this = Self::").append(RustNames.method(eci.methodInfo())).append("(")
+                        .append(printer.arguments(eci.parameterExpressions(), eci.methodInfo())).append(");\n");
+            } else {
+                String parent = eci == null ? parentNoArgConstructor(m) : RustNames.method(eci.methodInfo());
+                String args = eci == null ? "" : printer.arguments(eci.parameterExpressions(), eci.methodInfo());
+                sb.append(pad).append("let mut this = Self::").append(parent).append("(").append(args).append(");\n");
+                sb.append(intoVariant(m, pad));
+            }
+            context.receiver = "this";
+            for (Statement s : statements) {
+                if (s instanceof ExplicitConstructorInvocation) continue;
+                sb.append(printer.statement(s, 2));
+            }
+            return sb.append(pad).append("this\n").append(INDENT).append("}\n").toString();
+        } finally {
+            context.receiver = outerReceiver;
+            context.method = null;
+        }
+    }
+
+    /**
+     * The method of a family's name: a match on the kind, each variant calling the implementation of its own class or
+     * the nearest one above it. Its signature is the family's top method's, with its verdicts: an implementation
+     * that modifies where the top does not is rustc's error in the arm that calls it.
+     */
+    private String dispatcher(RustHierarchies.Hierarchy h, RustHierarchies.Family family) {
+        RustHierarchies hs = RustHierarchies.current();
+        MethodInfo representative = family.representative();
+        if (representative.isStatic() || context.facts.receiver(representative) == Receiver.NONE) return "";
+        methodName = family.name();
+        String signature;
+        try {
+            signature = signature(representative, true).replaceAll("\\bmut ((r#)?\\w+): ", "$1: ");
+        } finally {
+            methodName = null;
+        }
+        String args = representative.parameters().stream().map(p -> RustNames.snake(p.name()))
+                .collect(Collectors.joining(", "));
+        StringBuilder sb = new StringBuilder(INDENT).append(signature).append(" {\n").append(INDENT).append(INDENT)
+                .append("match self.kind {\n");
+        for (TypeInfo member : h.members()) {
+            MethodInfo impl = null;
+            for (TypeInfo c = member; c != null && impl == null; c = hs.isMember(c) && c != h.root()
+                    ? c.parentClass().typeInfo() : null) {
+                TypeInfo at = c;
+                impl = family.methods().stream().filter(x -> x.typeInfo() == at && !x.isAbstract()
+                                                             && x.methodBody() != null).findFirst().orElse(null);
+            }
+            sb.append(INDENT.repeat(3)).append(hs.pattern(member)).append(" => ");
+            if (impl == null) {
+                sb.append("unreachable!(\"abstract\"),\n");
+            } else {
+                sb.append("self.").append(hs.implementationName(impl)).append("(").append(args).append("),\n");
+            }
+        }
+        return sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n").toString();
+    }
+
+    /** The source interfaces of the hierarchy's members, each implemented on the root through the families. */
+    private String hierarchyTraits(RustHierarchies.Hierarchy h, String name, String generics) {
+        Set<TypeInfo> interfaces = new java.util.LinkedHashSet<>();
+        for (TypeInfo m : h.members()) superInterfaces(m, interfaces);
+        StringBuilder sb = new StringBuilder();
+        for (TypeInfo i : interfaces) {
+            if (i.compilationUnit().externalLibrary()) continue;
+            String trait = RustTypes.owned(i.asSimpleParameterizedType(), context, h.root())
+                    .replaceFirst("^Box<dyn (.*)>$", "$1");
+            sb.append("\nimpl").append(generics).append(" ").append(trait).append(" for ").append(name).append(generics)
+                    .append(" {\n");
+            for (MethodInfo d : i.methods()) {
+                if (d.isSynthetic() || d.isStatic()) continue;
+                MethodInfo impl = h.members().stream().flatMap(m -> m.methods().stream())
+                        .filter(m -> m.overrides().contains(d)).findFirst().orElse(null);
+                if (impl == null) continue;
+                sb.append(delegate(impl, d));
+            }
+            sb.append("}\n");
+        }
+        return sb.toString();
+    }
+
     /** {@code boolean equals(Object)}: Rust's {@code PartialEq}, whose other side is already of this type. */
     static boolean isEquals(MethodInfo m) {
         return "equals".equals(m.name()) && !m.isStatic() && m.parameters().size() == 1
@@ -521,6 +853,8 @@ final class RustTypePrinter {
         if (parent == null || parent.typeInfo() == null) return null;
         TypeInfo p = parent.typeInfo();
         if (p.isJavaLangObject() || p.compilationUnit().externalLibrary() || p.isInterface()) return null;
+        // a closed hierarchy is one struct (RustHierarchies), not composition
+        if (RustHierarchies.current().isMember(typeInfo)) return null;
         return p;
     }
 
@@ -692,7 +1026,16 @@ final class RustTypePrinter {
 
     /** The module-level name of a {@link #lazyStatic} field: its owner's name and its own. */
     static String staticName(FieldInfo f) {
-        return RustNames.constant(RustNames.type(f.owner()) + "_" + f.name());
+        return RustNames.constant(RustNames.ownType(f.owner()) + "_" + f.name());
+    }
+
+    /**
+     * The associated {@code const} of a constant: its own name; a member's below the root of a closed hierarchy, whose
+     * constants are the root's, with its class's in front ({@code ASSIGNMENT_EXPRENT_MAX}).
+     */
+    static String constantName(FieldInfo f) {
+        if (!RustHierarchies.current().isSubMember(f.owner())) return RustNames.constant(f.name());
+        return RustNames.constant(RustNames.snake(RustNames.ownType(f.owner())) + "_" + f.name());
     }
 
     /** A {@code static final} primitive or string with a literal value: an associated {@code const}. */
@@ -734,15 +1077,20 @@ final class RustTypePrinter {
                     .append(" = ").append(value).append(";\n");
             return "";
         }
-        return INDENT + visibility(f.access().isPrivate()) + "const " + RustNames.constant(f.name()) + ": " + type + " = "
+        return INDENT + visibility(f.access().isPrivate()) + "const " + constantName(f) + ": " + type + " = "
                + value + ";\n";
     }
 
     // ---- constructors
 
     private String defaultConstructor(List<FieldInfo> fields, List<String> phantom) {
-        StringBuilder sb = new StringBuilder(INDENT + "pub fn new() -> Self {\n");
+        return defaultConstructor("new", fields, phantom);
+    }
+
+    private String defaultConstructor(String name, List<FieldInfo> fields, List<String> phantom) {
+        StringBuilder sb = new StringBuilder(INDENT + "pub fn " + name + "() -> Self {\n");
         sb.append(INDENT).append(INDENT).append("Self {\n");
+        if (kindInit != null) sb.append(INDENT.repeat(3)).append("kind: ").append(kindInit).append(",\n");
         if (base != null) sb.append(INDENT.repeat(3)).append("base: ").append(baseValue(null, null)).append(",\n");
         for (FieldInfo f : fields) {
             sb.append(INDENT.repeat(3)).append(RustNames.snake(f.name())).append(": ").append(initial(f)).append(",\n");
@@ -840,6 +1188,7 @@ final class RustTypePrinter {
                     if (assignedField(s, fields) == null) lets.append(printer.statement(s, 2));
                 }
                 sb.append(lets).append(pad).append("Self {\n");
+                if (kindInit != null) sb.append(pad).append(INDENT).append("kind: ").append(kindInit).append(",\n");
                 if (base != null) {
                     sb.append(pad).append(INDENT).append("base: ").append(baseValue(statements, printer)).append(",\n");
                 }
@@ -856,6 +1205,7 @@ final class RustTypePrinter {
             }
             // the general shape: build 'this' at the empty values, run the body on it
             sb.append(pad).append("let mut this = Self {\n");
+            if (kindInit != null) sb.append(pad).append(INDENT).append("kind: ").append(kindInit).append(",\n");
             if (base != null) {
                 sb.append(pad).append(INDENT).append("base: ").append(baseValue(statements, printer)).append(",\n");
             }
@@ -1023,7 +1373,7 @@ final class RustTypePrinter {
         Receiver receiver = context.facts.receiver(m);
         if (markOfTypestate(m)) {
             // the transition: the object in its before state is consumed, and returned in its after state
-            return (pub ? visibility(m.access().isPrivate()) : "") + "fn " + RustNames.method(m) + "(mut self"
+            return (pub ? visibility(m.access().isPrivate()) : "") + "fn " + name(m) + "(mut self"
                    + (m.parameters().isEmpty() ? "" : ", " + parameters(m)) + ") -> " + RustNames.type(m.typeInfo())
                    + "<" + RustTypestate.AFTER + ">";
         }
@@ -1037,9 +1387,13 @@ final class RustTypePrinter {
         String all = self == null ? params : params.isEmpty() ? self : self + ", " + params;
         String result = resultType(m);
         return (pub ? visibility(m.access().isPrivate()) : "") + (unsafeMethod(m, context) ? "unsafe " : "") + "fn "
-               + RustNames.method(m) + bounded(m.typeParameters(), false, context.facts.resultBorrows(m) != null
+               + name(m) + bounded(m.typeParameters(), false, context.facts.resultBorrows(m) != null
                                                                           || RESULT_LIFETIME.equals(keptLifetime(m)))
                + "(" + all + ")" + result;
+    }
+
+    private String name(MethodInfo m) {
+        return methodName != null ? methodName : RustNames.method(m);
     }
 
     private boolean markOfTypestate(MethodInfo m) {

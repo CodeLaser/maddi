@@ -47,7 +47,7 @@ final class RustTypestate {
     static boolean typestate(TypeInfo typeInfo, RustContext context) {
         if (typeInfo == null || typeInfo.isInterface() || typeInfo.typeNature().isRecord()
             || typeInfo.typeNature().isEnum() || !typeInfo.typeParameters().isEmpty()
-            || typeInfo.compilationUnit().externalLibrary() || RustTypePrinter.sourceParent(typeInfo) != null
+            || typeInfo.compilationUnit().externalLibrary() || RustTypePrinter.sourceParent(typeInfo) != null || RustHierarchies.current().isMember(typeInfo)
             || context.borrows.hasLifetime(typeInfo)
             || typeInfo.interfacesImplemented().stream().anyMatch(i -> !i.typeInfo().compilationUnit().externalLibrary())) {
             return false;

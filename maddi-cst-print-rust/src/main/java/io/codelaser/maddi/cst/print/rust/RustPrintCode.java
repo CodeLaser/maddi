@@ -32,6 +32,11 @@ public enum RustPrintCode implements PrintMessage.Code {
      * through it. A call from the parent to a method the subclass overrides stays in the parent: no dynamic dispatch.
      */
     INHERITANCE_AS_COMPOSITION(Severity.LOSS),
+    /**
+     * A closed class hierarchy as one struct whose {@code kind} enum holds each class's own fields
+     * ({@link RustHierarchies}): an overridden method dispatches on the kind, {@code instanceof} tests it.
+     */
+    HIERARCHY_AS_ENUM(Severity.INFO),
     /** A static field that is not a constant: Rust has no mutable statics without {@code unsafe}. Left out. */
     STATIC_STATE(Severity.ERROR),
     /**

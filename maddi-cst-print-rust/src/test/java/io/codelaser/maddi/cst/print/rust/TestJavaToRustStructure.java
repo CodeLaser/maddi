@@ -266,11 +266,12 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
             """;
 
     /**
-     * A superclass is a {@code base} field; inherited members are reached through it. The interface method has no
-     * verdict, so its trait takes {@code &mut self}; the implementation's own {@code &self} is an inherent method the
-     * trait's delegates to.
+     * A class and its subclass are one struct with a kind (RustHierarchies, TestJavaToRustHierarchy): an inherited
+     * member is the struct's own, the subclass's field is in its variant's data. The interface method has no verdict,
+     * so its trait takes {@code &mut self}; the implementation's own {@code &self} is an inherent method the trait's
+     * delegates to.
      */
-    @DisplayName("inheritance as composition, trait impl delegating to the implementation's own verdicts: compiles")
+    @DisplayName("a closed hierarchy as one struct, trait impl delegating to the implementation's own verdicts: compiles")
     @Test
     public void inheritance() throws Exception {
         List<TypeInfo> types = parse(CONTROLLERS);
@@ -287,11 +288,12 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
-        contains(rust, "pub base: ControllersBase,");
-        contains(rust, "base: ControllersBase::new(\"orders\".to_string()),");
-        contains(rust, "self.base.audit(\"placed\");");
-        contains(rust, "self.base.name.len() as i32 > 0");
-        contains(rust, "return orders.base.log_size();");
+        contains(rust, "ControllersOrders(ControllersOrdersData),");
+        contains(rust, "let mut this = Self::new_controllers_base(\"orders\".to_string());");
+        contains(rust, "self.kind.controllers_orders_mut().count += 1;");
+        contains(rust, "self.audit(\"placed\");");
+        contains(rust, "(self.name.len() as i32 > 0)");
+        contains(rust, "return orders.log_size();");
         contains(rust, """
                 fn is_valid(&mut self) -> bool {
                     Self::is_valid(self)
@@ -305,18 +307,21 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
             package a.b;
             import java.util.List;
             public class Stmts {
-                static class Statement {
-                    private final List<String> labels;
-                    Statement(List<String> labels) { this.labels = labels; }
+                static class Statement<T> {
+                    private final List<T> labels;
+                    Statement(List<T> labels) { this.labels = labels; }
                     int count() { return labels.size(); }
                 }
-                static class Switch extends Statement {
+                static class Switch extends Statement<String> {
                     Switch() { super(List.of()); }
                 }
             }
             """;
 
-    /** A superclass whose objects are shared in an {@code Rc} is still owned as the {@code base} part. */
+    /**
+     * A superclass whose objects are shared in an {@code Rc} is still owned as the {@code base} part. A generic
+     * superclass keeps composition: a closed hierarchy is one struct only without type parameters.
+     */
     @DisplayName("a base whose class is shared in an Rc is the plain struct: compiles")
     @Test
     public void sharedBase() throws Exception {
@@ -326,7 +331,7 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         nonModifying(statement, "count");
         translate(types);
         String rust = module("a.b");
-        contains(rust, "pub base: StmtsStatement,");
+        contains(rust, "pub base: StmtsStatement<String>,");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

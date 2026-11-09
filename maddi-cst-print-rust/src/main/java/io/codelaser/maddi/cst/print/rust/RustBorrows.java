@@ -71,20 +71,30 @@ final class RustBorrows {
      */
     boolean hasLifetime(TypeInfo typeInfo) {
         if (typeInfo == null) return false;
+        // a closed hierarchy is one struct: it carries the lifetime when any of its members does (RustHierarchies)
+        RustHierarchies.Hierarchy hierarchy = RustHierarchies.current().hierarchy(typeInfo);
+        if (hierarchy != null && hierarchy.root() != typeInfo) return hasLifetime(hierarchy.root());
         Boolean known = lifetime.get(typeInfo);
         if (known != null) return known;
         lifetime.put(typeInfo, false); // in progress
-        boolean has = !fields(typeInfo).isEmpty();
-        if (!has && !typeInfo.compilationUnit().externalLibrary() && !typeInfo.isInterface()) {
-            for (FieldInfo f : typeInfo.fields()) {
-                if (!f.isStatic() && !f.isSynthetic() && mentionsLifetime(f.type())) {
-                    has = true;
-                    break;
-                }
+        boolean has = false;
+        for (TypeInfo t : hierarchy == null ? List.of(typeInfo) : hierarchy.members()) {
+            if (!fields(t).isEmpty() || fieldsMentionLifetime(t)) {
+                has = true;
+                break;
             }
         }
         lifetime.put(typeInfo, has);
         return has;
+    }
+
+    /** An instance field of the type itself holds a struct carrying the lifetime. */
+    boolean fieldsMentionLifetime(TypeInfo typeInfo) {
+        if (typeInfo.compilationUnit().externalLibrary() || typeInfo.isInterface()) return false;
+        for (FieldInfo f : typeInfo.fields()) {
+            if (!f.isStatic() && !f.isSynthetic() && mentionsLifetime(f.type())) return true;
+        }
+        return false;
     }
 
     private boolean mentionsLifetime(ParameterizedType type) {
@@ -110,7 +120,7 @@ final class RustBorrows {
     private Map<FieldInfo, Form> compute(TypeInfo typeInfo) {
         Map<FieldInfo, Form> out = new LinkedHashMap<>();
         if (typeInfo.typeNature().isRecord() || typeInfo.isInterface() || typeInfo.typeNature().isEnum()
-            || RustTypePrinter.sourceParent(typeInfo) != null) {
+            || RustTypePrinter.sourceParent(typeInfo) != null || RustHierarchies.current().isSubMember(typeInfo)) {
             return out;
         }
         List<MethodInfo> constructors = typeInfo.constructors().stream().filter(c -> !c.isSynthetic()).toList();
