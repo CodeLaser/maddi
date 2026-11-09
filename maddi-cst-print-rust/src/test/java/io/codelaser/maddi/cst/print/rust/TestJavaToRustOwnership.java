@@ -230,4 +230,41 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
         contains(rust, "self.operands.as_ref().unwrap().len() as i32");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String LIFETIME_CYCLE = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Cyc {
+                public static class Holder {
+                    private final List<String> names;
+                    public Holder(List<String> names) { this.names = names; }
+                    public int n() { return names.size(); }
+                }
+                public static class A {
+                    private final List<B> bs = new ArrayList<>();
+                    private Holder h;
+                }
+                public static class B {
+                    private A a;
+                }
+            }
+            """;
+
+    @DisplayName("a struct on a cycle with a struct carrying the lifetime carries it too, whichever is asked first")
+    @Test
+    public void lifetimeThroughCycle() throws Exception {
+        List<TypeInfo> types = parse(LIFETIME_CYCLE);
+        TypeInfo holder = types.getFirst().findSubType("Holder");
+        nonModifying(holder, "n");
+        unmodifiedField(holder, "names");
+        kept(holder.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        translate(types, nullable(java.util.Set.of("h", "a")));
+        String rust = module("a.b");
+        // was 'pub struct CycB {' with 'a: Option<Box<CycA<'_>>>': E0106, B decided without a lifetime while A was
+        // in progress (fernflower's StatEdge and Statement)
+        contains(rust, "pub struct CycB<'a> {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
