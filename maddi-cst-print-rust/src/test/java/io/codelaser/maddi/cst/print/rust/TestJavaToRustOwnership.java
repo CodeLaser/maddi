@@ -267,4 +267,40 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
         contains(rust, "pub struct CycB<'a> {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String GETTER_TO_MODIFIED = """
+            package a.b;
+            public class Gs {
+                public static class Edge {
+                    private int n;
+                    public void bump() { n++; }
+                }
+                public static class Stat {
+                    private final Edge ifEdge = new Edge();
+                    public Edge getIfEdge() { return ifEdge; }
+                }
+                public static void touch(Edge e) { e.bump(); }
+                public static void run(Stat s) { touch(s.getIfEdge()); }
+            }
+            """;
+
+    @DisplayName("a getter's result handed to a parameter the callee modifies: the getter's exclusive twin")
+    @Test
+    public void getterToModifiedParameter() throws Exception {
+        List<TypeInfo> types = parse(GETTER_TO_MODIFIED);
+        TypeInfo gs = types.getFirst();
+        modifying(gs.findSubType("Edge"), "bump");
+        nonModifying(gs.findSubType("Stat"), "getIfEdge");
+        dependentResult(gs.findSubType("Stat"), "getIfEdge");
+        modifying(gs, "touch", "run");
+        exclusive(method(gs, "touch").parameters().getFirst());
+        exclusive(method(gs, "run").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        // was 'Self::touch(s.get_if_edge())': a & where the parameter is &mut (E0308; fernflower's removeSuccessor)
+        contains(rust, "Self::touch(s.get_if_edge_mut());");
+        contains(rust, "pub fn get_if_edge_mut(&mut self) -> &mut GsEdge {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

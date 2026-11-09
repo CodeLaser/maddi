@@ -106,7 +106,18 @@ final class RustGetters {
     private static void visit(TypeInfo type, RustFacts facts, Set<MethodInfo> out) {
         type.constructorAndMethodStream().filter(m -> m.methodBody() != null).forEach(m -> m.methodBody().visit(e -> {
             switch (e) {
-                case MethodCall mc when mc.object() != null && modifying(mc, facts) -> through(mc.object(), facts, out);
+                case MethodCall mc -> {
+                    if (mc.object() != null && modifying(mc, facts)) through(mc.object(), facts, out);
+                    // an argument a source callee modifies: 'first.removeSuccessor(stat.getIfEdge())'
+                    MethodInfo callee = mc.methodInfo();
+                    if (!callee.typeInfo().compilationUnit().externalLibrary()) {
+                        for (int i = 0; i < mc.parameterExpressions().size() && i < callee.parameters().size(); i++) {
+                            if (facts.passing(callee.parameters().get(i)) == RustFacts.Passing.EXCLUSIVE) {
+                                through(mc.parameterExpressions().get(i), facts, out);
+                            }
+                        }
+                    }
+                }
                 case Assignment a when a.variableTarget() instanceof FieldReference fr && fr.scope() != null ->
                         through(fr.scope(), facts, out);
                 default -> { }
