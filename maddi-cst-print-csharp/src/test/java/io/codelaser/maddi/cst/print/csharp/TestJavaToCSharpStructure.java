@@ -3556,4 +3556,40 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal V Single<V>(string name)");
         contains(cs, "string a = Variable<string>(\"a\", typeof(string));");
     }
+
+    /**
+     * A creation from a subtype's wildcard, {@code new Swap<>(entity)} of a {@code Genuine<S, ?>} where the
+     * constructor takes a {@code Planning<S, E>}: the opener opens the subtype, whose value converts.
+     */
+    @Test
+    public void openerOfSubtypeArgument() {
+        String cs = translate("Providers", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.List;
+                class Providers<S> {
+                    interface Planning<S, E> {
+                        Class<E> type();
+                    }
+                    interface Genuine<S, E> extends Planning<S, E> {
+                        boolean basic();
+                    }
+                    static final class Swap<S, E> {
+                        private final Planning<S, E> entity;
+                        Swap(Planning<S, E> entity) { this.entity = entity; }
+                        String name() { return entity.type().getSimpleName(); }
+                    }
+                    private final List<Genuine<S, ?>> entities = new ArrayList<>();
+                    List<Swap<S, ?>> build() {
+                        List<Swap<S, ?>> result = new ArrayList<>();
+                        for (var entity : entities) {
+                            if (entity.basic()) result.add(new Swap<>(entity));
+                        }
+                        return result;
+                    }
+                }
+                """);
+        contains(cs, "result.Add(entity.Open_(new ProvidersSwapOpener_<S>()));");
+        contains(cs, "ISwap<S> IGenuineOpener_<S, ISwap<S>>.With<E>(IGenuine<S, E> entity) => new Swap<S, E>(entity);");
+    }
 }
