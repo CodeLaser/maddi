@@ -247,10 +247,12 @@
 # a sibling overload (genuineVariable(String, Class<V>), CS0111 x10, CS0121 x8), and a default method called through
 # the interface cast names its type arguments; an opener opens a subtype's wildcard (new SwapMoveProvider<>(entity)).
 # 522 -> 501 errors, 1366 -> 1369 compiling files; refused wildcard interfaces 14 -> 11; nullable unchanged.
+# 2026-11-09, an Integer map's put/remove/putIfAbsent answer null for an absent key (PutValue, #188): the null check of
+# a put's result in DefaultLoadBalance compiles (CS0019). 501 -> 500 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
 compilingFiles	1369
 unmappedJdkUses	106
-errors	501
+errors	500
