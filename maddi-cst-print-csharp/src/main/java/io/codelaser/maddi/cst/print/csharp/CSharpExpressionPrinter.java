@@ -98,10 +98,26 @@ public final class CSharpExpressionPrinter {
         return print(e, q);
     }
 
+    /** The index of the parenthesis that closes {@code t}'s first; -1 when none. */
+    private static int matching(String t) {
+        int depth = 0;
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            if (c == '(') depth++;
+            else if (c == ')' && --depth == 0) return i;
+        }
+        return -1;
+    }
+
     /** A call, an assignment, an increment: what C# takes as an expression statement. */
     private static boolean validStatement(String printed) {
         String t = printed.strip();
-        if (t.endsWith(")") && !t.startsWith("(")) return true;
+        if (t.endsWith(")")) {
+            if (!t.startsWith("(")) return true;
+            // (a ? b : c).Add(x) is a call; (int) x.Y() a cast, (x) a parenthesized value, neither
+            int close = matching(t);
+            if (close > 0 && close + 1 < t.length() && ".[(?".indexOf(t.charAt(close + 1)) >= 0) return true;
+        }
         int depth = 0;
         for (int i = 0; i < t.length(); i++) {
             char c = t.charAt(i);

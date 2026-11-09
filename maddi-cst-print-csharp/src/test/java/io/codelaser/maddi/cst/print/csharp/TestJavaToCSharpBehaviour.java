@@ -349,6 +349,9 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                         } catch (IllegalStateException e) {
                             System.out.println("caught " + e.getMessage());
                         }
+                        java.util.List<String> left = new java.util.ArrayList<>(), right = new java.util.ArrayList<>();
+                        (args.length == 0 ? left : right).add("x");
+                        System.out.println(left.size() + " " + right.size());
                         try {
                             String s = null;
                             s.length();
