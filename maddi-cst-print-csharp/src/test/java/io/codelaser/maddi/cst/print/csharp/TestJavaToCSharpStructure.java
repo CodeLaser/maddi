@@ -1767,7 +1767,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void companionClasses() {
         String cs = translate("Response", COMPANION);
         contains(cs, "public sealed class Response<T> {");
-        contains(cs, "public string Describe() => Response.EMPTY + Content + Response.Count();");
+        contains(cs, "public string Describe() => Response.EMPTY + JavaString.ValueOf(Content) + Response.Count();");
         contains(cs, "internal Response(T content)");
         contains(cs, "public static class Response {");
         contains(cs, "internal const string EMPTY = \"\";");

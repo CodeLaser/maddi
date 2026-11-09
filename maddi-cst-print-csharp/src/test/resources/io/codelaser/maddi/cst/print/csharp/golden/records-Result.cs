@@ -1,3 +1,4 @@
+using Maddi.JavaCompat;
 using System;
 namespace Org.Example.Rec;
 internal interface IResult<out T> { T Response(); }
@@ -12,4 +13,5 @@ internal sealed record Success<T> : IResult<T> {
         Note = note;
     }
     T IResult<T>.Response() => Response;
+    public override string ToString() => "Success[response=" + JavaString.ValueOf(Response) + ", note=" + JavaString.ValueOf(Note) + "]";
 }

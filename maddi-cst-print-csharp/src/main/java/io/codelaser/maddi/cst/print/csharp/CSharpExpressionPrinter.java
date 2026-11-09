@@ -526,6 +526,8 @@ public final class CSharpExpressionPrinter {
         // isTerminated(b, score) of a Score<?>: score.Open_(new IsTerminatedOpener_(this, b))
         CSharpCallOpeners.Site opener = CSharpCallOpeners.site(mc);
         if (opener != null) return CSharpCallOpeners.call(opener, q);
+        // list.toString(), b.toString() of a Boolean: Java's conversion, where C#'s ToString differs
+        if (!statement && javaToString(mc)) return valueOf(mc.object(), q);
         OutputBuilder call = inCall(mc, () -> methodCallInCall(mc, q, statement));
         String cast = statement ? null : erasedResultCast(mc, q);
         if (cast == null) return call;
@@ -2421,8 +2423,10 @@ public final class CSharpExpressionPrinter {
             OutputBuilder value = unboxCast(CSharpTypeName.argument(a.value().parameterizedType(), q), a.value(), q);
             return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
         }
-        OutputBuilder value = converts(a.value(), a.variableTarget().parameterizedType())
-                ? converted(a.value(), a.variableTarget().parameterizedType(), q) : operand(a.precedence(), a.value(), q);
+        ParameterizedType targetType = a.variableTarget().parameterizedType();
+        OutputBuilder value = "+=".equals(operator) && targetType != null && targetType.isJavaLangString()
+                              && targetType.arrays() == 0 ? stringOperand(a.precedence(), a.value(), q)
+                : converts(a.value(), targetType) ? converted(a.value(), targetType, q) : operand(a.precedence(), a.value(), q);
         if (a.assignmentOperator() == null) value = CSharpNullability.intoVariable(a.value(), a.variableTarget(), value);
         return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
     }
@@ -2452,6 +2456,12 @@ public final class CSharpExpressionPrinter {
             return "==".equals(op) ? call
                     : new OutputBuilderImpl().add(SymbolEnum.UNARY_BOOLEAN_NOT).add(call);
         }
+        if ("+".equals(op) && bo.parameterizedType() != null && bo.parameterizedType().isJavaLangString()
+            && bo.parameterizedType().arrays() == 0) {
+            // Java's string conversion of each operand, String.valueOf, where C#'s ToString differs
+            return new OutputBuilderImpl().add(stringOperand(bo.precedence(), bo.lhs(), q))
+                    .add(SymbolEnum.binaryOperator(op)).add(stringOperand(bo.precedence(), bo.rhs(), q));
+        }
         if (!"==".equals(op) && !"!=".equals(op) && bo.parameterizedType() != null
             && bo.parameterizedType().isPrimitiveExcludingVoid()) {
             // Java unboxes an Integer operand; C# lifts the operation to int?
@@ -2464,6 +2474,88 @@ public final class CSharpExpressionPrinter {
     }
 
     /**
+     * An operand of a string concatenation, converted as Java's {@code String.valueOf} converts it where C#'s
+     * conversion differs ({@link #javaStringConversion}): {@code JavaString.ValueOf(b)} for a boolean ({@code true},
+     * not {@code True}), a double ({@code 1.0}, not {@code 1}), a collection ({@code [1, 2]}, not its type's name), a
+     * value that may be null ({@code null}, not the empty string); a String that may be null is {@code (s ?? "null")}.
+     */
+    static OutputBuilder stringOperand(Precedence precedence, Expression e, Qualification q) {
+        Expression x = unwrap(e);
+        ParameterizedType t = x.parameterizedType();
+        if (x instanceof NullConstant) return text("\"null\"");
+        if (t != null && t.isJavaLangString() && t.arrays() == 0) {
+            if (!CSharpNullability.mayBeNull(x)) return operand(precedence, e, q);
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(precedence, e, q))
+                    .add(text("?? \"null\"")).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        if (!javaStringConversion(x)) return operand(precedence, e, q);
+        return valueOf(e, q);
+    }
+
+    /** {@code x.toString()} of a value whose C# {@code ToString} is not Java's ({@link #javaStringConversion}). */
+    static boolean javaToString(MethodCall mc) {
+        MethodInfo m = mc.methodInfo();
+        Expression object = mc.object();
+        return "toString".equals(m.name()) && m.parameters().isEmpty() && !m.isStatic() && object != null
+               && !mc.objectIsImplicit() && !(unwrap(object) instanceof VariableExpression ve && ve.variable() instanceof This)
+               && javaStringConversion(unwrap(object));
+    }
+
+    /** {@code JavaString.ValueOf(e)}: Java's string conversion. */
+    static OutputBuilder valueOf(Expression e, Qualification q) {
+        CSharpContext.using(CSharpCompat.NAMESPACE);
+        OutputBuilder b = new OutputBuilderImpl().add(text("JavaString.ValueOf")).add(SymbolEnum.LEFT_PARENTHESIS);
+        Expression x = unwrap(e);
+        ParameterizedType t = x.parameterizedType();
+        // Double.valueOf(2) prints as 2, an int to C#: the double's overload, 2.0
+        if (t != null && floatingPoint(t) && (x instanceof ConstantExpression<?>
+                                              || x instanceof MethodCall mc && !CSharpNames.translated(mc.methodInfo().typeInfo()))) {
+            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(t.typeInfo().isFloat()
+                    || "java.lang.Float".equals(t.typeInfo().fullyQualifiedName()) ? "float" : "double"))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(operand(e.precedence(), e, q));
+            return b.add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        return b.add(print(e, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    /**
+     * C# converts {@code e} to a string otherwise than Java: a boolean, a float or a double (boxed too), an Object, a
+     * type parameter, a library type (a collection, a map), a value that may be null. Not an integer or a char, an
+     * enum, an array, nor a program type's value known not to be null, whose {@code ToString} is its
+     * {@code toString}.
+     */
+    static boolean javaStringConversion(Expression e) {
+        ParameterizedType t = e.parameterizedType();
+        if (t == null || t.arrays() > 0) return false;
+        if (t.isBooleanOrBoxedBoolean() || floatingPoint(t)) return true;
+        if (t.isPrimitiveExcludingVoid()) return false;
+        if (CSharpNullability.mayBeNull(e)) return true;
+        if (t.isBoxedExcludingVoid()) return false;
+        if (t.isTypeParameter() || t.isJavaLangObject()) return true;
+        TypeInfo ti = t.typeInfo();
+        if (ti == null || ti.typeNature().isEnum() || CSharpNames.translated(ti)) return false;
+        // a java.util type that is one; not java.nio.file.Path, an Iterable with its own toString
+        return CONVERTED_DIFFERENTLY.contains(ti.fullyQualifiedName())
+               || ti.fullyQualifiedName().startsWith("java.util.")
+                  && ti.recursiveSuperTypeStream().anyMatch(s -> CONVERTED_DIFFERENTLY.contains(s.fullyQualifiedName()));
+    }
+
+    /**
+     * The library types whose values C# converts to a string otherwise than Java: the collections, maps and entries
+     * (their .NET type's name), and Number, which a Double or a Float is.
+     */
+    private static final Set<String> CONVERTED_DIFFERENTLY = Set.of("java.lang.Iterable", "java.util.Collection",
+            "java.util.Map", "java.util.Map$Entry", "java.util.Map.Entry", "java.lang.Number");
+
+    /** A float or a double, boxed too. */
+    private static boolean floatingPoint(ParameterizedType t) {
+        TypeInfo ti = t.typeInfo();
+        return t.arrays() == 0 && ti != null && (ti.isFloat() || ti.isDouble()
+                                                 || "java.lang.Float".equals(ti.fullyQualifiedName())
+                                                 || "java.lang.Double".equals(ti.fullyQualifiedName()));
+    }
+
+    /**
      * Java's {@code ==} compares references where C#'s does not: two Strings, which C# compares by contents, and a
      * type parameter's value, which C# cannot compare with {@code ==} at all. Against {@code null}, C#'s is fine.
      */
@@ -2472,7 +2564,14 @@ public final class CSharpExpressionPrinter {
         ParameterizedType l = lhs.parameterizedType();
         ParameterizedType r = rhs.parameterizedType();
         if (l == null || r == null || l.arrays() > 0 || r.arrays() > 0) return false;
-        return l.isJavaLangString() && r.isJavaLangString() || l.isTypeParameter() || r.isTypeParameter();
+        return l.isJavaLangString() && r.isJavaLangString() || l.isTypeParameter() || r.isTypeParameter()
+               || translatedRecord(l) || translatedRecord(r);
+    }
+
+    /** A record of the program: C#'s {@code ==} on it compares the components, Java's the references. */
+    private static boolean translatedRecord(ParameterizedType t) {
+        TypeInfo ti = t.typeInfo();
+        return ti != null && ti.typeNature().isRecord() && CSharpNames.translated(ti);
     }
 
     private static OutputBuilder negation(Negation neg, Qualification q) {

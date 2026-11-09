@@ -1,3 +1,4 @@
+using Maddi.JavaCompat;
 using System;
 namespace Org.Example.Nodeses;
 public sealed class Nodes {
@@ -8,7 +9,7 @@ public sealed class Nodes {
 
     internal static string Describe(object bean) {
         object beanClass = bean == null ? "null" : bean.GetType();
-        return "" + beanClass;
+        return "" + JavaString.ValueOf(beanClass);
     }
 
     internal static int Same(bool b) {

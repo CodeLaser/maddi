@@ -252,6 +252,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         members.addAll(enumerable(q));
         if (record) members.addAll(accessorImplementations(components, q));
         if (record) members.addAll(recordHashCode(components));
+        if (record) members.addAll(recordToString(components));
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
         if (!typeInfo.isInterface()) members.addAll(comparableBridge(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
@@ -390,6 +391,30 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         String value = components.isEmpty() ? "0" : combined(components.stream().map(CSharpNames::field).toList());
         return List.of(new OutputBuilderImpl()
                 .add(new TextImpl("public override int GetHashCode() => " + value + ";")));
+    }
+
+    /**
+     * A record's {@code toString} as Java's: {@code Point[x=1, y=2]}, not C#'s {@code Point { X = 1, Y = 2 }}; the
+     * components converted as String.valueOf does. None where the record declares its own.
+     */
+    private List<OutputBuilder> recordToString(List<FieldInfo> components) {
+        boolean own = typeInfo.methods().stream().anyMatch(m -> !m.isStatic() && !m.isSynthetic()
+                && "toString".equals(m.name()) && m.parameters().isEmpty());
+        if (own) return List.of();
+        String value;
+        if (components.isEmpty()) {
+            value = "\"" + typeInfo.simpleName() + "[]\"";
+        } else {
+            CSharpContext.using(CSharpCompat.NAMESPACE);
+            List<String> parts = new ArrayList<>();
+            for (int i = 0; i < components.size(); i++) {
+                FieldInfo f = components.get(i);
+                parts.add("\"" + (i == 0 ? typeInfo.simpleName() + "[" : ", ") + f.name() + "=\" + JavaString.ValueOf("
+                          + CSharpNames.field(f) + ")");
+            }
+            value = String.join(" + ", parts) + " + \"]\"";
+        }
+        return List.of(new OutputBuilderImpl().add(new TextImpl("public override string ToString() => " + value + ";")));
     }
 
     /** {@code HashCode.Combine(a, b)}, nested beyond its eight arguments. */

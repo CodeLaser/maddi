@@ -1,3 +1,4 @@
+using Maddi.JavaCompat;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -24,6 +25,7 @@ public sealed class Scores {
     public sealed record Inner<Score_>(Score_ Raw, int Unassigned)
         : IComparable<Inner<Score_>>, IInner where Score_ : IScore<Score_> {
         public int CompareTo(Inner<Score_> other) => Raw.CompareTo(other.Raw);
+        public override string ToString() => "Inner[raw=" + JavaString.ValueOf(Raw) + ", unassigned=" + JavaString.ValueOf(Unassigned) + "]";
         IScore IInner.Raw => Raw;
         int IInner.Unassigned => Unassigned;
         int IComparable.CompareTo(object other) => CompareTo((Inner<Score_>) other!);
@@ -67,5 +69,6 @@ public sealed class Scores {
         public bool IsZero() => Value == 0;
         public string ToShortString() => "" + Value;
         public int CompareTo(SimpleScore other) => Value.CompareTo(other.Value);
+        public override string ToString() => "SimpleScore[value=" + JavaString.ValueOf(Value) + "]";
     }
 }

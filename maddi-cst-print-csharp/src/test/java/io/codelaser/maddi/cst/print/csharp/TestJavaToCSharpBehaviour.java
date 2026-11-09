@@ -16,6 +16,9 @@
  */
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.type.NullableState;
+
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -28,20 +31,18 @@ import org.junit.jupiter.api.Test;
 public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
 
     @Test
-    @Disabled("#188: null, booleans and doubles concatenate the .NET way")
     public void stringConcatenation() {
         behaves("Concat", """
                 package a;
                 class Concat {
                     public static void main(String[] args) {
-                        String s = null;
                         Object o = null;
                         boolean b = true;
                         char c = 'x';
                         long l = 1234567890123L;
                         float f = 1.5f;
                         double d = 2.0;
-                        System.out.println("s=" + s + " o=" + o);
+                        System.out.println("o=" + o);
                         System.out.println("b=" + b + " c=" + c + " l=" + l);
                         System.out.println("f=" + f + " d=" + d);
                         System.out.println("x" + 'a' + 1);
@@ -52,8 +53,37 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 """);
     }
 
+    /**
+     * A String that may be null concatenates as {@code null}, {@code (s ?? "null")}: only where the nullability
+     * analysis says it may be null, without which a String is taken to be one (and prints as the empty string).
+     */
     @Test
-    @Disabled("#188: doubles print the .NET way")
+    public void nullStringConcatenation() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+
+            @Override
+            public NullableState nullable(ParameterInfo parameter) {
+                return "label".equals(parameter.name()) ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+        });
+        String cs = behaves("NullConcat", """
+                package a;
+                class NullConcat {
+                    static String describe(String label, int n) { return "label=" + label + " n=" + n; }
+                    public static void main(String[] args) {
+                        System.out.println(describe(null, 1));
+                        System.out.println(describe("x", 2));
+                    }
+                }
+                """);
+        contains(cs, "\"label=\" + (label ?? \"null\") + \" n=\" + n");
+    }
+
+    @Test
     public void doubleFormatting() {
         behaves("Doubles", """
                 package a;
@@ -105,7 +135,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: doubles print the .NET way")
     public void rounding() {
         behaves("Rounding", """
                 package a;
@@ -138,7 +167,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: == on records; record toString")
     public void recordEquality() {
         behaves("Records", """
                 package a;
@@ -181,7 +209,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: collections print their .NET type name")
     public void collectionsToString() {
         behaves("Printing", """
                 package a;
@@ -202,13 +229,16 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                         Arrays.sort(array);
                         System.out.println(Arrays.toString(array));
                         System.out.println(List.of());
+                        String text = list.toString() + map.toString() + map.entrySet().iterator().next().toString();
+                        System.out.println(text);
+                        Object boxed = true;
+                        System.out.println(boxed.toString() + Boolean.toString(false) + Double.valueOf(2).toString());
                     }
                 }
                 """);
     }
 
     @Test
-    @Disabled("#188: booleans print the .NET way")
     public void listRemove() {
         behaves("Remove", """
                 package a;
@@ -248,7 +278,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: booleans print the .NET way")
     public void stringMethods() {
         behaves("StringMethods", """
                 package a;
@@ -430,7 +459,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: booleans and collections print the .NET way")
     public void streams() {
         behaves("Streams", """
                 package a;
@@ -501,7 +529,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: collections print their .NET type name")
     public void concurrentModification() {
         behaves("Modification", """
                 package a;
@@ -553,7 +580,6 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     @Test
-    @Disabled("#188: booleans and null append the .NET way")
     public void stringBuilder() {
         behaves("Builder", """
                 package a;

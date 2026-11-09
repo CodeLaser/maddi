@@ -674,7 +674,8 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "JavaClass.DeclaredMethod(c, \"run\")");
         contains(cs, "JavaClass.DeclaredMethod(c, \"apply\", p, typeof(int))");
         contains(cs, "JavaClass.DeclaredField(c, \"x\")");
-        contains(cs, "JavaClass.IsRecord(c) + \" \" + c.IsNested + \" \" + c.ToString()");
+        contains(cs, "JavaString.ValueOf(JavaClass.IsRecord(c)) + \" \" + JavaString.ValueOf(c");
+        contains(cs, ".IsNested) + \" \" + c.ToString()");
         contains(cs, "s.TrimEnd() + s.TrimStart()");
         contains(cs, "IJavaListIterator<string> it = list.Iterator(list.Count);");
         contains(cs, "while (it.HasPrevious())");

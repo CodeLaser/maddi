@@ -1,3 +1,4 @@
+using Maddi.JavaCompat;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -112,10 +113,16 @@ public sealed class Lifecycles {
     public interface INode2 { int Size(); }
 
     public sealed record Overrides<G>(IDictionary<string, G> Weights) : IOverrides where G : IGrade<G> {
+        public override string ToString() => "Overrides[weights=" + JavaString.ValueOf(Weights) + "]";
         IDictionary IOverrides.Weights => (IDictionary) Weights;
     }
     public interface IOverrides { IDictionary Weights { get; } }
-    public sealed record Pair(int Size) : ITuple { int ITuple.Size() => Size; }
+
+    public sealed record Pair(int Size) : ITuple {
+        int ITuple.Size() => Size;
+        public override string ToString() => "Pair[size=" + JavaString.ValueOf(Size) + "]";
+    }
+
     public sealed class PairNode : Node<Pair> {
         internal PairNode(ITupleLifecycle<Pair> next) : base(ITupleLifecycle.Same(next)) { }
     }

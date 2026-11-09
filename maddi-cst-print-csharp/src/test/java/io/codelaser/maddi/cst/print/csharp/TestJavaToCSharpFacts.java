@@ -614,8 +614,8 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "internal static T Ensure<T>(T? maybe) {");
         // a cast of null, which picks an overload, keeps the null
         contains(cs, "Over((string?) null);");
-        // C#'s object.ToString() is string?
-        contains(cs, "o.ToString()!.Length");
+        // Java's o.toString() is JavaString.ValueOf(o), a string: C#'s object.ToString() is string?, which needed a !
+        contains(cs, "JavaString.ValueOf(o).Length");
         // a class's type parameter takes the ? of a nullable declaration
         contains(cs, "internal T? Held { get; }");
     }

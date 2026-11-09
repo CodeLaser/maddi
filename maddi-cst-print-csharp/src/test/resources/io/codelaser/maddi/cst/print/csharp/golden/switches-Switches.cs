@@ -1,3 +1,4 @@
+using Maddi.JavaCompat;
 using System;
 namespace Org.Example.Flow;
 internal sealed class Switches {
@@ -38,7 +39,7 @@ internal sealed class Switches {
         switch (o) {
             case string s: return s;
             case int i when (int) i > 0:
-                Console.Out.WriteLine(i);
+                Console.Out.WriteLine(JavaString.ValueOf(i));
                 break;
             default: break;
         }
