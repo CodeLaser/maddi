@@ -3593,13 +3593,23 @@ public class KotlinExpressionPrinter {
      * name, which Kotlin resolves with that receiver, in the outer class, its subclasses and their inner classes.
      * {@code AbstractMultimap.Values()} is the static-style access an inner class does not allow (guava's multimaps).
      * With the outer instance written, {@code g.new In()}, also by its simple name: {@code g.In()}, as Java's
-     * {@code g.new In()} names it relative to g's type; {@code g.a.Top.G.In()} does not resolve.
+     * {@code g.new In()} names it relative to g's type; {@code g.a.Top.G.In()} does not resolve. The outer classes'
+     * type arguments go too ({@code AbstractMapBasedMultimap<K, V>.WrappedCollection<…>} keeps only its last segment):
+     * the receiver fixes them.
      */
     private static String simpleInner(String constructed, TypeInfo inner) {
         String simple = KotlinTypePrinter.simpleName(inner);
-        int lt = constructed.indexOf('<');
-        String head = lt < 0 ? constructed : constructed.substring(0, lt);
-        return head.endsWith("." + simple) ? simple + (lt < 0 ? "" : constructed.substring(lt)) : constructed;
+        int depth = 0;
+        int lastDot = -1;
+        for (int i = 0; i < constructed.length(); i++) {
+            char c = constructed.charAt(i);
+            if (c == '<') depth++;
+            else if (c == '>') depth--;
+            else if (c == '.' && depth == 0) lastDot = i;
+        }
+        if (lastDot < 0) return constructed;
+        String last = constructed.substring(lastDot + 1);
+        return last.equals(simple) || last.startsWith(simple + "<") ? last : constructed;
     }
 
     /** {@code new TypeReference<>() {}} into a {@code TypeReference<…>}: a diamond, no members, the target's class. */

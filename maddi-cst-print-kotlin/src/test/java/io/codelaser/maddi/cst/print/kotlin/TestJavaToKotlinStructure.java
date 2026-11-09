@@ -2249,6 +2249,30 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
      * guava's multimaps: {@code new Values()} of an inner class of a superclass, its outer instance implicit, is
      * {@code Values()}; qualified, {@code Base.Values()}, Kotlin finds no receiver for it.
      */
+    /**
+     * The generic form (CodeLaser/maddi#142): in a subclass, {@code new Values()} is a {@code Base<K, V>.Values}, the
+     * outer class's type arguments leading its parameters; still {@code Values()}, not {@code Base<K, V>.Values()}.
+     */
+    @Test
+    public void innerClassOfGenericSuperclassConstructedBySimpleName() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Base<K, V> {
+                    class Values { }
+                    class Pair<T> { }
+                    static class Sub<K, V> extends Base<K, V> {
+                        Object values() { return new Values(); }
+                        Object pair() { return new Pair<String>(); }
+                    }
+                }
+                """);
+        contains(kotlin, "= Values()");
+        contains(kotlin, "= Pair<String>()");
+        assertFalse(kotlin.contains(".Values()"), kotlin);
+        assertFalse(kotlin.contains(".Pair<String>()"), kotlin);
+        compiles(kotlin);
+    }
+
     @Test
     public void innerClassOfSuperclassConstructedBySimpleName() {
         String kotlin = kotlin("""
