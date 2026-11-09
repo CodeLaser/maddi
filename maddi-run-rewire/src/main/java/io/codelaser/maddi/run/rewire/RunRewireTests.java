@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.callgraph.PrimaryTypeUseGraph;
+import io.codelaser.maddi.callgraph.ReparseWithDependents;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -376,14 +377,13 @@ public class RunRewireTests {
         Set<TypeInfo> dependentPrimaryTypes = new PrimaryTypeUseGraph(infoGraph).dependentsOf(rr.sourceHasChanged());
         assert Collections.disjoint(dependentPrimaryTypes, rr.sourceHasChanged());
         LOGGER.info("{} has {} dependent types", pt, dependentPrimaryTypes.size());
-        JavaInspector.Invalidated invalidated = ti -> {
-            if (rr.sourceHasChanged().contains(ti)) return INVALID;
-            if (dependentPrimaryTypes.contains(ti)) return REWIRE;
-            return UNCHANGED;
-        };
         long t1 = System.nanoTime();
         LOGGER.info("Reparse");
-        ParseResult parseResult1 = javaInspector.parse(reparseOptions(invalidated)).parseResult();
+        // the changed types INVALID, their dependents REWIRE; when a changed type's declarations moved, the
+        // dependents are parsed again instead, and have no analysis to carry
+        ReparseWithDependents.Outcome reparse = ReparseWithDependents.go(javaInspector, rr.sourceHasChanged(),
+                dependentPrimaryTypes, this::reparseOptions);
+        ParseResult parseResult1 = reparse.parseResult();
         long t2 = System.nanoTime();
         LOGGER.info("Prep");
         G<Info> graph = options.prep().apply(javaInspector, parseResult1);
@@ -401,7 +401,7 @@ public class RunRewireTests {
             for (TypeInfo t : rr.sourceHasChanged()) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
             Set<TypeInfo> carryFrom = null;
             Set<TypeInfo> seedPrevious = null;
-            if (CARRY) {
+            if (CARRY && !reparse.dependentsReparsed()) {
                 // every previous primary type but the changed ones: the REWIRE cone, and what else the re-parse
                 // rebuilt (a source set re-scanned in full); a kept type maps onto itself and is skipped
                 Set<TypeInfo> previous = new HashSet<>(previousParseResult.primaryTypes());

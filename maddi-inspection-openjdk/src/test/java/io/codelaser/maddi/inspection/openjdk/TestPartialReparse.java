@@ -49,12 +49,14 @@ public class TestPartialReparse {
             }
             """;
 
+    // a body and a private member: the declarations other types see are as before, so dependents may be rewired
+    // (a declaration edit is refused, JavaInspector.DeclarationsChangedException; see TestReparseWithDependents)
     @Language("java")
     private static final String BASE_EDITED = """
             package a;
             public class Base {
                 public String name() { return "base" + suffix(); }
-                public String suffix() { return "!"; }
+                private String suffix() { return "!"; }
             }
             """;
 

@@ -16,7 +16,6 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -54,6 +53,7 @@ import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;
 import io.codelaser.maddi.graph.op.Linearize;
+import io.codelaser.maddi.inspection.api.util.DeclarationSignature;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.parser.Summary;
@@ -788,6 +788,8 @@ public class JavaInspectorImpl implements JavaInspector {
         Set<SourceSet> holdingRewire = new HashSet<>();
         Set<SourceSet> rescanned = new LinkedHashSet<>();
         Map<SourceSet, Set<URI>> partiallyRescanned = new LinkedHashMap<>();
+        // the previous generation of every type a scan replaces, for the declaration check before the rewire
+        Map<SourceSet, List<TypeInfo>> replaced = new HashMap<>();
 
         for (SourceSet sourceSet : linearization) {
             List<TypeInfo> types = typesBySourceSet.getOrDefault(sourceSet, List.of());
@@ -797,6 +799,7 @@ public class JavaInspectorImpl implements JavaInspector {
             LOGGER.debug("Re-parse: source set {} -> {} ({} primary type(s))", sourceSet.name(), action, types.size());
             switch (action) {
                 case RESCAN -> {
+                    replaced.put(sourceSet, List.copyOf(types));
                     types.forEach(compiledTypesManager::invalidate);
                     // ⛔ AND WHAT A DROPPED COMPILATION UNIT LEFT BEHIND. 'types' comes from sourceFiles, where a unit
                     // the previous scan dropped never arrives; its TypeInfo (registered, some members committed) is
@@ -817,6 +820,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     }
                     for (TypeInfo typeInfo : types) {
                         if (changedFiles.contains(typeInfo.compilationUnit().uri())) {
+                            replaced.computeIfAbsent(sourceSet, _ -> new ArrayList<>()).add(typeInfo);
                             compiledTypesManager.invalidate(typeInfo);
                         } else if (invalidated.apply(typeInfo) == REWIRE) {
                             toRewire.add(typeInfo);
@@ -859,6 +863,11 @@ public class JavaInspectorImpl implements JavaInspector {
         // the types the re-scans just produced: seeded, or rewired with the REWIRE types (see the javadoc above).
         // Without them the rewired copies would keep pointing at the objects they replaced (see InfoMap).
         Map<SourceSet, List<TypeInfo>> afterRescan = typesBySourceSet();
+        if (!toRewire.isEmpty() && !invalidated.rewireAcrossDeclarationChanges()) {
+            Set<String> moved = declarationsChanged(replaced, afterRescan);
+            // nothing is rewired yet: the scanned types are live, the REWIRE types are still their old objects
+            if (!moved.isEmpty()) throw new DeclarationsChangedException(moved);
+        }
         Set<TypeInfo> rebuilt = new HashSet<>();
         Set<TypeInfo> rebuiltToRewire = new LinkedHashSet<>();
         for (SourceSet sourceSet : rescannedOrPartial(rescanned, partiallyRescanned)) {
@@ -892,6 +901,30 @@ public class JavaInspectorImpl implements JavaInspector {
                 .map(ti -> rewireNow.contains(ti) ? infoMap.typeInfo(ti) : ti).toList());
         LOGGER.debug("Re-parse: rewired {} primary type(s), {} of them re-scanned", rewired.size(),
                 rebuiltToRewire.size());
+    }
+
+    /*
+     The re-scanned primary types whose declarations are not those of the generation before: a dependent's names may
+     resolve differently now, so it cannot be rewired (DeclarationsChangedException). A type that is gone counts; a
+     type that is new does not, nothing referred to it.
+     */
+    private static Set<String> declarationsChanged(Map<SourceSet, List<TypeInfo>> replaced,
+                                                   Map<SourceSet, List<TypeInfo>> afterRescan) {
+        Set<String> moved = new TreeSet<>();
+        replaced.forEach((sourceSet, before) -> {
+            Map<String, TypeInfo> now = new HashMap<>();
+            for (TypeInfo typeInfo : afterRescan.getOrDefault(sourceSet, List.of())) {
+                now.put(typeInfo.fullyQualifiedName(), typeInfo);
+            }
+            for (TypeInfo old : before) {
+                TypeInfo current = now.get(old.fullyQualifiedName());
+                if (current == null || current != old
+                                       && !DeclarationSignature.of(old).equals(DeclarationSignature.of(current))) {
+                    moved.add(old.fullyQualifiedName());
+                }
+            }
+        });
+        return moved;
     }
 
     private static List<SourceSet> rescannedOrPartial(Set<SourceSet> rescanned,

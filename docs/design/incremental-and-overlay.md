@@ -246,12 +246,24 @@ What the reparse has to do differently, whichever of the three is chosen:
    type of the set).
 2. Seed the `InfoMap`'s `rebuilt` set with the `INVALID` types only, so that `REWIRE` types of the *same* set are
    copied by the rewire phases instead of rebuilt by javac.
-3. **A signature change must re-attribute the same-set dependents** (*open*). Today a caller in the same set whose
+3. **A signature change must re-attribute the same-set dependents** (*done 2026-11-09, by refusing the rewire*). Today a caller in the same set whose
    callee lost a method fails attribution and its unit is dropped, which is at least visible. With a partial scan the
    caller is `REWIRE`, copied with references the `InfoMap` cannot map, and nothing says so. The cheapest sound rule
    is to hand javac `INVALID` ∪ (`REWIRE` ∩ same set) for attribution and rebuild what fails; whether the rest of
    that cone is rebuilt or rewired is the question. A file-level fingerprint of the *declarations* (signatures only,
    bodies and comments out) would tell a body edit, which cannot break a caller, from a signature edit, which can.
+   *Since 2026-11-09:* `DeclarationSignature` (maddi-inspection-api) is that fingerprint, taken from the model instead
+   of the file: the type's header, every non-private member's modifiers, name and types, the initializers of final
+   primitive and String fields, the nested types. `reparse` compares each re-scanned type with its previous
+   generation after the scans and before the rewire, and throws `DeclarationsChangedException` when one moved while
+   types were to be rewired: the changed types are live as new objects, nothing is rewired. `ReparseWithDependents`
+   (maddi-callgraph) catches it and parses again with the dependents `INVALID` and the changed types `REWIRE`; the
+   rewire driver and the warm-analysis tests go through it. The dependents are then new objects without analysis
+   values, so they are seeded and nothing is carried for them. Measured before the fix (`TestWarmAnalysisWithCarry`):
+   an added overload and an override of an inherited method left the dependent calling the old target, and its
+   verdicts optimistic, even after the early cutoff fell back to the cold analysis. A caller that vouches for its
+   edit opts out with `Invalidated.acrossDeclarationChanges`. The signature over-approximates: any added public
+   member parses the whole cone again.
 4. `lastScanUnits` and the loader task: a partial scan's task serves `getOrLoad` for the set as the full scan's did;
    nothing changes, but the compiled-type loader must not be built from a task that only parsed a subset of the set
    with (b) or (c), since its `SOURCE_PATH`/`CLASS_PATH` differ from a full scan's.

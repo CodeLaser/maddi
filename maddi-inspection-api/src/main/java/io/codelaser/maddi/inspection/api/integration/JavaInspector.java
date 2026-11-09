@@ -92,6 +92,54 @@ public interface JavaInspector {
 
     @FunctionalInterface
     interface Invalidated extends Function<TypeInfo, InvalidationState> {
+        /**
+         * Whether a re-parse may rewire the {@code REWIRE} types although the declarations of a re-parsed type
+         * changed ({@link DeclarationsChangedException}). False, unless the caller knows that the edit cannot change
+         * how javac resolves a name in the dependents: see {@link #acrossDeclarationChanges}.
+         */
+        default boolean rewireAcrossDeclarationChanges() {
+            return false;
+        }
+
+        /** {@code invalidated}, without the declaration check: for a caller that vouches for the edit. */
+        static Invalidated acrossDeclarationChanges(Invalidated invalidated) {
+            return new Invalidated() {
+                @Override
+                public InvalidationState apply(TypeInfo typeInfo) {
+                    return invalidated.apply(typeInfo);
+                }
+
+                @Override
+                public boolean rewireAcrossDeclarationChanges() {
+                    return true;
+                }
+            };
+        }
+    }
+
+    /**
+     * A re-parse found that the declarations of a re-parsed type changed
+     * ({@link io.codelaser.maddi.inspection.api.util.DeclarationSignature}) while other types were to be rewired
+     * onto it. Rewiring copies a dependent with every reference re-pointed at the object of the same name, which is
+     * only right when javac would resolve the dependent's names as before; after an added overload, an override of
+     * an inherited method, a changed supertype or constant it would not, and a member that is gone cannot be
+     * re-pointed at all. Thrown after the changed types were scanned and before anything was rewired: the changed
+     * types are live as their new objects, the {@code REWIRE} types still as their old ones. The caller parses again
+     * with the dependents {@code INVALID} and the changed types {@code REWIRE}, which is what
+     * {@code ReparseWithDependents} (maddi-callgraph) does, or starts from a cold parse.
+     */
+    class DeclarationsChangedException extends RuntimeException {
+        private final Set<String> types;
+
+        public DeclarationsChangedException(Set<String> types) {
+            super("The declarations of " + types + " changed: their dependents must be parsed again, not rewired");
+            this.types = Set.copyOf(types);
+        }
+
+        /** The fully qualified names of the primary types whose declarations changed. */
+        public Set<String> types() {
+            return types;
+        }
     }
 
     Invalidated INVALIDATED_ALL = t -> InvalidationState.INVALID;
