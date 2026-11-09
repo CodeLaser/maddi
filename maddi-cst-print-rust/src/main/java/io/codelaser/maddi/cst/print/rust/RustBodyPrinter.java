@@ -1196,6 +1196,30 @@ final class RustBodyPrinter {
 
     // an object of a source class or record: Java compares it by identity; an enum constant, a string or a boxed
     // primitive is a value in Rust, compared by ==
+    /** {@code p} as an {@code Option<&T>}. */
+    private String optionalReference(Printed p) {
+        if (!p.nullable) return "Some(" + adapt(p, Held.SHARED) + ")";
+        return switch (p.held) {
+            case SHARED -> p.text;
+            case EXCLUSIVE -> p.text + ".as_deref()";
+            default -> p.text + ".as_ref()";
+        };
+    }
+
+    /**
+     * Java's {@code equals} of objects of this type is identity: a source class that declares no {@code equals}
+     * (nor does a superclass), or a member of a closed hierarchy (RustHierarchies, which prints no PartialEq).
+     */
+    static boolean equalsIsIdentity(ParameterizedType type) {
+        if (!identity(type)) return false;
+        if (RustHierarchies.current().isMember(type.typeInfo())) return true;
+        for (TypeInfo t = type.typeInfo(); t != null && !t.isJavaLangObject();
+             t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
+            if (t.methods().stream().anyMatch(RustTypePrinter::isEquals)) return false;
+        }
+        return true;
+    }
+
     private static boolean identity(ParameterizedType type) {
         TypeInfo ti = type.typeInfo();
         return ti != null && type.arrays() == 0 && !type.isTypeParameter() && !ti.compilationUnit().externalLibrary()
@@ -1236,10 +1260,11 @@ final class RustBodyPrinter {
             // Java's == on objects is identity, which Rust's == (PartialEq) is not: the addresses compared
             Printed l = expression(bo.lhs());
             Printed r = expression(bo.rhs());
-            if (!l.nullable && !r.nullable) {
-                String eq = "std::ptr::eq(" + adapt(l, Held.SHARED) + ", " + adapt(r, Held.SHARED) + ")";
-                return value("==".equals(op) ? eq : "!" + eq);
-            }
+            String eq = !l.nullable && !r.nullable
+                    ? "std::ptr::eq(" + adapt(l, Held.SHARED) + ", " + adapt(r, Held.SHARED) + ")"
+                    // either may be null: the same object, or both null
+                    : "crate::jrt::same(" + optionalReference(l) + ", " + optionalReference(r) + ")";
+            return value("==".equals(op) ? eq : "!" + eq);
         }
         ParameterizedType common = promoted(bo, op);
         String lhs = promotedOperand(bo.lhs(), common);
@@ -1866,7 +1891,13 @@ final class RustBodyPrinter {
     private String arguments0(List<Expression> arguments, MethodInfo callee) {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
-            Printed p = expression(arguments.get(i));
+            ParameterInfo modified = callee == null || callee.parameters().isEmpty() ? null
+                    : callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
+            // an argument the callee modifies is a place written through: a getter's exclusive twin
+            boolean exclusive = modified != null && !callee.typeInfo().compilationUnit().externalLibrary()
+                                && !RustTypes.isCopy(modified.parameterizedType()) && !isClosure(arguments.get(i))
+                                && context.passing(modified) == RustFacts.Passing.EXCLUSIVE;
+            Printed p = exclusive ? mutable(arguments.get(i)) : expression(arguments.get(i));
             if (callee == null || i >= callee.parameters().size()) {
                 out.add(p.text);
                 continue;

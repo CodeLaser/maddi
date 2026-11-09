@@ -194,6 +194,15 @@ public final class RustTranslator {
                 Box::new(Null)
             }
 
+            /// Java's `==` on two objects either of which may be null: the same object, or both null.
+            pub fn same<T: ?Sized>(a: Option<&T>, b: Option<&T>) -> bool {
+                match (a, b) {
+                    (Some(x), Some(y)) => std::ptr::eq(x, y),
+                    (None, None) => true,
+                    _ => false,
+                }
+            }
+
             /// `String.hashCode()`: Java's polynomial over the UTF-16 units.
             pub fn string_hash_code(s: &str) -> i32 {
                 s.encode_utf16().fold(0i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32))

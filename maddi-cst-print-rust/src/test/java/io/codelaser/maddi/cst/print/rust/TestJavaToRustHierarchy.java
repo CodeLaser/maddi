@@ -331,4 +331,40 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
         contains(rust, "m.as_ms_stat_mut().filter(");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String IDENTITY = """
+            package a.b;
+            import java.util.List;
+            public class Ids {
+                public static class Node {
+                    private final int v;
+                    public Node(int v) { this.v = v; }
+                }
+                public static boolean same(Node a, Node maybe) { return a == maybe; }
+                public static void drop(List<Node> nodes, Node e) { nodes.remove(e); }
+                public static boolean has(List<Node> nodes, Node n) { return nodes.contains(n) && nodes.indexOf(n) >= 0; }
+            }
+            """;
+
+    @DisplayName("== on objects and a list's lookups are identity, also with a null on one side")
+    @Test
+    public void identity() throws Exception {
+        List<TypeInfo> types = parse(IDENTITY);
+        TypeInfo ids = types.getFirst();
+        nonModifying(ids, "same", "has");
+        modifying(ids, "drop");
+        method(ids, "same").parameters().forEach(CommonJavaToRust::borrowed);
+        borrowed(method(ids, "has").parameters().get(0));
+        borrowed(method(ids, "has").parameters().get(1));
+        exclusive(method(ids, "drop").parameters().get(0));
+        borrowed(method(ids, "drop").parameters().get(1));
+        translate(types, nullable(java.util.Set.of("maybe")));
+        String rust = module("a.b");
+        // were '==' (no PartialEq, E0369), and 'position(|e| e == e)' comparing the parameter with itself
+        contains(rust, "crate::jrt::same(Some(a), maybe)");
+        contains(rust, "position(|__e| std::ptr::eq(__e, e))");
+        contains(rust, "nodes.iter().any(|__e| std::ptr::eq(__e, n))");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

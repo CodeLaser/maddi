@@ -121,7 +121,8 @@ final class RustTypes {
         if (ti.isPrimitiveExcludingVoid() || ti.isBoxedExcludingVoid()) return true;
         if ("java.math.BigDecimal".equals(ti.fullyQualifiedName())) return true;
         if ("SystemTime".equals(mapped(ti))) return true;
-        return ti.typeNature().isEnum() && RustTypePrinter.plainEnum(ti);
+        // a source enum is a Copy enum of unit variants (RustTypePrinter.enumType), its constant state a match
+        return ti.typeNature().isEnum() && (RustTypePrinter.plainEnum(ti) || !ti.compilationUnit().externalLibrary());
     }
 
     /** {@code Vec}, {@code HashMap}, … for a JDK collection type; {@code null} otherwise. */
