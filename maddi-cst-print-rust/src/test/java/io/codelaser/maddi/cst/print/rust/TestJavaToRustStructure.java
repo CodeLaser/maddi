@@ -857,4 +857,43 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "Some(a.unwrap()) == b");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String EXPRESSIONS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Exprs {
+                // fernflower's PrimitiveExpressionList
+                public static class Data {
+                    private final List<String> expressions = new ArrayList<>();
+                    public List<String> getExpressions() { return expressions; }
+                }
+                static void push(List<String> list, String s) { list.add(s); }
+                // ExprProcessor.processBlock: 'List<Exprent> exprlist = data.getExpressions(); pushEx(..., exprlist, ...)'
+                static void fill(Data data) {
+                    List<String> list = data.getExpressions();
+                    push(list, "a");
+                    push(list, "b");
+                }
+            }
+            """;
+
+    @DisplayName("a getter's result held in a local the code modifies: the getter's exclusive twin")
+    @Test
+    public void localOfMutableGetter() throws Exception {
+        List<TypeInfo> types = parse(EXPRESSIONS);
+        TypeInfo exprs = types.getFirst();
+        TypeInfo data = exprs.findSubType("Data");
+        nonModifying(data, "getExpressions");
+        dependentResult(data, "getExpressions");
+        modifying(exprs, "push", "fill");
+        exclusive(method(exprs, "push").parameters().get(0));
+        borrowed(method(exprs, "push").parameters().get(1));
+        exclusive(method(exprs, "fill").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let list = data.get_expressions_mut();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

@@ -32,6 +32,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 /**
@@ -138,6 +139,13 @@ final class RustGetters {
         Expression e = CstQueries.unwrap(place);
         while (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.scope() != null) {
             e = CstQueries.unwrap(fr.scope());
+        }
+        // a local the getter's result is held in ('List<Exprent> exprList = data.getExpressions(); pushEx(…,
+        // exprList, …)'): modified through it, the local is the getter's exclusive twin (RustBodyPrinter.local)
+        if (e instanceof VariableExpression ve && ve.variable() instanceof LocalVariable lv
+            && lv.assignmentExpression() != null
+            && CstQueries.unwrap(lv.assignmentExpression()) instanceof MethodCall init) {
+            e = init;
         }
         if (e instanceof MethodCall g && getter(g.methodInfo()) && !RustTypes.isCopy(g.methodInfo().returnType())
             && out.add(g.methodInfo()) && g.object() != null) {

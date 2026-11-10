@@ -262,8 +262,13 @@ final class RustBodyPrinter {
             return "let " + (reassigned ? "mut " : "") + name + ": " + type;
         }
         boolean mutated = mutated(lv);
-        // a cast of an Object the local modifies: downcast_mut (cast)
-        boolean mutableCast = mutated && CstQueries.unwrap(init) instanceof Cast;
+        // a cast of an Object the local modifies: downcast_mut (cast); a getter's result it modifies: its exclusive
+        // twin (RustGetters)
+        boolean mutableCast = mutated && (CstQueries.unwrap(init) instanceof Cast
+                                          || CstQueries.unwrap(init) instanceof MethodCall g
+                                             && context.mutableGetters.contains(g.methodInfo())
+                                             // a shared object's local is a handle of its own instead
+                                             && !RustShared.current().isShared(lv.parameterizedType()));
         Printed value = isClosure(init) && RustTypes.isFunctional(lv.parameterizedType())
                 ? closure(init, lv.parameterizedType())
                 : widen(mutableCast ? mutable(init) : expression(init), init, lv.parameterizedType());
