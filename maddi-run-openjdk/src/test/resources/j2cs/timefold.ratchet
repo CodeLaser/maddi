@@ -259,10 +259,11 @@
 # CS1678); a template's $n receiver enclosed: 448 -> 426 errors.
 # 2026-11-10, EnumSet.of, Predicate.not, primitive stream concat, Stream.Builder; an interface's statics beside its
 # generic wildcard interface (CS0305): 426 -> 419 errors, 100 -> 91 unmapped JDK uses.
+# 2026-11-10, a functional interface that bounds a type parameter stays an interface (CS0701): 419 -> 406 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1387
+compilingFiles	1389
 unmappedJdkUses	91
-errors	419
+errors	406
