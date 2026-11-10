@@ -374,4 +374,32 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "self.name.as_ref().is_some_and(|__k| self.sizes.contains_key(__k))");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String ENUM_MAP = """
+            package a.b;
+            import java.util.EnumMap;
+            import java.util.Map;
+            public class Edges {
+                public enum EdgeType { REGULAR, BREAK, CONTINUE }
+                // fernflower's Statement.mapSuccEdges
+                private final Map<EdgeType, Integer> counts = new EnumMap<>(EdgeType.class);
+                public void count(EdgeType t) { counts.put(t, counts.getOrDefault(t, 0) + 1); }
+                public Integer get(EdgeType t) { return counts.get(t); }
+            }
+            """;
+
+    @DisplayName("an EnumMap: a HashMap keyed by the enum")
+    @Test
+    public void enumMap() throws Exception {
+        List<TypeInfo> types = parse(ENUM_MAP);
+        TypeInfo edges = types.getFirst();
+        modifying(edges, "count");
+        nonModifying(edges, "get");
+        RustTranslator.Result result = translate(types, nullable(Set.of("get()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "counts: HashMap::new(),");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

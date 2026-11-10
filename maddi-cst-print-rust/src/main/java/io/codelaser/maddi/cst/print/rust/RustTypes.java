@@ -74,6 +74,8 @@ final class RustTypes {
             Map.entry("java.util.Map", new Mapped("HashMap", "std::collections::HashMap")),
             Map.entry("java.util.HashMap", new Mapped("HashMap", "std::collections::HashMap")),
             Map.entry("java.util.LinkedHashMap", new Mapped("HashMap", "std::collections::HashMap")),
+            // an enum's variants are Hash and Eq: an EnumMap is a HashMap keyed by them
+            Map.entry("java.util.EnumMap", new Mapped("HashMap", "std::collections::HashMap")),
             Map.entry("java.util.SortedMap", new Mapped("BTreeMap", "std::collections::BTreeMap")),
             Map.entry("java.util.NavigableMap", new Mapped("BTreeMap", "std::collections::BTreeMap")),
             Map.entry("java.util.TreeMap", new Mapped("BTreeMap", "std::collections::BTreeMap")),

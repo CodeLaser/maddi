@@ -243,7 +243,7 @@ final class RustJdk {
             // a view the call modifies (list.subList(0, 1).clear()) is no copy
             case "Vec" -> mutating && "subList".equals(name) ? null : vec(o, name, args, printer, mc);
             case "HashMap", "BTreeMap" -> mutating && "get".equals(name) && args.size() == 1
-                    ? RustBodyPrinter.printed(o + ".get_mut(" + printer.reference(args.getFirst()) + ")", Held.EXCLUSIVE, true)
+                    ? RustBodyPrinter.printed(byKey(args.getFirst(), printer, k -> o + ".get_mut(" + k + ")"), Held.EXCLUSIVE, true)
                     // entries or values modified while iterated ('e.getValue().clear()'): the mutable iteration
                     : mutating && "entrySet".equals(name) && args.isEmpty() ? value(o + ".iter_mut()")
                     : mutating && "values".equals(name) && args.isEmpty() ? value(o + ".values_mut()")
@@ -1114,7 +1114,11 @@ final class RustJdk {
             return value("(" + printer.text(a) + " as f64)");
         }
         if ("Option".equals(mapped)) return value("None");
-        if (args.isEmpty() || args.getFirst().parameterizedType().isPrimitiveExcludingVoid()) {
+        // new EnumMap<>(Kind.class): the class only names the key type
+        boolean keyClass = "java.util.EnumMap".equals(ti.fullyQualifiedName()) && args.size() == 1
+                           && args.getFirst().parameterizedType().typeInfo() != null
+                           && "java.lang.Class".equals(args.getFirst().parameterizedType().typeInfo().fullyQualifiedName());
+        if (args.isEmpty() || keyClass || args.getFirst().parameterizedType().isPrimitiveExcludingVoid()) {
             // new ArrayList<>(), new ArrayList<>(capacity)
             RustTypes.owned(cc.parameterizedType(), printer.context(), cc); // registers the 'use'
             return value(mapped + "::new()");
