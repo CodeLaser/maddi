@@ -430,4 +430,37 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, ".map(|v| Box::new(v) as Box<dyn Any>).as_ref()");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String NULLABLE_ELEMENT = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.HashSet;
+            import java.util.List;
+            import java.util.Set;
+            public class Visited {
+                private final Set<String> seen = new HashSet<>();
+                private final List<String> order = new ArrayList<>();
+                private String current;
+                // fernflower's '!setVisited.contains(succ)', succ nullable
+                public boolean known() { return seen.contains(current) || order.contains(current); }
+                public void forget() { seen.remove(current); }
+                public void visit(String s) { current = s; seen.add(s); order.add(s); }
+            }
+            """;
+
+    @DisplayName("a set or list asked about a nullable element: false for null")
+    @Test
+    public void nullableElement() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_ELEMENT);
+        TypeInfo visited = types.getFirst();
+        nonModifying(visited, "known");
+        modifying(visited, "forget", "visit");
+        RustTranslator.Result result = translate(types, nullable(Set.of("current")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "self.current.as_ref().is_some_and(|__k| self.seen.contains(__k))");
+        contains(rust, "self.current.as_ref().is_some_and(|__k| self.seen.remove(__k))");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

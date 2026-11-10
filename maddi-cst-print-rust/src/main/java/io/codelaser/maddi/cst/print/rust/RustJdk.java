@@ -585,6 +585,12 @@ final class RustJdk {
         return option == null ? call.apply(printer.reference(key)) : option + ".and_then(|__k| " + call.apply("__k") + ")";
     }
 
+    /** A boolean question about a value that may be null, which the collection does not hold: false for null. */
+    private static String test(Expression key, RustBodyPrinter printer, java.util.function.UnaryOperator<String> call) {
+        String option = nullableKey(key, printer);
+        return option == null ? call.apply(printer.reference(key)) : option + ".is_some_and(|__k| " + call.apply("__k") + ")";
+    }
+
     // a nullable key as an Option of a reference, or null for a key that is not nullable
     private static String nullableKey(Expression key, RustBodyPrinter printer) {
         Printed p = printer.printed(key);
@@ -809,10 +815,10 @@ final class RustJdk {
             case "clear/0" -> value(o + ".clear()");
             case "contains/1" -> stringElements(mc)
                     // Vec<String>::contains takes a &String; a &str compares with each element instead
-                    ? value(o + ".iter().any(|__e| __e == " + printer.reference(args.getFirst()) + ")")
+                    ? value(test(args.getFirst(), printer, k -> o + ".iter().any(|__e| __e == " + k + ")"))
                     : typeArgument(mc, 0) != null && RustBodyPrinter.equalsIsIdentity(typeArgument(mc, 0))
                     ? value(o + ".iter().any(|__e| " + elementEquals(mc, args.getFirst(), printer) + ")")
-                    : value(o + ".contains(" + printer.reference(args.getFirst()) + ")");
+                    : value(test(args.getFirst(), printer, k -> o + ".contains(" + k + ")"));
             case "addAll/1" -> value(o + ".extend(" + printer.text(args.getFirst()) + ".iter().cloned())");
             case "removeAll/1", "retainAll/1", "containsAll/1" -> bulk(o, name, args, printer);
             case "getFirst/0" -> RustBodyPrinter.printed(o + "[0]", Held.PLACE, false);
@@ -926,8 +932,9 @@ final class RustJdk {
             case "removeAll/1", "retainAll/1", "containsAll/1" -> bulk(o, name, args, printer);
             // a set's elements are not Options: a nullable value is unwrapped, as a list's add does
             case "add/1" -> value(o + ".insert(" + printer.ownedAs(args.getFirst(), element) + ")");
-            case "contains/1" -> value(o + ".contains(" + printer.reference(args.getFirst()) + ")");
-            case "remove/1" -> value(o + ".remove(" + printer.reference(args.getFirst()) + ")");
+            // a nullable element: a set holds no null, so contains(null) and remove(null) are false
+            case "contains/1" -> value(test(args.getFirst(), printer, k -> o + ".contains(" + k + ")"));
+            case "remove/1" -> value(test(args.getFirst(), printer, k -> o + ".remove(" + k + ")"));
             case "size/0" -> value(o + ".len() as i32");
             case "isEmpty/0" -> value(o + ".is_empty()");
             case "clear/0" -> value(o + ".clear()");
