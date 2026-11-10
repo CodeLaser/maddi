@@ -1087,6 +1087,24 @@ final class RustJdk {
             case "java.lang.Long.MAX_VALUE" -> "i64::MAX";
             case "java.lang.Long.MIN_VALUE" -> "i64::MIN";
             case "java.lang.Double.MAX_VALUE" -> "f64::MAX";
+            // Java's MIN_VALUE of a float is its smallest positive value, a subnormal; MIN_NORMAL Rust's MIN_POSITIVE
+            case "java.lang.Double.MIN_VALUE" -> "f64::from_bits(1)";
+            case "java.lang.Double.MIN_NORMAL" -> "f64::MIN_POSITIVE";
+            case "java.lang.Double.POSITIVE_INFINITY" -> "f64::INFINITY";
+            case "java.lang.Double.NEGATIVE_INFINITY" -> "f64::NEG_INFINITY";
+            case "java.lang.Double.NaN" -> "f64::NAN";
+            case "java.lang.Float.MAX_VALUE" -> "f32::MAX";
+            case "java.lang.Float.MIN_VALUE" -> "f32::from_bits(1)";
+            case "java.lang.Float.MIN_NORMAL" -> "f32::MIN_POSITIVE";
+            case "java.lang.Float.POSITIVE_INFINITY" -> "f32::INFINITY";
+            case "java.lang.Float.NEGATIVE_INFINITY" -> "f32::NEG_INFINITY";
+            case "java.lang.Float.NaN" -> "f32::NAN";
+            case "java.lang.Short.MAX_VALUE" -> "i16::MAX";
+            case "java.lang.Short.MIN_VALUE" -> "i16::MIN";
+            case "java.lang.Byte.MAX_VALUE" -> "i8::MAX";
+            case "java.lang.Byte.MIN_VALUE" -> "i8::MIN";
+            case "java.lang.Character.MAX_VALUE" -> "'\\u{ffff}'";
+            case "java.lang.Character.MIN_VALUE" -> "'\\0'";
             case "java.math.BigDecimal.ZERO" -> "0.0_f64";
             case "java.math.BigDecimal.ONE" -> "1.0_f64";
             case "java.math.BigDecimal.TEN" -> "10.0_f64";

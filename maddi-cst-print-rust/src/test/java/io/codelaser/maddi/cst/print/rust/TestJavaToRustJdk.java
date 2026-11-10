@@ -489,6 +489,10 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                 public static Integer box(int i) { return Integer.valueOf(i); }
                 public static String hex(int i) { return Integer.toHexString(i); }
                 public void set(Integer n) { index = n; }
+                // ConstExprent's float and double constants
+                public static float tiny() { return Float.MIN_VALUE; }
+                public static double inf() { return Double.NEGATIVE_INFINITY; }
+                public static short top() { return Short.MAX_VALUE; }
             }
             """;
 
@@ -497,12 +501,14 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
     public void boxedNumbers() throws Exception {
         List<TypeInfo> types = parse(BOXED);
         TypeInfo boxed = types.getFirst();
-        nonModifying(boxed, "value", "same", "order", "box", "hex");
+        nonModifying(boxed, "value", "same", "order", "box", "hex", "tiny", "inf", "top");
         modifying(boxed, "set");
         RustTranslator.Result result = translate(types, nullable(Set.of("index", "other", "n")));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "format!(\"{:x}\", i)");
+        contains(rust, "f32::from_bits(1)");
+        contains(rust, "f64::NEG_INFINITY");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
