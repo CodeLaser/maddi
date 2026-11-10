@@ -192,6 +192,17 @@ public class RunRewireTests {
      */
     private static final String TYPES = System.getProperty("maddi.rewire.types");
 
+    /*
+     DIAGNOSTIC -Dmaddi.rewire.oracleAtStart=true: run the oracle before the first edit as well (logged as iteration
+     -1). Nothing has been re-parsed or carried yet, so it compares two cold runs in one JVM: a difference there is
+     the analysis not being deterministic, not the incremental path. Each oracle call also logs a digest of both
+     sides' analysis output, to tell which of the runs is the odd one.
+     */
+    private static final boolean ORACLE_AT_START = Boolean.getBoolean("maddi.rewire.oracleAtStart");
+    // DIAGNOSTIC -Dmaddi.rewire.dumpTo=<directory>: each oracle call writes both sides' analysis output there
+    // (cold-N.txt, warm-N.txt, one element per line under its primary type), to compare runs of different JVMs
+    private static final String DUMP_TO = System.getProperty("maddi.rewire.dumpTo");
+
     private static void logHistogram(int iteration, boolean restore) {
         if (HISTOGRAM <= 0) return;
         try {
@@ -315,6 +326,10 @@ public class RunRewireTests {
             long t0 = System.nanoTime();
             options.analysis().analyze(javaInspector, parseResult, initialGraph, null, null, null);
             LOGGER.info("REWIRE ANALYSIS of the parse the run starts from: {} ms", ms(System.nanoTime() - t0));
+        }
+        if (ORACLE_AT_START) {
+            lastGraph = initialGraph;
+            oracle(-1);
         }
         for (int i = 0; i < options.iterations(); ++i) {
             LOGGER.info("Compute primary type use graph, iteration {}", i);
@@ -482,6 +497,10 @@ public class RunRewireTests {
     /* per primary type, the element lines of the analysis output that differ: "-" cold only, "+" warm only */
     private List<String> analysisDifferences(JavaInspector cold, ParseResult coldResult) {
         List<String> differences = new ArrayList<>();
+        int coldDigest = 0;
+        int warmDigest = 0;
+        StringBuilder coldDump = new StringBuilder();
+        StringBuilder warmDump = new StringBuilder();
         for (TypeInfo coldType : coldResult.primaryTypes().stream()
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList()) {
             TypeInfo warmType = lastParseResult.findType(coldType.fullyQualifiedName());
@@ -490,11 +509,25 @@ public class RunRewireTests {
                     .map(RunRewireTests::linksInOrder).toList();
             List<String> w = options.analysis().dump(javaInspector, warmType).lines().map(String::strip)
                     .map(RunRewireTests::linksInOrder).toList();
+            if (DUMP_TO != null) {
+                coldDump.append("== ").append(coldType.fullyQualifiedName()).append('\n');
+                c.forEach(l -> coldDump.append(l).append('\n'));
+                warmDump.append("== ").append(coldType.fullyQualifiedName()).append('\n');
+                w.forEach(l -> warmDump.append(l).append('\n'));
+            }
+            coldDigest = 31 * coldDigest + c.hashCode();
+            warmDigest = 31 * warmDigest + w.hashCode();
             if (c.equals(w)) continue;
             StringBuilder sb = new StringBuilder("analysis of " + coldType.fullyQualifiedName() + ":");
             c.stream().filter(l -> !w.contains(l)).forEach(l -> sb.append("\n  - ").append(l));
             w.stream().filter(l -> !c.contains(l)).forEach(l -> sb.append("\n  + ").append(l));
             differences.add(sb.toString());
+        }
+        LOGGER.info("REWIRE ORACLE analysis digest: cold {}, warm {}", Integer.toHexString(coldDigest),
+                Integer.toHexString(warmDigest));
+        if (DUMP_TO != null) {
+            write(Path.of(DUMP_TO, "cold-" + oracleChecks + ".txt"), coldDump.toString());
+            write(Path.of(DUMP_TO, "warm-" + oracleChecks + ".txt"), warmDump.toString());
         }
         return differences;
     }
