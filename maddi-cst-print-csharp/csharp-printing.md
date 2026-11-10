@@ -885,7 +885,10 @@ compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each a
   unspecified one do not give. Code whose output depends on that order (printing a map, taking a set's first
   element) prints otherwise, as it could on another JDK. A `LinkedHashMap`, whose insertion order Java specifies,
   keeps it (`OrderedDictionary`); so does a `LinkedHashSet` (and a `SequencedSet`), which is the compatibility
-  library's `JavaLinkedHashSet`: the BCL has no ordered set, and its `HashSet` reuses a removed element's slot.
+  library's `JavaLinkedHashSet`: the BCL has no ordered set, and its `HashSet` reuses a removed element's slot. A
+  variable, field, parameter or result declared a `HashSet` or `HashMap` is declared `ISet` or `IDictionary`
+  (`CSharpTypeName.asInterface`): Java assigns it the linked subclasses, which in C# are no `HashSet` or
+  `Dictionary`; a creation still names the class.
 - **Natural order.** Java orders Strings by UTF-16 code unit (`"B"` before `"a"`), .NET's default comparer for strings by
   the culture (`"a"` before `"B"`). Where Java's natural order is implied (`Collections.sort`, `List.sort(null)`,
   `sorted()`, `naturalOrder()`, `reverseOrder()`, `Comparator.comparing`, a priority queue), the compatibility library

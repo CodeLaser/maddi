@@ -202,9 +202,32 @@ public final class CSharpTypeName {
             CSharpContext.using("System.Collections.Generic");
             type = readOnlyName + "<" + String.join(", ", pt.parameters().stream().map(a -> argument(a, q)).toList()) + ">";
         } else {
-            type = of(pt, q);
+            type = of(asInterface(pt), q);
         }
         return withNullable(pt, type, nullable);
+    }
+
+    /** Java's concrete types whose subclasses C# maps to unrelated types: declared, they are the interface. */
+    private static final Map<String, String> DECLARED_AS_INTERFACE = Map.of("java.util.HashSet", "java.util.Set",
+            "java.util.HashMap", "java.util.Map");
+
+    /**
+     * A variable, field, parameter or result declared a {@code HashSet} or {@code HashMap} is C#'s {@code ISet} or
+     * {@code IDictionary}: Java assigns it a {@code LinkedHashSet} or {@code LinkedHashMap}, which C# maps to
+     * {@code JavaLinkedHashSet} and {@code OrderedDictionary}, no {@code HashSet} or {@code Dictionary}. The two add
+     * nothing to the interface the translation uses. A creation names the class.
+     */
+    static ParameterizedType asInterface(ParameterizedType pt) {
+        if (pt == null || pt.arrays() != 0 || pt.typeInfo() == null || pt.parameters().isEmpty()) return pt;
+        String target = DECLARED_AS_INTERFACE.get(pt.typeInfo().fullyQualifiedName());
+        if (target == null) return pt;
+        for (ParameterizedType i : pt.typeInfo().interfacesImplemented()) {
+            if (i.typeInfo() != null && target.equals(i.typeInfo().fullyQualifiedName())
+                && i.typeInfo().typeParameters().size() == pt.parameters().size()) {
+                return i.typeInfo().asParameterizedType().withParameters(pt.parameters());
+            }
+        }
+        return pt;
     }
 
     /** {@code type}, printed for {@code pt}, as {@code type?} when it is a reference type that may be null. */
