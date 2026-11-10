@@ -1403,6 +1403,27 @@ public readonly record struct JavaPeriod(int Years, int Months, int Days)
     }
 }
 
+/// <summary>Stream.Builder: the elements added, in order; Build() is the stream of them, once.</summary>
+public sealed class JavaStreamBuilder<T>
+{
+    private List<T>? items = new List<T>();
+
+    public JavaStreamBuilder<T> Add(T t)
+    {
+        Accept(t);
+        return this;
+    }
+
+    public void Accept(T t) => (items ?? throw new InvalidOperationException()).Add(t);
+
+    public IEnumerable<T> Build()
+    {
+        var built = items ?? throw new InvalidOperationException();
+        items = null;
+        return built;
+    }
+}
+
 public static class JavaFunctions
 {
     /// <summary>RandomGenerator.ints(origin, bound): an endless sequence of draws.</summary>
@@ -1431,6 +1452,9 @@ public static class JavaFunctions
     public static Func<T, bool> Or<T>(this Func<T, bool> first, Func<T, bool> other) => x => first(x) || other(x);
 
     public static Func<T, bool> Negate<T>(this Func<T, bool> p) => x => !p(x);
+
+    /// <summary>Predicate.not: the type argument given, as a method group does not infer it.</summary>
+    public static Func<T, bool> Not<T>(Func<T, bool> p) => x => !p(x);
 
     public static Func<T, U, bool> And<T, U>(this Func<T, U, bool> first, Func<T, U, bool> other) =>
         (x, y) => first(x, y) && other(x, y);

@@ -68,6 +68,7 @@ type java.util.OptionalLong -> long?
 type java.util.OptionalDouble -> double?
 type java.util.stream.LongStream -> IEnumerable<long> using System.Collections.Generic
 type java.util.stream.DoubleStream -> IEnumerable<double> using System.Collections.Generic
+type java.util.stream.Stream.Builder -> JavaStreamBuilder using Maddi.JavaCompat
 type java.time.Instant -> DateTimeOffset using System
 # the values of java.time, java.net and java.math: BCL structs, as Instant is
 type java.time.LocalDate -> DateOnly using System
@@ -513,6 +514,7 @@ member java.util.SequencedMap.sequencedValues/0 -> $0.Values
 member java.util.SequencedMap.sequencedKeySet/0 -> $0.Keys
 member java.util.EnumSet.noneOf/1 -> new HashSet<{R0}>()
 member java.util.EnumSet.copyOf/1 -> new HashSet<{R0}>($1)
+member java.util.EnumSet.of -> new HashSet<{R0}> { $* }
 member java.util.Collections.rotate/2 -> JavaCollections.Rotate($1, $2) using Maddi.JavaCompat
 member java.util.Collections.shuffle/1 -> JavaCollections.Shuffle($1, Random.Shared) using Maddi.JavaCompat, System
 member java.util.Collections.shuffle/2 -> JavaCollections.Shuffle($1, $2) using Maddi.JavaCompat
@@ -776,6 +778,15 @@ member java.util.stream.Stream.limit/1 -> $0.Take((int) @1) using System.Linq
 member java.util.stream.Stream.skip/1 -> $0.Skip((int) @1) using System.Linq
 member java.util.stream.Stream.empty/0 -> Enumerable.Empty<{R0}>() using System.Linq
 member java.util.stream.Stream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.IntStream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.LongStream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.DoubleStream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.LongStream.toArray/0 -> $0.ToArray() using System.Linq
+member java.util.stream.DoubleStream.toArray/0 -> $0.ToArray() using System.Linq
+member java.util.stream.Stream.builder/0 -> new JavaStreamBuilder<{R0}>() using Maddi.JavaCompat
+member java.util.stream.Stream.Builder.add/1 -> $0.Add($1)
+member java.util.stream.Stream.Builder.accept/1 -> $0.Accept($1)
+member java.util.stream.Stream.Builder.build/0 -> $0.Build()
 member java.util.stream.Stream.generate/1 -> JavaFunctions.Generate($1) using Maddi.JavaCompat
 member java.util.stream.BaseStream.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.stream.StreamSupport.stream/2 -> $1
@@ -857,6 +868,7 @@ member java.util.function.ObjLongConsumer.accept -> $0($*)
 member java.util.function.Predicate.and/1 -> $0.And($1) using Maddi.JavaCompat
 member java.util.function.Predicate.or/1 -> $0.Or($1) using Maddi.JavaCompat
 member java.util.function.Predicate.negate/0 -> $0.Negate() using Maddi.JavaCompat
+member java.util.function.Predicate.not/1 -> JavaFunctions.Not<{R0}>($1) using Maddi.JavaCompat
 member java.util.function.BiPredicate.and/1 -> $0.And($1) using Maddi.JavaCompat
 member java.util.function.BiPredicate.or/1 -> $0.Or($1) using Maddi.JavaCompat
 member java.util.function.BiPredicate.negate/0 -> $0.Negate() using Maddi.JavaCompat

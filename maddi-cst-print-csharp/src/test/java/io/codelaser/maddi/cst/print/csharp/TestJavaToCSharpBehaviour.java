@@ -1075,6 +1075,55 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     /**
+     * Library factories timefold uses: EnumSet.of, Predicate.not, LongStream.concat, Stream.builder; and the static
+     * method of an interface whose wildcard interface keeps type parameters, in a companion of its own (CS0305).
+     */
+    @Test
+    public void streamAndSetFactories() {
+        String cs = behaves("Factories", """
+                package a;
+                import java.util.Arrays;
+                import java.util.EnumSet;
+                import java.util.List;
+                import java.util.stream.Collectors;
+                import java.util.stream.LongStream;
+                import java.util.stream.Stream;
+                import static java.util.function.Predicate.not;
+                class Factories {
+                    enum Kind { A, B, C }
+                    interface Listener<S> { String hear(S s); default String name() { return "l"; } }
+                    interface Note<S, T extends Listener<S>> {
+                        static <S> Plain<S> of(S s) { return new Plain<>(s); }
+                        S source();
+                        String trigger(T listener);
+                    }
+                    record Plain<S>(S source) implements Note<S, Listener<S>> {
+                        public String trigger(Listener<S> listener) { return listener.hear(source); }
+                    }
+                    static <S> S sourceOf(Note<S, ?> note) { return note.source(); }
+                    static boolean empty(String s) { return s.isEmpty(); }
+                    public static void main(String[] args) {
+                        EnumSet<Kind> kinds = EnumSet.of(Kind.A, Kind.C);
+                        System.out.println(kinds.contains(Kind.C) + " " + kinds.contains(Kind.B) + " " + kinds.size());
+                        List<String> words = List.of("a", "", "b");
+                        System.out.println(words.stream().filter(not(Factories::empty)).collect(Collectors.joining(",")));
+                        long[] hard = { 1, 2 };
+                        long[] soft = { 3 };
+                        long[] levels = LongStream.concat(Arrays.stream(hard), Arrays.stream(soft)).toArray();
+                        System.out.println(Arrays.toString(levels));
+                        Stream.Builder<Object> b = Stream.builder().add("x");
+                        b.add("y");
+                        System.out.println(b.build().map(Object::toString).collect(Collectors.joining("+")));
+                        Plain<Integer> note = Note.of(7);
+                        System.out.println(sourceOf(note) + " " + note.trigger(new Listener<>() { public String hear(Integer i) { return "heard " + i; } }));
+                    }
+                }
+                """);
+        contains(cs, "new HashSet<Kind> { Kind.A, Kind.C }");
+        contains(cs, "INote.Of(7)");
+    }
+
+    /**
      * A method reference into the program's delegate whose parameter is a BigDecimal: the lambda's typed parameter is
      * the delegate's {@code decimal?}, which picks the overload (CS1661 with {@code decimal}).
      */

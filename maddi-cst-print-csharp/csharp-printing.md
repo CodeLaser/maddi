@@ -983,7 +983,9 @@ compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each a
   is another object, which a reference comparison with the original tells apart. Not into a method's parameter that
   captures the wildcard. An interface whose statics have a companion, of
   the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members, a
-  self-bounded interface's too (two declarations of the name are CS0102). Where a
+  self-bounded interface's too (two declarations of the name are CS0102); when the wildcard interface is not generic.
+  One that keeps type parameters, `INotification<Solution_, ChangeEvent_>`, has an arity of its own, which C# reaches
+  statics through only constructed (CS0305): the companion is the static class beside it. Where a
   class's superclass is expected, its wildcard interface is cast to it, `(AbstractNode) node`: the interface cannot
   extend the class. A wildcard of a library type,
   and `? extends B` (what the code stores there is a `B`), is its bound (`WILDCARD_AS_BOUND`).
