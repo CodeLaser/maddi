@@ -893,6 +893,9 @@ final class RustJdk {
                     ? value(o + ".iter().any(|__e| " + elementEquals(mc, args.getFirst(), printer) + ")")
                     : value(test(args.getFirst(), printer, k -> o + ".contains(" + k + ")"));
             case "addAll/1" -> value(o + ".extend(" + printer.text(args.getFirst()) + ".iter().cloned())");
+            // 'exprents.addAll(0, newExprents)': inserted at the index (Java's boolean result is not kept)
+            case "addAll/2" -> value(o + ".splice(" + printer.index(args.get(0)) + ".." + printer.index(args.get(0)) + ", "
+                                     + printer.text(args.get(1)) + ".iter().cloned())");
             case "removeAll/1", "retainAll/1", "containsAll/1" -> bulk(o, name, args, printer);
             case "getFirst/0" -> RustBodyPrinter.printed(o + "[0]", Held.PLACE, false);
             case "subList/2" -> {

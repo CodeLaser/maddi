@@ -522,6 +522,8 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                 // ConverterHelper: 'value.toLowerCase(Locale.ENGLISH)'
                 public static String lower(String s) { return s.toLowerCase(Locale.ENGLISH); }
                 public static String upper(String s) { return s.toUpperCase(Locale.ROOT); }
+                // MergeHelper: 'stat.getExprents().addAll(0, ifstat.getExprents())'
+                public static void prepend(java.util.List<String> to, java.util.List<String> from) { to.addAll(0, from); }
             }
             """;
 
@@ -531,12 +533,16 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         List<TypeInfo> types = parse(TEXTS);
         TypeInfo texts = types.getFirst();
         nonModifying(texts, "id", "lower", "upper");
+        modifying(texts, "prepend");
+        exclusive(method(texts, "prepend").parameters().get(0));
+        borrowed(method(texts, "prepend").parameters().get(1));
         for (String m : List.of("id", "lower", "upper")) borrowed(method(texts, m).parameters().getFirst());
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "id.replace(\"_try\", \"999\")");
         contains(rust, "s.to_lowercase()");
+        contains(rust, "to.splice(0..0, from.iter().cloned())");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
