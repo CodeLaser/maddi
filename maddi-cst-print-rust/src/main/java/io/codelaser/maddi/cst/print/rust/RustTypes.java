@@ -56,6 +56,10 @@ final class RustTypes {
             Map.entry("java.math.BigDecimal", new Mapped("f64", null)),
             Map.entry("java.time.LocalDateTime", new Mapped("SystemTime", "std::time::SystemTime")),
             Map.entry("java.time.Instant", new Mapped("SystemTime", "std::time::SystemTime")),
+            // an in-memory byte stream in jrt.rs, with Java's big-endian reads (fernflower's class-file parsing)
+            Map.entry("java.io.DataInputStream", new Mapped("crate::jrt::DataInputStream", null)),
+            Map.entry("java.io.InputStream", new Mapped("crate::jrt::DataInputStream", null)),
+            Map.entry("java.util.BitSet", new Mapped("crate::jrt::BitSet", null)),
             Map.entry("java.util.Collection", new Mapped("Vec", null)),
             Map.entry("java.lang.Iterable", new Mapped("Vec", null)),
             Map.entry("java.util.List", new Mapped("Vec", null)),
@@ -70,6 +74,8 @@ final class RustTypes {
             Map.entry("java.util.Map", new Mapped("HashMap", "std::collections::HashMap")),
             Map.entry("java.util.HashMap", new Mapped("HashMap", "std::collections::HashMap")),
             Map.entry("java.util.LinkedHashMap", new Mapped("HashMap", "std::collections::HashMap")),
+            // an enum's variants are Hash and Eq: an EnumMap is a HashMap keyed by them
+            Map.entry("java.util.EnumMap", new Mapped("HashMap", "std::collections::HashMap")),
             Map.entry("java.util.SortedMap", new Mapped("BTreeMap", "std::collections::BTreeMap")),
             Map.entry("java.util.NavigableMap", new Mapped("BTreeMap", "std::collections::BTreeMap")),
             Map.entry("java.util.TreeMap", new Mapped("BTreeMap", "std::collections::BTreeMap")),
@@ -104,6 +110,8 @@ final class RustTypes {
         TypeInfo ti = type.typeInfo();
         // an opaque stand-in has no state: a copy of it cannot be told from the shared one
         if (isOpaque(ti)) return true;
+        // a Shared handle: its clone is the shared object, as Java's reference is
+        if (RustShared.current().isShared(type)) return true;
         return ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()
                && !ti.typeNature().isEnum() && (facts.immutable(ti) || facts.immutableHc(ti));
     }
@@ -390,8 +398,9 @@ final class RustTypes {
                 String lifetime = ti == context.type
                                   || context.type != null && context.borrows.hasLifetime(context.type)
                         ? RustBorrows.LIFETIME : "'_";
-                return base + "<" + Stream.concat(Stream.of(lifetime),
+                String withLifetime = base + "<" + Stream.concat(Stream.of(lifetime),
                         type.parameters().stream().map(p -> owned(p, context, where))).collect(Collectors.joining(", ")) + ">";
+                return RustShared.current().isShared(ti) ? "crate::jrt::Shared<" + withLifetime + ">" : withLifetime;
             }
         }
         String named;
@@ -405,6 +414,8 @@ final class RustTypes {
             context.use("std::rc::Rc");
             return "Rc<" + named + ">";
         }
+        // Java's shared object: a reference with Java's semantics (RustShared)
+        if (RustShared.current().isShared(ti)) return "crate::jrt::Shared<" + named + ">";
         return named;
     }
 

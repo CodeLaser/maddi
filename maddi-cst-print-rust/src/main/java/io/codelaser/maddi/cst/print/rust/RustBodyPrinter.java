@@ -62,6 +62,8 @@ final class RustBodyPrinter {
     private final Set<String> moved = new HashSet<>();
     /* closure parameters typed '&str' (a source functional interface's String parameter): not a place to clone */
     private final Set<ParameterInfo> strClosureParameters = new HashSet<>();
+    // a closure's parameters typed Option<…> by the functional interface they implement: how each holds its value
+    private final Map<ParameterInfo, Held> optionClosureParameters = new HashMap<>();
     private final Map<ParameterInfo, Boolean> movable = new HashMap<>();
 
     /** How an expression's value is held, which decides how it is passed on. */
@@ -108,6 +110,8 @@ final class RustBodyPrinter {
     }
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
+    // the parameter of the equals being printed as PartialEq::eq, whose other side is a &Self
+    private ParameterInfo equalsParameter;
     // the expression of the expression statement being printed: its value is dropped
     private Expression statement;
 
@@ -282,6 +286,12 @@ final class RustBodyPrinter {
             // a string borrowed out of a lookup ('(String) b.get("sku")'): a copy, which ends the borrow of what holds it
             text = text + (value.nullable ? ".cloned()" : ".clone()");
             held = Held.VALUE;
+        } else if (mutated && (held == Held.PLACE || held == Held.SHARED)
+                   && RustShared.current().isShared(lv.parameterizedType())) {
+            // a shared object modified through the local ('ListStack s = data.getStack(); s.push(t)'): the local is a
+            // handle of its own, as Java's reference is, so that it modifies without borrowing what holds it
+            text = text + (held == Held.SHARED && value.nullable ? ".cloned()" : ".clone()");
+            held = Held.VALUE;
         } else if (held == Held.PLACE && !RustTypes.isCopy(lv.parameterizedType())) {
             // an element or a field: the local refers to it, as Java's reference does
             text = (mutated ? "&mut " : "&") + text;
@@ -422,6 +432,14 @@ final class RustBodyPrinter {
      */
     private Binding binding(InstanceOf io) {
         if (io.patternVariable() == null || io.patternVariable().localVariable() == null) return null;
+        if (equalsParameter != null && isVariable(io.expression(), equalsParameter)
+            && io.testType().typeInfo() == equalsParameter.methodInfo().typeInfo()) {
+            // equals' 'return o instanceof Version v && …': PartialEq's other is already a &Self
+            LocalVariable lv = io.patternVariable().localVariable();
+            locals.put(lv, Held.SHARED);
+            nullableLocals.put(lv, false);
+            return new Binding(RustNames.snake(lv.simpleName()), "Some(other)");
+        }
         Binding inHierarchy = hierarchyBinding(io);
         if (inHierarchy != null) return inHierarchy;
         if (interfaceDowncast(io.expression(), io.testType()) != null) {
@@ -626,8 +644,18 @@ final class RustBodyPrinter {
         LocalVariable lv = fe.initializer().localVariable();
         String name = RustNames.snake(lv.simpleName());
         boolean mutated = mutated(lv);
-        Printed collection = mutated ? mutable(fe.expression()) : expression(fe.expression());
+        boolean handles = mutated && RustShared.current().isShared(lv.parameterizedType());
+        Printed collection = mutated && !handles ? mutable(fe.expression()) : expression(fe.expression());
         String iterator;
+        if (handles && !RustJdk.isIterator(collection.text)) {
+            // shared objects modified through the loop variable ('for (Statement st : stat.getStats()) st.x()'): a
+            // snapshot of the handles, each one Java's reference, so that neither the list nor its holder is borrowed
+            // while the body runs
+            String c = collection.nullable ? receiver(fe.expression(), false) : collection.text;
+            locals.put(lv, Held.VALUE);
+            return pad + label + "for mut " + name + " in " + c + ".iter().cloned().collect::<Vec<_>>() {\n"
+                   + statements(fe.block(), depth + 1) + pad + "}\n";
+        }
         if (RustJdk.isIterator(collection.text)) {
             iterator = collection.text;
         } else {
@@ -710,6 +738,7 @@ final class RustBodyPrinter {
     String equalsBody(MethodInfo equals, int depth) {
         ParameterInfo o = equals.parameters().getFirst();
         aliases.put(o, "other");
+        equalsParameter = o;
         StringBuilder sb = new StringBuilder();
         for (Statement s : equals.methodBody().statements()) {
             if (s instanceof IfElseStatement ife && preamble(ife, o)) continue;
@@ -770,7 +799,8 @@ final class RustBodyPrinter {
     /** {@code match selector { A | B => { … } _ => {} }}: a switch statement does nothing for a missing case. */
     private String switchNewStyle(SwitchStatementNewStyle sw, int depth) {
         String pad = INDENT.repeat(depth);
-        StringBuilder sb = new StringBuilder("match " + selector(sw.expression()) + " {\n");
+        StringBuilder sb = new StringBuilder("match " + selector(sw.expression(),
+                sw.entries().stream().flatMap(e -> e.conditions().stream()).toList()) + " {\n");
         List<Expression> labels = new ArrayList<>();
         boolean hasDefault = false;
         for (SwitchEntry entry : sw.entries()) {
@@ -794,7 +824,8 @@ final class RustBodyPrinter {
     private String switchOldStyle(SwitchStatementOldStyle sw, int depth) {
         String pad = INDENT.repeat(depth);
         List<CstQueries.SwitchGroup> groups = CstQueries.switchGroups(sw);
-        StringBuilder sb = new StringBuilder("match " + selector(sw.expression()) + " {\n");
+        StringBuilder sb = new StringBuilder("match " + selector(sw.expression(), groups.stream()
+                .flatMap(g -> g.labels().stream()).map(SwitchStatementOldStyle.SwitchLabel::literal).toList()) + " {\n");
         List<Expression> labels = new ArrayList<>();
         boolean hasDefault = false;
         for (int i = 0; i < groups.size(); i++) {
@@ -827,7 +858,8 @@ final class RustBodyPrinter {
     private Printed switchExpression(SwitchExpression se) {
         int depth = 2;
         String pad = INDENT.repeat(depth);
-        StringBuilder sb = new StringBuilder("match " + selector(se.selector()) + " {\n");
+        StringBuilder sb = new StringBuilder("match " + selector(se.selector(),
+                se.entries().stream().flatMap(e -> e.conditions().stream()).toList()) + " {\n");
         List<Expression> labels = new ArrayList<>();
         boolean hasDefault = false;
         for (SwitchEntry entry : se.entries()) {
@@ -918,9 +950,18 @@ final class RustBodyPrinter {
     }
 
     /** The selector: a string is matched as a {@code &str}, a nullable value unwrapped as Java would throw. */
-    private String selector(Expression selector) {
+    private String selector(Expression selector, List<Expression> labels) {
         String text = operand(selector);
-        return RustTypes.isString(selector.parameterizedType()) ? text + ".as_str()" : text;
+        if (RustTypes.isString(selector.parameterizedType())) return text + ".as_str()";
+        // a byte or short matched against int constants ('switch (tag) { case CONSTANT_Utf8 -> ... }'): Java widens
+        // the selector, a Rust pattern takes the constant's own type
+        ParameterizedType type = selector.parameterizedType();
+        if (type.arrays() == 0 && type.typeInfo() != null && (type.typeInfo().isByte() || type.typeInfo().isShort())
+            && labels.stream().anyMatch(l -> l != null && CstQueries.unwrap(l) instanceof VariableExpression
+                                             && l.parameterizedType().isInt())) {
+            return text + " as i32";
+        }
+        return text;
     }
 
     private String caseLabels(List<Expression> conditions) {
@@ -995,7 +1036,7 @@ final class RustBodyPrinter {
             case VariableExpression ve -> variable(ve.variable(), ve);
             case Assignment a -> value(assignment(a, false));
             case InlineConditional ic -> inlineConditional(ic);
-            case MethodCall mc -> methodCall(mc);
+            case MethodCall mc -> sharedCloneFirst(mc, methodCall(mc));
             case ConstructorCall cc -> constructorCall(cc);
             case BinaryOperator bo when bo.operator() != null -> binaryOperator(bo);
             case UnaryOperator uo when uo.operator() != null -> unaryOperator(uo);
@@ -1058,6 +1099,8 @@ final class RustBodyPrinter {
         // '&x' borrows and '.clone()' copies either way (deref coercion, auto-deref)
         // an element is never an Option: the collections hold their values as they are
         if (closures.contains(pi.methodInfo())) {
+            Held option = optionClosureParameters.get(pi);
+            if (option != null) return new Printed(name, option, true);
             return new Printed(name, strClosureParameters.contains(pi) ? Held.STR : Held.PLACE, false);
         }
         if (movable(pi)) moved.add(name);
@@ -1104,6 +1147,7 @@ final class RustBodyPrinter {
                 String name = RustTypePrinter.staticName(f);
                 String module = RustNames.module(owner.packageName());
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
+                if (RustTypePrinter.threadLocalStatic(f, context)) return new Printed(name + ".with(|v| v.clone())", Held.VALUE, nullable);
                 return new Printed(name, Held.PLACE, nullable);
             }
             // a string constant is a &'static str
@@ -1152,7 +1196,8 @@ final class RustBodyPrinter {
     }
 
     private String assignment(Assignment a, boolean statement) {
-        String target = mutable(a.target()).text;
+        Printed targetPrinted = mutable(a.target());
+        String target = targetPrinted.text;
         boolean boxed = a.variableTarget() instanceof FieldReference fr && context.boxes.isBoxed(fr.fieldInfo());
         if (boxed && target.endsWith(BOXED_OPTION)) target = target.substring(0, target.length() - BOXED_OPTION.length());
         if (a.prefixPrimitiveOperator() != null || a.binaryOperator() != null && a.value() == null) {
@@ -1173,6 +1218,26 @@ final class RustBodyPrinter {
             return unsupported(a, "assignment inside an expression");
         }
         ParameterizedType targetType = a.target().parameterizedType();
+        if ("=".equals(operator) && RustShared.current().isShared(targetType)
+            && (targetPrinted.held == Held.SHARED || targetPrinted.held == Held.EXCLUSIVE)
+            && (a.variableTarget() instanceof ParameterInfo pi && context.passing(pi) != Passing.OWNED
+                || a.variableTarget() instanceof LocalVariable lv && locals.get(lv) == Held.SHARED)) {
+            // a borrowed handle walking a chain ('n = n.parent', 'head = head.getFirst()'): it borrows the next one,
+            // it does not keep it; a nullable one (Option<&Shared<T>>) borrows the Option's content
+            boolean exclusive = targetPrinted.held == Held.EXCLUSIVE;
+            String borrowed;
+            if (a.value() instanceof NullConstant) {
+                borrowed = "None";
+            } else if (targetPrinted.nullable) {
+                borrowed = !value.nullable ? "Some(" + adapt(value, exclusive ? Held.EXCLUSIVE : Held.SHARED) + ")"
+                        : value.held == Held.SHARED || value.held == Held.EXCLUSIVE ? value.text
+                        : value.text + (exclusive ? ".as_mut()" : ".as_ref()");
+            } else {
+                borrowed = value.nullable ? value.text + (exclusive ? ".as_mut().unwrap()" : ".as_ref().unwrap()")
+                        : adapt(value, exclusive ? Held.EXCLUSIVE : Held.SHARED);
+            }
+            return target + " = " + borrowed;
+        }
         if ("+=".equals(operator) && RustTypes.isString(targetType)) {
             return target + ".push_str(" + adapt(value, Held.STR) + ")";
         }
@@ -1260,6 +1325,21 @@ final class RustBodyPrinter {
             // Java's == on objects is identity, which Rust's == (PartialEq) is not: the addresses compared
             Printed l = expression(bo.lhs());
             Printed r = expression(bo.rhs());
+            boolean shared = RustShared.current().isShared(bo.lhs().parameterizedType())
+                             || RustShared.current().isShared(bo.rhs().parameterizedType());
+            if (shared && !l.nullable && !r.nullable && (isThis(bo.lhs()) || isThis(bo.rhs()))) {
+                // 'this == other': self is the object, the other a handle to one
+                Printed handle = isThis(bo.lhs()) ? r : l;
+                String eqThis = "std::ptr::eq(" + context.receiver + ", &**" + adapt(handle, Held.SHARED) + ")";
+                return value("==".equals(op) ? eqThis : "!" + eqThis);
+            }
+            if (shared) {
+                // two handles: the same object behind them (Shared::is), not the handles' own addresses
+                String eqShared = !l.nullable && !r.nullable
+                        ? "crate::jrt::Shared::is(" + adapt(l, Held.SHARED) + ", " + adapt(r, Held.SHARED) + ")"
+                        : "crate::jrt::same_shared(" + optionalReference(l) + ", " + optionalReference(r) + ")";
+                return value("==".equals(op) ? eqShared : "!" + eqShared);
+            }
             String eq = !l.nullable && !r.nullable
                     ? "std::ptr::eq(" + adapt(l, Held.SHARED) + ", " + adapt(r, Held.SHARED) + ")"
                     // either may be null: the same object, or both null
@@ -1510,7 +1590,14 @@ final class RustBodyPrinter {
         String params = typed(names, types);
         if (types != null && types.size() == names.size()) {
             for (int i = 0; i < names.size(); i++) {
-                if ("&str".equals(types.get(i))) strClosureParameters.add(m.parameters().get(i));
+                String t = types.get(i);
+                if ("&str".equals(t)) strClosureParameters.add(m.parameters().get(i));
+                // fernflower's iterateExprents(exprent -> …) of a nullable Function parameter: the body unwraps it
+                if (t.startsWith("Option<")) {
+                    optionClosureParameters.put(m.parameters().get(i), t.startsWith("Option<&str>") ? Held.STR
+                            : t.startsWith("Option<&mut ") ? Held.EXCLUSIVE : t.startsWith("Option<&") ? Held.SHARED
+                            : Held.VALUE);
+                }
             }
         }
         Expression single = lambda.singleExpression();
@@ -1676,6 +1763,45 @@ final class RustBodyPrinter {
 
     // ---- calls
 
+    /**
+     * {@code e.getDestination().preds.add(e)} of a shared {@code e} (RustShared): the argument's clone is taken first,
+     * {@code { let __e = e.clone(); e.get_destination_mut().preds.push(__e) }}. Inline, it is evaluated while the
+     * receiver chain holds {@code e} mutably, which two-phase borrows do not cover when the receiver is itself a
+     * {@code &mut} call chain (E0502).
+     */
+    private static boolean isThis(Expression e) {
+        return CstQueries.unwrap(e) instanceof VariableExpression ve && ve.variable() instanceof This;
+    }
+
+    private Printed sharedCloneFirst(MethodCall mc, Printed printed) {
+        if (mc.object() == null || mc.objectIsImplicit()) return printed;
+        Expression root = CstQueries.unwrap(mc.object());
+        while (true) {
+            if (root instanceof MethodCall inner && inner.object() != null && !inner.objectIsImplicit()) {
+                root = CstQueries.unwrap(inner.object());
+            } else if (root instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+                       && fr.scope() != null && !fr.scopeIsThis()) {
+                root = CstQueries.unwrap(fr.scope());
+            } else {
+                break;
+            }
+        }
+        if (!(root instanceof VariableExpression rve)
+            || !(rve.variable() instanceof LocalVariable || rve.variable() instanceof ParameterInfo)
+            || !RustShared.current().isShared(rve.parameterizedType())) {
+            return printed;
+        }
+        boolean passed = mc.parameterExpressions().stream().anyMatch(a -> CstQueries.unwrap(a) instanceof VariableExpression ave
+                                                                          && ave.variable().equals(rve.variable()));
+        String name = expression(rve).text;
+        String clone = name + ".clone()";
+        int at = printed.text.indexOf(clone);
+        if (!passed || !printed.text.startsWith(name + ".") || at <= 0) return printed;
+        String temp = "__" + name.replace("r#", "");
+        return new Printed("{ let " + temp + " = " + clone + "; " + printed.text.replace(clone, temp) + " }",
+                printed.held, printed.nullable);
+    }
+
     private Printed methodCall(MethodCall mc) {
         MethodInfo callee = mc.methodInfo();
         if (callee.typeInfo().compilationUnit().externalLibrary()) {
@@ -1697,6 +1823,11 @@ final class RustBodyPrinter {
                          + ")");
         }
         if (RustTypePrinter.isEquals(callee) && mc.object() != null && !mc.objectIsImplicit()) {
+            if (RustShared.current().isShared(mc.object().parameterizedType())) {
+                // two handles' objects compared with the class's own equality, not the handles' identity
+                return value("crate::jrt::Shared::equals(" + adapt(expression(mc.object()), Held.SHARED) + ", "
+                             + adapt(expression(mc.parameterExpressions().getFirst()), Held.SHARED) + ")");
+            }
             return value(adapt(expression(mc.object()), Held.SHARED) + " == "
                          + adapt(expression(mc.parameterExpressions().getFirst()), Held.SHARED));
         }
@@ -1730,8 +1861,16 @@ final class RustBodyPrinter {
             boolean own = mc.object() == null || mc.objectIsImplicit()
                           || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This;
             String object;
+            Printed borrowedHandle = own || !exclusive || !(CstQueries.unwrap(mc.object()) instanceof MethodCall)
+                                     || !RustShared.current().isShared(mc.object().parameterizedType()) ? null
+                    : expression(mc.object());
             if (own) {
                 object = context.receiver;
+            } else if (borrowedHandle != null && borrowedHandle.held == Held.SHARED) {
+                // a shared object a call returns borrowed, modified ('stat.getFirst().removeSuccessor(e)'): a handle of
+                // its own, as Java's reference is, rather than an exclusive borrow of what the getter reads
+                if (borrowedHandle.nullable) context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, null, borrowedHandle.text);
+                object = borrowedHandle.text + (borrowedHandle.nullable ? ".cloned().unwrap()" : ".clone()");
             } else if (exclusive) {
                 boolean outer = mutatingPlace(true);
                 try {
@@ -1801,7 +1940,9 @@ final class RustBodyPrinter {
             Printed mapped = RustJdk.construct(cc, this);
             if (mapped != null) return mapped;
             context.message(RustPrintCode.UNMAPPED_JDK_CALL, cc, ti.fullyQualifiedName());
-            return value(ti.simpleName() + "::new(" + arguments(cc.parameterExpressions(), null) + ")");
+            // the opaque stand-in's path, as its type is printed: a bare simple name is not in scope
+            return value(RustTypes.owned(ti.asSimpleParameterizedType(), context, cc) + "::new("
+                         + arguments(cc.parameterExpressions(), null) + ")");
         }
         // a generic struct, or one with a lifetime, is named: 'Self' would fix the impl's type arguments or lifetime
         String owner = ti == context.type && !context.borrows.hasLifetime(ti) && ti.typeParameters().isEmpty()
@@ -1817,6 +1958,8 @@ final class RustBodyPrinter {
             context.use("std::rc::Rc");
             return value("Rc::new(" + call + ")");
         }
+        // Java's shared object: the new object in its handle (RustShared)
+        if (RustShared.current().isShared(ti)) return value("crate::jrt::Shared::new(" + call + ")");
         return value(call);
     }
 
@@ -1837,7 +1980,8 @@ final class RustBodyPrinter {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Expression a = arguments.get(i);
-            Printed p = expression(a);
+            // as in arguments0: an argument the callee modifies is a place written through
+            Printed p = modifiedArgument(arguments, i, callee) ? mutable(a) : expression(a);
             ParameterInfo pi = i < callee.parameters().size() ? callee.parameters().get(i) : null;
             boolean fromSelf = p.text.startsWith(context.receiver + ".") && RustTypes.isString(a.parameterizedType())
                                && !p.text.contains("(");
@@ -1891,13 +2035,7 @@ final class RustBodyPrinter {
     private String arguments0(List<Expression> arguments, MethodInfo callee) {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
-            ParameterInfo modified = callee == null || callee.parameters().isEmpty() ? null
-                    : callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
-            // an argument the callee modifies is a place written through: a getter's exclusive twin
-            boolean exclusive = modified != null && !callee.typeInfo().compilationUnit().externalLibrary()
-                                && !RustTypes.isCopy(modified.parameterizedType()) && !isClosure(arguments.get(i))
-                                && context.passing(modified) == RustFacts.Passing.EXCLUSIVE;
-            Printed p = exclusive ? mutable(arguments.get(i)) : expression(arguments.get(i));
+            Printed p = modifiedArgument(arguments, i, callee) ? mutable(arguments.get(i)) : expression(arguments.get(i));
             if (callee == null || i >= callee.parameters().size()) {
                 out.add(p.text);
                 continue;
@@ -1906,6 +2044,15 @@ final class RustBodyPrinter {
             out.add(argument(p, pi, arguments.get(i)));
         }
         return String.join(", ", out);
+    }
+
+    // an argument the callee modifies is a place written through: a getter's exclusive twin
+    private boolean modifiedArgument(List<Expression> arguments, int i, MethodInfo callee) {
+        ParameterInfo modified = callee == null || callee.parameters().isEmpty() ? null
+                : callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
+        return modified != null && !callee.typeInfo().compilationUnit().externalLibrary()
+               && !RustTypes.isCopy(modified.parameterizedType()) && !isClosure(arguments.get(i))
+               && context.passing(modified) == RustFacts.Passing.EXCLUSIVE;
     }
 
     private String argument(Printed p, ParameterInfo pi, Expression argument) {
@@ -1927,8 +2074,21 @@ final class RustBodyPrinter {
         }
         p = widen(p, argument, type);
         boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
+        String handle = sharedThis(p, type);
+        if (handle != null && !RustTypes.isCopy(type)) {
+            // 'this' passed where a Shared is expected, borrowed or kept: its own handle
+            String text = switch (context.passing(pi)) {
+                case OWNED -> handle;
+                case SHARED -> "&" + handle;
+                case EXCLUSIVE -> "&mut " + handle;
+            };
+            return nullable ? "Some(" + text + ")" : text;
+        }
+        // a type parameter is passed as the callee declares it, borrowed or owned, also for an int: VBStyleCollection's
+        // 'removeWithKey(K key)' takes a &K, so its Integer key is a &i32
+        boolean copy = RustTypes.isCopy(type) && !pi.parameterizedType().isTypeParameter();
         String text;
-        if (RustTypes.isCopy(type)) {
+        if (copy) {
             text = p.text;
         } else {
             text = switch (context.passing(pi)) {
@@ -1941,10 +2101,29 @@ final class RustBodyPrinter {
         }
         if (nullable && !p.nullable && !(argument instanceof NullConstant)) return "Some(" + text + ")";
         if (!nullable && p.nullable) return text + ".unwrap()";
-        if (nullable && p.nullable && !RustTypes.isCopy(type) && context.passing(pi) == Passing.SHARED) {
+        if (nullable && p.nullable && !copy && context.passing(pi) == Passing.SHARED) {
             return nullableBorrow(p, argument, RustTypes.isString(type), type.arrays() > 0);
         }
+        if (nullable && p.nullable && !copy && context.passing(pi) == Passing.EXCLUSIVE
+            && !RustTypes.isString(type) && type.arrays() == 0) {
+            return nullableExclusive(p, argument, text);
+        }
         return text;
+    }
+
+    /**
+     * A nullable value where an {@code Option<&mut T>} is expected: {@code None} for null, an owned {@code Option<T>}
+     * place (a field) as {@code .as_mut()} rather than {@code &mut} of the Option; one that is already an {@code
+     * Option<&mut T>} (a parameter passed on) is reborrowed, {@code .as_deref_mut()}, so that it is not moved into the
+     * first call (fernflower's {@code measureBytecode(values)} in a loop, then again).
+     */
+    private static String nullableExclusive(Printed p, Expression argument, String text) {
+        if (argument instanceof NullConstant || "None".equals(p.text)) return "None";
+        return switch (p.held) {
+            case VALUE, PLACE -> p.text + ".as_mut()";
+            case EXCLUSIVE -> p.text + ".as_deref_mut()";
+            default -> text;
+        };
     }
 
     /**
@@ -2013,6 +2192,12 @@ final class RustBodyPrinter {
     /** {@code p} where an owned value is expected: moved, except that a borrowed string becomes a new one. */
     private String owned(Printed p, ParameterizedType type) {
         if ("None".equals(p.text)) return p.text;
+        String handle = sharedThis(p, type);
+        if (handle != null) return handle;
+        // a Shared handle kept: the clone is the shared object, also of one held &mut
+        if (RustShared.current().isShared(type) && p.held == Held.EXCLUSIVE) {
+            return p.text + (p.nullable ? ".cloned()" : ".clone()");
+        }
         if (p.held == Held.VALUE && moved.contains(p.text)) return p.text;
         if (RustTypes.isString(type) && p.nullable && (p.held == Held.STR || p.held == Held.SHARED)) {
             return p.text + ".map(|s| s.to_string())";
@@ -2031,6 +2216,22 @@ final class RustBodyPrinter {
             return p.text + (p.nullable && p.held == Held.SHARED ? ".cloned()" : ".clone()");
         }
         return p.text;
+    }
+
+    /**
+     * {@code this} where a {@code Shared<T>} is expected (RustShared): the handle of the object {@code self} is,
+     * {@code Shared::of(self)}; null otherwise. Inside its own constructor the object is not in a handle yet.
+     */
+    private String sharedThis(Printed p, ParameterizedType type) {
+        if (!RustShared.current().isShared(type) || context.type == null
+            || !p.text.equals(context.receiver) && !p.text.equals("*" + context.receiver)) {
+            return null;
+        }
+        if (context.method != null && context.method.isConstructor() || "this".equals(context.receiver)) {
+            context.message(RustPrintCode.SHARED_THIS_IN_CONSTRUCTOR, context.method, null);
+            return "crate::jrt::Shared::of(&" + context.receiver + ")";
+        }
+        return "crate::jrt::Shared::of(" + context.receiver + ")";
     }
 
     /**

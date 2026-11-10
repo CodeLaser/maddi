@@ -316,7 +316,7 @@ final class RustTypePrinter {
         boolean hashedFields = record && !typeInfo.typeParameters().isEmpty() && fields.stream()
                 .map(this::fieldType).anyMatch(t -> t.contains("HashSet<") || t.contains("HashMap<"));
         if (record) sb.append(hashedFields ? "#[derive(Debug, Clone)]\n" : "#[derive(Debug, Clone, PartialEq)]\n");
-        else if (context.facts.immutable(typeInfo)) sb.append("#[derive(Clone)]\n");
+        else if (context.facts.immutable(typeInfo) || valueClass(typeInfo, fields)) sb.append("#[derive(Clone)]\n");
         String declaredGenerics = typestate ? "<" + RustTypestate.STATE + " = " + RustTypestate.BEFORE + ">" : generics;
         sb.append(visibility(typeInfo.isPrivate())).append("struct ").append(name).append(declaredGenerics).append(" {\n");
         if (this.base != null) sb.append(INDENT).append("pub base: ").append(this.base).append(",\n");
@@ -446,9 +446,16 @@ final class RustTypePrinter {
         if (hashCode) {
             if (equals != null) sb.append("\nimpl").append(implGenerics).append(" Eq for ").append(name).append(generics)
                     .append(" {}\n");
+            // a hashCode that caches its value (VarVersion's) modifies: Hash's &self hashes a copy, which Java's equals
+            // cannot tell from the object
+            MethodInfo hc = typeInfo.methods().stream().filter(RustTypePrinter::isHashCode).findFirst().orElse(null);
+            boolean caching = hc != null && context.facts.receiver(hc) == Receiver.EXCLUSIVE
+                              && (context.facts.immutable(typeInfo) || valueClass(typeInfo, fields));
             sb.append("\nimpl").append(implGenerics).append(" std::hash::Hash for ").append(name).append(generics)
                     .append(" {\n").append(INDENT).append("fn hash<H: std::hash::Hasher>(&self, state: &mut H) {\n")
-                    .append(INDENT).append(INDENT).append("state.write_i32(self.hash_code());\n").append(INDENT)
+                    .append(INDENT).append(INDENT)
+                    .append(caching ? "state.write_i32(self.clone().hash_code());\n" : "state.write_i32(self.hash_code());\n")
+                    .append(INDENT)
                     .append("}\n}\n");
         }
         return sb.toString();
@@ -851,6 +858,18 @@ final class RustTypePrinter {
         if (COLLECTION_BASES.contains(owner)) return owner + "::new()";
         if (statements != null) {
             for (Statement s : statements) {
+                if (s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && STREAM_BASE.equals(owner)) {
+                    // super(new ByteArrayInputStream(bytes)): the stream over those bytes; nothing else is in memory
+                    if (eci.parameterExpressions().size() == 1
+                        && eci.parameterExpressions().getFirst() instanceof ConstructorCall cc
+                        && cc.constructor() != null
+                        && "java.io.ByteArrayInputStream".equals(cc.constructor().typeInfo().fullyQualifiedName())
+                        && cc.parameterExpressions().size() == 1) {
+                        return owner + "::from_bytes(" + printer.arguments(cc.parameterExpressions(), cc.constructor())
+                               + ")";
+                    }
+                    return owner + "::default()";
+                }
                 if (s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && eci.methodInfo() != null) {
                     return owner + "::" + RustNames.method(eci.methodInfo()) + "("
                            + printer.arguments(eci.parameterExpressions(), eci.methodInfo()) + ")";
@@ -872,8 +891,12 @@ final class RustTypePrinter {
             return null;
         }
         String owned = RustTypes.owned(parent, context, typeInfo);
-        return COLLECTION_BASES.contains(owned.replaceFirst("<.*$", "")) ? owned : null;
+        String owner = owned.replaceFirst("<.*$", "");
+        return COLLECTION_BASES.contains(owner) || STREAM_BASE.equals(owner) ? owned : null;
     }
+
+    /** jrt.rs's in-memory stream, the base of a class extending {@code DataInputStream} (fernflower's own stream). */
+    private static final String STREAM_BASE = "crate::jrt::DataInputStream";
 
     private static final Set<String> COLLECTION_BASES = Set.of("Vec", "VecDeque", "HashMap", "HashSet", "BTreeMap",
             "BTreeSet");
@@ -994,13 +1017,24 @@ final class RustTypePrinter {
      * initializer touches: a module-level {@code static}, built on first use ({@code LazyLock}), shared read-only. Its
      * type must be shareable between threads ({@code Sync}): not a {@code dyn} value.
      */
+    /*
+     A class with its own equals over primitives and strings (fernflower's VarVersion, whose cached hashCode keeps it
+     from being immutable): Java's equals cannot tell a copy from the object, so it is Clone, and a collection of them
+     can be copied (extend(other.iter().cloned())).
+     */
+    private boolean valueClass(TypeInfo typeInfo, List<FieldInfo> fields) {
+        return base == null && !fields.isEmpty() && !RustHierarchies.current().isMember(typeInfo)
+               && typeInfo.methods().stream().anyMatch(RustTypePrinter::isEquals)
+               && fields.stream().allMatch(f -> RustTypes.isCopy(f.type()) || RustTypes.isString(f.type()));
+    }
+
     static boolean lazyStatic(FieldInfo f, RustContext context) {
         if (!f.isStatic() || !isFinal(f) || f.initializer() == null || f.initializer().isEmpty()
             || constant(f) || !context.facts.unmodified(f)) {
             return false;
         }
         String type = RustTypes.owned(f.type(), context, f);
-        if (type.contains("dyn ") || type.contains("Rc<") || type.contains("RefCell<")) return false;
+        if (type.contains("dyn ") || type.contains("RefCell<")) return false;
         boolean[] touched = {false};
         for (MethodInfo m : f.owner().methods()) {
             if (!m.isStaticInitializer() || m.methodBody() == null) continue;
@@ -1065,6 +1099,15 @@ final class RustTypePrinter {
         return f.owner().isInterface() && constant(f);
     }
 
+    /**
+     * A {@link #lazyStatic} field held in an {@code Rc} or a {@code Shared} (VarType's {@code VARTYPE_INT}): not
+     * {@code Sync}, so a {@code thread_local!}, read as {@code NAME.with(|v| v.clone())}, a handle on the one object.
+     */
+    static boolean threadLocalStatic(FieldInfo f, RustContext context) {
+        String type = RustTypes.owned(f.type(), context, f);
+        return type.contains("Rc<") || type.contains("Shared<");
+    }
+
     /** The module-level name of a {@link #lazyStatic} field: its owner's name and its own. */
     static String staticName(FieldInfo f) {
         return RustNames.constant(RustNames.ownType(f.owner()) + "_" + f.name());
@@ -1091,6 +1134,14 @@ final class RustTypePrinter {
         if (!constant && lazyStatic(f, context)) {
             String type = RustTypes.owned(f.type(), context, f);
             String value = new RustBodyPrinter(context).ownedAs(init, f.type());
+            if (threadLocalStatic(f, context)) {
+                statics.append("\nthread_local! {\n    /// Translated from the static field `")
+                        .append(f.owner().fullyQualifiedName()).append(".").append(f.name())
+                        .append("`: built on first use, read-only, one per thread (an Rc is not Sync).\n    ")
+                        .append(visibility(f.access().isPrivate())).append("static ").append(staticName(f))
+                        .append(": ").append(type).append(" = ").append(value).append(";\n}\n");
+                return "";
+            }
             statics.append("\n/// Translated from the static field `").append(f.owner().fullyQualifiedName()).append(".")
                     .append(f.name()).append("`: built on first use, read-only.\n")
                     .append(visibility(f.access().isPrivate())).append("static ").append(staticName(f))
@@ -1355,20 +1406,26 @@ final class RustTypePrinter {
     /** The exclusive twin of a getter a caller modifies through ({@link RustGetters}): the field, borrowed mutably. */
     private String mutableGetter(MethodInfo m, boolean inTrait) {
         FieldInfo f = RustGetters.field(m);
-        if (f == null || context.boxes.isBoxed(f) || context.cells.isCell(f)
-            || context.borrows.fields(f.owner()).containsKey(f)) {
-            return "";
-        }
+        if (f == null || context.boxes.isBoxed(f) || context.cells.isCell(f)) return "";
+        RustTypes.Form borrowed = context.borrows.fields(f.owner()).get(f);
+        // a field that borrows exclusively (ExceptionRangeCFG's '&'a mut Vec<…>' protected range) hands out a reborrow
+        boolean exclusiveBorrow = borrowed != null && fieldType(f).replaceFirst("^Option<", "")
+                .startsWith("&" + RustBorrows.LIFETIME + " mut ");
+        if (borrowed != null && !exclusiveBorrow) return "";
         // in an impl of a trait, the twin the trait declares (RustGetters): as the trait declares it, no visibility
         MethodInfo declared = inTrait ? m.overrides().stream().filter(RustGetters::abstractGetter)
                 .filter(context.mutableGetters::contains).findFirst().orElse(null) : null;
         if (inTrait && declared == null) return "";
         boolean nullable = RustFacts.nullable(context.facts.field(f));
-        String field = "self." + RustNames.snake(f.name());
+        // a field a class below a hierarchy's root adds is in its data, in the kind (RustHierarchies)
+        String field = RustHierarchies.current().isSubMember(f.owner())
+                ? "self.kind." + RustHierarchies.accessor(f.owner()) + "_mut()." + RustNames.snake(f.name())
+                : "self." + RustNames.snake(f.name());
         String signature = declared != null ? mutableGetterSignature(declared)
                 : visibility(m.access().isPrivate()) + mutableGetterSignature(m, f.type(), nullable);
-        return INDENT + signature + " {\n" + INDENT + INDENT + (nullable ? field + ".as_mut()" : "&mut " + field) + "\n"
-               + INDENT + "}\n";
+        String body = exclusiveBorrow ? (nullable ? field + ".as_deref_mut()" : "&mut *" + field)
+                : nullable ? field + ".as_mut()" : "&mut " + field;
+        return INDENT + signature + " {\n" + INDENT + INDENT + body + "\n" + INDENT + "}\n";
     }
 
     /* an interface getter's twin, from its declared result */

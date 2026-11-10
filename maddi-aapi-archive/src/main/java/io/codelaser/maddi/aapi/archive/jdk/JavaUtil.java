@@ -1567,20 +1567,20 @@ public class JavaUtil {
         @NotModified int nextClearBit(int fromIndex) { return 0; }
         @NotModified int previousSetBit(int fromIndex) { return 0; }
         @NotModified int previousClearBit(int fromIndex) { return 0; }
-        @NotModified boolean intersects(@NotNull BitSet set) { return false; }
+        @NotModified boolean intersects(@NotNull @Independent @NotModified BitSet set) { return false; }
         @NotModified byte [] toByteArray() { return null; }
         @NotModified long [] toLongArray() { return null; }
         @NotModified IntStream stream() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void and(@NotNull java.util.BitSet p0) { }
-        void andNot(@NotNull java.util.BitSet p0) { }
-        void or(@NotNull java.util.BitSet p0) { }
+        @Modified void and(@NotNull @Independent @NotModified java.util.BitSet p0) { }
+        @Modified void andNot(@NotNull @Independent @NotModified java.util.BitSet p0) { }
+        @Modified void or(@NotNull @Independent @NotModified java.util.BitSet p0) { }
         static java.util.BitSet valueOf(@NotNull java.nio.ByteBuffer p0) { return null; }
         static java.util.BitSet valueOf(@NotNull java.nio.LongBuffer p0) { return null; }
         static java.util.BitSet valueOf(@NotNull byte[] p0) { return null; }
         static java.util.BitSet valueOf(@NotNull long[] p0) { return null; }
-        void xor(@NotNull java.util.BitSet p0) { }
+        @Modified void xor(@NotNull @Independent @NotModified java.util.BitSet p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void clear() { }

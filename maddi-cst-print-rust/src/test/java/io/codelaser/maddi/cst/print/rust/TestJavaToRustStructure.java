@@ -28,7 +28,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 /** The shapes of a Java program as Rust items: trait, record, enum, constants, nullable state, the collections. */
@@ -582,6 +584,224 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         String rust = module("a.b");
         // was '-> &EdgesEdgeType', and '&EdgesEdgeType == EdgesEdgeType' (E0277; fernflower's StatEdge.EdgeType)
         contains(rust, "pub fn get_type(&self) -> EdgesEdgeType {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String KEYS = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Keys {
+                // fernflower's VBStyleCollection: a key of a type parameter
+                static class Coll<K> {
+                    private final Map<K, Integer> map = new HashMap<>();
+                    boolean has(K key) { return map.containsKey(key); }
+                }
+                static boolean probe(Coll<Integer> coll, int id) { return coll.has(id); }
+            }
+            """;
+
+    @DisplayName("an int passed where the callee borrows its type parameter: &i32")
+    @Test
+    public void copyArgumentOfTypeParameter() throws Exception {
+        List<TypeInfo> types = parse(KEYS);
+        TypeInfo keys = types.getFirst();
+        TypeInfo coll = keys.findSubType("Coll");
+        nonModifying(coll, "has");
+        nonModifying(keys, "probe");
+        borrowed(method(coll, "has").parameters().getFirst());
+        borrowed(method(keys, "probe").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "coll.has(&id)");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String TAGS = """
+            package a.b;
+            public class Tags {
+                static final int UTF8 = 1;
+                static final int INT = 3;
+                // fernflower's ConstantPool: a byte tag matched against int constants
+                static int kind(byte tag) {
+                    switch (tag) {
+                        case UTF8: return 0;
+                        case INT: return 1;
+                        default: return 2;
+                    }
+                }
+                static int kind2(short tag) {
+                    return switch (tag) {
+                        case UTF8 -> 0;
+                        case 2 -> 5;
+                        default -> 1;
+                    };
+                }
+            }
+            """;
+
+    @DisplayName("a byte or short switch over int constants: the selector widened")
+    @Test
+    public void byteSwitchOverIntConstants() throws Exception {
+        List<TypeInfo> types = parse(TAGS);
+        nonModifying(types.getFirst(), "kind", "kind2");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "match tag as i32 {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String VAR_TYPES = """
+            package a.b;
+            public class VarTypes {
+                // fernflower's VarType: an immutable class whose objects are shared in an Rc, and its constants
+                static final class VT {
+                    private final int t;
+                    VT(int t) { this.t = t; }
+                    int t() { return t; }
+                }
+                static final VT INT = new VT(1);
+                static int code() { return INT.t(); }
+                static VT intType() { return INT; }
+            }
+            """;
+
+    @DisplayName("a static constant held in an Rc: a thread_local, read as a handle")
+    @Test
+    public void rcConstant() throws Exception {
+        List<TypeInfo> types = parse(VAR_TYPES);
+        TypeInfo varTypes = types.getFirst();
+        TypeInfo vt = varTypes.findSubType("VT");
+        immutable(vt, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+        nonModifying(vt, "t");
+        nonModifying(varTypes, "code", "intType");
+        unmodifiedField(varTypes, "INT");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "thread_local! {");
+        contains(rust, "VAR_TYPES_INT.with(|v| v.clone())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String VERSIONS = """
+            package a.b;
+            import java.util.HashSet;
+            import java.util.Set;
+            public class Versions {
+                // fernflower's VarVersion: equals over ints, a cached hashCode
+                public static class Version {
+                    public final int var;
+                    public final int version;
+                    private int hashCode = -1;
+                    public Version(int var, int version) { this.var = var; this.version = version; }
+                    @Override public boolean equals(Object o) {
+                        return o instanceof Version v && var == v.var && version == v.version;
+                    }
+                    @Override public int hashCode() {
+                        if (hashCode == -1) hashCode = var * 31 + version;
+                        return hashCode;
+                    }
+                }
+                public static void addAll(Set<Version> to, Set<Version> from) { to.addAll(from); }
+            }
+            """;
+
+    @DisplayName("a class with its own equals over primitives: Clone, its pattern equals and caching hashCode compile")
+    @Test
+    public void valueClassClone() throws Exception {
+        List<TypeInfo> types = parse(VERSIONS);
+        TypeInfo versions = types.getFirst();
+        TypeInfo version = versions.findSubType("Version");
+        nonModifying(version, "equals");
+        modifying(version, "hashCode");
+        modifying(versions, "addAll");
+        exclusive(method(versions, "addAll").parameters().get(0));
+        borrowed(method(versions, "addAll").parameters().get(1));
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "#[derive(Clone)]\npub struct VersionsVersion {");
+        // equals' pattern on its parameter is PartialEq's other; the caching hashCode hashes a copy
+        contains(rust, "Some(other).is_some_and(|v|");
+        contains(rust, "state.write_i32(self.clone().hash_code());");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String VISITOR = """
+            package a.b;
+            public class Visits {
+                // fernflower's DirectGraph.ExprentIterator: a functional interface whose parameter may be null
+                public interface Visitor {
+                    int visit(Node node);
+                }
+                public static class Node {
+                    private int type;
+                    public int getType() { return type; }
+                    public int iterate(Visitor v) { return v.visit(this); }
+                }
+                public static int typeOf(Node root) {
+                    return root.iterate(e -> e.getType() == 2 ? 1 : 0);
+                }
+            }
+            """;
+
+    @DisplayName("a lambda's parameter that its interface declares nullable: unwrapped where used")
+    @Test
+    public void nullableLambdaParameter() throws Exception {
+        List<TypeInfo> types = parse(VISITOR);
+        TypeInfo visits = types.getFirst();
+        TypeInfo node = visits.findSubType("Node");
+        nonModifying(node, "getType", "iterate");
+        nonModifying(visits, "typeOf");
+        TypeInfo visitor = visits.findSubType("Visitor");
+        nonModifying(visitor, "visit");
+        borrowed(method(visitor, "visit").parameters().getFirst());
+        borrowed(method(node, "iterate").parameters().getFirst());
+        borrowed(method(visits, "typeOf").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("node")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "e.as_ref().unwrap().get_type()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String RANGE = """
+            package a.b;
+            import java.util.List;
+            public class Ranges {
+                // fernflower's ExceptionRangeCFG: a view on the caller's list, modified through its getter
+                public static class Range {
+                    private final List<String> blocks;
+                    public Range(List<String> blocks) { this.blocks = blocks; }
+                    public List<String> getBlocks() { return blocks; }
+                }
+                public static void drop(Range r) { r.getBlocks().clear(); }
+            }
+            """;
+
+    @DisplayName("a getter of a field that borrows exclusively: its twin reborrows")
+    @Test
+    public void exclusiveBorrowGetterTwin() throws Exception {
+        List<TypeInfo> types = parse(RANGE);
+        TypeInfo ranges = types.getFirst();
+        TypeInfo range = ranges.findSubType("Range");
+        nonModifying(range, "getBlocks");
+        modifying(ranges, "drop");
+        ParameterInfo blocks = range.constructors().getFirst().parameters().getFirst();
+        // kept and modified: a dependent parameter whose object is modified, '&'a mut'
+        blocks.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE);
+        blocks.analysis().set(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.DEPENDENT);
+        dependentResult(range, "getBlocks");
+        exclusive(method(ranges, "drop").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "&mut *self.blocks");
+        contains(rust, "r.get_blocks_mut().clear();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }
