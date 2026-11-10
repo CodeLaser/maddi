@@ -1506,10 +1506,12 @@ final class RustTypePrinter {
         String result = resultType(m);
         String generics = bounded(m.typeParameters(), false, context.facts.resultBorrows(m) != null
                                                              || RESULT_LIFETIME.equals(keptLifetime(m)));
-        if (self == null && result.contains("'_")) {
+        if (self == null && (result.contains("'_") || all.split("'_", -1).length > 2)) {
             // a static function outside a struct with the lifetime, returning a struct that has one
             // (ClassWriter.findAssertionField(node: &'r ClassNode<'_>) -> Option<&'r Shared<StructMember<'_>>>): with
-            // more than one input lifetime the result's cannot be elided (E0106); the structs' lifetime is the function's
+            // more than one input lifetime the result's cannot be elided (E0106); the structs' lifetime is the function's.
+            // Or taking two of them: Shared<T> and &mut T are invariant, so 'wrapper: &mut ClassWrapper<'_>, method:
+            // &Shared<MethodWrapper<'_>>' cannot share a Statement<'_>; Java has one lifetime, the program's
             all = all.replace("'_", STRUCT_LIFETIME);
             result = result.replace("'_", STRUCT_LIFETIME);
             generics = generics.isEmpty() ? "<" + STRUCT_LIFETIME + ">" : "<" + STRUCT_LIFETIME + ", " + generics.substring(1);

@@ -1060,6 +1060,8 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                 }
                 // ClassWriter.findAssertionField: a static function handing out a struct with a lifetime
                 public static View first(List<View> views) { return views.get(0); }
+                // ClassWrapper and MethodWrapper in one static function: one lifetime for both
+                public static void move(List<View> from, List<View> to) { to.add(from.remove(0)); }
             }
             """;
 
@@ -1074,10 +1076,15 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         nonModifying(views, "first");
         borrowed(method(views, "first").parameters().getFirst());
         dependentResult(views, "first");
+        modifying(views, "move");
+        exclusive(method(views, "move").parameters().get(0));
+        exclusive(method(views, "move").parameters().get(1));
         translate(types);
         String rust = module("a.b");
         List<String> errors = rustcErrors();
-        assertTrue(errors.stream().noneMatch(e -> e.contains("E0106")), () -> String.join("\n", errors) + "\n" + rust);
+        assertTrue(errors.stream().noneMatch(e -> e.contains("E0106") || e.contains("lifetime may not live long enough")),
+                () -> String.join("\n", errors) + "\n" + rust);
+        contains(rust, "fn r#move<'s>(");
     }
 
     @Language("java")
