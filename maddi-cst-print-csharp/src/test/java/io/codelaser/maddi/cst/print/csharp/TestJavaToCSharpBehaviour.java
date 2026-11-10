@@ -975,4 +975,31 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 """);
         contains(cs, "?? throw new NullReferenceException(Message(\"z\"))");
     }
+
+    /**
+     * A functional interface nested in an interface is implicitly public in Java: the hoisted delegate is public, as
+     * the interface's public static method that takes it needs (CS0051).
+     */
+    @Test
+    public void delegateNestedInInterface() {
+        String cs = behaves("NestedDelegate", """
+                package a;
+                public class NestedDelegate {
+                    public interface Impacter<T> {
+                        T impact(int weight);
+                        static <T> Impacter<T> of(Weigher<T> weigher) {
+                            return w -> weigher.weigh(w, 2);
+                        }
+                        interface Weigher<T> {
+                            T weigh(int weight, int factor);
+                        }
+                    }
+                    public static void main(String[] args) {
+                        Impacter<String> impacter = Impacter.of((w, f) -> "w" + (w * f));
+                        System.out.println(impacter.impact(21));
+                    }
+                }
+                """);
+        contains(cs, "public delegate T Weigher<out T>(int weight, int factor);");
+    }
 }

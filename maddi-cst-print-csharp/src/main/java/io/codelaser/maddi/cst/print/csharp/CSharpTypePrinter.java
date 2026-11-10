@@ -322,7 +322,12 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
         // a hoisted type is in the namespace, where C# has no private or protected
         if (CSharpNames.hoisted(typeInfo)) {
-            return "public".equals(CSharpModifiers.access(typeInfo, CstQueries.enclosing(typeInfo))) ? "public" : "internal";
+            // a member of an interface is public, which C# writes as no modifier (null): a functional interface nested
+            // in an interface is a public delegate, as the interface's public static methods that take it need (CS0051)
+            TypeInfo enclosing = CstQueries.enclosing(typeInfo);
+            String access = CSharpModifiers.access(typeInfo, enclosing);
+            return "public".equals(access) || access == null && enclosing != null && enclosing.isInterface()
+                   ? "public" : "internal";
         }
         return CSharpModifiers.access(typeInfo, CstQueries.enclosing(typeInfo));
     }
