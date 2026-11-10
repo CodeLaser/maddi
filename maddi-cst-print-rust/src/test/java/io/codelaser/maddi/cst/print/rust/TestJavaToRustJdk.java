@@ -504,6 +504,34 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String TEXTS = """
+            package a.b;
+            import java.util.Locale;
+            public class Texts {
+                // fernflower's DotExporter: 'id.replaceAll("_try", "999")', a regex without metacharacters
+                public static String id(String id) { return id.replaceAll("_try", "999"); }
+                // ConverterHelper: 'value.toLowerCase(Locale.ENGLISH)'
+                public static String lower(String s) { return s.toLowerCase(Locale.ENGLISH); }
+                public static String upper(String s) { return s.toUpperCase(Locale.ROOT); }
+            }
+            """;
+
+    @DisplayName("replaceAll with a literal pattern; a case mapping with a Locale")
+    @Test
+    public void stringMappings() throws Exception {
+        List<TypeInfo> types = parse(TEXTS);
+        TypeInfo texts = types.getFirst();
+        nonModifying(texts, "id", "lower", "upper");
+        for (String m : List.of("id", "lower", "upper")) borrowed(method(texts, m).parameters().getFirst());
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "id.replace(\"_try\", \"999\")");
+        contains(rust, "s.to_lowercase()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String BORROWED_NULLABLE = """
             package a.b;
             public class Names {

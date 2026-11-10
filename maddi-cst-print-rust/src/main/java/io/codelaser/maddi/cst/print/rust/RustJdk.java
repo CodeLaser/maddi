@@ -456,6 +456,14 @@ final class RustJdk {
         return value(macro + "(\"" + d[0] + "\", " + d[1] + ")");
     }
 
+    private static boolean literalRegex(Expression e) {
+        return e instanceof StringConstant sc && sc.constant().chars().noneMatch(c -> "\\^$.|?*+()[]{}".indexOf(c) >= 0);
+    }
+
+    private static boolean literalReplacement(Expression e) {
+        return e instanceof StringConstant sc && sc.constant().chars().noneMatch(c -> c == '$' || c == '\\');
+    }
+
     private static Printed string(String o, String name, List<Expression> args, RustBodyPrinter printer,
                                   MethodCall mc) {
         int n = args.size();
@@ -471,8 +479,9 @@ final class RustJdk {
             case "endsWith/1" -> value(o + ".ends_with(" + printer.reference(args.getFirst()) + ")");
             case "trim/0", "strip/0" -> value(o + ".trim().to_string()");
             case "toCharArray/0" -> value(o + ".chars().collect::<Vec<char>>()");
-            case "toUpperCase/0" -> value(o + ".to_uppercase()");
-            case "toLowerCase/0" -> value(o + ".to_lowercase()");
+            // with a Locale (Locale.ENGLISH, ROOT): Rust's case mapping is the locale-independent one
+            case "toUpperCase/0", "toUpperCase/1" -> value(o + ".to_uppercase()");
+            case "toLowerCase/0", "toLowerCase/1" -> value(o + ".to_lowercase()");
             case "toString/0" -> value(o + ".to_string()");
             case "charAt/1" -> {
                 printer.context().message(RustPrintCode.STRING_UNITS, mc, "charAt");
@@ -502,6 +511,11 @@ final class RustJdk {
                     value(o + ".rfind(" + pattern(args.getFirst(), printer) + ").map(|i| i as i32).unwrap_or(-1)");
             case "replace/2" -> value(o + ".replace(" + pattern(args.get(0), printer) + ", "
                                       + replacement(args.get(1), printer) + ")");
+            // a regex without metacharacters and a replacement without groups ('id.replaceAll("_try", "999")'): the
+            // literal replace; any other pattern needs a regex engine, not translated
+            case "replaceAll/2" -> literalRegex(args.get(0)) && literalReplacement(args.get(1))
+                    ? value(o + ".replace(" + pattern(args.get(0), printer) + ", " + replacement(args.get(1), printer) + ")")
+                    : null;
             case "split/1" -> value(o + ".split(" + pattern(args.getFirst(), printer)
                                     + ").map(|s| s.to_string()).collect::<Vec<_>>()");
             case "compareTo/1" -> value("(" + o + ".cmp(" + printer.reference(args.getFirst()) + ") as i32)");
