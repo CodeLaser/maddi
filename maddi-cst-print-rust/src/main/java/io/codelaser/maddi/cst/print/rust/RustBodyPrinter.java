@@ -1869,8 +1869,8 @@ final class RustBodyPrinter {
             name = RustHierarchies.current().implementationName(callee);
         }
         boolean exclusive = !callee.isStatic() && (mutableGetter || context.facts.receiver(callee) == Receiver.EXCLUSIVE);
-        String args = exclusive ? withoutSelfBorrows(mc.parameterExpressions(), callee)
-                : arguments(mc.parameterExpressions(), callee);
+        List<String> exclusiveArgs = exclusive ? withoutSelfBorrowsList(mc.parameterExpressions(), callee) : null;
+        String args = exclusive ? String.join(", ", exclusiveArgs) : arguments(mc.parameterExpressions(), callee);
         String call;
         if (callee.isStatic()) {
             TypeInfo owner = callee.typeInfo();
@@ -1913,7 +1913,15 @@ final class RustBodyPrinter {
             TypeInfo objectType = own ? context.type : mc.object().parameterizedType().typeInfo();
             // an inherited method is the base's; super.m() too
             String path = objectType == null ? "" : RustTypePrinter.basePath(objectType, callee.typeInfo());
-            call = object + path + "." + name + "(" + args + ")";
+            // through a Shared handle's DerefMut only: a plain &mut receiver has Rust's two-phase borrow
+            String hoisted = exclusive && !own && RustShared.current().isShared(mc.object().parameterizedType())
+                    ? hoistReceiverReads(object, exclusiveArgs, callee) : null;
+            if (hoisted != null) {
+                int bar = hoisted.indexOf('\u0000');
+                call = "{ " + hoisted.substring(0, bar) + object + path + "." + name + "(" + hoisted.substring(bar + 1) + ") }";
+            } else {
+                call = object + path + "." + name + "(" + args + ")";
+            }
         }
         boolean nullable = !callee.isVoid() && RustFacts.nullable(context.facts.returnType(callee));
         if (callee.isVoid() || RustTypes.isCopy(callee.returnType())) return new Printed(call, Held.VALUE, nullable);
@@ -1997,6 +2005,10 @@ final class RustBodyPrinter {
      * copy, as a borrow of it could not live beside the exclusive one (Java shares an immutable string freely).
      */
     private String withoutSelfBorrows(List<Expression> arguments, MethodInfo callee) {
+        return String.join(", ", withoutSelfBorrowsList(arguments, callee));
+    }
+
+    private List<String> withoutSelfBorrowsList(List<Expression> arguments, MethodInfo callee) {
         boolean outer = mutatingPlace(false); // an argument is read, also of a call on a place written through
         try {
             return withoutSelfBorrows0(arguments, callee);
@@ -2005,7 +2017,7 @@ final class RustBodyPrinter {
         }
     }
 
-    private String withoutSelfBorrows0(List<Expression> arguments, MethodInfo callee) {
+    private List<String> withoutSelfBorrows0(List<Expression> arguments, MethodInfo callee) {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Expression a = arguments.get(i);
@@ -2027,7 +2039,35 @@ final class RustBodyPrinter {
                 out.add(pi == null ? p.text : argument(p, pi, a));
             }
         }
-        return String.join(", ", out);
+        return out;
+    }
+
+    /*
+     'stack.insertByOffset(d, stack.getByOffset(-1).copy())': the call borrows its object exclusively while an argument
+     still reads it, which Rust's two-phase borrow does not allow through a Shared handle's DerefMut (E0502). An
+     argument passed by value that reads the object is computed first, as Java evaluates it before the call anyway:
+     '{ let __a1 = …; stack.insert_by_offset(d, __a1) }'. Answers the lets and, after a NUL, the arguments; null when
+     no argument needs it, or the object is not a plain local or parameter.
+     */
+    private String hoistReceiverReads(String object, List<String> printed, MethodInfo callee) {
+        if (!object.matches("(r#)?[a-z_][a-z0-9_]*") || "self".equals(object)) return null;
+        java.util.regex.Pattern root = java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(object) + "\\b");
+        StringBuilder lets = new StringBuilder();
+        List<String> out = new ArrayList<>();
+        boolean any = false;
+        for (int i = 0; i < printed.size(); i++) {
+            String text = printed.get(i);
+            ParameterInfo pi = i < callee.parameters().size() ? callee.parameters().get(i) : null;
+            boolean byValue = pi != null && (RustTypes.isCopy(pi.parameterizedType()) || context.passing(pi) == Passing.OWNED);
+            if (byValue && root.matcher(text).find() && !text.startsWith("&")) {
+                lets.append("let __a").append(i).append(" = ").append(text).append("; ");
+                out.add("__a" + i);
+                any = true;
+            } else {
+                out.add(text);
+            }
+        }
+        return any ? lets + "\u0000" + String.join(", ", out) : null;
     }
 
     /** A method reference's closure parameters, each a place (see {@link #parameter}), adapted to the callee's. */

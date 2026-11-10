@@ -292,6 +292,8 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
                 public static class Stack {
                     private final List<Integer> items = new ArrayList<>();
                     public void push(int i) { items.add(i); }
+                    public int top() { return items.get(items.size() - 1); }
+                    public void insert(int at, int v) { items.add(at, v); }
                 }
                 // fernflower's DataPoint
                 public static class Data {
@@ -315,6 +317,11 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
                 public static void pushThrough(Data data) {
                     data.getStack().push(5);
                 }
+                // InstructionImpact: 'stack.insertByOffset(depth, stack.getByOffset(-1).copy())'
+                public static void dup(Data data) {
+                    Stack s = data.getStack();
+                    s.insert(0, s.top());
+                }
             }
             """;
 
@@ -325,10 +332,12 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         TypeInfo point = types.getFirst();
         TypeInfo stack = point.findSubType("Stack");
         TypeInfo data = point.findSubType("Data");
-        modifying(stack, "push");
+        modifying(stack, "push", "insert");
+        nonModifying(stack, "top");
         modifying(data, "setStack");
         nonModifying(data, "getStack", "getStacks");
-        modifying(point, "step", "pushAll", "pushThrough");
+        modifying(point, "step", "pushAll", "pushThrough", "dup");
+        exclusive(method(point, "dup").parameters().getFirst());
         kept(method(data, "setStack").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
         dependentResult(data, "getStack");
         dependentResult(data, "getStacks");
@@ -341,6 +350,7 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         contains(rust, "let mut stack = data.get_stack().clone();");
         contains(rust, "for mut s in data.get_stacks().iter().cloned().collect::<Vec<_>>() {");
         contains(rust, "data.get_stack().clone().push(5);");
+        contains(rust, "{ let __a1 = s.top(); s.insert(0, __a1) }");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
