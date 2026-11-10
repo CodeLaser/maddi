@@ -794,6 +794,7 @@ final class RustJdk {
                     ? value(o + ".iter().any(|__e| " + elementEquals(mc, args.getFirst(), printer) + ")")
                     : value(o + ".contains(" + printer.reference(args.getFirst()) + ")");
             case "addAll/1" -> value(o + ".extend(" + printer.text(args.getFirst()) + ".iter().cloned())");
+            case "removeAll/1", "retainAll/1", "containsAll/1" -> bulk(o, name, args, printer);
             case "getFirst/0" -> RustBodyPrinter.printed(o + "[0]", Held.PLACE, false);
             case "subList/2" -> {
                 printer.context().message(RustPrintCode.SUBLIST_COPY, mc, null);
@@ -877,12 +878,27 @@ final class RustJdk {
         };
     }
 
+    /**
+     * A collection's bulk operations against another collection: {@code retain} keeps the elements the other one
+     * contains, or does not ({@code removeAll}); {@code containsAll} asks each of the other's. The other is borrowed
+     * for the call. Java's boolean result (whether the collection changed) is not computed.
+     */
+    private static Printed bulk(String o, String name, List<Expression> args, RustBodyPrinter printer) {
+        String other = printer.text(args.getFirst());
+        return switch (name) {
+            case "removeAll" -> value("{ let __c = &" + other + "; " + o + ".retain(|__e| !__c.contains(__e)); }");
+            case "retainAll" -> value("{ let __c = &" + other + "; " + o + ".retain(|__e| __c.contains(__e)); }");
+            default -> value(other + ".iter().all(|__e| " + o + ".contains(__e))");
+        };
+    }
+
     private static Printed set(String o, String name, List<Expression> args, RustBodyPrinter printer,
                                ParameterizedType element) {
         int n = args.size();
         return switch (name + "/" + n) {
             case "forEach/1" -> value(o + ".iter().for_each(" + printer.text(args.getFirst()) + ")");
             case "addAll/1" -> value(o + ".extend(" + printer.text(args.getFirst()) + ".iter().cloned())");
+            case "removeAll/1", "retainAll/1", "containsAll/1" -> bulk(o, name, args, printer);
             // a set's elements are not Options: a nullable value is unwrapped, as a list's add does
             case "add/1" -> value(o + ".insert(" + printer.ownedAs(args.getFirst(), element) + ")");
             case "contains/1" -> value(o + ".contains(" + printer.reference(args.getFirst()) + ")");

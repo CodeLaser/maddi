@@ -297,4 +297,50 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         assertEquals(1, errors.size(), () -> String.join("\n", errors) + "\n" + rust);
         assertTrue(errors.getFirst().contains("E0599") && errors.getFirst().contains("File"), errors::toString);
     }
+
+    @Language("java")
+    private static final String BULK = """
+            package a.b;
+            import java.util.HashSet;
+            import java.util.List;
+            import java.util.Set;
+            public class Bulk {
+                // fernflower's ExceptionDeobfuscator: sets intersected and subtracted
+                public static void intersect(Set<Integer> common, List<Integer> successors) {
+                    common.retainAll(successors);
+                }
+                public static void subtract(Set<String> all, Set<String> stacked) {
+                    all.removeAll(stacked);
+                }
+                public static boolean covers(Set<String> all, List<String> some) {
+                    return all.containsAll(some);
+                }
+                public static void drop(List<Integer> list, Set<Integer> gone) {
+                    list.removeAll(gone);
+                }
+            }
+            """;
+
+    @DisplayName("removeAll, retainAll and containsAll of sets and lists")
+    @Test
+    public void bulkOperations() throws Exception {
+        List<TypeInfo> types = parse(BULK);
+        TypeInfo bulk = types.getFirst();
+        modifying(bulk, "intersect", "subtract", "drop");
+        nonModifying(bulk, "covers");
+        exclusive(method(bulk, "intersect").parameters().get(0));
+        borrowed(method(bulk, "intersect").parameters().get(1));
+        exclusive(method(bulk, "subtract").parameters().get(0));
+        borrowed(method(bulk, "subtract").parameters().get(1));
+        method(bulk, "covers").parameters().forEach(CommonJavaToRust::borrowed);
+        exclusive(method(bulk, "drop").parameters().get(0));
+        borrowed(method(bulk, "drop").parameters().get(1));
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, ".retain(|__e| __c.contains(__e));");
+        contains(rust, ".retain(|__e| !__c.contains(__e));");
+        contains(rust, ".iter().all(|__e| ");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
