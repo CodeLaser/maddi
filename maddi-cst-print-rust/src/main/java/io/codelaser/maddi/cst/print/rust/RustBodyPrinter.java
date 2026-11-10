@@ -632,8 +632,18 @@ final class RustBodyPrinter {
         LocalVariable lv = fe.initializer().localVariable();
         String name = RustNames.snake(lv.simpleName());
         boolean mutated = mutated(lv);
-        Printed collection = mutated ? mutable(fe.expression()) : expression(fe.expression());
+        boolean handles = mutated && RustShared.current().isShared(lv.parameterizedType());
+        Printed collection = mutated && !handles ? mutable(fe.expression()) : expression(fe.expression());
         String iterator;
+        if (handles && !RustJdk.isIterator(collection.text)) {
+            // shared objects modified through the loop variable ('for (Statement st : stat.getStats()) st.x()'): a
+            // snapshot of the handles, each one Java's reference, so that neither the list nor its holder is borrowed
+            // while the body runs
+            String c = collection.nullable ? receiver(fe.expression(), false) : collection.text;
+            locals.put(lv, Held.VALUE);
+            return pad + label + "for mut " + name + " in " + c + ".iter().cloned().collect::<Vec<_>>() {\n"
+                   + statements(fe.block(), depth + 1) + pad + "}\n";
+        }
         if (RustJdk.isIterator(collection.text)) {
             iterator = collection.text;
         } else {

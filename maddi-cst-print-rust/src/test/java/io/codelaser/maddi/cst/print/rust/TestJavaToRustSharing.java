@@ -296,7 +296,9 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
                 // fernflower's DataPoint
                 public static class Data {
                     private Stack stack = new Stack();
+                    private final List<Stack> stacks = new ArrayList<>();
                     public Stack getStack() { return stack; }
+                    public List<Stack> getStacks() { return stacks; }
                     public void setStack(Stack s) { stack = s; }
                 }
                 // InstructionImpact.stepTypes: the stack, read through the getter, is modified through a local
@@ -305,10 +307,14 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
                     stack.push(1);
                     stack.push(2);
                 }
+                // fernflower's 'for (Statement st : stat.getStats())', modifying each
+                public static void pushAll(Data data) {
+                    for (Stack s : data.getStacks()) s.push(3);
+                }
             }
             """;
 
-    @DisplayName("a shared object modified through a local: the local is a handle of its own")
+    @DisplayName("a shared object modified through a local or a loop variable: a handle of its own")
     @Test
     public void localHandle() throws Exception {
         List<TypeInfo> types = parse(POINT);
@@ -317,15 +323,18 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         TypeInfo data = point.findSubType("Data");
         modifying(stack, "push");
         modifying(data, "setStack");
-        nonModifying(data, "getStack");
-        modifying(point, "step");
+        nonModifying(data, "getStack", "getStacks");
+        modifying(point, "step", "pushAll");
         kept(method(data, "setStack").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
         dependentResult(data, "getStack");
+        dependentResult(data, "getStacks");
         exclusive(method(point, "step").parameters().getFirst());
+        exclusive(method(point, "pushAll").parameters().getFirst());
         RustTranslator.Result result = translate(types, nullable(java.util.Set.of()));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "let mut stack = data.get_stack().clone();");
+        contains(rust, "for mut s in data.get_stacks().iter().cloned().collect::<Vec<_>>() {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }
