@@ -929,4 +929,43 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "std::sync::LazyLock::new(|| Prefs::get_defaults())");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String HANDLERS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Tables {
+                public static class Handler {
+                    private int h;
+                    public void setH(int h) { this.h = h; }
+                }
+                // fernflower's ExceptionTable
+                public static class Table {
+                    private final List<Handler> handlers = new ArrayList<>();
+                    public List<Handler> getHandlers() { return handlers; }
+                }
+                // CodeConstants' 'for (ExceptionHandler handler : extable.getHandlers()) handler.setHandler(…)'
+                public static void shift(Table t) {
+                    for (Handler h : t.getHandlers()) h.setH(1);
+                }
+            }
+            """;
+
+    @DisplayName("a loop modifying the elements of a getter's list: the getter's exclusive twin")
+    @Test
+    public void loopOverMutableGetter() throws Exception {
+        List<TypeInfo> types = parse(HANDLERS);
+        TypeInfo tables = types.getFirst();
+        modifying(tables.findSubType("Handler"), "setH");
+        TypeInfo table = tables.findSubType("Table");
+        nonModifying(table, "getHandlers");
+        dependentResult(table, "getHandlers");
+        modifying(tables, "shift");
+        exclusive(method(tables, "shift").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "for h in t.get_handlers_mut().iter_mut() {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

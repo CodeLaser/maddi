@@ -33,6 +33,9 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.statement.ForEachStatement;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 /**
@@ -121,11 +124,34 @@ final class RustGetters {
                 }
                 case Assignment a when a.variableTarget() instanceof FieldReference fr && fr.scope() != null ->
                         through(fr.scope(), facts, out);
+                // 'for (ExceptionHandler h : extable.getHandlers()) h.setHandler(…)': the elements, modified through
+                // the loop variable, are the getter's list's
+                case ForEachStatement fe when fe.initializer().localVariable() != null
+                                               && modifiesThrough(fe.block(), fe.initializer().localVariable(), facts) ->
+                        through(fe.expression(), facts, out);
                 default -> { }
             }
             return true;
         }));
         type.subTypes().forEach(sub -> visit(sub, facts, out));
+    }
+
+    // a call that modifies, or a field assignment, on the variable itself
+    private static boolean modifiesThrough(Element body, Variable v, RustFacts facts) {
+        boolean[] found = {false};
+        body.visit(e -> {
+            if (found[0]) return false;
+            if (e instanceof MethodCall mc && mc.object() != null
+                && CstQueries.unwrap(mc.object()) instanceof VariableExpression ve && v.equals(ve.variable())
+                && modifying(mc, facts)) {
+                found[0] = true;
+            } else if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr && fr.scope() != null
+                       && CstQueries.unwrap(fr.scope()) instanceof VariableExpression ve && v.equals(ve.variable())) {
+                found[0] = true;
+            }
+            return !found[0];
+        });
+        return found[0];
     }
 
     private static boolean modifying(MethodCall mc, RustFacts facts) {
