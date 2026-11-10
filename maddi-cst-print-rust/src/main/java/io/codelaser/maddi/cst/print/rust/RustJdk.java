@@ -108,6 +108,31 @@ final class RustJdk {
         return value(o + "." + RustNames.snake(name) + "(" + all + ")");
     }
 
+    static final String BIT_SET = "crate::jrt::BitSet";
+
+    /**
+     * A call on jrt.rs's {@code BitSet}. Rust has no overloading: {@code set(from, to)} is {@code set_range}, {@code
+     * set(i, v)} is {@code set_to}. {@code or(other)} reads the other set, a borrow; a nullable one is unwrapped.
+     */
+    private static Printed bitSet(MethodCall mc, RustBodyPrinter printer) {
+        List<Expression> args = mc.parameterExpressions();
+        String name = mc.methodInfo().name();
+        boolean modifying = Set.of("set", "clear", "or", "and", "andNot", "xor", "flip").contains(name);
+        String o = printer.receiver(mc.object(), modifying);
+        return switch (name + "/" + args.size()) {
+            case "set/2" -> value(o + (args.get(1).parameterizedType().isBoolean() ? ".set_to(" : ".set_range(")
+                                  + printer.arguments(args, null) + ")");
+            case "clear/2" -> value(o + ".clear_range(" + printer.arguments(args, null) + ")");
+            case "clear/0" -> value(o + ".clear_all()");
+            case "or/1", "and/1", "andNot/1", "xor/1", "intersects/1" -> value(o + "." + RustNames.snake(name) + "(&"
+                    + printer.receiver(args.getFirst(), false) + ")");
+            case "set/1", "get/1", "clear/1", "flip/1", "nextSetBit/1", "nextClearBit/1", "length/0", "size/0",
+                 "cardinality/0", "isEmpty/0" ->
+                    value(o + "." + RustNames.snake(name) + "(" + printer.arguments(args, null) + ")");
+            default -> null;
+        };
+    }
+
     static Printed call(MethodCall mc, RustBodyPrinter printer) {
         MethodInfo m = mc.methodInfo();
         TypeInfo owner = m.typeInfo();
@@ -128,6 +153,7 @@ final class RustJdk {
         if ("java.io.DataInputStream".equals(fqn) || "java.io.InputStream".equals(fqn)) {
             return stream(mc, printer);
         }
+        if ("java.util.BitSet".equals(fqn)) return bitSet(mc, printer);
         String o = "Option".equals(RustTypes.mapped(owner)) || fqn.startsWith("java.util.stream.")
                 ? printer.text(mc.object()) : printer.receiver(mc.object(), modifies(mc) || mutating);
         if ("java.lang.Enum".equals(fqn)) {
@@ -1023,6 +1049,10 @@ final class RustJdk {
         String mapped = RustTypes.mapped(ti);
         if (mapped == null) return null;
         List<Expression> args = cc.parameterExpressions();
+        if (BIT_SET.equals(mapped)) {
+            // new BitSet(), new BitSet(nbits): nbits is only a capacity
+            return value(args.isEmpty() ? BIT_SET + "::new()" : BIT_SET + "::with_capacity(" + printer.text(args.getFirst()) + ")");
+        }
         if ("String".equals(mapped)) {
             return value(args.isEmpty() ? "String::new()" : printer.text(args.getFirst()) + ".to_string()");
         }

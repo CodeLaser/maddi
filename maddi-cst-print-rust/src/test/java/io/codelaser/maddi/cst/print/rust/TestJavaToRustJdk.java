@@ -226,4 +226,58 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "let minor = r#in.as_mut().unwrap().read_unsigned_short();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String BIT_SETS = """
+            package a.b;
+            import java.util.BitSet;
+            public class Offsets {
+                // fernflower's Exprent.bytecode
+                public BitSet bytecode = null;
+                public void addBytecodeOffsets(BitSet bytecodeOffsets) {
+                    if (bytecodeOffsets != null) {
+                        if (bytecode == null) bytecode = new BitSet();
+                        bytecode.or(bytecodeOffsets);
+                    }
+                }
+                public static BitSet range(int offset, int length) {
+                    BitSet offsets = new BitSet();
+                    offsets.set(offset);
+                    offsets.set(offset, offset + length);
+                    return offsets;
+                }
+                // ConstantPool's passes
+                public static int count(int size) {
+                    BitSet pass = new BitSet(size);
+                    pass.set(1);
+                    pass.set(size - 1);
+                    int idx = 0, n = 0;
+                    while ((idx = pass.nextSetBit(idx + 1)) > 0) n++;
+                    return n + (pass.get(0) ? 100 : 0) + pass.length();
+                }
+                public static Object file(String name) { return new java.io.File(name); }
+            }
+            """;
+
+    @DisplayName("java.util.BitSet as jrt.rs's: set, set(from, to), or of a nullable field, nextSetBit, length")
+    @Test
+    public void bitSets() throws Exception {
+        List<TypeInfo> types = parse(BIT_SETS);
+        TypeInfo offsets = types.getFirst();
+        modifying(offsets, "addBytecodeOffsets");
+        borrowed(method(offsets, "addBytecodeOffsets").parameters().getFirst());
+        nonModifying(offsets, "range", "count", "file");
+        RustTranslator.Result result = translate(types, nullable(Set.of("bytecode", "bytecodeOffsets")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "pub bytecode: Option<crate::jrt::BitSet>,");
+        contains(rust, "offsets.set_range(offset, offset + length);");
+        contains(rust, "let mut pass = crate::jrt::BitSet::with_capacity(size);");
+        // an unmapped JDK constructor names the opaque stand-in, as its type does
+        contains(rust, "crate::jrt::File::new(");
+        List<String> errors = rustcErrors();
+        // only the opaque File's constructor, which does not exist
+        assertEquals(1, errors.size(), () -> String.join("\n", errors) + "\n" + rust);
+        assertTrue(errors.getFirst().contains("E0599") && errors.getFirst().contains("File"), errors::toString);
+    }
 }

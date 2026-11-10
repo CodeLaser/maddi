@@ -281,6 +281,101 @@ public final class RustTranslator {
                 pub fn close(&mut self) {}
             }
 
+            /// `java.util.BitSet`: Java's semantics, the words growing as bits are set.
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+            pub struct BitSet {
+                words: Vec<u64>,
+            }
+
+            impl BitSet {
+                pub fn new() -> Self { BitSet { words: Vec::new() } }
+                pub fn with_capacity(nbits: i32) -> Self {
+                    BitSet { words: Vec::with_capacity(((nbits.max(0) as usize) + 63) / 64) }
+                }
+                fn index(i: i32) -> usize {
+                    if i < 0 { panic!("IndexOutOfBoundsException: {}", i); }
+                    i as usize
+                }
+                pub fn set(&mut self, i: i32) {
+                    let i = Self::index(i);
+                    if i / 64 >= self.words.len() { self.words.resize(i / 64 + 1, 0); }
+                    self.words[i / 64] |= 1u64 << (i % 64);
+                }
+                pub fn set_to(&mut self, i: i32, value: bool) {
+                    if value { self.set(i) } else { self.clear(i) }
+                }
+                /// `set(from, to)`: from inclusive, to exclusive
+                pub fn set_range(&mut self, from: i32, to: i32) {
+                    for i in from..to { self.set(i); }
+                }
+                pub fn clear(&mut self, i: i32) {
+                    let i = Self::index(i);
+                    if let Some(w) = self.words.get_mut(i / 64) { *w &= !(1u64 << (i % 64)); }
+                    self.trim();
+                }
+                pub fn clear_range(&mut self, from: i32, to: i32) {
+                    for i in from..to { self.clear(i); }
+                }
+                pub fn clear_all(&mut self) { self.words.clear(); }
+                pub fn flip(&mut self, i: i32) {
+                    if self.get(i) { self.clear(i) } else { self.set(i) }
+                }
+                pub fn get(&self, i: i32) -> bool {
+                    let i = Self::index(i);
+                    self.words.get(i / 64).is_some_and(|w| w & (1u64 << (i % 64)) != 0)
+                }
+                /// the index of the first set bit at or after `from`; -1 when there is none
+                pub fn next_set_bit(&self, from: i32) -> i32 {
+                    let mut i = Self::index(from);
+                    while i / 64 < self.words.len() {
+                        let w = self.words[i / 64] >> (i % 64);
+                        if w != 0 { return (i + w.trailing_zeros() as usize) as i32; }
+                        i = (i / 64 + 1) * 64;
+                    }
+                    -1
+                }
+                pub fn next_clear_bit(&self, from: i32) -> i32 {
+                    let mut i = Self::index(from);
+                    while self.get(i as i32) { i += 1; }
+                    i as i32
+                }
+                /// one more than the highest set bit; 0 when none is set
+                pub fn length(&self) -> i32 {
+                    match self.words.iter().rposition(|w| *w != 0) {
+                        Some(k) => (k * 64 + 64 - self.words[k].leading_zeros() as usize) as i32,
+                        None => 0,
+                    }
+                }
+                /// the bits in use: a multiple of 64
+                pub fn size(&self) -> i32 { (self.words.capacity().max(self.words.len()) * 64) as i32 }
+                pub fn cardinality(&self) -> i32 { self.words.iter().map(|w| w.count_ones() as i32).sum() }
+                pub fn is_empty(&self) -> bool { self.words.iter().all(|w| *w == 0) }
+                pub fn or(&mut self, other: &BitSet) {
+                    if other.words.len() > self.words.len() { self.words.resize(other.words.len(), 0); }
+                    for (w, o) in self.words.iter_mut().zip(&other.words) { *w |= o; }
+                }
+                pub fn and(&mut self, other: &BitSet) {
+                    for (k, w) in self.words.iter_mut().enumerate() { *w &= other.words.get(k).copied().unwrap_or(0); }
+                    self.trim();
+                }
+                pub fn and_not(&mut self, other: &BitSet) {
+                    for (w, o) in self.words.iter_mut().zip(&other.words) { *w &= !o; }
+                    self.trim();
+                }
+                pub fn xor(&mut self, other: &BitSet) {
+                    if other.words.len() > self.words.len() { self.words.resize(other.words.len(), 0); }
+                    for (w, o) in self.words.iter_mut().zip(&other.words) { *w ^= o; }
+                    self.trim();
+                }
+                pub fn intersects(&self, other: &BitSet) -> bool {
+                    self.words.iter().zip(&other.words).any(|(w, o)| w & o != 0)
+                }
+                /// no trailing zero words: Java's equals compares the set bits, which derived PartialEq then does
+                fn trim(&mut self) {
+                    while self.words.last() == Some(&0) { self.words.pop(); }
+                }
+            }
+
             /// A byte[] as the translation holds it: owned, borrowed, nullable.
             pub trait Bytes {
                 fn into_bytes(self) -> Vec<i8>;

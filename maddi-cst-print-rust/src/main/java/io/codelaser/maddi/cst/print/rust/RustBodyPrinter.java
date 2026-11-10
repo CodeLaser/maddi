@@ -1801,7 +1801,9 @@ final class RustBodyPrinter {
             Printed mapped = RustJdk.construct(cc, this);
             if (mapped != null) return mapped;
             context.message(RustPrintCode.UNMAPPED_JDK_CALL, cc, ti.fullyQualifiedName());
-            return value(ti.simpleName() + "::new(" + arguments(cc.parameterExpressions(), null) + ")");
+            // the opaque stand-in's path, as its type is printed: a bare simple name is not in scope
+            return value(RustTypes.owned(ti.asSimpleParameterizedType(), context, cc) + "::new("
+                         + arguments(cc.parameterExpressions(), null) + ")");
         }
         // a generic struct, or one with a lifetime, is named: 'Self' would fix the impl's type arguments or lifetime
         String owner = ti == context.type && !context.borrows.hasLifetime(ti) && ti.typeParameters().isEmpty()
