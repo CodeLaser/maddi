@@ -786,7 +786,8 @@ final class RustBodyPrinter {
     /** {@code match selector { A | B => { … } _ => {} }}: a switch statement does nothing for a missing case. */
     private String switchNewStyle(SwitchStatementNewStyle sw, int depth) {
         String pad = INDENT.repeat(depth);
-        StringBuilder sb = new StringBuilder("match " + selector(sw.expression()) + " {\n");
+        StringBuilder sb = new StringBuilder("match " + selector(sw.expression(),
+                sw.entries().stream().flatMap(e -> e.conditions().stream()).toList()) + " {\n");
         List<Expression> labels = new ArrayList<>();
         boolean hasDefault = false;
         for (SwitchEntry entry : sw.entries()) {
@@ -810,7 +811,8 @@ final class RustBodyPrinter {
     private String switchOldStyle(SwitchStatementOldStyle sw, int depth) {
         String pad = INDENT.repeat(depth);
         List<CstQueries.SwitchGroup> groups = CstQueries.switchGroups(sw);
-        StringBuilder sb = new StringBuilder("match " + selector(sw.expression()) + " {\n");
+        StringBuilder sb = new StringBuilder("match " + selector(sw.expression(), groups.stream()
+                .flatMap(g -> g.labels().stream()).map(SwitchStatementOldStyle.SwitchLabel::literal).toList()) + " {\n");
         List<Expression> labels = new ArrayList<>();
         boolean hasDefault = false;
         for (int i = 0; i < groups.size(); i++) {
@@ -843,7 +845,8 @@ final class RustBodyPrinter {
     private Printed switchExpression(SwitchExpression se) {
         int depth = 2;
         String pad = INDENT.repeat(depth);
-        StringBuilder sb = new StringBuilder("match " + selector(se.selector()) + " {\n");
+        StringBuilder sb = new StringBuilder("match " + selector(se.selector(),
+                se.entries().stream().flatMap(e -> e.conditions().stream()).toList()) + " {\n");
         List<Expression> labels = new ArrayList<>();
         boolean hasDefault = false;
         for (SwitchEntry entry : se.entries()) {
@@ -934,9 +937,18 @@ final class RustBodyPrinter {
     }
 
     /** The selector: a string is matched as a {@code &str}, a nullable value unwrapped as Java would throw. */
-    private String selector(Expression selector) {
+    private String selector(Expression selector, List<Expression> labels) {
         String text = operand(selector);
-        return RustTypes.isString(selector.parameterizedType()) ? text + ".as_str()" : text;
+        if (RustTypes.isString(selector.parameterizedType())) return text + ".as_str()";
+        // a byte or short matched against int constants ('switch (tag) { case CONSTANT_Utf8 -> ... }'): Java widens
+        // the selector, a Rust pattern takes the constant's own type
+        ParameterizedType type = selector.parameterizedType();
+        if (type.arrays() == 0 && type.typeInfo() != null && (type.typeInfo().isByte() || type.typeInfo().isShort())
+            && labels.stream().anyMatch(l -> l != null && CstQueries.unwrap(l) instanceof VariableExpression
+                                             && l.parameterizedType().isInt())) {
+            return text + " as i32";
+        }
+        return text;
     }
 
     private String caseLabels(List<Expression> conditions) {

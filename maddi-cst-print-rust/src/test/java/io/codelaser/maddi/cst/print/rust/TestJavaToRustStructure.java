@@ -615,4 +615,39 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "coll.has(&id)");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String TAGS = """
+            package a.b;
+            public class Tags {
+                static final int UTF8 = 1;
+                static final int INT = 3;
+                // fernflower's ConstantPool: a byte tag matched against int constants
+                static int kind(byte tag) {
+                    switch (tag) {
+                        case UTF8: return 0;
+                        case INT: return 1;
+                        default: return 2;
+                    }
+                }
+                static int kind2(short tag) {
+                    return switch (tag) {
+                        case UTF8 -> 0;
+                        case 2 -> 5;
+                        default -> 1;
+                    };
+                }
+            }
+            """;
+
+    @DisplayName("a byte or short switch over int constants: the selector widened")
+    @Test
+    public void byteSwitchOverIntConstants() throws Exception {
+        List<TypeInfo> types = parse(TAGS);
+        nonModifying(types.getFirst(), "kind", "kind2");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "match tag as i32 {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
