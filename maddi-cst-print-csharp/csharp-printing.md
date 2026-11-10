@@ -355,7 +355,8 @@ implements the interface.
   those of other libraries are what their mapping makes of them, or dropped.
 - **Functional interfaces.** A translated functional interface is a C# `delegate` when the whole program allows it:
   one abstract method and nothing else, and no class or interface of the program implementing or extending it (an
-  anonymous class that becomes a lambda does not count). Its lambdas are plain lambdas, a call `f.apply(x)` is an
+  anonymous class that becomes a lambda does not count), nor bounding a type parameter (`<P extends
+  ConstraintProvider>`: C# constrains by no delegate, CS0701). Its lambdas are plain lambdas, a call `f.apply(x)` is an
   invocation `f(x)`, and a method reference `f::apply` is `f.Invoke`. `CSharpProgram` makes that decision once,
   over all the translated types, before the files are printed. Any other functional interface stays an interface
   and gets an adapter class beside it, `public sealed class ExprentIteratorLambda(Func<Exprent, int> f) :

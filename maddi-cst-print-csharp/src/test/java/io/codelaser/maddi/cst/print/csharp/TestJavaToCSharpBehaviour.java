@@ -1124,6 +1124,28 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     /**
+     * A functional interface that bounds a type parameter stays an interface, as C# constrains by no delegate
+     * (CS0701); a lambda into it is its lambda class.
+     */
+    @Test
+    public void functionalInterfaceAsBound() {
+        String cs = behaves("Verifier", """
+                package a;
+                class Verifier<P extends Verifier.Provider> {
+                    interface Provider { String define(int x); }
+                    private final P provider;
+                    Verifier(P provider) { this.provider = provider; }
+                    String verify(int x) { return provider.define(x); }
+                    public static void main(String[] args) {
+                        Verifier<Provider> v = new Verifier<>(x -> "v" + x);
+                        System.out.println(v.verify(3));
+                    }
+                }
+                """);
+        contains(cs, "where P : IProvider");
+    }
+
+    /**
      * A method reference into the program's delegate whose parameter is a BigDecimal: the lambda's typed parameter is
      * the delegate's {@code decimal?}, which picks the overload (CS1661 with {@code decimal}).
      */
