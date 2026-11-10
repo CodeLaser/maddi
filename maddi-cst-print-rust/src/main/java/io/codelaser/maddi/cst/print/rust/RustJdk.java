@@ -537,7 +537,9 @@ final class RustJdk {
                 : "&v[..] == " + self;
         if (a.nullable()) return value(a.text() + ".as_ref().map_or(false, |v| " + test + ")");
         if (object) return value("{ let v = &" + a.text() + "; " + test + " }");
-        return value(o + " == " + a.text());
+        // both as &str: a String, a &String and a &str compare alike ('&String == String' has no PartialEq)
+        String other = a.text().startsWith("\"") ? a.text() : "&" + paren(a.text()) + "[..]";
+        return value(self + " == " + other);
     }
 
     /** {@code sb.append(x)}: a char is pushed, a string pushed as a {@code &str}, anything else formatted first. */

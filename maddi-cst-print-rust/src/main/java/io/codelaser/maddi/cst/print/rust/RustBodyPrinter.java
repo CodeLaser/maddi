@@ -1877,6 +1877,11 @@ final class RustBodyPrinter {
                 }
                 return value(l + " == " + optionalReference(right));
             }
+            if (left.nullable) {
+                // a nullable a: unwrapped, Java's NullPointerException
+                context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, mc, left.text);
+                return value(optionalReference(left) + ".unwrap() == " + adapt(right, Held.SHARED));
+            }
             return value(adapt(left, Held.SHARED) + " == " + adapt(right, Held.SHARED));
         }
         // a getter the caller modifies through: its exclusive twin (RustGetters)

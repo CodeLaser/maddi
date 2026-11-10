@@ -572,4 +572,40 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         String rust = module("a.b");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String EQUALS_LEVELS = """
+            package a.b;
+            public class Descs {
+                private String descriptor;
+                private Kind kind;
+                // ClassWriter.isSyntheticRecordMethod: a nullable field's string against a computed one
+                public boolean synthetic(String name) {
+                    return descriptor != null && descriptor.equals("()" + name);
+                }
+                // PPandMMHelper: a nullable object's own equals, the other side non-null
+                public boolean sameKind(Kind other) {
+                    return kind != null && kind.equals(other);
+                }
+            }
+            class Kind {
+                private final int k;
+                Kind(int k) { this.k = k; }
+                @Override public boolean equals(Object o) { return o instanceof Kind other && other.k == k; }
+                @Override public int hashCode() { return k; }
+            }
+            """;
+
+    @DisplayName("equals with operands at different levels: a String against a &String, a nullable receiver")
+    @Test
+    public void equalsLevels() throws Exception {
+        List<TypeInfo> types = parse(EQUALS_LEVELS);
+        TypeInfo descs = types.getFirst();
+        nonModifying(descs, "synthetic", "sameKind");
+        RustTranslator.Result result = translate(types, nullable(Set.of("descriptor", "kind")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, ".unwrap() == ");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
