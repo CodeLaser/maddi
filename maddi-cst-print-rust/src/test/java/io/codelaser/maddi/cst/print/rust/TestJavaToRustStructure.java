@@ -931,6 +931,53 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String SIZES = """
+            package a.b;
+            import java.util.List;
+            public class Sizes {
+                // fernflower's ClassesProcessor.AVERAGE_CLASS_SIZE: not a literal, a lazily computed int
+                private static final int AVERAGE = 16 * 1024;
+                public static int twice() { return AVERAGE * 2; }
+                // BasicBlock.removePredecessor: 'while (lst.remove(o));'
+                public static void dropAll(List<String> lst, String s) { while (lst.remove(s)) ; }
+                // ConstExprent.convertStringToJava: a capacity, an int label of a char selector
+                public static String escape(String value) {
+                    char[] arr = value.toCharArray();
+                    StringBuilder buffer = new StringBuilder(arr.length);
+                    for (char c : arr) {
+                        switch (c) {
+                            case '\\' -> buffer.append("\\\\");
+                            case 8 -> buffer.append("\\b");
+                            default -> buffer.append(c);
+                        }
+                    }
+                    return buffer.toString();
+                }
+            }
+            """;
+
+    @DisplayName("a computed int static read as an int; remove(Object) as a loop condition; a capacity; an int char label")
+    @Test
+    public void lazyIntAndRemoveCondition() throws Exception {
+        List<TypeInfo> types = parse(SIZES);
+        TypeInfo sizes = types.getFirst();
+        nonModifying(sizes, "twice", "escape");
+        borrowed(method(sizes, "escape").parameters().getFirst());
+        modifying(sizes, "dropAll");
+        unmodifiedField(sizes, "AVERAGE");
+        exclusive(method(sizes, "dropAll").parameters().getFirst());
+        borrowed(method(sizes, "dropAll").parameters().get(1));
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "(*SIZES_AVERAGE) * 2");
+        contains(rust, ".is_some()");
+        contains(rust, "String::with_capacity((arr.len() as i32) as usize)");
+        contains(rust, "'\\u{8}' =>");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String DESCRIPTORS = """
             package a.b;
             public class Fd {

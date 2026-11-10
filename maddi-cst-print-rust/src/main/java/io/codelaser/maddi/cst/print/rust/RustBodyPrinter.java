@@ -986,8 +986,12 @@ final class RustBodyPrinter {
         // pattern cannot cast, so it is the char's code
         boolean integral = type.arrays() == 0 && type.typeInfo() != null && type.isPrimitiveExcludingVoid()
                            && !type.typeInfo().isChar() && !type.typeInfo().isBoolean();
+        boolean character = type.arrays() == 0 && type.typeInfo() != null && type.typeInfo().isChar();
         return conditions.stream().filter(c -> c != null && !c.isEmpty())
                 .map(c -> integral && c instanceof CharConstant cc ? Integer.toString(cc.constant())
+                        // an int label of a char selector ('case 8:' for '\b'): the char of that code
+                        : character && c instanceof IntConstant ic && ic.constant() >= 0 && ic.constant() < 0xD800
+                        ? charLiteral((char) ic.constant())
                         : caseLabel(c))
                 .collect(Collectors.joining(" | "));
     }
@@ -1171,6 +1175,8 @@ final class RustBodyPrinter {
                 String module = RustNames.module(owner.packageName());
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
                 if (RustTypePrinter.threadLocalStatic(f, context)) return new Printed(name + ".with(|v| v.clone())", Held.VALUE, nullable);
+                // a LazyLock<i32> derefs to its value: an int where one is expected
+                if (RustTypes.isCopy(f.type())) return new Printed("(*" + name + ")", Held.VALUE, nullable);
                 return new Printed(name, Held.PLACE, nullable);
             }
             // a string constant is a &'static str

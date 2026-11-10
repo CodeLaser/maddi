@@ -891,8 +891,9 @@ final class RustJdk {
                                       + ").map(|i| i as i32).unwrap_or(-1)");
             case "remove/1" -> args.getFirst().parameterizedType().isInt()
                     ? value(o + ".remove(" + printer.index(args.getFirst()) + ")")
-                    : value("if let Some(p) = " + o + ".iter().position(|__e| "
-                            + elementEquals(mc, args.getFirst(), printer) + ") { " + o + ".remove(p); }");
+                    // Java's boolean result, also as a loop's condition ('while (lst.remove(o));')
+                    : value(o + ".iter().position(|__e| " + elementEquals(mc, args.getFirst(), printer)
+                            + ").map(|p| { " + o + ".remove(p); }).is_some()");
             case "getLast/0" -> RustBodyPrinter.printed(o + "[" + o + ".len() - 1]", Held.PLACE, false);
             // Java throws on an empty list, Rust panics
             case "removeFirst/0" -> value(o + ".remove(0)");
@@ -1170,7 +1171,12 @@ final class RustJdk {
             return value(args.isEmpty() ? BIT_SET + "::new()" : BIT_SET + "::with_capacity(" + printer.text(args.getFirst()) + ")");
         }
         if ("String".equals(mapped)) {
-            return value(args.isEmpty() ? "String::new()" : printer.text(args.getFirst()) + ".to_string()");
+            if (args.isEmpty()) return value("String::new()");
+            // new StringBuilder(arr.length): a capacity ('arr.len() as i32.to_string()' was parsed as i32.to_string())
+            if (args.getFirst().parameterizedType().isInt()) {
+                return value("String::with_capacity((" + printer.text(args.getFirst()) + ") as usize)");
+            }
+            return value(operand(printer, args.getFirst()) + ".to_string()");
         }
         if ("java.math.BigDecimal".equals(ti.fullyQualifiedName()) && args.size() == 1) {
             printer.context().message(RustPrintCode.BIGDECIMAL_AS_F64, cc, null);
