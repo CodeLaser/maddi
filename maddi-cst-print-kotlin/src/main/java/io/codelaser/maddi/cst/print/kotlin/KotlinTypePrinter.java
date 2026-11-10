@@ -233,31 +233,21 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     out.add(KotlinKeyword.CONSTRUCTOR);
                 }
                 MethodInfo primaryConstructor = primary;
-                out.add(primary.parameters().stream()
-                        .map(p -> new OutputBuilderImpl()
-                                .add(KotlinComments.print(fieldByName.get(p.name()).comments(), insideType))
-                                // the comments of its `this.x = x`, which the header property is now (#181)
-                                .add(assignmentComments(primaryConstructor, p, insideType))
-                                .add(KotlinFieldPrinter.jvmModifiers(fieldByName.get(p.name())))
-                                .add(propertyVisibility(fieldByName.get(p.name())))
-                                // a record's component is read through its accessor, x(): a data class property. A
-                                // private property has no accessors, and @JvmField none to replace
-                                .add(!privateProperty(fieldByName.get(p.name())) && !typeInfo.typeNature().isRecord()
-                                     && KotlinFieldPrinter.accessorClash(fieldByName.get(p.name()), fieldByName.get(p.name()).isFinal())
-                                     || !privateProperty(fieldByName.get(p.name())) && !typeInfo.typeNature().isRecord()
-                                        && !hasComponentMethods(typeInfo)
-                                        && KotlinFieldPrinter.javaField(fieldByName.get(p.name()), KotlinModifiers.visibility(
-                                                fieldByName.get(p.name()).access(), fieldByName.get(p.name()).owner()))
-                                        ? new OutputBuilderImpl().add(new TextImpl("@JvmField")).add(SpaceEnum.ONE)
-                                        : new OutputBuilderImpl())
-                                .add(fieldByName.get(p.name()).isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)
-                                .add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.name(p.name())))
-                                .add(SymbolEnum.COLON_LABEL)
-                                // a property: the field's type, with its verdict, as every use of it reads it
-                                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(fieldByName.get(p.name())),
-                                        insideType))))
+                OutputBuilder primaryParameters = primary.parameters().stream()
+                        .map(p -> {
+                            FieldInfo field = fieldByName.get(p.name());
+                            OutputBuilder property = primaryProperty(field, p, insideType);
+                            KotlinContext.declaredField(field, property);
+                            return new OutputBuilderImpl()
+                                    .add(KotlinComments.print(field.comments(), insideType))
+                                    // the comments of its `this.x = x`, which the header property is now (#181)
+                                    .add(assignmentComments(primaryConstructor, p, insideType))
+                                    .add(property);
+                        })
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
+                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
+                out.add(primaryParameters);
+                declaredConstructor(primary, primaryParameters);
             } else if (!components.isEmpty()) {
                 out.add(components.stream()
                         .map(f -> new OutputBuilderImpl().add(KotlinComments.print(f.comments(), insideType))
@@ -267,7 +257,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             } else if (initConstructor != null) {
-                out.add(primaryConstructorHeader(initConstructor, insideType));
+                OutputBuilder header = primaryConstructorHeader(initConstructor, insideType);
+                out.add(header);
+                declaredConstructor(initConstructor, header);
             } else if (annotationType && typeInfo.methods().stream().anyMatch(KotlinTypePrinter::isAnnotationElement)) {
                 out.add(typeInfo.methods().stream().filter(KotlinTypePrinter::isAnnotationElement)
                         .map(m -> annotationElement(m, insideType))
@@ -362,6 +354,39 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
         }
         return out;
+    }
+
+    /** A primary constructor's parameter as the property it declares, without its comments: {@code @JvmField val x: T}. */
+    private OutputBuilder primaryProperty(FieldInfo field, ParameterInfo p, Qualification insideType) {
+        return new OutputBuilderImpl()
+                .add(KotlinFieldPrinter.jvmModifiers(field))
+                .add(propertyVisibility(field))
+                // a record's component is read through its accessor, x(): a data class property. A
+                // private property has no accessors, and @JvmField none to replace
+                .add(!privateProperty(field) && !typeInfo.typeNature().isRecord()
+                     && KotlinFieldPrinter.accessorClash(field, field.isFinal())
+                     || !privateProperty(field) && !typeInfo.typeNature().isRecord()
+                        && !hasComponentMethods(typeInfo)
+                        && KotlinFieldPrinter.javaField(field, KotlinModifiers.visibility(
+                                field.access(), field.owner()))
+                        ? new OutputBuilderImpl().add(new TextImpl("@JvmField")).add(SpaceEnum.ONE)
+                        : new OutputBuilderImpl())
+                .add(field.isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)
+                .add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.name(p.name())))
+                .add(SymbolEnum.COLON_LABEL)
+                // a property: the field's type, with its verdict, as every use of it reads it
+                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(field),
+                        insideType)));
+    }
+
+    /**
+     * Bodies.STUB: a constructor printed in the class header, for the bodies that call it. Its declaration is the
+     * header's parameter list, {@code constructor(val id: Int)}, which a call passes as {@code Foo(id)}.
+     */
+    private static void declaredConstructor(MethodInfo constructor, OutputBuilder parameters) {
+        if (!KotlinContext.stubbing()) return;
+        KotlinContext.declared(new KotlinBodies.Declared(constructor, new OutputBuilderImpl().add(KotlinKeyword.CONSTRUCTOR)
+                .add(parameters), null, List.of()));
     }
 
     /** The one explicit constructor of a Java class, which becomes the primary one; null when there are more. */

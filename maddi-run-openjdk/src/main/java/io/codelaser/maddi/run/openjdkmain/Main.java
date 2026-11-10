@@ -82,6 +82,8 @@ public class Main {
     public static final String TRANSLATE = "translate";
     public static final String TRANSLATE_OUTPUT = "translate-output";
     public static final String TRANSLATE_KOTLIN = "kotlin";
+    // the declarations as for kotlin, each method body TODO("maddi:<id>"), the printer's own bodies in maddi-bodies.json
+    public static final String TRANSLATE_KOTLIN_STUBS = "kotlin-stubs";
     public static final String TRANSLATE_CSHARP = "csharp";
     public static final String TRANSLATE_RUST = "rust";
     public static final String DEBUG = "debug";
@@ -267,7 +269,9 @@ public class Main {
                         """).get());
         options.addOption(Option.builder().longOpt(TRANSLATE).hasArg().argName("LANGUAGE")
                 .desc("Translate the main sources to '" + TRANSLATE_KOTLIN + "', '" + TRANSLATE_CSHARP + "' or '"
-                      + TRANSLATE_RUST + "' (experimental), into --" + TRANSLATE_OUTPUT + ". Runs the modification analysis with nullability unless "
+                      + TRANSLATE_RUST + "' (experimental), into --" + TRANSLATE_OUTPUT + "; '" + TRANSLATE_KOTLIN_STUBS
+                      + "' is Kotlin with each method body a TODO stub for another translator (an LLM) to write, the "
+                      + "stubs described in maddi-bodies.json. Runs the modification analysis with nullability unless "
                       + "--" + ANALYSIS_STEPS + " says otherwise; with --" + ANALYSIS_STEPS + " " + AS_NONE
                       + " the translation has no facts.").get());
         options.addOption(Option.builder().longOpt(TRANSLATE_OUTPUT).hasArg().argName("DIR")

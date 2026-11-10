@@ -112,6 +112,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
                         ? KotlinTypeName.of(type, qualification).replaceFirst("^MutableIterator<", "Iterator<")
                         : KotlinTypeName.of(type, qualification)));
         if (asParameterInPrimaryConstructor) return builder;
+        KotlinContext.declaredField(fieldInfo, new OutputBuilderImpl().add(builder));
         if (hasInitializer) {
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                     .add(KotlinNullability.toTarget(fieldInfo.initializer(), type,
