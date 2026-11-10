@@ -470,6 +470,7 @@ final class RustJdk {
             case "startsWith/1" -> value(o + ".starts_with(" + printer.reference(args.getFirst()) + ")");
             case "endsWith/1" -> value(o + ".ends_with(" + printer.reference(args.getFirst()) + ")");
             case "trim/0", "strip/0" -> value(o + ".trim().to_string()");
+            case "toCharArray/0" -> value(o + ".chars().collect::<Vec<char>>()");
             case "toUpperCase/0" -> value(o + ".to_uppercase()");
             case "toLowerCase/0" -> value(o + ".to_lowercase()");
             case "toString/0" -> value(o + ".to_string()");

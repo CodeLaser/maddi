@@ -991,7 +991,7 @@ final class RustBodyPrinter {
                 .map(c -> integral && c instanceof CharConstant cc ? Integer.toString(cc.constant())
                         // an int label of a char selector ('case 8:' for '\b'): the char of that code
                         : character && c instanceof IntConstant ic && ic.constant() >= 0 && ic.constant() < 0xD800
-                        ? charLiteral((char) ic.constant())
+                        ? charLiteral((char) ic.constant().intValue())
                         : caseLabel(c))
                 .collect(Collectors.joining(" | "));
     }

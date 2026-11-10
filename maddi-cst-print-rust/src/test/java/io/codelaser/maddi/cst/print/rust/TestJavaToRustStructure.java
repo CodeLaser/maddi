@@ -946,8 +946,8 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                     StringBuilder buffer = new StringBuilder(arr.length);
                     for (char c : arr) {
                         switch (c) {
-                            case '\\' -> buffer.append("\\\\");
-                            case 8 -> buffer.append("\\b");
+                            case '\\\\' -> buffer.append("\\\\\\\\");
+                            case 8 -> buffer.append("\\\\b");
                             default -> buffer.append(c);
                         }
                     }
