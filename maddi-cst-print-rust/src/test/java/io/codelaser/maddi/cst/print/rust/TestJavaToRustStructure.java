@@ -896,4 +896,37 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "let list = data.get_expressions_mut();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String DEFAULTS = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Prefs {
+                // fernflower's IFernflowerPreferences.DEFAULTS = getDefaults()
+                public static final Map<String, String> DEFAULTS = getDefaults();
+                static Map<String, String> getDefaults() {
+                    Map<String, String> m = new HashMap<>();
+                    m.put("a", "1");
+                    return m;
+                }
+                public static String get(String k) { return DEFAULTS.get(k); }
+            }
+            """;
+
+    @DisplayName("a static initialized by a call of its own class: named, no Self at module level")
+    @Test
+    public void staticInitializerCall() throws Exception {
+        List<TypeInfo> types = parse(DEFAULTS);
+        TypeInfo prefs = types.getFirst();
+        nonModifying(prefs, "getDefaults", "get");
+        independentResult(prefs, "getDefaults");
+        borrowed(method(prefs, "get").parameters().getFirst());
+        unmodifiedField(prefs, "DEFAULTS");
+        RustTranslator.Result result = translate(types, nullable(Set.of("get()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "std::sync::LazyLock::new(|| Prefs::get_defaults())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

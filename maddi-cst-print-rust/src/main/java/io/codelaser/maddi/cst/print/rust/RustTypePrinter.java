@@ -1133,7 +1133,9 @@ final class RustTypePrinter {
         boolean constant = constant(f);
         if (!constant && lazyStatic(f, context)) {
             String type = RustTypes.owned(f.type(), context, f);
-            String value = new RustBodyPrinter(context).ownedAs(init, f.type());
+            // module level: no Self, the owner by its name
+            String value = new RustBodyPrinter(context).ownedAs(init, f.type())
+                    .replaceAll("\\bSelf::", java.util.regex.Matcher.quoteReplacement(RustNames.type(f.owner()) + "::"));
             if (threadLocalStatic(f, context)) {
                 statics.append("\nthread_local! {\n    /// Translated from the static field `")
                         .append(f.owner().fullyQualifiedName()).append(".").append(f.name())
