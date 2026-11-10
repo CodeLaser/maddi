@@ -108,6 +108,8 @@ final class RustBodyPrinter {
     }
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
+    // the parameter of the equals being printed as PartialEq::eq, whose other side is a &Self
+    private ParameterInfo equalsParameter;
     // the expression of the expression statement being printed: its value is dropped
     private Expression statement;
 
@@ -428,6 +430,14 @@ final class RustBodyPrinter {
      */
     private Binding binding(InstanceOf io) {
         if (io.patternVariable() == null || io.patternVariable().localVariable() == null) return null;
+        if (equalsParameter != null && isVariable(io.expression(), equalsParameter)
+            && io.testType().typeInfo() == equalsParameter.methodInfo().typeInfo()) {
+            // equals' 'return o instanceof Version v && …': PartialEq's other is already a &Self
+            LocalVariable lv = io.patternVariable().localVariable();
+            locals.put(lv, Held.SHARED);
+            nullableLocals.put(lv, false);
+            return new Binding(RustNames.snake(lv.simpleName()), "Some(other)");
+        }
         Binding inHierarchy = hierarchyBinding(io);
         if (inHierarchy != null) return inHierarchy;
         if (interfaceDowncast(io.expression(), io.testType()) != null) {
@@ -726,6 +736,7 @@ final class RustBodyPrinter {
     String equalsBody(MethodInfo equals, int depth) {
         ParameterInfo o = equals.parameters().getFirst();
         aliases.put(o, "other");
+        equalsParameter = o;
         StringBuilder sb = new StringBuilder();
         for (Statement s : equals.methodBody().statements()) {
             if (s instanceof IfElseStatement ife && preamble(ife, o)) continue;

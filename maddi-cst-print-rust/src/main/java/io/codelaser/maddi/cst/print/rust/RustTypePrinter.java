@@ -316,7 +316,7 @@ final class RustTypePrinter {
         boolean hashedFields = record && !typeInfo.typeParameters().isEmpty() && fields.stream()
                 .map(this::fieldType).anyMatch(t -> t.contains("HashSet<") || t.contains("HashMap<"));
         if (record) sb.append(hashedFields ? "#[derive(Debug, Clone)]\n" : "#[derive(Debug, Clone, PartialEq)]\n");
-        else if (context.facts.immutable(typeInfo)) sb.append("#[derive(Clone)]\n");
+        else if (context.facts.immutable(typeInfo) || valueClass(typeInfo, fields)) sb.append("#[derive(Clone)]\n");
         String declaredGenerics = typestate ? "<" + RustTypestate.STATE + " = " + RustTypestate.BEFORE + ">" : generics;
         sb.append(visibility(typeInfo.isPrivate())).append("struct ").append(name).append(declaredGenerics).append(" {\n");
         if (this.base != null) sb.append(INDENT).append("pub base: ").append(this.base).append(",\n");
@@ -446,9 +446,16 @@ final class RustTypePrinter {
         if (hashCode) {
             if (equals != null) sb.append("\nimpl").append(implGenerics).append(" Eq for ").append(name).append(generics)
                     .append(" {}\n");
+            // a hashCode that caches its value (VarVersion's) modifies: Hash's &self hashes a copy, which Java's equals
+            // cannot tell from the object
+            MethodInfo hc = typeInfo.methods().stream().filter(RustTypePrinter::isHashCode).findFirst().orElse(null);
+            boolean caching = hc != null && context.facts.receiver(hc) == Receiver.EXCLUSIVE
+                              && (context.facts.immutable(typeInfo) || valueClass(typeInfo, fields));
             sb.append("\nimpl").append(implGenerics).append(" std::hash::Hash for ").append(name).append(generics)
                     .append(" {\n").append(INDENT).append("fn hash<H: std::hash::Hasher>(&self, state: &mut H) {\n")
-                    .append(INDENT).append(INDENT).append("state.write_i32(self.hash_code());\n").append(INDENT)
+                    .append(INDENT).append(INDENT)
+                    .append(caching ? "state.write_i32(self.clone().hash_code());\n" : "state.write_i32(self.hash_code());\n")
+                    .append(INDENT)
                     .append("}\n}\n");
         }
         return sb.toString();
@@ -1010,6 +1017,17 @@ final class RustTypePrinter {
      * initializer touches: a module-level {@code static}, built on first use ({@code LazyLock}), shared read-only. Its
      * type must be shareable between threads ({@code Sync}): not a {@code dyn} value.
      */
+    /*
+     A class with its own equals over primitives and strings (fernflower's VarVersion, whose cached hashCode keeps it
+     from being immutable): Java's equals cannot tell a copy from the object, so it is Clone, and a collection of them
+     can be copied (extend(other.iter().cloned())).
+     */
+    private boolean valueClass(TypeInfo typeInfo, List<FieldInfo> fields) {
+        return base == null && !fields.isEmpty() && !RustHierarchies.current().isMember(typeInfo)
+               && typeInfo.methods().stream().anyMatch(RustTypePrinter::isEquals)
+               && fields.stream().allMatch(f -> RustTypes.isCopy(f.type()) || RustTypes.isString(f.type()));
+    }
+
     static boolean lazyStatic(FieldInfo f, RustContext context) {
         if (!f.isStatic() || !isFinal(f) || f.initializer() == null || f.initializer().isEmpty()
             || constant(f) || !context.facts.unmodified(f)) {

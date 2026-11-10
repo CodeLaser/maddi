@@ -683,4 +683,48 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "VAR_TYPES_INT.with(|v| v.clone())");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String VERSIONS = """
+            package a.b;
+            import java.util.HashSet;
+            import java.util.Set;
+            public class Versions {
+                // fernflower's VarVersion: equals over ints, a cached hashCode
+                public static class Version {
+                    public final int var;
+                    public final int version;
+                    private int hashCode = -1;
+                    public Version(int var, int version) { this.var = var; this.version = version; }
+                    @Override public boolean equals(Object o) {
+                        return o instanceof Version v && var == v.var && version == v.version;
+                    }
+                    @Override public int hashCode() {
+                        if (hashCode == -1) hashCode = var * 31 + version;
+                        return hashCode;
+                    }
+                }
+                public static void addAll(Set<Version> to, Set<Version> from) { to.addAll(from); }
+            }
+            """;
+
+    @DisplayName("a class with its own equals over primitives: Clone, its pattern equals and caching hashCode compile")
+    @Test
+    public void valueClassClone() throws Exception {
+        List<TypeInfo> types = parse(VERSIONS);
+        TypeInfo versions = types.getFirst();
+        TypeInfo version = versions.findSubType("Version");
+        nonModifying(version, "equals");
+        modifying(version, "hashCode");
+        modifying(versions, "addAll");
+        exclusive(method(versions, "addAll").parameters().get(0));
+        borrowed(method(versions, "addAll").parameters().get(1));
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "#[derive(Clone)]\npub struct VersionsVersion {");
+        // equals' pattern on its parameter is PartialEq's other; the caching hashCode hashes a copy
+        contains(rust, "Some(other).is_some_and(|v|");
+        contains(rust, "state.write_i32(self.clone().hash_code());");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
