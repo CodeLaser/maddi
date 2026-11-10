@@ -237,7 +237,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "internal static IFactory Factory() => JavaServiceLoader.Load<IFactory>().FirstOrDefault()");
         contains(cs, "File.ReadAllBytes(new FileInfo(System.IO");
         // known-ugly: getFileName() is a Path, a FileInfo of the name, whose ToString() is the name again
-        contains(cs, "internal static string Type(FileInfo path) => (new FileInfo(path.Name)).ToString();");
+        contains(cs, "internal static string Type(FileInfo path) => new FileInfo(path.Name).ToString();");
         contains(cs, "internal static string Type(string path) => Type(new FileInfo(path));");
     }
 

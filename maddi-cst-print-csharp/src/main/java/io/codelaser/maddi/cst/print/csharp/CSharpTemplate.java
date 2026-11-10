@@ -91,6 +91,16 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                         i = k;
                         continue;
                     }
+                    if (c == '$' && index > 0 && call != null && index <= call.parameterExpressions().size()
+                        && j + 1 < template.length() && template.charAt(j) == '.'
+                        && Character.isLetter(template.charAt(j + 1))
+                        && !CSharpExpressionPrinter.templateReceiverAtom(call.parameterExpressions().get(index - 1))) {
+                        // $1.ToString(): the argument as a receiver, (weight + 1).ToString(), as $0 is
+                        b.add(SymbolEnum.LEFT_PARENTHESIS).add(arguments.get(index - 1).get())
+                                .add(SymbolEnum.RIGHT_PARENTHESIS);
+                        i = j;
+                        continue;
+                    }
                     if (c == '$' && index > 0 && call != null && template.startsWith("()", j)) {
                         // $1(): the supplier argument, called; a lambda's body or a constructor reference's creation
                         OutputBuilder supplied = supplied(index);
@@ -373,6 +383,11 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
      * operator ({@code -@0}), whose result needs parentheses as a receiver or operand.
      */
     static boolean atomic(String template) {
+        // an object creation, new FileInfo($1): C# takes new X(…).Member as the member of the creation
+        if (template.startsWith("new ") && template.length() > 4 && Character.isLetter(template.charAt(4))
+            && template.endsWith(")") && template.indexOf('[') < 0 && atomic(template.substring(4))) {
+            return true;
+        }
         if (!template.isEmpty() && "!-+~".indexOf(template.charAt(0)) >= 0
             || template.startsWith("(") && !template.startsWith("($")) {
             return false;

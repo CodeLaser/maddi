@@ -1073,4 +1073,44 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 """);
         contains(cs, "JavaArrays.Sort(words);");
     }
+
+    /**
+     * A method reference into the program's delegate whose parameter is a BigDecimal: the lambda's typed parameter is
+     * the delegate's {@code decimal?}, which picks the overload (CS1661 with {@code decimal}).
+     */
+    @Test
+    public void methodReferenceIntoBigDecimalDelegate() {
+        String cs = behaves("Inliner", """
+                package a;
+                import java.math.BigDecimal;
+                class Inliner {
+                    interface LongImpact {
+                        String impact(Inliner context, long weight);
+                    }
+                    interface DecimalImpact {
+                        String impact(Inliner context, BigDecimal weight);
+                    }
+                    static String of(Inliner context, LongImpact f) {
+                        return "long " + f.impact(context, 3L);
+                    }
+                    static String of(Inliner context, DecimalImpact f) {
+                        return "decimal " + f.impact(context, new BigDecimal("2.5"));
+                    }
+                    String change(BigDecimal weight) {
+                        return "d" + weight.add(BigDecimal.ONE).intValue();
+                    }
+                    String change(long weight) {
+                        return Long.toString(weight + 1);
+                    }
+                    public static void main(String[] args) {
+                        Inliner i = new Inliner();
+                        System.out.println(of(i, (DecimalImpact) Inliner::change));
+                        System.out.println(of(i, (LongImpact) Inliner::change));
+                    }
+                }
+                """);
+        contains(cs, "decimal? p1");
+        // a template's argument as a receiver is enclosed: Long.toString(weight + 1)
+        contains(cs, "(weight + 1).ToString()");
+    }
 }

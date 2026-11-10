@@ -601,6 +601,15 @@ public final class CSharpExpressionPrinter {
         return n <= mc.parameterExpressions().size() ? mc.parameterExpressions().get(n - 1) : null;
     }
 
+    /**
+     * A template's argument written as a receiver, {@code $1.ToString()}: an atom, or a literal C# writes without a
+     * leading minus; anything else is enclosed, {@code (weight + 1).ToString()}.
+     */
+    static boolean templateReceiverAtom(Expression e) {
+        Expression u = unwrap(e);
+        return atomic(e) || u instanceof ConstantExpression<?> c && !(u instanceof NullConstant) && !negative(c);
+    }
+
     /** An expression {@link #receiver} prints without parentheses. */
     private static boolean atomic(Expression e) {
         return switch (e) {
@@ -2352,8 +2361,22 @@ public final class CSharpExpressionPrinter {
      */
     private static String typedParameter(MethodReference mr, int i, Qualification q) {
         ParameterizedType pt = mr.concreteParameterTypes().get(i);
-        return asDelegateHasIt(mr.parameterizedType() == null ? null : mr.parameterizedType().typeInfo(), i, pt,
-                CSharpTypeName.argument(pt, q));
+        TypeInfo functional = mr.parameterizedType() == null ? null : mr.parameterizedType().typeInfo();
+        return asDelegateHasIt(functional, i, pt, delegateDeclared(functional, i)
+                ? CSharpTypeName.of(pt, q) : CSharpTypeName.argument(pt, q));
+    }
+
+    /**
+     * The program's delegate declares parameter {@code i} with a type of its own, not a type parameter: as a
+     * declaration has it, {@code decimal?} for a {@code BigDecimal}, which the lambda's typed parameter must be
+     * (CS1661), where a type argument is {@code decimal}.
+     */
+    private static boolean delegateDeclared(TypeInfo functional, int i) {
+        if (functional == null || !CSharpContext.program().delegate(functional)) return false;
+        MethodInfo sam = CSharpProgram.invoked(functional);
+        if (sam == null || i >= sam.parameters().size()) return false;
+        ParameterizedType declared = sam.parameters().get(i).parameterizedType();
+        return !declared.isTypeParameter() || declared.arrays() > 0;
     }
 
     /** {@code type}, a lambda's typed parameter {@code i}, {@code T?} where the delegate's parameter is nullable. */
