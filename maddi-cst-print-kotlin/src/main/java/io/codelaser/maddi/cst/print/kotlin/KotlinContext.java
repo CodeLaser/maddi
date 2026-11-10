@@ -29,6 +29,7 @@ import java.util.function.Supplier;
 
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -112,6 +113,8 @@ final class KotlinContext {
 
     // Bodies.STUB: the file's members, each method once (a member printed twice keeps its last printing)
     private static final ThreadLocal<Map<MethodInfo, KotlinBodies.Declared>> DECLARED =
+            ThreadLocal.withInitial(LinkedHashMap::new);
+    private static final ThreadLocal<Map<FieldInfo, OutputBuilder>> DECLARED_FIELDS =
             ThreadLocal.withInitial(LinkedHashMap::new);
     // > 0 while the printer translates a stubbed body, kept aside: a local or anonymous class's method there is part
     // of that body, not a stub of its own
@@ -268,10 +271,18 @@ final class KotlinContext {
         if (IN_STUBBED_BODY.get()[0] == 0) DECLARED.get().put(declared.method(), declared);
     }
 
+    /** Bodies.STUB: a field's Kotlin declaration, without its initializer, for the bodies that read it. */
+    static void declaredField(FieldInfo field, OutputBuilder declaration) {
+        if (stubbing()) DECLARED_FIELDS.get().put(field, declaration);
+    }
+
     /** The members declared since the last call, which starts a new record: one file's. */
     static KotlinBodies takeDeclared() {
-        KotlinBodies bodies = new KotlinBodies(List.copyOf(DECLARED.get().values()));
+        KotlinBodies bodies = new KotlinBodies(List.copyOf(DECLARED.get().values()),
+                DECLARED_FIELDS.get().entrySet().stream()
+                        .map(e -> new KotlinBodies.DeclaredField(e.getKey(), e.getValue())).toList());
         DECLARED.get().clear();
+        DECLARED_FIELDS.get().clear();
         return bodies;
     }
 

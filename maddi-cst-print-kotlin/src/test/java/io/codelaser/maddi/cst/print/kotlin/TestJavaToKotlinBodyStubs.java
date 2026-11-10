@@ -122,11 +122,20 @@ public class TestJavaToKotlinBodyStubs extends CommonJavaToKotlin {
         assertEquals(List.of(new KotlinBodyStub.Callee("a.Shop.count(String)", "open fun count(sku: String): Int")),
                 add.callees());
 
+        // the fields the bodies read, as the properties they are: here the class's own, one of them the primary
+        // constructor's
+        KotlinBodyStub count = result.stubs().get(0);
+        assertEquals(List.of(new KotlinBodyStub.Callee("a.Shop.stock", "private val stock: MutableMap<String, Int>")),
+                count.fields());
+        KotlinBodyStub name = result.stubs().get(2);
+        assertEquals(List.of(new KotlinBodyStub.Callee("a.Shop.name", "private val name: String")), name.fields());
+
         KotlinBodyStub of = result.stubs().get(3);
         assertEquals(List.of(new KotlinBodyStub.Callee("a.Shop.<init>(String)", "constructor(private val name: String)")),
                 of.callees());
 
         assertTrue(json.contains("\"id\": \"a.Shop.add(String,int)\""), json);
         assertTrue(json.contains("\"javaLines\": [13, 19]"), json);
+        assertTrue(json.contains("\"fields\": [\n      {\"id\": \"a.Shop.stock\""), json);
     }
 }

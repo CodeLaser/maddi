@@ -33,10 +33,13 @@ import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
@@ -73,6 +76,7 @@ public final class KotlinTranslator {
         Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         Set<Object> printed = new HashSet<>();
         List<KotlinBodies.Declared> declared = new ArrayList<>();
+        List<KotlinBodies.DeclaredField> declaredFields = new ArrayList<>();
         Map<MethodInfo, Path> kotlinFiles = new HashMap<>();
         for (TypeInfo type : types) {
             if (!printed.add(type.compilationUnit())) continue; // a file with two primary types prints once
@@ -82,6 +86,7 @@ public final class KotlinTranslator {
                 messages.addAll(result.messages());
                 String kotlin = formatter.write(result.output()) + "\n";
                 Path file = src.resolve(type.packageName().replace('.', '/')).resolve(type.simpleName() + ".kt");
+                declaredFields.addAll(result.bodies().fields());
                 for (KotlinBodies.Declared d : result.bodies().declared()) {
                     declared.add(d);
                     kotlinFiles.put(d.method(), src.relativize(file));
@@ -93,7 +98,7 @@ public final class KotlinTranslator {
                 crashes.add(type.fullyQualifiedName() + ": " + e);
             }
         }
-        List<KotlinBodyStub> stubs = stubs(declared, kotlinFiles, formatter);
+        List<KotlinBodyStub> stubs = stubs(declared, declaredFields, kotlinFiles, formatter);
         if (options.bodies() == KotlinPrintOptions.Bodies.STUB) KotlinBodyStub.write(stubs, src.resolve(BODIES_FILE));
         return new Result(files, crashes, messages, stubs);
     }
@@ -102,16 +107,20 @@ public final class KotlinTranslator {
      * The stubbed bodies, each with the declarations of the translated methods it calls: those of every file, which
      * is why this waits for the last one.
      */
-    private static List<KotlinBodyStub> stubs(List<KotlinBodies.Declared> declared, Map<MethodInfo, Path> kotlinFiles,
-                                              Formatter2Impl formatter) {
+    private static List<KotlinBodyStub> stubs(List<KotlinBodies.Declared> declared,
+                                              List<KotlinBodies.DeclaredField> declaredFields,
+                                              Map<MethodInfo, Path> kotlinFiles, Formatter2Impl formatter) {
         Map<MethodInfo, String> declarations = new HashMap<>();
         declared.forEach(d -> declarations.put(d.method(), formatter.write(d.declaration()).strip()));
+        Map<FieldInfo, String> fieldDeclarations = new HashMap<>();
+        declaredFields.forEach(f -> fieldDeclarations.put(f.field(), formatter.write(f.declaration()).strip()));
         List<KotlinBodyStub> stubs = new ArrayList<>();
         for (KotlinBodies.Declared d : declared) {
             if (!d.stubbed()) continue;
             MethodInfo m = d.method();
             Set<MethodInfo> called = new LinkedHashSet<>();
-            calls(m, called, new HashSet<>());
+            Set<FieldInfo> read = new LinkedHashSet<>();
+            calls(m, called, read, new HashSet<>());
             List<KotlinBodyStub.Callee> callees = called.stream().filter(declarations::containsKey)
                     .map(c -> new KotlinBodyStub.Callee(KotlinBodyStub.id(c), declarations.get(c))).toList();
             Source source = m.source();
@@ -120,27 +129,31 @@ public final class KotlinTranslator {
                     String.valueOf(m.typeInfo().primaryType().compilationUnit().uri()),
                     lines ? source.beginLine() : -1, lines ? source.endLine() : -1,
                     declarations.get(m), formatter.write(d.printed()).strip(),
-                    d.messages().stream().map(Object::toString).toList(), callees));
+                    d.messages().stream().map(Object::toString).toList(), callees,
+                    read.stream().filter(fieldDeclarations::containsKey)
+                            .map(f -> new KotlinBodyStub.Callee(f.fullyQualifiedName(), fieldDeclarations.get(f)))
+                            .toList()));
         }
         return stubs;
     }
 
     /**
-     * The methods and constructors {@code m}'s body calls or references, those of the anonymous classes, local classes
-     * and lambdas in it included: they are part of the body the stub stands for.
+     * The methods and constructors {@code m}'s body calls or references, and the fields it reads or writes, those of
+     * the anonymous classes, local classes and lambdas in it included: they are part of the body the stub stands for.
      */
-    private static void calls(MethodInfo m, Set<MethodInfo> called, Set<MethodInfo> seen) {
+    private static void calls(MethodInfo m, Set<MethodInfo> called, Set<FieldInfo> read, Set<MethodInfo> seen) {
         if (m.methodBody() == null || !seen.add(m)) return;
         m.methodBody().visit(e -> {
             switch (e) {
                 case MethodCall mc -> called.add(mc.methodInfo());
                 case ConstructorCall cc -> {
                     if (cc.constructor() != null) called.add(cc.constructor());
-                    if (cc.anonymousClass() != null) nested(cc.anonymousClass(), called, seen);
+                    if (cc.anonymousClass() != null) nested(cc.anonymousClass(), called, read, seen);
                 }
                 case MethodReference mr -> called.add(mr.methodInfo());
-                case Lambda lambda -> calls(lambda.methodInfo(), called, seen);
-                case LocalTypeDeclaration local -> nested(local.typeInfo(), called, seen);
+                case VariableExpression ve when ve.variable() instanceof FieldReference fr -> read.add(fr.fieldInfo());
+                case Lambda lambda -> calls(lambda.methodInfo(), called, read, seen);
+                case LocalTypeDeclaration local -> nested(local.typeInfo(), called, read, seen);
                 default -> {
                 }
             }
@@ -148,7 +161,7 @@ public final class KotlinTranslator {
         });
     }
 
-    private static void nested(TypeInfo type, Set<MethodInfo> called, Set<MethodInfo> seen) {
-        type.constructorAndMethodStream().forEach(n -> calls(n, called, seen));
+    private static void nested(TypeInfo type, Set<MethodInfo> called, Set<FieldInfo> read, Set<MethodInfo> seen) {
+        type.constructorAndMethodStream().forEach(n -> calls(n, called, read, seen));
     }
 }

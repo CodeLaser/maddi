@@ -38,11 +38,14 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
  * @param messages       the printer's messages about that translation ({@code BEHAVIOUR_CHANGE}, {@code INFO}, ...)
  * @param callees        the translated methods and constructors the body calls or references, with their
  *                       declarations: the Kotlin API the body is written against (library methods are not listed)
+ * @param fields         the translated fields the body reads or writes, with their declarations as properties (their
+ *                       nullability, val or var, @JvmField)
  */
 public record KotlinBodyStub(String id, String kotlinFile, String javaFile, int javaBeginLine, int javaEndLine,
-                             String declaration, String printed, List<String> messages, List<Callee> callees) {
+                             String declaration, String printed, List<String> messages, List<Callee> callees,
+                             List<Callee> fields) {
 
-    /** A translated method the body uses, by {@link #id}, with its Kotlin declaration. */
+    /** A translated member the body uses, by its fully qualified name, with its Kotlin declaration. */
     public record Callee(String id, String declaration) {
     }
 
@@ -51,6 +54,7 @@ public record KotlinBodyStub(String id, String kotlinFile, String javaFile, int 
         Objects.requireNonNull(declaration);
         messages = List.copyOf(messages);
         callees = List.copyOf(callees);
+        fields = List.copyOf(fields);
     }
 
     /** The stub's id: the Java method's fully qualified name, its parameter types included. */
@@ -81,18 +85,24 @@ public record KotlinBodyStub(String id, String kotlinFile, String javaFile, int 
                 sb.append(j == 0 ? "" : ", ");
                 string(sb, s.messages.get(j));
             }
-            sb.append("],\n    \"callees\": [");
-            for (int j = 0; j < s.callees.size(); j++) {
-                Callee c = s.callees.get(j);
-                sb.append(j == 0 ? "\n" : ",\n").append("      {\"id\": ");
-                string(sb, c.id).append(", \"declaration\": ");
-                string(sb, c.declaration).append('}');
-            }
-            sb.append(s.callees.isEmpty() ? "]" : "\n    ]").append("\n  }");
+            sb.append("],");
+            members(sb, "callees", s.callees).append(',');
+            members(sb, "fields", s.fields).append("\n  }");
         }
         sb.append(stubs.isEmpty() ? "]\n" : "\n]\n");
         Files.createDirectories(file.toAbsolutePath().getParent());
         Files.writeString(file, sb);
+    }
+
+    private static StringBuilder members(StringBuilder sb, String name, List<Callee> members) {
+        sb.append("\n    \"").append(name).append("\": [");
+        for (int j = 0; j < members.size(); j++) {
+            Callee c = members.get(j);
+            sb.append(j == 0 ? "\n" : ",\n").append("      {\"id\": ");
+            string(sb, c.id).append(", \"declaration\": ");
+            string(sb, c.declaration).append('}');
+        }
+        return sb.append(members.isEmpty() ? "]" : "\n    ]");
     }
 
     private static StringBuilder field(StringBuilder sb, String name, String value) {

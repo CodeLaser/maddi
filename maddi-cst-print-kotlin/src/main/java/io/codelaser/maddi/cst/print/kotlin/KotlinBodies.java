@@ -19,6 +19,7 @@ package io.codelaser.maddi.cst.print.kotlin;
 import java.util.List;
 import java.util.Objects;
 
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
@@ -29,10 +30,15 @@ import io.codelaser.maddi.cst.print.translate.PrintMessage;
  * into {@link KotlinBodyStub}s.
  *
  * @param declared in the order printed
+ * @param fields   the file's fields, as Kotlin properties: their declarations without the initializers
  */
-public record KotlinBodies(List<Declared> declared) {
+public record KotlinBodies(List<Declared> declared, List<DeclaredField> fields) {
 
-    public static final KotlinBodies NONE = new KotlinBodies(List.of());
+    public static final KotlinBodies NONE = new KotlinBodies(List.of(), List.of());
+
+    /** A field's Kotlin declaration: {@code @JvmField var exprents: MutableList<Exprent?>?}. */
+    public record DeclaredField(FieldInfo field, OutputBuilder declaration) {
+    }
 
     /**
      * @param method      the Java method
