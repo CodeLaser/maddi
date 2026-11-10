@@ -53,6 +53,7 @@ import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;
 import io.codelaser.maddi.graph.op.Linearize;
+import io.codelaser.maddi.inspection.api.util.DeclarationDependencies;
 import io.codelaser.maddi.inspection.api.util.DeclarationSignature;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
@@ -865,8 +866,18 @@ public class JavaInspectorImpl implements JavaInspector {
         Map<SourceSet, List<TypeInfo>> afterRescan = typesBySourceSet();
         if (!toRewire.isEmpty() && !invalidated.rewireAcrossDeclarationChanges()) {
             Set<String> moved = declarationsChanged(replaced, afterRescan);
-            // nothing is rewired yet: the scanned types are live, the REWIRE types are still their old objects
-            if (!moved.isEmpty()) throw new DeclarationsChangedException(moved);
+            if (!moved.isEmpty()) {
+                // only the REWIRE types that rely on a moved declaration: one that does not resolves as before, and
+                // its rewire is right (a write to an unrelated type of the set must not cost the set its re-parse).
+                // Nothing is rewired yet: the scanned types are live, the REWIRE types still their old objects.
+                Set<TypeInfo> affected = new LinkedHashSet<>();
+                for (TypeInfo typeInfo : toRewire) {
+                    if (dependsOnAny(typeInfo, moved)) affected.add(typeInfo);
+                }
+                if (!affected.isEmpty()) throw new DeclarationsChangedException(moved, affected);
+                LOGGER.debug("Re-parse: the declarations of {} changed; none of the {} type(s) to rewire depends on "
+                             + "them", moved, toRewire.size());
+            }
         }
         Set<TypeInfo> rebuilt = new HashSet<>();
         Set<TypeInfo> rebuiltToRewire = new LinkedHashSet<>();
@@ -925,6 +936,17 @@ public class JavaInspectorImpl implements JavaInspector {
             }
         });
         return moved;
+    }
+
+    private static boolean dependsOnAny(TypeInfo typeInfo, Set<String> moved) {
+        try {
+            Set<String> dependencies = DeclarationDependencies.of(typeInfo);
+            return moved.stream().anyMatch(dependencies::contains);
+        } catch (RuntimeException e) {
+            // a walk that cannot finish cannot clear the type: re-parse it
+            LOGGER.warn("Re-parse: cannot compute the declaration dependencies of {}: {}", typeInfo, e.toString());
+            return true;
+        }
     }
 
     private static List<SourceSet> rescannedOrPartial(Set<SourceSet> rescanned,

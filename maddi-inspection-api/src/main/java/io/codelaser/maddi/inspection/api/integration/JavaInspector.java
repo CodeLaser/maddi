@@ -119,21 +119,40 @@ public interface JavaInspector {
 
     /**
      * A re-parse found that the declarations of a re-parsed type changed
-     * ({@link io.codelaser.maddi.inspection.api.util.DeclarationSignature}) while other types were to be rewired
-     * onto it. Rewiring copies a dependent with every reference re-pointed at the object of the same name, which is
+     * ({@link io.codelaser.maddi.inspection.api.util.DeclarationSignature}) while types that depend on them
+     * ({@link io.codelaser.maddi.inspection.api.util.DeclarationDependencies}) were to be rewired onto it: those are
+     * {@link #affected()}. A {@code REWIRE} type that does not depend on a changed declaration is rewired as usual,
+     * and does not raise this. Rewiring copies a dependent with every reference re-pointed at the object of the same name, which is
      * only right when javac would resolve the dependent's names as before; after an added overload, an override of
      * an inherited method, a changed supertype or constant it would not, and a member that is gone cannot be
      * re-pointed at all. Thrown after the changed types were scanned and before anything was rewired: the changed
      * types are live as their new objects, the {@code REWIRE} types still as their old ones. The caller parses again
-     * with the dependents {@code INVALID} and the changed types {@code REWIRE}, which is what
-     * {@code ReparseWithDependents} (maddi-callgraph) does, or starts from a cold parse.
+     * with the affected types {@code INVALID}, the other {@code REWIRE} types {@code REWIRE} again and the changed
+     * types {@code REWIRE}, which is what {@code ReparseWithDependents} (maddi-callgraph) does, or starts from a cold
+     * parse. That parse can raise this again: a re-parsed dependent's own declarations may move (a constant computed
+     * from a changed one).
      */
     class DeclarationsChangedException extends RuntimeException {
         private final Set<String> types;
+        private final Set<TypeInfo> affected;
 
         public DeclarationsChangedException(Set<String> types) {
-            super("The declarations of " + types + " changed: their dependents must be parsed again, not rewired");
+            this(types, Set.of());
+        }
+
+        public DeclarationsChangedException(Set<String> types, Set<TypeInfo> affected) {
+            super("The declarations of " + types + " changed: " + affected.size()
+                  + " dependent type(s) must be parsed again, not rewired");
             this.types = Set.copyOf(types);
+            this.affected = Set.copyOf(affected);
+        }
+
+        /**
+         * The {@code REWIRE} types of the re-parse that depend on a changed declaration, as the objects that re-parse
+         * was handed (it rewired nothing): they must be parsed again.
+         */
+        public Set<TypeInfo> affected() {
+            return affected;
         }
 
         /** The fully qualified names of the primary types whose declarations changed. */

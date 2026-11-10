@@ -24,6 +24,7 @@ import static io.codelaser.maddi.inspection.api.integration.JavaInspector.Invali
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 
 import org.slf4j.Logger;
@@ -36,13 +37,17 @@ import io.codelaser.maddi.inspection.api.parser.ParseResult;
 /**
  * The re-parse after an edit: the changed primary types are parsed again ({@code INVALID}), their dependents
  * ({@link PrimaryTypeUseGraph#dependentsOf}) are rewired ({@code REWIRE}), the rest is kept. Rewiring a dependent is
- * only right when javac would resolve its names as before, and the re-parse refuses it when the declarations of a
- * changed type moved ({@link JavaInspector.DeclarationsChangedException}: an overload, an override of an inherited
- * method, a supertype, a constant, a member that is gone). Then the dependents are parsed again as well, in a second
- * parse: they are {@code INVALID} there, and the changed types, already live as their new objects and possibly
- * referring back to the dependents, {@code REWIRE}.
+ * only right when javac would resolve its names as before, and the re-parse refuses it for the dependents that rely on
+ * a changed type's declarations when those moved ({@link JavaInspector.DeclarationsChangedException}: an overload,
+ * an override of an inherited method, a supertype, a constant, a member that is gone). Those dependents are parsed
+ * again, in a next parse: they are {@code INVALID} there; the types already parsed again, live as their new objects
+ * and possibly referring back to the dependents, {@code REWIRE}; the other dependents {@code REWIRE} as before. That
+ * parse can refuse again, when a re-parsed dependent's own declarations moved (a constant computed from a changed
+ * one): every round parses at least one more type, so the loop ends.
  * <p>
- * The dependents are the transitive closure, so no kept type refers to a re-parsed one, in either parse.
+ * The dependents are the transitive closure, so no kept type refers to a re-parsed one, in any parse. A refused
+ * parse rewires nothing, so the dependents rewired by the last parse are rewired from the generation before the edit,
+ * and its rewire memo ({@link JavaInspector#lastRewireInfoMap}) leads from there: their analysis can be carried.
  */
 public final class ReparseWithDependents {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReparseWithDependents.class);
@@ -52,13 +57,18 @@ public final class ReparseWithDependents {
 
     /**
      * @param parseResult          the live result
-     * @param declarationsChanged  the changed types whose declarations moved, by name; empty when the dependents were
-     *                             rewired, and their carried prep and analysis data still describes their code
-     * @param dependentsReparsed   whether the dependents were parsed again: they are new objects without any analysis
-     *                             data, and the rewire memo ({@link JavaInspector#lastRewireInfoMap}) is that of the
-     *                             second parse, which does not lead from the generation before the edit
+     * @param declarationsChanged  the types whose declarations moved, by name, over every round; empty when every
+     *                             dependent was rewired
+     * @param reparsedDependents   the dependents that were parsed again, as the objects of the generation before the
+     *                             edit: new objects without any analysis data. The other dependents were rewired from
+     *                             that generation, and their carried prep and analysis data still describes their code
      */
-    public record Outcome(ParseResult parseResult, Set<String> declarationsChanged, boolean dependentsReparsed) {
+    public record Outcome(ParseResult parseResult, Set<String> declarationsChanged,
+                          Set<TypeInfo> reparsedDependents) {
+
+        public boolean dependentsReparsed() {
+            return !reparsedDependents.isEmpty();
+        }
     }
 
     /**
@@ -69,20 +79,45 @@ public final class ReparseWithDependents {
     public static Outcome go(JavaInspector javaInspector, Set<TypeInfo> changed, Set<TypeInfo> dependents,
                              Function<JavaInspector.Invalidated, JavaInspector.ParseOptions> options) {
         assert Collections.disjoint(changed, dependents);
-        try {
-            ParseResult rewired = javaInspector.parse(options.apply(
-                    ti -> changed.contains(ti) ? INVALID : dependents.contains(ti) ? REWIRE : UNCHANGED)).parseResult();
-            return new Outcome(rewired, Set.of(), false);
-        } catch (JavaInspector.DeclarationsChangedException e) {
-            LOGGER.info("The declarations of {} changed: parsing the {} dependent type(s) again", e.types(),
-                    dependents.size());
-            // the changed types are live as new objects, known here by name only; the dependents are as they were
-            Set<String> changedNames = new HashSet<>();
-            for (TypeInfo type : changed) changedNames.add(key(type));
-            ParseResult reparsed = javaInspector.parse(options.apply(
-                    ti -> dependents.contains(ti) ? INVALID : changedNames.contains(key(ti)) ? REWIRE : UNCHANGED))
-                    .parseResult();
-            return new Outcome(reparsed, e.types(), true);
+        // by name (Info equality: name and source set): after a refused round, a re-scanned type is live as its new
+        // object, a dependent not yet parsed again still as its old one
+        Set<String> parsedAgain = new HashSet<>();
+        Set<String> invalid = new HashSet<>();
+        for (TypeInfo type : changed) invalid.add(key(type));
+        Set<String> dependentKeys = new HashSet<>();
+        for (TypeInfo type : dependents) dependentKeys.add(key(type));
+        Set<String> declarationsChanged = new TreeSet<>();
+        // every refused round parses at least one type more; a round past that bound is a defect
+        int maxRounds = changed.size() + dependents.size() + 1;
+        for (int round = 1; ; ++round) {
+            if (round > maxRounds) throw new IllegalStateException("No end to the re-parse rounds after " + maxRounds);
+            Set<String> invalidNow = Set.copyOf(invalid);
+            Set<String> rewireNow = Set.copyOf(parsedAgain);
+            try {
+                ParseResult result = javaInspector.parse(options.apply(ti -> {
+                    String key = key(ti);
+                    if (invalidNow.contains(key)) return INVALID;
+                    return rewireNow.contains(key) || dependentKeys.contains(key) ? REWIRE : UNCHANGED;
+                })).parseResult();
+                Set<TypeInfo> reparsed = new HashSet<>();
+                for (TypeInfo type : dependents) {
+                    String key = key(type);
+                    if (parsedAgain.contains(key) || invalidNow.contains(key)) reparsed.add(type);
+                }
+                return new Outcome(result, Set.copyOf(declarationsChanged), Set.copyOf(reparsed));
+            } catch (JavaInspector.DeclarationsChangedException e) {
+                Set<String> affected = new HashSet<>();
+                for (TypeInfo type : e.affected()) affected.add(key(type));
+                parsedAgain.addAll(invalid);
+                // an exception without the affected types is one of an older contract: every dependent
+                if (affected.isEmpty()) affected.addAll(dependentKeys);
+                affected.removeAll(invalid);
+                if (affected.isEmpty()) throw new IllegalStateException("A refused re-parse names no new type", e);
+                LOGGER.info("The declarations of {} changed: parsing {} of the {} dependent type(s) again", e.types(),
+                        affected.size(), dependents.size());
+                declarationsChanged.addAll(e.types());
+                invalid = new HashSet<>(affected);
+            }
         }
     }
 

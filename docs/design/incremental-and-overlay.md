@@ -263,7 +263,18 @@ What the reparse has to do differently, whichever of the three is chosen:
    an added overload and an override of an inherited method left the dependent calling the old target, and its
    verdicts optimistic, even after the early cutoff fell back to the cold analysis. A caller that vouches for its
    edit opts out with `Invalidated.acrossDeclarationChanges`. The signature over-approximates: any added public
-   member parses the whole cone again.
+   member counts as a change.
+   *Since 2026-11-10:* only the `REWIRE` types that rely on a moved declaration are refused (reported by
+   test-manager: a write that changed one type's declarations re-parsed an unrelated rewired type with it, and cost
+   jfocus its warm analysis). `DeclarationDependencies` (maddi-inspection-api) tells which primary types a type's
+   code relies on: the types written in it and its imports, the type of every expression (`x.b().c()` resolves `c`
+   in the type `b()` returns, which the source never names), the owners of the members it uses, type arguments and
+   bounds, closed over supertypes and enclosing types. The exception names the affected types (`affected()`), and
+   `ReparseWithDependents` parses only those again, in rounds until a parse is not refused; the other dependents
+   are rewired from the generation before the edit, so their analysis is carried, and a re-parsed dependent is
+   seeded with its previous output as the early cutoff's prior. Pinned by `TestReparseWithDependents`
+   (`unrelatedDependent`, `chain`, `cascade`). A missed dependency keeps a stale resolution silently, so the walk
+   adds when in doubt and counts a type it cannot walk as affected.
 4. `lastScanUnits` and the loader task: a partial scan's task serves `getOrLoad` for the set as the full scan's did;
    nothing changes, but the compiled-type loader must not be built from a task that only parsed a subset of the set
    with (b) or (c), since its `SOURCE_PATH`/`CLASS_PATH` differ from a full scan's.

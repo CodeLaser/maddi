@@ -22,9 +22,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -89,36 +91,65 @@ public class TestReparseWithDependents {
     }
 
     private Warm edit(String newCircle) throws IOException {
+        Edited edited = edit(Map.of("Circle", CIRCLE, "Holder", HOLDER, "Other", OTHER), Map.of("Circle", newCircle));
+        assertEquals(Set.of(edited.before("Holder")), edited.dependents());
+        assertNotSame(edited.before("Holder"), edited.after("Holder"));
+        assertSame(edited.before("Other"), edited.after("Other"), "not a dependent: kept in every parse");
+        return new Warm(edited.outcome(), edited.before("Holder"), edited.before("Other"));
+    }
+
+    private record Edited(ReparseWithDependents.Outcome outcome, ParseResult before, Set<TypeInfo> dependents) {
+        TypeInfo before(String simpleName) {
+            return before.findType("s." + simpleName);
+        }
+
+        TypeInfo after(String simpleName) {
+            return outcome.parseResult().findType("s." + simpleName);
+        }
+
+        Set<String> reparsedDependents() {
+            Set<String> names = new TreeSet<>();
+            outcome.reparsedDependents().forEach(t -> names.add(t.simpleName()));
+            return names;
+        }
+    }
+
+    /*
+     The files of package s by simple name, then the edits: the edited types are the changed ones, their dependents
+     come from the call graph. Ends by comparing the warm call graph with a cold parse's.
+     */
+    private Edited edit(Map<String, String> files, Map<String, String> edits) throws IOException {
         Path src = root.resolve("src");
-        write(src, "s/Circle.java", CIRCLE);
-        write(src, "s/Holder.java", HOLDER);
-        write(src, "s/Other.java", OTHER);
+        for (Map.Entry<String, String> e : files.entrySet()) write(src, "s/" + e.getKey() + ".java", e.getValue());
         SourceSet set = new SourceSetImpl.Builder().setName("main").setSourceDirectories(List.of(src))
                 .setUri(src.toUri()).build();
         JavaInspector inspector = inspector(set);
         ParseResult pr = inspector.parse(Map.of(), JavaInspectorImpl.DETAILED_SOURCES).parseResult();
         ComputeCallGraph ccg = new ComputeCallGraph(inspector.runtime(), pr, _ -> false).go();
-        TypeInfo circle = pr.findType("s.Circle");
-        TypeInfo holder = pr.findType("s.Holder");
-        TypeInfo other = pr.findType("s.Other");
-        Set<TypeInfo> dependents = new PrimaryTypeUseGraph(ccg.graph()).dependentsOf(Set.of(circle));
-        assertEquals(Set.of(holder), dependents);
+        Set<TypeInfo> changed = new HashSet<>();
+        for (String name : edits.keySet()) changed.add(pr.findType("s." + name));
+        Set<TypeInfo> dependents = new PrimaryTypeUseGraph(ccg.graph()).dependentsOf(changed);
 
-        write(src, "s/Circle.java", newCircle);
-        ReparseWithDependents.Outcome outcome = ReparseWithDependents.go(inspector, Set.of(circle), dependents,
+        for (Map.Entry<String, String> e : edits.entrySet()) write(src, "s/" + e.getKey() + ".java", e.getValue());
+        ReparseWithDependents.Outcome outcome = ReparseWithDependents.go(inspector, changed, dependents,
                 invalidated -> new JavaInspector.ParseOptions.Builder().setDetailedSources(true).setFailFast(true)
                         .setInvalidated(invalidated).build());
 
         ParseResult warm = outcome.parseResult();
-        assertNotSame(circle, warm.findType("s.Circle"));
-        assertNotSame(holder, warm.findType("s.Holder"));
-        assertSame(other, warm.findType("s.Other"), "not a dependent: kept in both parses");
+        for (TypeInfo type : changed) assertNotSame(type, warm.findType(type.fullyQualifiedName()));
         JavaInspector cold = inspector(set);
         ParseResult coldResult = cold.parse(Map.of(), JavaInspectorImpl.DETAILED_SOURCES).parseResult();
         assertEquals(ComputeCallGraph.print(new ComputeCallGraph(cold.runtime(), coldResult, _ -> false).go().graph()),
                 ComputeCallGraph.print(new ComputeCallGraph(inspector.runtime(), warm, _ -> false).go().graph()),
                 "the warm call graph as a cold parse's");
-        return new Warm(outcome, holder, other);
+        // a rewired dependent keeps its compilation unit, a re-parsed one has a new one
+        for (TypeInfo type : dependents) {
+            boolean reparsed = outcome.reparsedDependents().contains(type);
+            TypeInfo now = warm.findType(type.fullyQualifiedName());
+            assertEquals(!reparsed, type.compilationUnit().fingerPrintOrNull() == now.compilationUnit()
+                    .fingerPrintOrNull(), type + (reparsed ? " re-parsed" : " rewired"));
+        }
+        return new Edited(outcome, pr, dependents);
     }
 
     private static void assertRewired(Warm warm) {
@@ -178,6 +209,92 @@ public class TestReparseWithDependents {
     public void returnType() throws IOException {
         assertReparsed(edit(CIRCLE.replace("public double scale(Object o) { return r; }",
                 "public float scale(Object o) { return (float) r; }")));
+    }
+
+    // test-manager, 2026-11-10: a declaration change in one changed type made every dependent re-parse
+    @DisplayName("two changed types, one with a declaration change: only its dependents are parsed again")
+    @Test
+    public void unrelatedDependent() throws IOException {
+        String square = """
+                package s;
+                public class Square {
+                    public double side() { return 1; }
+                }
+                """;
+        String squareUse = """
+                package s;
+                public class SquareUse {
+                    public double twice(Square s) { return 2 * s.side(); }
+                }
+                """;
+        Edited edited = edit(Map.of("Circle", CIRCLE, "Holder", HOLDER, "Square", square, "SquareUse", squareUse),
+                Map.of("Circle", CIRCLE.replace("SIDES = 0", "SIDES = 1"),
+                        "Square", square.replace("return 1;", "return 2;")));
+        assertEquals(Set.of("s.Circle"), edited.outcome().declarationsChanged());
+        assertEquals(Set.of("Holder"), edited.reparsedDependents(), "SquareUse does not rely on Circle");
+    }
+
+    @DisplayName("a call through a chain: the type a call resolves in, never named in the dependent")
+    @Test
+    public void chain() throws IOException {
+        String shape = """
+                package s;
+                public class Shape {
+                    public double scale(Object o) { return 1; }
+                }
+                """;
+        String disk = """
+                package s;
+                public class Disk extends Shape {
+                    public double r() { return 1; }
+                }
+                """;
+        String factory = """
+                package s;
+                public class Factory {
+                    public Disk make() { return new Disk(); }
+                }
+                """;
+        // Holder never writes Disk: factory.make() is a Disk, and scale resolves in it
+        String holder = """
+                package s;
+                public class Holder {
+                    private final Factory factory = new Factory();
+                    public double area() { return factory.make().scale("x"); }
+                }
+                """;
+        Edited edited = edit(Map.of("Shape", shape, "Disk", disk, "Factory", factory, "Holder", holder),
+                Map.of("Disk", disk.replace("public double r() { return 1; }",
+                        "public double r() { return 1; }\n    public double scale(String s) { return 2; }")));
+        assertEquals(Set.of("s.Disk"), edited.outcome().declarationsChanged());
+        assertTrue(edited.reparsedDependents().contains("Holder"), "Holder relies on Disk's members");
+    }
+
+    /*
+     The signature holds a constant's initializer as written, not its value: Holder's 'Circle.SIDES + 1' reads the
+     same after the edit, and User, which reads Holder.MORE through the field, is rewired onto the new Holder.
+     */
+    @DisplayName("a constant computed from a changed one: the type computing it is parsed again, its users rewired")
+    @Test
+    public void cascade() throws IOException {
+        String holder = """
+                package s;
+                public class Holder {
+                    public static final int MORE = Circle.SIDES + 1;
+                }
+                """;
+        // relies on Holder's constant, never on Circle
+        String user = """
+                package s;
+                public class User {
+                    public int v() { return Holder.MORE; }
+                }
+                """;
+        Edited edited = edit(Map.of("Circle", CIRCLE, "Holder", holder, "User", user, "Other", OTHER),
+                Map.of("Circle", CIRCLE.replace("SIDES = 0", "SIDES = 1")));
+        assertEquals(Set.of("s.Circle"), edited.outcome().declarationsChanged());
+        assertEquals(Set.of("Holder"), edited.reparsedDependents());
+        assertSame(edited.before("Other"), edited.after("Other"));
     }
 
     private static JavaInspector inspector(SourceSet set) {

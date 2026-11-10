@@ -193,6 +193,20 @@ public class RunRewireTests {
     private static final String TYPES = System.getProperty("maddi.rewire.types");
 
     /*
+     -Dmaddi.rewire.edit=declaration: the edit adds a public static method to the primary type instead of a comment, a
+     declaration change: the dependents that rely on the type are parsed again (ReparseWithDependents), the others
+     rewired, and the restore removes the method again. An annotation type cannot hold one; it gets the comment.
+     */
+    private static final boolean DECLARATION_EDIT = "declaration".equals(System.getProperty("maddi.rewire.edit"));
+
+    static String edited(String content, int iteration) {
+        int close = content.lastIndexOf('}');
+        if (!DECLARATION_EDIT || close < 0 || content.contains("@interface")) return "// some comment\n\n" + content;
+        return content.substring(0, close) + "\n    public static void maddiRewireProbe" + iteration + "() {\n    }\n"
+               + content.substring(close);
+    }
+
+    /*
      DIAGNOSTIC -Dmaddi.rewire.oracleAtStart=true: run the oracle before the first edit as well (logged as iteration
      -1). Nothing has been re-parsed or carried yet, so it compares two cold runs in one JVM: a difference there is
      the analysis not being deterministic, not the incremental path. Each oracle call also logs a digest of both
@@ -343,7 +357,7 @@ public class RunRewireTests {
                 boolean restored = false;
                 try {
                     LOGGER.info("Modifying {}", absolutePath);
-                    String updatedContent = "// some comment\n\n" + content;
+                    String updatedContent = edited(content, i);
                     // this will trigger a change of fingerprint
                     stop |= write(path, updatedContent);
                     if (!stop) {
@@ -395,10 +409,14 @@ public class RunRewireTests {
         long t1 = System.nanoTime();
         LOGGER.info("Reparse");
         // the changed types INVALID, their dependents REWIRE; when a changed type's declarations moved, the
-        // dependents are parsed again instead, and have no analysis to carry
+        // dependents that rely on them are parsed again instead, and have no analysis to carry
         ReparseWithDependents.Outcome reparse = ReparseWithDependents.go(javaInspector, rr.sourceHasChanged(),
                 dependentPrimaryTypes, this::reparseOptions);
         ParseResult parseResult1 = reparse.parseResult();
+        if (!reparse.declarationsChanged().isEmpty()) {
+            LOGGER.info("REWIRE DECLARATIONS of {} changed: {} of the {} dependent type(s) parsed again, the rest rewired",
+                    reparse.declarationsChanged(), reparse.reparsedDependents().size(), dependentPrimaryTypes.size());
+        }
         long t2 = System.nanoTime();
         LOGGER.info("Prep");
         G<Info> graph = options.prep().apply(javaInspector, parseResult1);
@@ -416,13 +434,21 @@ public class RunRewireTests {
             for (TypeInfo t : rr.sourceHasChanged()) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
             Set<TypeInfo> carryFrom = null;
             Set<TypeInfo> seedPrevious = null;
-            if (CARRY && !reparse.dependentsReparsed()) {
-                // every previous primary type but the changed ones: the REWIRE cone, and what else the re-parse
-                // rebuilt (a source set re-scanned in full); a kept type maps onto itself and is skipped
+            if (CARRY) {
+                // every previous primary type but the changed ones and the dependents parsed again (they rely on a
+                // declaration that moved): the rewired part of the cone, and what else the re-parse rebuilt (a
+                // source set re-scanned in full); a kept type maps onto itself and is skipped. A re-parsed dependent
+                // is seeded, with its previous output as its prior: its source did not change.
                 Set<TypeInfo> previous = new HashSet<>(previousParseResult.primaryTypes());
                 previous.removeAll(rr.sourceHasChanged());
+                previous.removeAll(reparse.reparsedDependents());
                 carryFrom = Set.copyOf(previous);
-                seedPrevious = Set.copyOf(rr.sourceHasChanged());
+                Set<TypeInfo> priors = new HashSet<>(rr.sourceHasChanged());
+                priors.addAll(reparse.reparsedDependents());
+                seedPrevious = Set.copyOf(priors);
+                for (TypeInfo t : reparse.reparsedDependents()) {
+                    seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
+                }
             } else {
                 for (TypeInfo t : dependentPrimaryTypes) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
             }
