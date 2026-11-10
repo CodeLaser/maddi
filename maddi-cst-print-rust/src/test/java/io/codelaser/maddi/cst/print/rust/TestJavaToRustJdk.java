@@ -256,6 +256,17 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                     return n + (pass.get(0) ? 100 : 0) + pass.length();
                 }
                 public static Object file(String name) { return new java.io.File(name); }
+                // Exprent.fillBytecodeRange / measureBytecode: a nullable set passed on, in a loop and after it
+                public java.util.List<Offsets> kids = new java.util.ArrayList<>();
+                public void fillBytecodeRange(BitSet values) {
+                    for (Offsets o : kids) o.fillBytecodeRange(values);
+                    measure(values);
+                }
+                public void measure(BitSet values) {
+                    if (values != null && bytecode != null) values.or(bytecode);
+                }
+                // a nullable field where an Option<&mut BitSet> is expected
+                public void into(Offsets other) { other.fillBytecodeRange(bytecode); }
             }
             """;
 
@@ -266,8 +277,12 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         TypeInfo offsets = types.getFirst();
         modifying(offsets, "addBytecodeOffsets");
         borrowed(method(offsets, "addBytecodeOffsets").parameters().getFirst());
-        nonModifying(offsets, "range", "count", "file");
-        RustTranslator.Result result = translate(types, nullable(Set.of("bytecode", "bytecodeOffsets")));
+        nonModifying(offsets, "range", "count", "file", "fillBytecodeRange", "measure");
+        modifying(offsets, "into");
+        exclusive(method(offsets, "fillBytecodeRange").parameters().getFirst());
+        exclusive(method(offsets, "measure").parameters().getFirst());
+        borrowed(method(offsets, "into").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("bytecode", "bytecodeOffsets", "values")));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "pub bytecode: Option<crate::jrt::BitSet>,");
@@ -275,6 +290,8 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "let mut pass = crate::jrt::BitSet::with_capacity(size);");
         // an unmapped JDK constructor names the opaque stand-in, as its type does
         contains(rust, "crate::jrt::File::new(");
+        contains(rust, "o.fill_bytecode_range(values.as_deref_mut());");
+        contains(rust, "other.fill_bytecode_range(self.bytecode.as_mut());");
         List<String> errors = rustcErrors();
         // only the opaque File's constructor, which does not exist
         assertEquals(1, errors.size(), () -> String.join("\n", errors) + "\n" + rust);

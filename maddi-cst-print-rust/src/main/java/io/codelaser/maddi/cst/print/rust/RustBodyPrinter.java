@@ -1946,7 +1946,26 @@ final class RustBodyPrinter {
         if (nullable && p.nullable && !RustTypes.isCopy(type) && context.passing(pi) == Passing.SHARED) {
             return nullableBorrow(p, argument, RustTypes.isString(type), type.arrays() > 0);
         }
+        if (nullable && p.nullable && !RustTypes.isCopy(type) && context.passing(pi) == Passing.EXCLUSIVE
+            && !RustTypes.isString(type) && type.arrays() == 0) {
+            return nullableExclusive(p, argument, text);
+        }
         return text;
+    }
+
+    /**
+     * A nullable value where an {@code Option<&mut T>} is expected: {@code None} for null, an owned {@code Option<T>}
+     * place (a field) as {@code .as_mut()} rather than {@code &mut} of the Option; one that is already an {@code
+     * Option<&mut T>} (a parameter passed on) is reborrowed, {@code .as_deref_mut()}, so that it is not moved into the
+     * first call (fernflower's {@code measureBytecode(values)} in a loop, then again).
+     */
+    private static String nullableExclusive(Printed p, Expression argument, String text) {
+        if (argument instanceof NullConstant || "None".equals(p.text)) return "None";
+        return switch (p.held) {
+            case VALUE, PLACE -> p.text + ".as_mut()";
+            case EXCLUSIVE -> p.text + ".as_deref_mut()";
+            default -> text;
+        };
     }
 
     /**
