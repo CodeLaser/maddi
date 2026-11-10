@@ -675,6 +675,12 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                 static final VT INT = new VT(1);
                 static int code() { return INT.t(); }
                 static VT intType() { return INT; }
+                // VarDefinitionHelper's 'VarType type = mapMin.get(paar); … type = VarType.VARTYPE_CHAR;'
+                static int pick(java.util.Map<String, VT> m, String k) {
+                    VT t = m.get(k);
+                    if (t == null) t = INT;
+                    return t.t();
+                }
             }
             """;
 
@@ -686,12 +692,14 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         TypeInfo vt = varTypes.findSubType("VT");
         immutable(vt, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
         nonModifying(vt, "t");
-        nonModifying(varTypes, "code", "intType");
+        nonModifying(varTypes, "code", "intType", "pick");
+        method(varTypes, "pick").parameters().forEach(CommonJavaToRust::borrowed);
         unmodifiedField(varTypes, "INT");
         translate(types);
         String rust = module("a.b");
         contains(rust, "thread_local! {");
         contains(rust, "VAR_TYPES_INT.with(|v| v.clone())");
+        contains(rust, "let mut t = m.get(k).cloned();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

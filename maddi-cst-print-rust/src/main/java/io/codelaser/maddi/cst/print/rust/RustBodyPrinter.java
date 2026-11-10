@@ -276,6 +276,12 @@ final class RustBodyPrinter {
             // 'String x = s; … x = "default";': an assignment gives the local an owned string, so it owns its first
             text = value.nullable ? text + ".map(|v| v.to_string())" : text + ".to_string()";
             held = Held.VALUE;
+        } else if (reassigned && held == Held.SHARED && !(init instanceof NullConstant)
+                   && RustTypes.isImmutableValue(lv.parameterizedType(), context.facts)) {
+            // 'VarType t = md.getRet(); … t = VarType.VARTYPE_CHAR;': an immutable value (an Rc) the local is later
+            // given owned owns its first one too, a clone of the handle
+            text = text + (value.nullable ? ".cloned()" : ".clone()");
+            held = Held.VALUE;
         } else if (held == Held.PLACE && (RustTypes.isString(lv.parameterizedType())
                                    || RustTypes.isImmutableValue(lv.parameterizedType(), context.facts))) {
             // an immutable value: the local is a copy, so that the field may be assigned while it lives
