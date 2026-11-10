@@ -1049,6 +1049,48 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String NULLABLE_ARGUMENT = """
+            package a.b;
+            public class Holders {
+                public static class Node {
+                    private int size;
+                    public int getSize() { return size; }
+                    public void grow() { size++; }
+                }
+                // fernflower's tracker.getRecord(operand): a nullable value passed where a non-null borrow is expected
+                private Node node;
+                private String name;
+                public int measured() { return measure(node) + name(name) + growAll(node); }
+                public static int measure(Node n) { return n.getSize(); }
+                public static int name(String s) { return s.length(); }
+                public static int growAll(Node n) { n.grow(); return n.getSize(); }
+                public void setNode(Node n) { node = n; }
+            }
+            """;
+
+    @DisplayName("a nullable value where a non-null borrow is expected: a borrow of the content, not a move")
+    @Test
+    public void nullableToBorrow() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_ARGUMENT);
+        TypeInfo holders = types.getFirst();
+        TypeInfo node = holders.findSubType("Node");
+        nonModifying(node, "getSize");
+        modifying(node, "grow");
+        modifying(holders, "measured", "setNode", "growAll");
+        nonModifying(holders, "measure", "name");
+        borrowed(method(holders, "measure").parameters().getFirst());
+        borrowed(method(holders, "name").parameters().getFirst());
+        exclusive(method(holders, "growAll").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("node", "name")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "Self::measure(self.node.as_ref().unwrap())");
+        contains(rust, "Self::name(self.name.as_deref().unwrap())");
+        contains(rust, "Self::grow_all(self.node.as_mut().unwrap())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String DESCRIPTORS = """
             package a.b;
             public class Fd {

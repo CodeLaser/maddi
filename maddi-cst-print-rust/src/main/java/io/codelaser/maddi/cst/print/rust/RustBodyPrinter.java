@@ -2192,7 +2192,21 @@ final class RustBodyPrinter {
             };
         }
         if (nullable && !p.nullable && !(argument instanceof NullConstant)) return "Some(" + text + ")";
-        if (!nullable && p.nullable) return text + ".unwrap()";
+        if (!nullable && p.nullable) {
+            // a borrow of the Option's content: '&operand.unwrap()' would move the Option out of a local or a field
+            if (!copy && (p.held == Held.VALUE || p.held == Held.PLACE) && !"None".equals(p.text)) {
+                switch (context.passing(pi)) {
+                    case SHARED -> {
+                        return p.text + (RustTypes.isString(type) ? ".as_deref()" : ".as_ref()") + ".unwrap()";
+                    }
+                    case EXCLUSIVE -> {
+                        return p.text + ".as_mut().unwrap()";
+                    }
+                    default -> { }
+                }
+            }
+            return text + ".unwrap()";
+        }
         if (nullable && p.nullable && !copy && context.passing(pi) == Passing.SHARED) {
             return nullableBorrow(p, argument, RustTypes.isString(type), type.arrays() > 0);
         }
