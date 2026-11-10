@@ -125,7 +125,7 @@ public interface RustFacts extends NullabilityFacts {
         @Override
         public boolean resultBorrowsReceiver(MethodInfo method) {
             if (method.isStatic() || method.isConstructor() || method.isVoid() || returnsNew(method)
-                || newOrExisting(method)) {
+                || newOrExisting(method) || returnedParameter(method) != null) {
                 return false;
             }
             Value.Independent independent = method.analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD,
@@ -234,6 +234,9 @@ public interface RustFacts extends NullabilityFacts {
                 // every return creates the result: owned, whatever the links say ('return new R(list)' is no borrow
                 // of a temporary); so is unwrap_or_else's, the Option's content or a new object
                 if (returnsNew(method) || newOrExisting(method)) return false;
+                // the result is a parameter, returned as it is ('lst.add(this.x); return lst;'): that object, holding
+                // the receiver's contents, not a borrow of the receiver (E0515 'return &lst')
+                if (returnedParameter(method) != null) return false;
                 LinkFacts.Result result = links.result(method);
                 if (result == null || !referenceResult(method)) return ownership.resultBorrowsReceiver(method);
                 // a new object holding the receiver's contents is a view (unmodifiableList(list), a borrow) or a copy
@@ -500,6 +503,25 @@ public interface RustFacts extends NullabilityFacts {
             return !found[0] && !(e instanceof Lambda);
         });
         return found[0];
+    }
+
+    /** The parameter every return statement of the method returns as it is; {@code null} for any other method. */
+    static ParameterInfo returnedParameter(MethodInfo method) {
+        if (method.methodBody() == null || method.isVoid()) return null;
+        ParameterInfo[] p = {null};
+        boolean[] other = {false};
+        method.methodBody().visit(e -> {
+            if (e instanceof ReturnStatement rs) {
+                if (rs.expression() instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi
+                    && pi.methodInfo() == method && (p[0] == null || p[0] == pi)) {
+                    p[0] = pi;
+                } else {
+                    other[0] = true;
+                }
+            }
+            return !other[0] && !(e instanceof Lambda);
+        });
+        return other[0] ? null : p[0];
     }
 
     /* every return statement of the method creates its result */

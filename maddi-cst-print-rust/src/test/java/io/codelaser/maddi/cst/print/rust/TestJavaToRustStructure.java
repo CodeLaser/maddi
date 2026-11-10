@@ -1042,4 +1042,34 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "pub fn names(&self) -> HashSet<String> {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String COLLECT = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Collect {
+                private final List<String> items = new ArrayList<>();
+                // Exprent.getAllExprents(List<Exprent> lst): adds its own, returns the list it was given
+                public List<String> collect(List<String> lst) { lst.addAll(items); return lst; }
+                public void add(String s) { items.add(s); }
+            }
+            """;
+
+    @DisplayName("a method returning the parameter it was given: that value, not a borrow of the receiver")
+    @Test
+    public void returnedParameter() throws Exception {
+        List<TypeInfo> types = parse(COLLECT);
+        TypeInfo collect = types.getFirst();
+        nonModifying(collect, "collect");
+        modifying(collect, "add");
+        dependentResult(collect, "collect");
+        ParameterInfo lst = method(collect, "collect").parameters().getFirst();
+        lst.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE);
+        lst.analysis().set(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.DEPENDENT);
+        translate(types);
+        String rust = module("a.b");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().noneMatch(e -> e.contains("E0515")), () -> String.join("\n", errors) + "\n" + rust);
+    }
 }
