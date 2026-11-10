@@ -105,10 +105,12 @@
 # type parameters, reduce's raw seed, the map and list helpers' ? extends and get(Object): 172 -> 171 errors.
 # 2026-11-10, Objects.requireNonNull(x, Supplier) calls the supplier for the message (CS1660); a functional
 # interface nested in an interface, hoisted, is a public delegate (CS0051): 171 -> 157 errors.
+# 2026-11-10, Java's unchecked list cast is JavaCollections.UncheckedList, a class's goes through object (CS0030);
+# Arrays.sort is JavaArrays.Sort with a comparator and a range, Collections.emptySortedMap: 157 -> 155 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
 compilingFiles	305
 unmappedJdkUses	151
-errors	157
+errors	155
