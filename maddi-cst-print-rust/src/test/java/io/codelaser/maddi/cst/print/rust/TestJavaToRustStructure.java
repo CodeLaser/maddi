@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -1003,6 +1004,47 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         String rust = module("a.b");
         contains(rust, "pub fn parts(&self) -> Option<&Vec<String>> {");
         contains(rust, "pub fn label(&self) -> Option<&str> {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String LATE_FIELD = """
+            package a.b;
+            public class Lambdas {
+                public static class Member {
+                    private final String name;
+                    public Member(String name) { this.name = name; }
+                    public String getName() { return name; }
+                }
+                // ClassesProcessor.Inner's new_2: a field of a type without an empty value, assigned among other work
+                public static class Node {
+                    private final Member member;
+                    private int size;
+                    public Node(Member member) {
+                        this.member = member;
+                        grow();
+                    }
+                    private void grow() { size++; }
+                    public int getSize() { return size; }
+                }
+            }
+            """;
+
+    @DisplayName("a constructor's general shape: a field without an empty value takes its assignment's value")
+    @Test
+    public void earlyFieldAssignment() throws Exception {
+        List<TypeInfo> types = parse(LATE_FIELD);
+        TypeInfo lambdas = types.getFirst();
+        TypeInfo member = lambdas.findSubType("Member");
+        TypeInfo node = lambdas.findSubType("Node");
+        nonModifying(member, "getName");
+        modifying(node, "grow");
+        nonModifying(node, "getSize");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        assertFalse(rust.contains("Default::default()"), rust);
+        contains(rust, "member: member,");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

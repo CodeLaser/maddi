@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,7 +45,9 @@ import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Passing;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Receiver;
 import io.codelaser.maddi.cst.print.rust.RustTypes.Form;
@@ -1321,14 +1324,24 @@ final class RustTypePrinter {
                         .append(": PhantomData,\n"));
                 return sb.append(pad).append("}\n").append(INDENT).append("}\n").toString();
             }
-            // the general shape: build 'this' at the empty values, run the body on it
+            // the general shape: build 'this' at the empty values, run the body on it; a field without an empty value
+            // takes the one its assignment gives, when that can be computed first
             sb.append(pad).append("let mut this = Self {\n");
             if (kindInit != null) sb.append(pad).append(INDENT).append("kind: ").append(kindInit).append(",\n");
             if (base != null) {
                 sb.append(pad).append(INDENT).append("base: ").append(baseValue(statements, printer)).append(",\n");
             }
+            Map<FieldInfo, Statement> early = new HashMap<>();
             for (FieldInfo f : fields) {
-                sb.append(pad).append(INDENT).append(RustNames.snake(f.name())).append(": ").append(initial(f)).append(",\n");
+                String initial = initial(f);
+                Statement first = initial.contains("Default::default()") ? earlyAssignment(statements, f) : null;
+                if (first != null) {
+                    early.put(f, first);
+                    Expression value = ((Assignment) ((ExpressionAsStatement) first).expression()).value();
+                    initial = context.borrows.fields(f.owner()).containsKey(f) ? printer.text(value)
+                            : fieldValue(printer, f, value);
+                }
+                sb.append(pad).append(INDENT).append(RustNames.snake(f.name())).append(": ").append(initial).append(",\n");
             }
             phantom.forEach(tp -> sb.append(pad).append(INDENT).append("_").append(tp.toLowerCase()).append(": PhantomData,\n"));
             sb.append(pad).append("};\n");
@@ -1336,7 +1349,7 @@ final class RustTypePrinter {
             context.receiver = "this";
             try {
                 for (Statement s : statements) {
-                    if (s instanceof ExplicitConstructorInvocation) continue;
+                    if (s instanceof ExplicitConstructorInvocation || early.values().stream().anyMatch(x -> x == s)) continue;
                     sb.append(printer.statement(s, 2));
                 }
             } finally {
@@ -1377,6 +1390,58 @@ final class RustTypePrinter {
             }
         }
         return assigned;
+    }
+
+    /*
+     The one assignment of f in a constructor body whose value can be computed before the object
+     ('this.classStruct = classStruct;' among other statements): a top-level statement, f assigned nowhere else and read
+     by no statement before it, its value reading neither the object nor a local, nor a parameter that another
+     statement uses (it is moved into the struct). Rust has no empty value for f's type (a Shared, a struct, a trait
+     object: 'Default::default()', E0277). null when there is none.
+     */
+    private static Statement earlyAssignment(List<Statement> statements, FieldInfo f) {
+        Statement found = null;
+        for (Statement s : statements) {
+            if (found == null && assignedField(s, List.of(f)) != null) {
+                found = s;
+            } else if (mentions(s, f)) {
+                return null;
+            }
+        }
+        if (found == null) return null;
+        Expression value = ((Assignment) ((ExpressionAsStatement) found).expression()).value();
+        if (readsThis(value)) return null;
+        Set<Variable> parameters = new HashSet<>();
+        boolean[] local = {false};
+        value.visit(e -> {
+            if (e instanceof VariableExpression ve) {
+                if (ve.variable() instanceof LocalVariable) local[0] = true;
+                if (ve.variable() instanceof ParameterInfo) parameters.add(ve.variable());
+            }
+            return !local[0];
+        });
+        if (local[0]) return null;
+        for (Statement s : statements) {
+            if (s == found) continue;
+            boolean[] uses = {false};
+            s.visit(e -> {
+                if (e instanceof VariableExpression ve && parameters.contains(ve.variable())) uses[0] = true;
+                return !uses[0];
+            });
+            if (uses[0]) return null;
+        }
+        return found;
+    }
+
+    private static boolean mentions(Element element, FieldInfo f) {
+        boolean[] found = {false};
+        element.visit(e -> {
+            if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.fieldInfo() == f) {
+                found[0] = true;
+            }
+            return !found[0];
+        });
+        return found[0];
     }
 
     private static FieldInfo assignedField(Statement s, List<FieldInfo> fields) {
