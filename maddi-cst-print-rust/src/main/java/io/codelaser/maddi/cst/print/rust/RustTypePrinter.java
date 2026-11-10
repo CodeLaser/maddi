@@ -1034,8 +1034,7 @@ final class RustTypePrinter {
             return false;
         }
         String type = RustTypes.owned(f.type(), context, f);
-        // a type with the struct lifetime ('a) cannot be a static's
-        if (type.contains("dyn ") || type.contains("RefCell<") || type.contains(RustBorrows.LIFETIME)) return false;
+        if (type.contains("dyn ") || type.contains("RefCell<")) return false;
         boolean[] touched = {false};
         for (MethodInfo m : f.owner().methods()) {
             if (!m.isStaticInitializer() || m.methodBody() == null) continue;
