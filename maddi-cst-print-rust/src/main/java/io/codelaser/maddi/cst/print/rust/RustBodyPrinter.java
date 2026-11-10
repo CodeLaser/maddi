@@ -62,6 +62,8 @@ final class RustBodyPrinter {
     private final Set<String> moved = new HashSet<>();
     /* closure parameters typed '&str' (a source functional interface's String parameter): not a place to clone */
     private final Set<ParameterInfo> strClosureParameters = new HashSet<>();
+    // a closure's parameters typed Option<…> by the functional interface they implement: how each holds its value
+    private final Map<ParameterInfo, Held> optionClosureParameters = new HashMap<>();
     private final Map<ParameterInfo, Boolean> movable = new HashMap<>();
 
     /** How an expression's value is held, which decides how it is passed on. */
@@ -1097,6 +1099,8 @@ final class RustBodyPrinter {
         // '&x' borrows and '.clone()' copies either way (deref coercion, auto-deref)
         // an element is never an Option: the collections hold their values as they are
         if (closures.contains(pi.methodInfo())) {
+            Held option = optionClosureParameters.get(pi);
+            if (option != null) return new Printed(name, option, true);
             return new Printed(name, strClosureParameters.contains(pi) ? Held.STR : Held.PLACE, false);
         }
         if (movable(pi)) moved.add(name);
@@ -1586,7 +1590,14 @@ final class RustBodyPrinter {
         String params = typed(names, types);
         if (types != null && types.size() == names.size()) {
             for (int i = 0; i < names.size(); i++) {
-                if ("&str".equals(types.get(i))) strClosureParameters.add(m.parameters().get(i));
+                String t = types.get(i);
+                if ("&str".equals(t)) strClosureParameters.add(m.parameters().get(i));
+                // fernflower's iterateExprents(exprent -> …) of a nullable Function parameter: the body unwraps it
+                if (t.startsWith("Option<")) {
+                    optionClosureParameters.put(m.parameters().get(i), t.startsWith("Option<&str>") ? Held.STR
+                            : t.startsWith("Option<&mut ") ? Held.EXCLUSIVE : t.startsWith("Option<&") ? Held.SHARED
+                            : Held.VALUE);
+                }
             }
         }
         Expression single = lambda.singleExpression();

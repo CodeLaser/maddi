@@ -727,4 +727,43 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "state.write_i32(self.clone().hash_code());");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String VISITOR = """
+            package a.b;
+            public class Visits {
+                // fernflower's DirectGraph.ExprentIterator: a functional interface whose parameter may be null
+                public interface Visitor {
+                    int visit(Node node);
+                }
+                public static class Node {
+                    private int type;
+                    public int getType() { return type; }
+                    public int iterate(Visitor v) { return v.visit(this); }
+                }
+                public static int typeOf(Node root) {
+                    return root.iterate(e -> e.getType() == 2 ? 1 : 0);
+                }
+            }
+            """;
+
+    @DisplayName("a lambda's parameter that its interface declares nullable: unwrapped where used")
+    @Test
+    public void nullableLambdaParameter() throws Exception {
+        List<TypeInfo> types = parse(VISITOR);
+        TypeInfo visits = types.getFirst();
+        TypeInfo node = visits.findSubType("Node");
+        nonModifying(node, "getType", "iterate");
+        nonModifying(visits, "typeOf");
+        TypeInfo visitor = visits.findSubType("Visitor");
+        nonModifying(visitor, "visit");
+        borrowed(method(visitor, "visit").parameters().getFirst());
+        borrowed(method(node, "iterate").parameters().getFirst());
+        borrowed(method(visits, "typeOf").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("node")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "e.as_ref().unwrap().get_type()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
