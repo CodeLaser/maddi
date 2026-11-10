@@ -19,6 +19,7 @@ package io.codelaser.maddi.cst.print.rust;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -164,6 +165,7 @@ final class RustJdk {
                 default -> null;
             };
         }
+        if (BOXED.containsKey(fqn) && mc.object() != null) return boxed(o, name, args, printer, BOXED.get(fqn));
         if ("java.util.Iterator".equals(fqn)) {
             return switch (name + "/" + args.size()) {
                 // Java throws on an exhausted iterator, Rust panics; an element is a reference into the collection
@@ -258,6 +260,42 @@ final class RustJdk {
         };
     }
 
+    // the boxed primitives, by their Rust type
+    private static final Map<String, String> BOXED = Map.of("java.lang.Integer", "i32", "java.lang.Long", "i64",
+            "java.lang.Short", "i16", "java.lang.Byte", "i8", "java.lang.Double", "f64", "java.lang.Float", "f32",
+            "java.lang.Character", "char", "java.lang.Boolean", "bool");
+
+    /** An Integer's, a Long's … instance methods: the primitive itself. */
+    private static Printed boxed(String receiver, String name, List<Expression> args, RustBodyPrinter printer,
+                                 String type) {
+        // a nullable box unwrapped as a receiver is a reference: the value itself, it is Copy
+        String o = receiver.endsWith(".as_ref().unwrap()")
+                ? receiver.substring(0, receiver.length() - ".as_ref().unwrap()".length()) + ".unwrap()" : receiver;
+        String v = "(" + o + ")";
+        return switch (name + "/" + args.size()) {
+            case "intValue/0" -> value(v + " as i32");
+            case "longValue/0" -> value(v + " as i64");
+            case "shortValue/0" -> value(v + " as i16");
+            case "byteValue/0" -> value(v + " as i8");
+            case "doubleValue/0" -> value(v + " as f64");
+            case "floatValue/0" -> value(v + " as f32");
+            case "charValue/0", "booleanValue/0" -> value(v);
+            case "hashCode/0" -> "i32".equals(type) ? value(v) : null;
+            case "toString/0" -> value(o + ".to_string()");
+            case "compareTo/1" -> {
+                if (type.startsWith("f")) yield null;
+                Printed x = printer.printed(args.getFirst());
+                yield value("(" + o + ".cmp(&" + x.text() + (x.nullable() ? ".unwrap()" : "") + ") as i32)");
+            }
+            case "equals/1" -> {
+                Printed x = printer.printed(args.getFirst());
+                // equals(null) is false, as Option's equality says
+                yield value(x.nullable() ? "Some(" + o + ") == " + x.text() : v + " == " + x.text());
+            }
+            default -> null;
+        };
+    }
+
     private static Printed staticCall(String fqn, String name, List<Expression> args, RustBodyPrinter printer,
                                       MethodCall mc) {
         int n = args.size();
@@ -270,6 +308,22 @@ final class RustJdk {
             case "java.util.Objects.requireNonNull/1", "java.util.Objects.requireNonNull/2" ->
                     same(printer.text(args.getFirst()));
             case "java.lang.Integer.parseInt/1" -> value(printer.text(args.getFirst()) + ".parse::<i32>().unwrap()");
+            // Integer.valueOf(int) is the int; valueOf(String) parses
+            case "java.lang.Integer.valueOf/1", "java.lang.Long.valueOf/1" ->
+                    RustTypes.isString(args.getFirst().parameterizedType())
+                    ? value(printer.text(args.getFirst()) + ".parse::<" + ("java.lang.Long".equals(fqn) ? "i64" : "i32")
+                            + ">().unwrap()")
+                    : value(printer.text(args.getFirst()));
+            case "java.lang.Integer.toHexString/1", "java.lang.Long.toHexString/1" ->
+                    value("format!(\"{:x}\", " + printer.text(args.getFirst()) + ")");
+            case "java.lang.Character.isJavaIdentifierStart/1" -> {
+                String c = operand(printer, args.getFirst());
+                yield value("(" + c + ".is_alphabetic() || " + c + " == '_' || " + c + " == '$')");
+            }
+            case "java.lang.Character.isJavaIdentifierPart/1" -> {
+                String c = operand(printer, args.getFirst());
+                yield value("(" + c + ".is_alphanumeric() || " + c + " == '_' || " + c + " == '$')");
+            }
             case "java.lang.Integer.hashCode/1", "java.lang.Long.hashCode/1" -> value(printer.text(args.getFirst()));
             case "java.lang.Character.toLowerCase/1" -> value(operand(printer, args.getFirst()) + ".to_ascii_lowercase()");
             case "java.lang.Character.toUpperCase/1" -> value(operand(printer, args.getFirst()) + ".to_ascii_uppercase()");

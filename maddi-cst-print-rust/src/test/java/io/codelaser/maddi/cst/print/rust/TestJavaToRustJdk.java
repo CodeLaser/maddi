@@ -472,4 +472,34 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "self.current.as_ref().is_some_and(|__k| self.seen.remove(__k))");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String BOXED = """
+            package a.b;
+            public class Boxed {
+                private Integer index;
+                private final Integer count = 3;
+                // fernflower's 'index.intValue()', 'Integer.valueOf(x).equals(y)', Integer.toHexString
+                public int value() { return index.intValue() + count.intValue(); }
+                public boolean same(Integer other) { return count.equals(other); }
+                public int order(Integer other) { return count.compareTo(other); }
+                public static Integer box(int i) { return Integer.valueOf(i); }
+                public static String hex(int i) { return Integer.toHexString(i); }
+                public void set(Integer n) { index = n; }
+            }
+            """;
+
+    @DisplayName("an Integer's methods and statics: the int itself")
+    @Test
+    public void boxedNumbers() throws Exception {
+        List<TypeInfo> types = parse(BOXED);
+        TypeInfo boxed = types.getFirst();
+        nonModifying(boxed, "value", "same", "order", "box", "hex");
+        modifying(boxed, "set");
+        RustTranslator.Result result = translate(types, nullable(Set.of("index", "other", "n")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "format!(\"{:x}\", i)");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
