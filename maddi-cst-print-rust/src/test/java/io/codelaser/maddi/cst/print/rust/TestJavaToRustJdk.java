@@ -402,4 +402,32 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "counts: HashMap::new(),");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String OBJECT_ARGUMENT = """
+            package a.b;
+            public class Consts {
+                private String name;
+                // fernflower's new ConstExprent(VarType.VARTYPE_INT, 1, bytecode): an Object the callee only reads
+                public static boolean present(Object value) { return value != null; }
+                public boolean all() { return present(1) && present("s") && present(name); }
+                public void setName(String n) { name = n; }
+            }
+            """;
+
+    @DisplayName("a value passed where a borrowed Object is expected: a box of its own, borrowed")
+    @Test
+    public void objectArgument() throws Exception {
+        List<TypeInfo> types = parse(OBJECT_ARGUMENT);
+        TypeInfo consts = types.getFirst();
+        nonModifying(consts, "present", "all");
+        modifying(consts, "setName");
+        borrowed(method(consts, "present").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("value", "name", "n")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "Self::present(Some(&(Box::new(1) as Box<dyn Any>)))");
+        contains(rust, ".map(|v| Box::new(v) as Box<dyn Any>).as_ref()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

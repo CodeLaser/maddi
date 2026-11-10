@@ -2084,6 +2084,8 @@ final class RustBodyPrinter {
             };
             return nullable ? "Some(" + text + ")" : text;
         }
+        String objectBorrow = objectBorrow(p, pi, argument, nullable);
+        if (objectBorrow != null) return objectBorrow;
         // a type parameter is passed as the callee declares it, borrowed or owned, also for an int: VBStyleCollection's
         // 'removeWithKey(K key)' takes a &K, so its Integer key is a &i32
         boolean copy = RustTypes.isCopy(type) && !pi.parameterizedType().isTypeParameter();
@@ -2109,6 +2111,32 @@ final class RustBodyPrinter {
             return nullableExclusive(p, argument, text);
         }
         return text;
+    }
+
+    /**
+     * A value of a known type where a borrowed {@code Object} is expected ({@code new ConstExprent(type, 1, ...)},
+     * {@code &Box<dyn Any>}): a box of its own value, borrowed for the call. Java passes the reference; the callee only
+     * reads it, so a copy says the same. {@code null} when this does not apply: an Object passed on, a value kept
+     * (OWNED, {@link #asObject}), or a type with a lifetime, which {@code dyn Any} cannot hold.
+     */
+    private String objectBorrow(Printed p, ParameterInfo pi, Expression argument, boolean nullable) {
+        if (!objectTarget(pi.parameterizedType()) || isObject(argument.parameterizedType())
+            || argument instanceof NullConstant || "None".equals(p.text) || context.passing(pi) == Passing.OWNED
+            || argument.parameterizedType().typeInfo() == null) {
+            return null;
+        }
+        String own = RustTypes.owned(argument.parameterizedType(), context, argument);
+        if (own.contains("'") || own.contains("dyn ")) return null;
+        context.use("std::any::Any");
+        boolean exclusive = context.passing(pi) == Passing.EXCLUSIVE;
+        if (p.nullable) {
+            String boxed = optionText(argument) + ".map(|v| Box::new(v) as Box<dyn Any>)";
+            if (!nullable) return (exclusive ? "&mut " : "&") + boxed + ".unwrap()";
+            return boxed + (exclusive ? ".as_mut()" : ".as_ref()");
+        }
+        String value = RustTypes.isCopy(argument.parameterizedType()) ? p.text : owned(p, argument.parameterizedType());
+        String text = (exclusive ? "&mut " : "&") + "(Box::new(" + value + ") as Box<dyn Any>)";
+        return nullable ? "Some(" + text + ")" : text;
     }
 
     /**
