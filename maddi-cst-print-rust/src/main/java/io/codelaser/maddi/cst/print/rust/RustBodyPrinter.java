@@ -2175,7 +2175,9 @@ final class RustBodyPrinter {
         } else {
             text = switch (context.passing(pi)) {
                 case SHARED -> adapt(p, RustTypes.isString(type) ? Held.STR : Held.SHARED);
-                case EXCLUSIVE -> adapt(p, Held.EXCLUSIVE);
+                // a borrowed handle where one to modify through is expected: a clone of it is the same object
+                case EXCLUSIVE -> p.held == Held.SHARED && !p.nullable && RustShared.current().isShared(type)
+                        ? "&mut " + p.text + ".clone()" : adapt(p, Held.EXCLUSIVE);
                 case OWNED -> p.nullable ? ownedNullable(p, argument, type) : asDyn(
                         asObject(owned(p, objectTarget(type) ? argument.parameterizedType() : type), argument, type),
                         argument, type);
@@ -2188,7 +2190,7 @@ final class RustBodyPrinter {
         }
         if (nullable && p.nullable && !copy && context.passing(pi) == Passing.EXCLUSIVE
             && !RustTypes.isString(type) && type.arrays() == 0) {
-            return nullableExclusive(p, argument, text);
+            return nullableExclusive(p, argument, text, RustShared.current().isShared(type));
         }
         return text;
     }
@@ -2225,11 +2227,13 @@ final class RustBodyPrinter {
      * Option<&mut T>} (a parameter passed on) is reborrowed, {@code .as_deref_mut()}, so that it is not moved into the
      * first call (fernflower's {@code measureBytecode(values)} in a loop, then again).
      */
-    private static String nullableExclusive(Printed p, Expression argument, String text) {
+    private static String nullableExclusive(Printed p, Expression argument, String text, boolean shared) {
         if (argument instanceof NullConstant || "None".equals(p.text)) return "None";
         return switch (p.held) {
             case VALUE, PLACE -> p.text + ".as_mut()";
             case EXCLUSIVE -> p.text + ".as_deref_mut()";
+            // an Option<&Shared<T>>: a clone of the handle, the same object, to modify through
+            case SHARED -> shared ? p.text + ".cloned().as_mut()" : text;
             default -> text;
         };
     }
@@ -2247,7 +2251,9 @@ final class RustBodyPrinter {
             // &s[..]: a &String's and a &str's str alike, a &Vec's and a slice's slice (as_str, as_slice are not
             // stable on str and slices)
             case SHARED, EXCLUSIVE -> string ? p.text + ".map(|s| &s[..])"
-                    : array ? p.text + ".map(|v| &v[..])" : p.text;
+                    : array ? p.text + ".map(|v| &v[..])"
+                    // an Option<&mut T> reborrowed as the Option<&T> expected, and not moved into the call
+                    : p.held == Held.EXCLUSIVE ? p.text + ".as_deref()" : p.text;
         };
     }
 

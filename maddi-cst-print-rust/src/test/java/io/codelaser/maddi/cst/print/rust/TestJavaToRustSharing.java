@@ -322,6 +322,9 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
                     Stack s = data.getStack();
                     s.insert(0, s.top());
                 }
+                // fernflower's setExplicitEdges(stat.getFirst()): a borrowed holder's object, modified by the callee
+                public static void grow(Stack s) { s.push(4); }
+                public static void growThrough(Data data) { grow(data.getStack()); }
             }
             """;
 
@@ -336,7 +339,9 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         nonModifying(stack, "top");
         modifying(data, "setStack");
         nonModifying(data, "getStack", "getStacks");
-        modifying(point, "step", "pushAll", "pushThrough", "dup");
+        modifying(point, "step", "pushAll", "pushThrough", "dup", "grow", "growThrough");
+        exclusive(method(point, "grow").parameters().getFirst());
+        borrowed(method(point, "growThrough").parameters().getFirst());
         exclusive(method(point, "dup").parameters().getFirst());
         kept(method(data, "setStack").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
         dependentResult(data, "getStack");
@@ -351,6 +356,7 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         contains(rust, "for mut s in data.get_stacks().iter().cloned().collect::<Vec<_>>() {");
         contains(rust, "data.get_stack().clone().push(5);");
         contains(rust, "{ let __a1 = s.top(); s.insert(0, __a1) }");
+        contains(rust, "Self::grow(&mut data.get_stack().clone());");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
