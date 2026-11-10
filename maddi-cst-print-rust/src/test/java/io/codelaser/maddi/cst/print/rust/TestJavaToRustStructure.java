@@ -584,4 +584,35 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "pub fn get_type(&self) -> EdgesEdgeType {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String KEYS = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Keys {
+                // fernflower's VBStyleCollection: a key of a type parameter
+                static class Coll<K> {
+                    private final Map<K, Integer> map = new HashMap<>();
+                    boolean has(K key) { return map.containsKey(key); }
+                }
+                static boolean probe(Coll<Integer> coll, int id) { return coll.has(id); }
+            }
+            """;
+
+    @DisplayName("an int passed where the callee borrows its type parameter: &i32")
+    @Test
+    public void copyArgumentOfTypeParameter() throws Exception {
+        List<TypeInfo> types = parse(KEYS);
+        TypeInfo keys = types.getFirst();
+        TypeInfo coll = keys.findSubType("Coll");
+        nonModifying(coll, "has");
+        nonModifying(keys, "probe");
+        borrowed(method(coll, "has").parameters().getFirst());
+        borrowed(method(keys, "probe").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "coll.has(&id)");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

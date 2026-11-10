@@ -2041,8 +2041,11 @@ final class RustBodyPrinter {
             };
             return nullable ? "Some(" + text + ")" : text;
         }
+        // a type parameter is passed as the callee declares it, borrowed or owned, also for an int: VBStyleCollection's
+        // 'removeWithKey(K key)' takes a &K, so its Integer key is a &i32
+        boolean copy = RustTypes.isCopy(type) && !pi.parameterizedType().isTypeParameter();
         String text;
-        if (RustTypes.isCopy(type)) {
+        if (copy) {
             text = p.text;
         } else {
             text = switch (context.passing(pi)) {
@@ -2055,10 +2058,10 @@ final class RustBodyPrinter {
         }
         if (nullable && !p.nullable && !(argument instanceof NullConstant)) return "Some(" + text + ")";
         if (!nullable && p.nullable) return text + ".unwrap()";
-        if (nullable && p.nullable && !RustTypes.isCopy(type) && context.passing(pi) == Passing.SHARED) {
+        if (nullable && p.nullable && !copy && context.passing(pi) == Passing.SHARED) {
             return nullableBorrow(p, argument, RustTypes.isString(type), type.arrays() > 0);
         }
-        if (nullable && p.nullable && !RustTypes.isCopy(type) && context.passing(pi) == Passing.EXCLUSIVE
+        if (nullable && p.nullable && !copy && context.passing(pi) == Passing.EXCLUSIVE
             && !RustTypes.isString(type) && type.arrays() == 0) {
             return nullableExclusive(p, argument, text);
         }
