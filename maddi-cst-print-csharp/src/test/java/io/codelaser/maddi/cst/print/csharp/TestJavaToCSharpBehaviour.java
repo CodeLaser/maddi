@@ -1002,4 +1002,41 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 """);
         contains(cs, "public delegate T Weigher<out T>(int weight, int factor);");
     }
+
+    /**
+     * Java's unchecked cast between constructions of a list, {@code (List<V>) values} of a {@code List<Object>} and
+     * {@code (List<T>) list} of a {@code List<U>}: the list itself where it is the target's, else a copy, where C#
+     * has no conversion and its {@code List<object>} is no {@code List<V>}.
+     */
+    @Test
+    public void uncheckedListCasts() {
+        String cs = behaves("UncheckedLists", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.List;
+                class UncheckedLists {
+                    static Object stored = new ArrayList<Object>(List.of("b", "a"));
+                    @SuppressWarnings("unchecked")
+                    static List<Object> objects() {
+                        return (List<Object>) stored;
+                    }
+                    @SuppressWarnings("unchecked")
+                    static <V> List<V> values() {
+                        return (List<V>) objects();
+                    }
+                    @SuppressWarnings("unchecked")
+                    static <T, U> List<T> same(List<U> list) {
+                        return (List<T>) list;
+                    }
+                    public static void main(String[] args) {
+                        List<String> strings = UncheckedLists.<String>values();
+                        System.out.println(strings.size() + " " + strings.get(0));
+                        List<String> again = UncheckedLists.<String, String>same(strings);
+                        System.out.println(again == strings);
+                    }
+                }
+                """);
+        contains(cs, "JavaCollections.UncheckedList<T>(list)");
+        contains(cs, "JavaCollections.UncheckedList<V>(Objects())");
+    }
 }

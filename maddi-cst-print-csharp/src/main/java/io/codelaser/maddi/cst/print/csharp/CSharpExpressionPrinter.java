@@ -214,6 +214,15 @@ public final class CSharpExpressionPrinter {
         boolean nullConstant = unwrap(cast.expression()) instanceof NullConstant
                                && CSharpContext.program().facts().nullabilityAnalysed();
         boolean nullable = nullConstant || CSharpNullability.mayBeNull(cast.expression());
+        ParameterizedType source = cast.expression().parameterizedType();
+        if (source != null && otherArguments(source, cast.parameterizedType()) && libraryList(cast.parameterizedType())) {
+            // (List<Entity_>) entities of a List<Object>, which .NET's List<object> is, no List<Entity_>: the list
+            // where it is one, else a copy
+            CSharpContext.using(CSharpCompat.NAMESPACE);
+            return new OutputBuilderImpl().add(text("JavaCollections.UncheckedList<"
+                            + CSharpTypeName.argument(cast.parameterizedType().parameters().getFirst(), q) + ">"))
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(print(cast.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         String own = CSharpWildcardInterfaces.ownUse(cast.parameterizedType(), q);
         ParameterizedType castType = Objects.requireNonNullElse(wildcardCastArguments(cast), cast.parameterizedType());
         String type = own != null ? (nullable ? own + "?" : own)
@@ -223,12 +232,10 @@ public final class CSharpExpressionPrinter {
                 .add(text(type)).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         ParameterizedType from = cast.expression().parameterizedType();
         ParameterizedType to = cast.parameterizedType();
-        if (from != null && (to.isTypeParameter() && to.arrays() == 0 && !from.isTypeParameter()
-                             || CstQueries.mentionsTypeParameter(to) && !CstQueries.mentionsTypeParameter(from))
-            && !from.isJavaLangObject() && !(from.typeInfo() != null && from.typeInfo().isInterface()
-                                             // a functional interface C# has as a delegate casts as a class does
-                                             && !CSharpContext.program().delegate(from.typeInfo())
-                                             && !CSharpTypeName.libraryDelegate(from.typeInfo()))) {
+        if (from != null && ((to.isTypeParameter() && to.arrays() == 0 && !from.isTypeParameter()
+                              || CstQueries.mentionsTypeParameter(to) && !CstQueries.mentionsTypeParameter(from))
+                             && !from.isJavaLangObject() && !csharpInterface(from)
+                             || otherArguments(from, to))) {
             // object? where the value may be null, as the outer cast's type is (CS8600)
             boolean nullableObject = nullable && CSharpContext.program().facts().nullabilityAnalysed();
             b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(nullableObject ? "object?" : "object"))
@@ -238,6 +245,42 @@ public final class CSharpExpressionPrinter {
         // a method's own type parameter has no T?: the null goes through (T) x! as it does through Java's cast
         boolean asserted = nullable && CSharpNullability.toMethodTypeParameter(cast);
         return b.add(asserted ? CSharpNullability.asserted(cast.expression(), operand) : operand);
+    }
+
+    /**
+     * A type C# has as an interface, from which it casts to anything: a translated interface, or a library interface
+     * mapped to one ({@code Map} is {@code IDictionary}), not to a class ({@code List} is {@code List<T>}). A
+     * functional interface C# has as a delegate casts as a class does.
+     */
+    private static boolean csharpInterface(ParameterizedType t) {
+        TypeInfo ti = t.typeInfo();
+        if (ti == null || t.arrays() != 0 || !ti.isInterface() || CSharpContext.program().delegate(ti)
+            || CSharpTypeName.libraryDelegate(ti)) {
+            return false;
+        }
+        LibraryMapping.TypeMapping mapping = CSharpNames.translated(ti) ? null : CSharpContext.libraries().type(ti);
+        return mapping == null || mapping.isInterface();
+    }
+
+    /** A JDK list C# has as its {@code List<T>}: {@code List}, {@code ArrayList}, {@code LinkedList}. */
+    private static boolean libraryList(ParameterizedType t) {
+        TypeInfo ti = t.typeInfo();
+        if (ti == null || t.arrays() != 0 || t.parameters().size() != 1 || CSharpNames.translated(ti)) return false;
+        LibraryMapping.TypeMapping mapping = CSharpContext.libraries().type(ti);
+        return mapping != null && "List".equals(mapping.name());
+    }
+
+    /**
+     * Java's unchecked cast between two constructions of one class C# has as a class, {@code (List<Value_>) values}
+     * of a {@code List<Object>}, {@code (List<T>) list} of a {@code List<T2>}: C# has no conversion between them, the
+     * cast goes through object, as it holds at run time where the value is the target's construction.
+     */
+    private static boolean otherArguments(ParameterizedType from, ParameterizedType to) {
+        return from.arrays() == 0 && to.arrays() == 0 && from.typeInfo() != null && from.typeInfo().equals(to.typeInfo())
+               && !from.parameters().isEmpty() && to.parameters().size() == from.parameters().size()
+               && !from.parameters().equals(to.parameters()) && !csharpInterface(from)
+               && !CSharpWildcardInterfaces.isWildcardUse(from) && !CSharpWildcardInterfaces.isWildcardUse(to)
+               && !CSharpContext.program().delegate(from.typeInfo()) && !CSharpTypeName.libraryDelegate(from.typeInfo());
     }
 
     /**

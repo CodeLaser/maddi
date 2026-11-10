@@ -31,6 +31,19 @@ namespace Maddi.JavaCompat;
 /// <summary>Java's collection methods whose results the BCL's do not have.</summary>
 public static class JavaCollections
 {
+    /// <summary>
+    /// Java's unchecked cast of a list to another element type, (List&lt;Entity_&gt;) entities of a List&lt;Object&gt;:
+    /// the list itself where it is one of T, as Java's cast holds; else a copy of its elements as T, where .NET's
+    /// List&lt;object&gt; is no List&lt;T&gt; (a change to the copy does not reach the list). Null stays null.
+    /// </summary>
+    [return: System.Diagnostics.CodeAnalysis.NotNullIfNotNull(nameof(list))]
+    public static List<T>? UncheckedList<T>(object? list) => list switch
+    {
+        null => null,
+        List<T> same => same,
+        _ => ((System.Collections.IEnumerable)list).Cast<T>().ToList(),
+    };
+
     /// <summary>Map.put: the previous value, or the default when there was none.</summary>
     public static V? Put<K, V>(this IDictionary<K, V> d, K key, V value)
     {

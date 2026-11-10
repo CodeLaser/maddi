@@ -559,7 +559,12 @@ implements the interface.
   method's or type's (not a super constructor's parameter, of the superclass's), and not of a lambda or a method
   reference, which take their delegate type exactly. An array of a type parameter where an `Object[]` is expected is
   cast through `object`, `(object[]) (object) values`: C#'s array covariance holds for a type it knows to be a
-  reference type, .NET's at run time for the one the type parameter is. A raw or wildcard use of a type with a
+  reference type, .NET's at run time for the one the type parameter is. Java's unchecked cast between two constructions of
+  one class C# has as a class, `(Holder<T>) holder` of a `Holder<U>`, goes through `object`, as does a cast from a
+  JDK interface C# has as a class (`List`) into a type of type parameters. A list's, `(List<Entity_>) entities` of a
+  `List<Object>`, is `JavaCollections.UncheckedList<Entity_>(entities)`: the list itself where it is a
+  `List<Entity_>`, as Java's cast holds; else a copy of its elements, since .NET's `List<object>` is no
+  `List<Entity_>` and the cast would throw (a change to the copy does not reach the list). A raw or wildcard use of a type with a
   wildcard interface, where the type is expected with arguments, is a cast too: `ScoreDefinition getScoreDefinition()`
   into a `ScoreDefinition<Score_>` is `(IScoreDefinition<Score_>) GetScoreDefinition()`. `m.keySet()` of a JDK map
   where a `Set` is expected is `m.KeySet()`, the compatibility library's live view of the keys (`Keys` is only an
