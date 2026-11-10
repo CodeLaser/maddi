@@ -31,9 +31,11 @@ import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
  *                     what the analysis stored, if it ran; {@link ModificationFacts#NONE}: every collection mutable)
  * @param world        the code translated together, whose uses of a member decide its read-only type
  *                     ({@link KotlinWorld#FILE}: the compilation unit being printed)
+ * @param bodies       whether the methods' bodies are printed, or left for another translator to write
+ *                     ({@link Bodies#PRINT}: printed)
  */
 public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck, ModificationFacts modification,
-                                 KotlinWorld world) {
+                                 KotlinWorld world, Bodies bodies) {
 
     /** The verdicts the analysis stored as properties, if it ran; {@code !!} where needed. */
     public static final KotlinPrintOptions DEFAULT = new KotlinPrintOptions(NullabilityFacts.STORED, NullCheck.ASSERT);
@@ -48,21 +50,47 @@ public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck,
         this(verdicts, nullCheck, modification, KotlinWorld.FILE);
     }
 
+    /** With the bodies printed. */
+    public KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck, ModificationFacts modification,
+                              KotlinWorld world) {
+        this(verdicts, nullCheck, modification, world, Bodies.PRINT);
+    }
+
     /** These options with other modification facts: {@link ModificationFacts#NONE} for the printer without them. */
     @SuppressWarnings("unused") // the ablation's switch (maddi-mod's TestJavaToKotlinAblation, KotlinConf): no production caller by design
     public KotlinPrintOptions withModification(ModificationFacts modification) {
-        return new KotlinPrintOptions(verdicts, nullCheck, modification, world);
+        return new KotlinPrintOptions(verdicts, nullCheck, modification, world, bodies);
     }
 
     /** These options with other nullability facts: {@link NullabilityFacts#NONE} for the printer without them. */
     @SuppressWarnings("unused") // the ablation's switch (maddi-mod's TestJavaToKotlinAblation, KotlinConf): no production caller by design
     public KotlinPrintOptions withVerdicts(NullabilityFacts verdicts) {
-        return new KotlinPrintOptions(verdicts, nullCheck, modification, world);
+        return new KotlinPrintOptions(verdicts, nullCheck, modification, world, bodies);
     }
 
     /** These options for the code translated together: {@link KotlinWorld#FILE} for one compilation unit. */
     public KotlinPrintOptions withWorld(KotlinWorld world) {
-        return new KotlinPrintOptions(verdicts, nullCheck, modification, world);
+        return new KotlinPrintOptions(verdicts, nullCheck, modification, world, bodies);
+    }
+
+    /** These options with the bodies printed, or stubbed: {@link Bodies#STUB} for an LLM to write them. */
+    public KotlinPrintOptions withBodies(Bodies bodies) {
+        return new KotlinPrintOptions(verdicts, nullCheck, modification, world, bodies);
+    }
+
+    /**
+     * What becomes of a method's body. The declarations (types, members, signatures, nullability, read-only
+     * collections) are the analysis's in either case: the contract between files that are translated apart.
+     */
+    public enum Bodies {
+        /** The printer's translation of the body. */
+        PRINT,
+        /**
+         * {@code { TODO("maddi:<id>") }} for each method and getter body, the printer's own translation kept aside as a
+         * {@link KotlinBodyStub} (KotlinTranslator writes them to {@code maddi-bodies.json}). Constructors and init
+         * blocks are printed: they initialise the properties the declarations leave without a value.
+         */
+        STUB,
     }
 
     /**
@@ -82,5 +110,6 @@ public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck,
         Objects.requireNonNull(nullCheck);
         Objects.requireNonNull(modification);
         Objects.requireNonNull(world);
+        Objects.requireNonNull(bodies);
     }
 }

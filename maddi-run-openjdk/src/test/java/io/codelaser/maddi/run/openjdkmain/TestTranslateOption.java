@@ -66,6 +66,17 @@ public class TestTranslateOption {
     }
 
     @Test
+    public void kotlinStubs(@TempDir Path tmp) throws Exception {
+        Path out = tmp.resolve("kotlin-stubs");
+        assertEquals(Main.EXIT_OK, translate(project(tmp), Main.TRANSLATE_KOTLIN_STUBS, out));
+        String box = Files.readString(out.resolve("p/Box.kt"));
+        assertTrue(box.contains("{ TODO(\"maddi:p.Box.name()\") }"), box);
+        String bodies = Files.readString(out.resolve("maddi-bodies.json"));
+        assertTrue(bodies.contains("\"id\": \"p.Box.name()\""), bodies);
+        assertTrue(bodies.contains("\"kotlinFile\": \"p/Box.kt\""), bodies);
+    }
+
+    @Test
     public void csharp(@TempDir Path tmp) throws Exception {
         Path out = tmp.resolve("csharp");
         assertEquals(Main.EXIT_OK, translate(project(tmp), Main.TRANSLATE_CSHARP, out));

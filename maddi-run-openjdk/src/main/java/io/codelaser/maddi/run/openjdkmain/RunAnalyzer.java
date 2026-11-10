@@ -435,10 +435,10 @@ public class RunAnalyzer implements Runnable {
     private boolean translationConfigured() {
         String translate = configuration.generalConfiguration().translate();
         if (translate == null) return true;
-        if (!Main.TRANSLATE_KOTLIN.equals(translate) && !Main.TRANSLATE_CSHARP.equals(translate)
-            && !Main.TRANSLATE_RUST.equals(translate)) {
-            LOGGER.error("--{} {}: choose '{}', '{}' or '{}'", Main.TRANSLATE, translate, Main.TRANSLATE_KOTLIN,
-                    Main.TRANSLATE_CSHARP, Main.TRANSLATE_RUST);
+        if (!Main.TRANSLATE_KOTLIN.equals(translate) && !Main.TRANSLATE_KOTLIN_STUBS.equals(translate)
+            && !Main.TRANSLATE_CSHARP.equals(translate) && !Main.TRANSLATE_RUST.equals(translate)) {
+            LOGGER.error("--{} {}: choose '{}', '{}', '{}' or '{}'", Main.TRANSLATE, translate, Main.TRANSLATE_KOTLIN,
+                    Main.TRANSLATE_KOTLIN_STUBS, Main.TRANSLATE_CSHARP, Main.TRANSLATE_RUST);
             return false;
         }
         if (configuration.generalConfiguration().translateOutput() == null) {
@@ -461,7 +461,8 @@ public class RunAnalyzer implements Runnable {
         List<TypeInfo> all = summary.parseResult().primaryTypes().stream()
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
         List<TypeInfo> main = all.stream().filter(t -> !t.compilationUnit().sourceSet().test()).toList();
-        boolean kotlin = Main.TRANSLATE_KOTLIN.equals(translate);
+        boolean stubs = Main.TRANSLATE_KOTLIN_STUBS.equals(translate);
+        boolean kotlin = stubs || Main.TRANSLATE_KOTLIN.equals(translate);
         boolean rust = Main.TRANSLATE_RUST.equals(translate);
         // Rust, like Kotlin, has no platform type: what the analysis does not call nullable is not an Option
         NullabilityFacts facts = order == null ? null
@@ -474,8 +475,13 @@ public class RunAnalyzer implements Runnable {
         if (kotlin) {
             // main and test sources are one Kotlin code base: what a file may assume of the others
             KotlinPrintOptions options = (facts == null ? KotlinPrintOptions.DEFAULT
-                    : new KotlinPrintOptions(facts, KotlinPrintOptions.NullCheck.ASSERT)).withWorld(KotlinWorld.of(all));
+                    : new KotlinPrintOptions(facts, KotlinPrintOptions.NullCheck.ASSERT)).withWorld(KotlinWorld.of(all))
+                    .withBodies(stubs ? KotlinPrintOptions.Bodies.STUB : KotlinPrintOptions.Bodies.PRINT);
             KotlinTranslator.Result result = KotlinTranslator.translate(javaInspector.runtime(), main, options, out);
+            if (stubs) {
+                LOGGER.info("{} method bodies stubbed, described in {}", result.stubs().size(),
+                        out.resolve(KotlinTranslator.BODIES_FILE));
+            }
             crashes = result.crashes();
             messages = result.messages().stream().map(Object::toString).toList();
             files = result.files().size();

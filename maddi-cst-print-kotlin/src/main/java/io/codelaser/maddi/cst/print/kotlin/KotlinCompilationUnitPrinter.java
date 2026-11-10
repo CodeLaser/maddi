@@ -40,7 +40,11 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
                                            KotlinPrintOptions options) {
 
     /** The Kotlin text, and the messages about what it does differently from the Java, or could not translate. */
-    public record Result(OutputBuilder output, List<PrintMessage<KotlinPrintCode>> messages) {
+    /**
+     * @param bodies the members' declarations and stubbed bodies, in {@link KotlinPrintOptions.Bodies#STUB}; else
+     *               {@link KotlinBodies#NONE}
+     */
+    public record Result(OutputBuilder output, List<PrintMessage<KotlinPrintCode>> messages, KotlinBodies bodies) {
     }
 
     public OutputBuilder print(ImportComputer importComputer, Qualification qualification) {
@@ -51,9 +55,10 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
     public Result printWithMessages(ImportComputer importComputer, Qualification qualification) {
         KotlinPrintOptions previous = KotlinContext.options(options);
         KotlinContext.takeMessages();
+        KotlinContext.takeDeclared();
         try {
             OutputBuilder output = printFile(importComputer, qualification);
-            return new Result(output, KotlinContext.takeMessages());
+            return new Result(output, KotlinContext.takeMessages(), KotlinContext.takeDeclared());
         } finally {
             KotlinContext.importedNames(List.of());
             KotlinContext.options(previous);

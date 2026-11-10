@@ -19,6 +19,7 @@ package io.codelaser.maddi.cst.print.kotlin;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -108,6 +109,13 @@ final class KotlinContext {
     // by name: a local variable's equality is its name, and so is its scope as far as Kotlin is concerned
     private static final ThreadLocal<Map<String, Supplier<OutputBuilder>>> PATTERNS =
             ThreadLocal.withInitial(HashMap::new);
+
+    // Bodies.STUB: the file's members, each method once (a member printed twice keeps its last printing)
+    private static final ThreadLocal<Map<MethodInfo, KotlinBodies.Declared>> DECLARED =
+            ThreadLocal.withInitial(LinkedHashMap::new);
+    // > 0 while the printer translates a stubbed body, kept aside: a local or anonymous class's method there is part
+    // of that body, not a stub of its own
+    private static final ThreadLocal<int[]> IN_STUBBED_BODY = ThreadLocal.withInitial(() -> new int[1]);
 
     private KotlinContext() {
     }
@@ -255,6 +263,31 @@ final class KotlinContext {
     }
 
     /** The messages recorded since the last call, which starts a new record. */
+    /** Bodies.STUB: a member's declaration, with its stubbed body when it has one (see {@link KotlinBodies}). */
+    static void declared(KotlinBodies.Declared declared) {
+        if (IN_STUBBED_BODY.get()[0] == 0) DECLARED.get().put(declared.method(), declared);
+    }
+
+    /** The members declared since the last call, which starts a new record: one file's. */
+    static KotlinBodies takeDeclared() {
+        KotlinBodies bodies = new KotlinBodies(List.copyOf(DECLARED.get().values()));
+        DECLARED.get().clear();
+        return bodies;
+    }
+
+    /** True while printing the members of a file in Bodies.STUB, outside a body kept aside. */
+    static boolean stubbing() {
+        return OPTIONS.get().bodies() == KotlinPrintOptions.Bodies.STUB && IN_STUBBED_BODY.get()[0] == 0;
+    }
+
+    static void enterStubbedBody() {
+        IN_STUBBED_BODY.get()[0]++;
+    }
+
+    static void exitStubbedBody() {
+        IN_STUBBED_BODY.get()[0]--;
+    }
+
     static List<PrintMessage<KotlinPrintCode>> takeMessages() {
         return STATE.get().takeMessages();
     }

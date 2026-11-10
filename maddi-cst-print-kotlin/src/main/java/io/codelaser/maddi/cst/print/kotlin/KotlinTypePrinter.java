@@ -233,7 +233,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     out.add(KotlinKeyword.CONSTRUCTOR);
                 }
                 MethodInfo primaryConstructor = primary;
-                out.add(primary.parameters().stream()
+                OutputBuilder primaryParameters = primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
                                 .add(KotlinComments.print(fieldByName.get(p.name()).comments(), insideType))
                                 // the comments of its `this.x = x`, which the header property is now (#181)
@@ -257,7 +257,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                 .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(fieldByName.get(p.name())),
                                         insideType))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
+                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
+                out.add(primaryParameters);
+                declaredConstructor(primary, primaryParameters);
             } else if (!components.isEmpty()) {
                 out.add(components.stream()
                         .map(f -> new OutputBuilderImpl().add(KotlinComments.print(f.comments(), insideType))
@@ -267,7 +269,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             } else if (initConstructor != null) {
-                out.add(primaryConstructorHeader(initConstructor, insideType));
+                OutputBuilder header = primaryConstructorHeader(initConstructor, insideType);
+                out.add(header);
+                declaredConstructor(initConstructor, header);
             } else if (annotationType && typeInfo.methods().stream().anyMatch(KotlinTypePrinter::isAnnotationElement)) {
                 out.add(typeInfo.methods().stream().filter(KotlinTypePrinter::isAnnotationElement)
                         .map(m -> annotationElement(m, insideType))
@@ -362,6 +366,16 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
         }
         return out;
+    }
+
+    /**
+     * Bodies.STUB: a constructor printed in the class header, for the bodies that call it. Its declaration is the
+     * header's parameter list, {@code constructor(val id: Int)}, which a call passes as {@code Foo(id)}.
+     */
+    private static void declaredConstructor(MethodInfo constructor, OutputBuilder parameters) {
+        if (!KotlinContext.stubbing()) return;
+        KotlinContext.declared(new KotlinBodies.Declared(constructor, new OutputBuilderImpl().add(KotlinKeyword.CONSTRUCTOR)
+                .add(parameters), null, List.of()));
     }
 
     /** The one explicit constructor of a Java class, which becomes the primary one; null when there are more. */
