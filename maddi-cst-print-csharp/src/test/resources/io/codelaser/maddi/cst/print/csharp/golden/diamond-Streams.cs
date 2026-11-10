@@ -40,7 +40,7 @@ public static class Streams {
         true,
         new SortedDictionary<R, R>(JavaComparer<R>.Natural));
     internal static Func<L, R, Pair<L, R>> Pairing<L, R>() => (p0, p1) => new Pair<L, R>(p0, p1);
-    internal static Func<int, ISet<V>> Sets<V>() => p0 => new HashSet<V>(p0);
+    internal static Func<int, ISet<V>> Sets<V>() => p0 => new JavaLinkedHashSet<V>(p0);
     internal static List<R> Empty<R>() => new List<R>();
     internal static Func<List<R>> EmptySupplier<R>() => Streams.Empty<R>;
     internal static R Max<T, R>(Func<T, R> mapping, T t) => mapping(t);

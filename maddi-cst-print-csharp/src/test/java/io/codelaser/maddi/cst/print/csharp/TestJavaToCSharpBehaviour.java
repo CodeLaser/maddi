@@ -910,4 +910,43 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 """);
         contains(cs, "JavaLinkedHashSet<string>");
     }
+
+    /**
+     * A HashSet variable, parameter or result that Java assigns a LinkedHashSet: both are JavaLinkedHashSet. (A
+     * HashMap field holding a LinkedHashMap stays a gap: Dictionary and OrderedDictionary are unrelated.)
+     */
+    @Test
+    public void linkedIntoHashDeclared() {
+        String cs = behaves("LinkedIntoHash", """
+                package a;
+                import java.util.HashSet;
+                import java.util.LinkedHashMap;
+                import java.util.LinkedHashSet;
+                import java.util.Map;
+                class LinkedIntoHash {
+                    private final Map<Integer, String> names = new LinkedHashMap<>();
+                    static HashSet<String> fill(HashSet<String> set) {
+                        set.add("q");
+                        set.add("p");
+                        return set;
+                    }
+                    public static void main(String[] args) {
+                        HashSet<String> set = new LinkedHashSet<>();
+                        set.add("z");
+                        HashSet<String> filled = fill(set);
+                        filled.remove("z");
+                        filled.add("z");
+                        System.out.println(filled);
+                        LinkedIntoHash h = new LinkedIntoHash();
+                        h.names.put(3, "c");
+                        h.names.put(1, "a");
+                        System.out.println(h.names);
+                        HashSet<String> plain = new HashSet<>();
+                        plain.add("x");
+                        System.out.println(plain.contains("x") + " " + fill(new HashSet<>()).size());
+                    }
+                }
+                """);
+        contains(cs, "JavaLinkedHashSet<string> set = new JavaLinkedHashSet<string>();");
+    }
 }

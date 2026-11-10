@@ -450,7 +450,7 @@ implements the interface.
 - **Collections of a removed type parameter.** A wildcard interface's member whose result (or field, or record
   component) is a JDK collection of a removed type parameter, `List<G> impacts()` of a self-bounded `G`, is C#'s
   non-generic interface of it, `IList Impacts()`, which every `List<T>` is; the bridge casts, an `IList<G>` being no
-  `IList`. `Map` is `IDictionary`; `Iterable`, `Collection` and `Set` are `IEnumerable` (a `HashSet<T>` is no
+  `IList`. `Map` is `IDictionary`; `Iterable`, `Collection` and `Set` are `IEnumerable` (a hash set is no
   `ICollection`, the cast would fail when it runs).
 - **Opening a wildcard into a generic creation.** `new AndThen<>(delegate, f)` of a `Collector<A, ?, I> delegate`:
   Java names the `?` and creates an `AndThen<A, CAP#1, I, X>`, C# infers nothing from the wildcard interface. The
@@ -879,13 +879,17 @@ answers `null` for an absent key as Java's does: `get` is `GetValueOrNull`, `put
 compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each an `int?` (the BCL's would be `0`).
 
 - **Hash order.** A `HashMap` or a `HashSet` iterates in an order neither Java nor .NET specifies, and
-  they differ: Java's follows the hash buckets, .NET's `Dictionary` and `HashSet` the insertions (until a removal
-  frees a slot). The translation keeps .NET's (decided 9 Nov 2026, #188): emulating Java's would need Java's
+  they differ: Java's follows the hash buckets, .NET's `Dictionary` the insertions (until a removal frees a slot),
+  the compatibility library's `JavaLinkedHashSet`, which a `HashSet` is, the insertions. The translation keeps
+  those (decided 9 Nov 2026, #188): emulating Java's would need Java's
   `hashCode` for every key, which a String's randomized .NET hash, an object's identity hash and a record's
   unspecified one do not give. Code whose output depends on that order (printing a map, taking a set's first
   element) prints otherwise, as it could on another JDK. A `LinkedHashMap`, whose insertion order Java specifies,
-  keeps it (`OrderedDictionary`); so does a `LinkedHashSet` (and a `SequencedSet`), which is the compatibility
-  library's `JavaLinkedHashSet`: the BCL has no ordered set, and its `HashSet` reuses a removed element's slot.
+  keeps it (`OrderedDictionary`); so does a `LinkedHashSet` (and a `SequencedSet`), a `JavaLinkedHashSet`: the
+  BCL has no ordered set, and its `HashSet` reuses a removed element's slot. A `HashSet` is a `JavaLinkedHashSet`
+  too, so that a `LinkedHashSet` goes where Java's code has a `HashSet`, which it extends. A `HashMap` that holds a
+  `LinkedHashMap` stays a gap: `Dictionary` and `OrderedDictionary` are unrelated, and declaring it an
+  `IDictionary` loses `GetValueOrDefault` and the read-only interfaces (tried, fernflower 29 -> 86).
 - **Natural order.** Java orders Strings by UTF-16 code unit (`"B"` before `"a"`), .NET's default comparer for strings by
   the culture (`"a"` before `"B"`). Where Java's natural order is implied (`Collections.sort`, `List.sort(null)`,
   `sorted()`, `naturalOrder()`, `reverseOrder()`, `Comparator.comparing`, a priority queue), the compatibility library
@@ -898,12 +902,12 @@ compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each a
 - **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` becomes
   `IDictionary<K, V>` and `Set` becomes `ISet<T>`, because Java implements them with hash and tree collections
   alike. `HashMap` becomes `Dictionary<K, V>`, `LinkedHashMap` the insertion-ordered `OrderedDictionary<K, V>`,
-  `TreeMap` and `EnumMap` `SortedDictionary<K, V>`, and the hash sets `HashSet<T>`. Where the modification analysis
+  `TreeMap` and `EnumMap` `SortedDictionary<K, V>`, and the hash sets `JavaLinkedHashSet<T>` (see Hash order). Where the modification analysis
   proves a collection unmodified, a read-only interface (`IReadOnlyList<T>`) is the analysis's refinement. `Collection` becomes `ICollection<T>`, `Iterable` becomes `IEnumerable<T>`, and `Map.Entry`
   becomes `KeyValuePair<K, V>`.
 - **Navigable and sequenced collections.** `NavigableMap` and `NavigableSet` are their one implementation's,
   `SortedDictionary<K, V>` and `SortedSet<T>`; `SequencedMap` and `SequencedSet` are `OrderedDictionary<K, V>` and
-  `HashSet<T>`, an `EnumSet` a `HashSet<T>`. The navigation is the compatibility library's (`JavaNavigable`):
+  `JavaLinkedHashSet<T>`, an `EnumSet` a `HashSet<T>`. The navigation is the compatibility library's (`JavaNavigable`):
   `floorEntry`, `higherKey`, `subMap`, … on a `SortedDictionary`, `floor`, `higher`, … on a `SortedSet`. An entry it
   returns is a `JavaEntry`, null when there is none, and a local it initializes is `var` (a `KeyValuePair` cannot be
   null). Two differences: a `SortedDictionary` searches by order in a walk over its keys, not in log time, and a

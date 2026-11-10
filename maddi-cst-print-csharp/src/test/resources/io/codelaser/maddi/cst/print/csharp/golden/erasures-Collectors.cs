@@ -1,3 +1,4 @@
+using Maddi.JavaCompat;
 using System;
 using System.Collections.Generic;
 namespace Org.Example.Erasures;
@@ -54,7 +55,7 @@ internal sealed class Collectors {
 
     internal sealed class Distinct<A, M> : ICollector<A, ISet<M>, int> {
         internal Distinct(Func<A, M> mapper) { }
-        public Func<ISet<M>> Supplier() => () => new HashSet<M>();
+        public Func<ISet<M>> Supplier() => () => new JavaLinkedHashSet<M>();
         public Func<ISet<M>, A, Action> Accumulator() => (set, a) => () => { };
         public Func<ISet<M>, int> Finisher() => (ISet<M> p0) => p0.Count;
     }

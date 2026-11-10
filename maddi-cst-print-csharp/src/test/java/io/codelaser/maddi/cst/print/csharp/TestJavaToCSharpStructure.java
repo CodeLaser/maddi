@@ -2104,7 +2104,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "=> Streams.Empty<R>;");
         // a raw constructor reference creates the type Java inferred for its result
         contains(cs, "(p0, p1) => new Pair<L, R>(p0, p1)");
-        contains(cs, "new HashSet<V>(p0)");
+        contains(cs, "new JavaLinkedHashSet<V>(p0)");
         // a diamond whose parameter's type is not a type parameter: Map<E, Boolean>, as inferred
         contains(cs, "new Dictionary<T, bool>()");
         // an argument of a creation: the creation's own type arguments, as printed
