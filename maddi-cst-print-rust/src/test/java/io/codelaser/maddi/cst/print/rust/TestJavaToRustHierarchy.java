@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -365,6 +366,44 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
         contains(rust, "crate::jrt::same(Some(a), maybe)");
         contains(rust, "position(|__e| std::ptr::eq(__e, e))");
         contains(rust, "nodes.iter().any(|__e| std::ptr::eq(__e, n))");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+    @Language("java")
+    private static final String FAMILY = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Fam {
+                public abstract static class Stat {
+                    public abstract List<String> names();
+                }
+                // fernflower's SwitchHelper candidates, Instruction.clone: one member makes a new object
+                public static class Fresh extends Stat {
+                    public List<String> names() { return new ArrayList<>(); }
+                }
+                // the other returns its field
+                public static class Held extends Stat {
+                    private final List<String> list = new ArrayList<>();
+                    public List<String> names() { return list; }
+                    public void add(String s) { list.add(s); }
+                }
+            }
+            """;
+
+    @DisplayName("a dispatched method one member returns new: owned in every member and the dispatcher")
+    @Test
+    public void familyOwnedResult() throws Exception {
+        List<TypeInfo> types = parse(FAMILY);
+        TypeInfo fam = types.getFirst();
+        nonModifying(fam.findSubType("Stat"), "names");
+        nonModifying(fam.findSubType("Fresh"), "names");
+        nonModifying(fam.findSubType("Held"), "names");
+        modifying(fam.findSubType("Held"), "add");
+        dependentResult(fam.findSubType("Held"), "names");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        assertFalse(rust.contains("-> &Vec<String>"), rust);
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

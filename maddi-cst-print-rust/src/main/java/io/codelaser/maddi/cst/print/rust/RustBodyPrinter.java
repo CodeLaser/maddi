@@ -388,6 +388,11 @@ final class RustBodyPrinter {
                     method.returnType().arrays() > 0) + ".unwrap()";
         } else if (borrows) {
             text = adapt(value, RustTypes.isString(method.returnType()) ? Held.STR : Held.SHARED);
+        } else if (!value.nullable && (value.held == Held.PLACE || value.held == Held.SHARED)
+                   && RustFacts.ownedByFamily(method) && RustTypes.cloneable(method.returnType(), context.facts)
+                   && !RustTypes.isImmutableValue(method.returnType(), context.facts)) {
+            // the family's result is owned (another member makes it): this member's field or borrow is copied
+            text = value.text + ".clone()";
         } else {
             text = value.nullable ? ownedNullable(value, e, method.returnType()) : asDyn(
                     asObject(owned(value, objectTarget(method.returnType()) ? e.parameterizedType() : method.returnType()),

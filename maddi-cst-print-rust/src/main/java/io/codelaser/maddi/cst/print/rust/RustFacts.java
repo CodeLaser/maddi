@@ -124,8 +124,7 @@ public interface RustFacts extends NullabilityFacts {
 
         @Override
         public boolean resultBorrowsReceiver(MethodInfo method) {
-            if (method.isStatic() || method.isConstructor() || method.isVoid() || returnsNew(method)
-                || newOrExisting(method) || returnedParameter(method) != null) {
+            if (method.isStatic() || method.isConstructor() || method.isVoid() || ownedResult(method)) {
                 return false;
             }
             Value.Independent independent = method.analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD,
@@ -233,10 +232,9 @@ public interface RustFacts extends NullabilityFacts {
             public boolean resultBorrowsReceiver(MethodInfo method) {
                 // every return creates the result: owned, whatever the links say ('return new R(list)' is no borrow
                 // of a temporary); so is unwrap_or_else's, the Option's content or a new object
-                if (returnsNew(method) || newOrExisting(method)) return false;
-                // the result is a parameter, returned as it is ('lst.add(this.x); return lst;'): that object, holding
-                // the receiver's contents, not a borrow of the receiver (E0515 'return &lst')
-                if (returnedParameter(method) != null) return false;
+                // every return creates the result, or one may, or it is a parameter returned as it is ('lst.add(this.x);
+                // return lst;', that object holding the receiver's contents, not a borrow of the receiver)
+                if (ownedResult(method)) return false;
                 LinkFacts.Result result = links.result(method);
                 if (result == null || !referenceResult(method)) return ownership.resultBorrowsReceiver(method);
                 // a new object holding the receiver's contents is a view (unmodifiableList(list), a borrow) or a copy
@@ -503,6 +501,28 @@ public interface RustFacts extends NullabilityFacts {
             return !found[0] && !(e instanceof Lambda);
         });
         return found[0];
+    }
+
+    /*
+     The result is owned by how the method makes it: new on every path, new on one, or a parameter returned as it is. In
+     a closed hierarchy a dispatched family has one signature (RustHierarchies), so one member's owned result makes the
+     family's: Instruction.clone's members return 'new …' or a field, used_switch a new set or a field (match arms of
+     different types otherwise).
+     */
+    static boolean ownedResult(MethodInfo method) {
+        if (ownedByConstruction(method)) return true;
+        RustHierarchies.Family family = RustHierarchies.current().family(method);
+        return family != null && family.dispatched()
+               && family.methods().stream().anyMatch(m -> m != method && ownedByConstruction(m));
+    }
+
+    /** Owned only because another member of its dispatched family is: its own returns may be borrows, cloned. */
+    static boolean ownedByFamily(MethodInfo method) {
+        return !ownedByConstruction(method) && ownedResult(method);
+    }
+
+    private static boolean ownedByConstruction(MethodInfo method) {
+        return returnsNew(method) || newOrExisting(method) || returnedParameter(method) != null;
     }
 
     /** The parameter every return statement of the method returns as it is; {@code null} for any other method. */
