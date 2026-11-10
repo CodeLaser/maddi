@@ -311,6 +311,10 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
                 public static void pushAll(Data data) {
                     for (Stack s : data.getStacks()) s.push(3);
                 }
+                // fernflower's stat.getFirst().removeSuccessor(e), its holder borrowed
+                public static void pushThrough(Data data) {
+                    data.getStack().push(5);
+                }
             }
             """;
 
@@ -324,17 +328,19 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         modifying(stack, "push");
         modifying(data, "setStack");
         nonModifying(data, "getStack", "getStacks");
-        modifying(point, "step", "pushAll");
+        modifying(point, "step", "pushAll", "pushThrough");
         kept(method(data, "setStack").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
         dependentResult(data, "getStack");
         dependentResult(data, "getStacks");
         exclusive(method(point, "step").parameters().getFirst());
         exclusive(method(point, "pushAll").parameters().getFirst());
+        borrowed(method(point, "pushThrough").parameters().getFirst());
         RustTranslator.Result result = translate(types, nullable(java.util.Set.of()));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "let mut stack = data.get_stack().clone();");
         contains(rust, "for mut s in data.get_stacks().iter().cloned().collect::<Vec<_>>() {");
+        contains(rust, "data.get_stack().clone().push(5);");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

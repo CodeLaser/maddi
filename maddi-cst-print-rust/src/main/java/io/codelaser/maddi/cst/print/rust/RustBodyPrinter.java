@@ -1861,8 +1861,16 @@ final class RustBodyPrinter {
             boolean own = mc.object() == null || mc.objectIsImplicit()
                           || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This;
             String object;
+            Printed borrowedHandle = own || !exclusive || !(CstQueries.unwrap(mc.object()) instanceof MethodCall)
+                                     || !RustShared.current().isShared(mc.object().parameterizedType()) ? null
+                    : expression(mc.object());
             if (own) {
                 object = context.receiver;
+            } else if (borrowedHandle != null && borrowedHandle.held == Held.SHARED) {
+                // a shared object a call returns borrowed, modified ('stat.getFirst().removeSuccessor(e)'): a handle of
+                // its own, as Java's reference is, rather than an exclusive borrow of what the getter reads
+                if (borrowedHandle.nullable) context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, null, borrowedHandle.text);
+                object = borrowedHandle.text + (borrowedHandle.nullable ? ".cloned().unwrap()" : ".clone()");
             } else if (exclusive) {
                 boolean outer = mutatingPlace(true);
                 try {
