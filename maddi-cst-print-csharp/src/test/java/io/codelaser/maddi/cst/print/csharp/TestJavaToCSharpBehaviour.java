@@ -868,4 +868,46 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 """);
         assertFalse(cs.contains("Base<K, V>.Values"), cs);
     }
+
+    /**
+     * A LinkedHashSet iterates in insertion order also after a removal, where .NET's HashSet reuses the removed
+     * element's slot (#188).
+     */
+    @Test
+    public void linkedHashSetOrder() {
+        String cs = behaves("LinkedSet", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.LinkedHashSet;
+                import java.util.List;
+                import java.util.SequencedSet;
+                import java.util.Set;
+                class LinkedSet {
+                    public static void main(String[] args) {
+                        Set<String> set = new LinkedHashSet<>();
+                        for (String s : List.of("d", "a", "c", "b")) set.add(s);
+                        set.remove("a");
+                        set.add("e");
+                        set.add("a");
+                        System.out.println(set);
+                        System.out.println(set.add("c") + " " + set.contains("e") + " " + set.size());
+                        LinkedHashSet<Integer> numbers = new LinkedHashSet<>(List.of(5, 3, 9, 1));
+                        numbers.removeAll(List.of(3));
+                        numbers.addAll(List.of(3, 7));
+                        numbers.retainAll(List.of(1, 3, 5, 7));
+                        System.out.println(numbers + " " + numbers.getFirst() + " " + numbers.getLast());
+                        SequencedSet<String> sequenced = new LinkedHashSet<>(16);
+                        sequenced.add("z");
+                        sequenced.add("y");
+                        List<String> copy = new ArrayList<>(sequenced);
+                        System.out.println(copy);
+                        StringBuilder sb = new StringBuilder();
+                        for (String s : set) sb.append(s);
+                        System.out.println(sb);
+                        System.out.println(set.stream().map(String::toUpperCase).toList());
+                    }
+                }
+                """);
+        contains(cs, "JavaLinkedHashSet<string>");
+    }
 }

@@ -777,7 +777,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "l.ToMap(x => x, ");
         // the supplier's type arguments are the result's
         contains(cs, "=> new OrderedDictionary<string, string>());");
-        contains(cs, "s.ToCollection(() => new HashSet<string>())");
+        contains(cs, "s.ToCollection(() => new JavaLinkedHashSet<string>())");
     }
 
     @Language("java")

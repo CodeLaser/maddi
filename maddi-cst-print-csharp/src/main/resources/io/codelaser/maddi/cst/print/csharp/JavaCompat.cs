@@ -595,6 +595,113 @@ public sealed class JavaKeySet<K, V>(IDictionary<K, V> map) : ISet<K>
     public override string ToString() => "[" + string.Join(", ", this) + "]";
 }
 
+/// <summary>
+/// Java's LinkedHashSet: a hash set that iterates in insertion order, also after a removal, where .NET's HashSet
+/// reuses a removed element's slot for the next one added. Re-adding a present element keeps its place. A null
+/// element is allowed, as in Java.
+/// </summary>
+public class JavaLinkedHashSet<T> : ISet<T>, IReadOnlySet<T>
+{
+#pragma warning disable CS8714 // null is kept apart, in nullNode
+    private readonly Dictionary<T, LinkedListNode<T>> index;
+#pragma warning restore CS8714
+    private readonly LinkedList<T> order = new();
+    private LinkedListNode<T>? nullNode;
+
+    public JavaLinkedHashSet() => index = new();
+
+    public JavaLinkedHashSet(int capacity) => index = new(capacity);
+
+    public JavaLinkedHashSet(IEnumerable<T> items) : this()
+    {
+        foreach (var item in items) Add(item);
+    }
+
+    public int Count => order.Count;
+
+    public bool IsReadOnly => false;
+
+    public bool Add(T item)
+    {
+        if (item is null)
+        {
+            if (nullNode != null) return false;
+            nullNode = order.AddLast(item);
+            return true;
+        }
+        if (index.ContainsKey(item)) return false;
+        index[item] = order.AddLast(item);
+        return true;
+    }
+
+    void ICollection<T>.Add(T item) => Add(item);
+
+    public bool Contains(T item) => item is null ? nullNode != null : index.ContainsKey(item);
+
+    public bool Remove(T item)
+    {
+        if (item is null)
+        {
+            if (nullNode == null) return false;
+            order.Remove(nullNode);
+            nullNode = null;
+            return true;
+        }
+        if (!index.Remove(item, out var node)) return false;
+        order.Remove(node);
+        return true;
+    }
+
+    public void Clear()
+    {
+        index.Clear();
+        order.Clear();
+        nullNode = null;
+    }
+
+    public void CopyTo(T[] array, int arrayIndex) => order.CopyTo(array, arrayIndex);
+
+    public IEnumerator<T> GetEnumerator() => order.GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public void UnionWith(IEnumerable<T> other)
+    {
+        foreach (var item in other) Add(item);
+    }
+
+    public void ExceptWith(IEnumerable<T> other)
+    {
+        foreach (var item in other) Remove(item);
+    }
+
+    public void IntersectWith(IEnumerable<T> other)
+    {
+        var keep = new HashSet<T>(other);
+        foreach (var item in order.Where(x => !keep.Contains(x)).ToList()) Remove(item);
+    }
+
+    public void SymmetricExceptWith(IEnumerable<T> other)
+    {
+        foreach (var item in new HashSet<T>(other))
+            if (!Remove(item)) Add(item);
+    }
+
+    private HashSet<T> Snapshot() => new(order);
+
+    public bool IsSubsetOf(IEnumerable<T> other) => Snapshot().IsSubsetOf(other);
+
+    public bool IsSupersetOf(IEnumerable<T> other) => Snapshot().IsSupersetOf(other);
+
+    public bool IsProperSubsetOf(IEnumerable<T> other) => Snapshot().IsProperSubsetOf(other);
+
+    public bool IsProperSupersetOf(IEnumerable<T> other) => Snapshot().IsProperSupersetOf(other);
+
+    public bool Overlaps(IEnumerable<T> other) => other.Any(Contains);
+
+    public bool SetEquals(IEnumerable<T> other) => Snapshot().SetEquals(other);
+}
+
 /// <summary>A sorted set's and map's Java members that copy where Java gives a view.</summary>
 public static class JavaSortedSets
 {

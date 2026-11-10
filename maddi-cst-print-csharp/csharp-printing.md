@@ -578,7 +578,7 @@ implements the interface.
   `Take((int) (a - b))`.
 - **Constructor references.** A raw `Triple::new` creates the type Java inferred for its result,
   `(p0, p1, p2) => new Triple<A, B, C>(p0, p1, p2)`, also through a supertype the class passes its own type
-  parameters on to, directly or not: `LinkedHashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`. Where the result does not
+  parameters on to, directly or not: `LinkedHashSet::new` as an `IntFunction<Set<V>>` is `p0 => new JavaLinkedHashSet<V>(p0)`. Where the result does not
   say, the delegate's parameter types do: `Node::new` as a `Builder<String, List<String>>` of
   `(K key, int index, Lifecycle<T> next)` is `(p0, p1, p2) => new Node<string, List<string>>(p0, p1, p2)`.
   Where the called method infers a type parameter of its own from the reference's result, Java from the parameter it
@@ -884,8 +884,8 @@ compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each a
   `hashCode` for every key, which a String's randomized .NET hash, an object's identity hash and a record's
   unspecified one do not give. Code whose output depends on that order (printing a map, taking a set's first
   element) prints otherwise, as it could on another JDK. A `LinkedHashMap`, whose insertion order Java specifies,
-  keeps it (`OrderedDictionary`); a `LinkedHashSet` is a `HashSet`, which keeps it only until an element is removed
-  (the BCL has no ordered set).
+  keeps it (`OrderedDictionary`); so does a `LinkedHashSet` (and a `SequencedSet`), which is the compatibility
+  library's `JavaLinkedHashSet`: the BCL has no ordered set, and its `HashSet` reuses a removed element's slot.
 - **Natural order.** Java orders Strings by UTF-16 code unit (`"B"` before `"a"`), .NET's default comparer for strings by
   the culture (`"a"` before `"B"`). Where Java's natural order is implied (`Collections.sort`, `List.sort(null)`,
   `sorted()`, `naturalOrder()`, `reverseOrder()`, `Comparator.comparing`, a priority queue), the compatibility library

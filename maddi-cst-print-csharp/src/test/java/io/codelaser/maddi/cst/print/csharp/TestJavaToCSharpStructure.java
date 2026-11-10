@@ -630,7 +630,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Weigh((IDictionary<string, int>) weights)");
         contains(cs, "Seen((object[]) (object) values, v)");
         // LinkedHashSet<E> is a Set<E> through SequencedSet<E>: the created set has the target's element type
-        contains(cs, "(Func<int, ISet<V>>) (p0 => new HashSet<V>(p0))");
+        contains(cs, "(Func<int, ISet<V>>) (p0 => new JavaLinkedHashSet<V>(p0))");
         // a raw array whose elements are all a Cell<T>: a Cell<T>[]
         contains(cs, "var all = new Cell<T>[1];");
         // S only in M's bound: C# infers neither from a constraint, both are written; elements of different types

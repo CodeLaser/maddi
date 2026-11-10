@@ -39,9 +39,10 @@ type java.util.TreeMap -> SortedDictionary using System.Collections.Generic
 type java.util.SortedMap -> SortedDictionary using System.Collections.Generic
 type java.util.Set -> ISet using System.Collections.Generic
 type java.util.AbstractSet -> ISet using System.Collections.Generic
-# .NET's HashSet enumerates in insertion order as long as nothing is removed
+# .NET's HashSet enumerates in insertion order as long as nothing is removed; a LinkedHashSet keeps it after a
+# removal too, as JavaLinkedHashSet does
 type java.util.HashSet -> HashSet using System.Collections.Generic
-type java.util.LinkedHashSet -> HashSet using System.Collections.Generic
+type java.util.LinkedHashSet -> JavaLinkedHashSet using Maddi.JavaCompat
 type java.util.TreeSet -> SortedSet using System.Collections.Generic
 type java.util.SortedSet -> SortedSet using System.Collections.Generic
 # the navigable and sequenced interfaces are their one implementation's: TreeMap, TreeSet, LinkedHashMap and
@@ -49,7 +50,7 @@ type java.util.SortedSet -> SortedSet using System.Collections.Generic
 type java.util.NavigableMap -> SortedDictionary using System.Collections.Generic
 type java.util.NavigableSet -> SortedSet using System.Collections.Generic
 type java.util.SequencedMap -> OrderedDictionary using System.Collections.Generic
-type java.util.SequencedSet -> HashSet using System.Collections.Generic
+type java.util.SequencedSet -> JavaLinkedHashSet using Maddi.JavaCompat
 type java.util.EnumSet -> HashSet using System.Collections.Generic
 type java.util.Collection -> ICollection using System.Collections.Generic
 type java.util.AbstractCollection -> ICollection using System.Collections.Generic
