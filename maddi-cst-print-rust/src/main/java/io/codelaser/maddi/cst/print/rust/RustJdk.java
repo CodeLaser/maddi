@@ -28,6 +28,7 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.expression.StringConstant;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -575,8 +576,27 @@ final class RustJdk {
                + printer.ownedText(args.get(1)) + ")";
     }
 
+    /**
+     * A lookup by a key that may be null ({@code map.get(field.getClassname())}): a map's keys are not Options, and
+     * Java's HashMap answers null for the null key, so {@code key.as_ref().and_then(|__k| map.get(__k))}.
+     */
+    private static String byKey(Expression key, RustBodyPrinter printer, java.util.function.UnaryOperator<String> call) {
+        String option = nullableKey(key, printer);
+        return option == null ? call.apply(printer.reference(key)) : option + ".and_then(|__k| " + call.apply("__k") + ")";
+    }
+
+    // a nullable key as an Option of a reference, or null for a key that is not nullable
+    private static String nullableKey(Expression key, RustBodyPrinter printer) {
+        Printed p = printer.printed(key);
+        if (!p.nullable() || key instanceof NullConstant || "None".equals(p.text())) return null;
+        return switch (p.held()) {
+            case VALUE, PLACE -> p.text() + ".as_ref()";
+            default -> p.text();
+        };
+    }
+
     private static Printed getOrDefault(String o, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
-        String get = o + ".get(" + printer.reference(args.get(0)) + ")";
+        String get = byKey(args.get(0), printer, k -> o + ".get(" + k + ")");
         if (copyValues(mc)) return value(get + ".copied().unwrap_or(" + operand(printer, args.get(1)) + ")");
         List<ParameterizedType> kv = mc.object().parameterizedType().parameters();
         if (kv.size() == 2 && RustTypes.isString(kv.get(1))) {
@@ -853,10 +873,15 @@ final class RustJdk {
             }
             // Java's null for an absent key is Rust's None
             case "get/1" -> copyValues(mc)
-                    ? RustBodyPrinter.printed(o + ".get(" + printer.reference(args.getFirst()) + ").copied()", Held.VALUE, true)
-                    : RustBodyPrinter.printed(o + ".get(" + printer.reference(args.getFirst()) + ")", Held.SHARED, true);
-            case "containsKey/1" -> value(o + ".contains_key(" + printer.reference(args.getFirst()) + ")");
-            case "remove/1" -> new Printed(o + ".remove(" + printer.reference(args.getFirst()) + ")", Held.VALUE, true);
+                    ? RustBodyPrinter.printed(byKey(args.getFirst(), printer, k -> o + ".get(" + k + ")") + ".copied()",
+                                              Held.VALUE, true)
+                    : RustBodyPrinter.printed(byKey(args.getFirst(), printer, k -> o + ".get(" + k + ")"), Held.SHARED, true);
+            case "containsKey/1" -> {
+                String key = nullableKey(args.getFirst(), printer);
+                yield value(key != null ? key + ".is_some_and(|__k| " + o + ".contains_key(__k))"
+                        : o + ".contains_key(" + printer.reference(args.getFirst()) + ")");
+            }
+            case "remove/1" -> new Printed(byKey(args.getFirst(), printer, k -> o + ".remove(" + k + ")"), Held.VALUE, true);
             case "size/0" -> value(o + ".len() as i32");
             case "isEmpty/0" -> value(o + ".is_empty()");
             case "clear/0" -> value(o + ".clear()");

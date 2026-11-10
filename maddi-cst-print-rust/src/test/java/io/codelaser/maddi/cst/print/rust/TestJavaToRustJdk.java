@@ -343,4 +343,35 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, ".iter().all(|__e| ");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String NULLABLE_KEY = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Keyed {
+                private final Map<String, Integer> sizes = new HashMap<>();
+                private String name;
+                // fernflower's getMapRootClasses().get(field.getClassname()): a key that may be null
+                public Integer size() { return sizes.get(name); }
+                public boolean known() { return sizes.containsKey(name); }
+                public void forget() { sizes.remove(name); }
+                public void set(String n) { name = n; sizes.put(n, 1); }
+            }
+            """;
+
+    @DisplayName("a map looked up by a nullable key: absent for null, as Java's HashMap")
+    @Test
+    public void nullableKey() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_KEY);
+        TypeInfo keyed = types.getFirst();
+        nonModifying(keyed, "size", "known");
+        modifying(keyed, "forget", "set");
+        RustTranslator.Result result = translate(types, nullable(Set.of("name", "size()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "self.name.as_ref().and_then(|__k| self.sizes.get(__k))");
+        contains(rust, "self.name.as_ref().is_some_and(|__k| self.sizes.contains_key(__k))");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
