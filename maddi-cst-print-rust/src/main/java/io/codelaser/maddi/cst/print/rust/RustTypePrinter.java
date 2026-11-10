@@ -1016,7 +1016,7 @@ final class RustTypePrinter {
             return false;
         }
         String type = RustTypes.owned(f.type(), context, f);
-        if (type.contains("dyn ") || type.contains("Rc<") || type.contains("RefCell<")) return false;
+        if (type.contains("dyn ") || type.contains("RefCell<")) return false;
         boolean[] touched = {false};
         for (MethodInfo m : f.owner().methods()) {
             if (!m.isStaticInitializer() || m.methodBody() == null) continue;
@@ -1081,6 +1081,15 @@ final class RustTypePrinter {
         return f.owner().isInterface() && constant(f);
     }
 
+    /**
+     * A {@link #lazyStatic} field held in an {@code Rc} or a {@code Shared} (VarType's {@code VARTYPE_INT}): not
+     * {@code Sync}, so a {@code thread_local!}, read as {@code NAME.with(|v| v.clone())}, a handle on the one object.
+     */
+    static boolean threadLocalStatic(FieldInfo f, RustContext context) {
+        String type = RustTypes.owned(f.type(), context, f);
+        return type.contains("Rc<") || type.contains("Shared<");
+    }
+
     /** The module-level name of a {@link #lazyStatic} field: its owner's name and its own. */
     static String staticName(FieldInfo f) {
         return RustNames.constant(RustNames.ownType(f.owner()) + "_" + f.name());
@@ -1107,6 +1116,14 @@ final class RustTypePrinter {
         if (!constant && lazyStatic(f, context)) {
             String type = RustTypes.owned(f.type(), context, f);
             String value = new RustBodyPrinter(context).ownedAs(init, f.type());
+            if (threadLocalStatic(f, context)) {
+                statics.append("\nthread_local! {\n    /// Translated from the static field `")
+                        .append(f.owner().fullyQualifiedName()).append(".").append(f.name())
+                        .append("`: built on first use, read-only, one per thread (an Rc is not Sync).\n    ")
+                        .append(visibility(f.access().isPrivate())).append("static ").append(staticName(f))
+                        .append(": ").append(type).append(" = ").append(value).append(";\n}\n");
+                return "";
+            }
             statics.append("\n/// Translated from the static field `").append(f.owner().fullyQualifiedName()).append(".")
                     .append(f.name()).append("`: built on first use, read-only.\n")
                     .append(visibility(f.access().isPrivate())).append("static ").append(staticName(f))

@@ -650,4 +650,37 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "match tag as i32 {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String VAR_TYPES = """
+            package a.b;
+            public class VarTypes {
+                // fernflower's VarType: an immutable class whose objects are shared in an Rc, and its constants
+                static final class VT {
+                    private final int t;
+                    VT(int t) { this.t = t; }
+                    int t() { return t; }
+                }
+                static final VT INT = new VT(1);
+                static int code() { return INT.t(); }
+                static VT intType() { return INT; }
+            }
+            """;
+
+    @DisplayName("a static constant held in an Rc: a thread_local, read as a handle")
+    @Test
+    public void rcConstant() throws Exception {
+        List<TypeInfo> types = parse(VAR_TYPES);
+        TypeInfo varTypes = types.getFirst();
+        TypeInfo vt = varTypes.findSubType("VT");
+        immutable(vt, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+        nonModifying(vt, "t");
+        nonModifying(varTypes, "code", "intType");
+        unmodifiedField(varTypes, "INT");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "thread_local! {");
+        contains(rust, "VAR_TYPES_INT.with(|v| v.clone())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

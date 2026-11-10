@@ -1132,6 +1132,7 @@ final class RustBodyPrinter {
                 String name = RustTypePrinter.staticName(f);
                 String module = RustNames.module(owner.packageName());
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
+                if (RustTypePrinter.threadLocalStatic(f, context)) return new Printed(name + ".with(|v| v.clone())", Held.VALUE, nullable);
                 return new Printed(name, Held.PLACE, nullable);
             }
             // a string constant is a &'static str
