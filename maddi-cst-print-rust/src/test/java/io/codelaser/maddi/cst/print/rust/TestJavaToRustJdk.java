@@ -172,10 +172,27 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                     public static void discardBytes(InputStream stream, int length) throws IOException {
                         if (stream.skip(length) != length) throw new IOException("premature end of stream");
                     }
+                    // InterpreterUtil.readBytes
+                    public static byte[] readBytes(InputStream stream, int length) throws IOException {
+                        byte[] bytes = new byte[length];
+                        int n = 0, off = 0;
+                        while (n < length) {
+                            int count = stream.read(bytes, off + n, length - n);
+                            if (count < 0) throw new IOException("premature end of stream");
+                            n += count;
+                        }
+                        return bytes;
+                    }
                 }
                 public static class Pool {
                     // ConstantPool(DataInputStream in)
                     public static int magic(DataInputStream in) throws IOException { return in.readInt(); }
+                }
+                // StructClass.create: a nullable stream, unwrapped at each read
+                public static int versions(Full in) throws IOException {
+                    in.discard(4);
+                    int minor = in.readUnsignedShort();
+                    return minor + in.readUnsignedShort();
                 }
                 public static int header(byte[] bytes) throws IOException {
                     Full in = new Full(bytes);
@@ -196,13 +213,17 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         modifying(cls.findSubType("Full"), "discard");
         modified(method(cls.findSubType("Util"), "discardBytes").parameters().getFirst());
         modified(method(cls.findSubType("Pool"), "magic").parameters().getFirst());
-        nonModifying(cls, "header");
-        RustTranslator.Result result = translate(types);
+        modified(method(cls.findSubType("Util"), "readBytes").parameters().getFirst());
+        modified(method(cls, "versions").parameters().getFirst());
+        nonModifying(cls, "header", "versions");
+        RustTranslator.Result result = translate(types, nullable(Set.of("in")));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         // was an empty struct, and a unit-struct DataInputStream without methods: every read unresolved
         contains(rust, "pub base: crate::jrt::DataInputStream,");
         contains(rust, "base: crate::jrt::DataInputStream::from_bytes(");
+        contains(rust, "stream.read(&mut bytes, off + n, length - n)");
+        contains(rust, "let minor = r#in.as_mut().unwrap().read_unsigned_short();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

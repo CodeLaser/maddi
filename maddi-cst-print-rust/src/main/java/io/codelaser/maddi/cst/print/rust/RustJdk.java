@@ -68,16 +68,44 @@ final class RustJdk {
         return MODIFYING.contains(m.name());
     }
 
-    /** A JDK static that modifies its first argument: {@code Collections.sort(list)}, {@code Arrays.fill(a, v)}. */
+    /** A JDK call that modifies its first argument: {@code Collections.sort(list)}, {@code Arrays.fill(a, v)}, {@code in.read(b, off, len)}. */
     static boolean modifiesFirstArgument(MethodCall mc) {
         MethodInfo m = mc.methodInfo();
-        if (!m.isStatic()) return false;
+        if (!m.isStatic()) {
+            // a stream filling the buffer it is given (stream below)
+            String fqn = m.typeInfo().fullyQualifiedName();
+            return ("java.io.DataInputStream".equals(fqn) || "java.io.InputStream".equals(fqn))
+                   && ("read".equals(m.name()) || "readFully".equals(m.name())) && !m.parameters().isEmpty()
+                   && m.parameters().getFirst().parameterizedType().arrays() > 0;
+        }
         return switch (m.typeInfo().fullyQualifiedName()) {
             case "java.util.Collections" -> Set.of("sort", "reverse", "shuffle", "swap", "fill", "addAll", "rotate")
                     .contains(m.name());
             case "java.util.Arrays" -> Set.of("sort", "fill", "parallelSort", "setAll").contains(m.name());
             default -> false;
         };
+    }
+
+    /**
+     * A call on jrt.rs's in-memory stream ({@code java.io.DataInputStream}, {@code InputStream}): every read advances
+     * it, so the receiver is reached exclusively (a nullable one unwrapped, Java's NPE as a panic); the buffer that
+     * {@code read(b, off, len)} and {@code readFully(b)} fill is passed {@code &mut}.
+     */
+    private static Printed stream(MethodCall mc, RustBodyPrinter printer) {
+        String o = printer.receiver(mc.object(), true);
+        List<Expression> args = mc.parameterExpressions();
+        String name = mc.methodInfo().name();
+        boolean buffer = !args.isEmpty() && args.getFirst().parameterizedType().arrays() > 0
+                         && ("read".equals(name) || "readFully".equals(name));
+        if (buffer && args.size() == 1 && "read".equals(name)) {
+            // read(b): read(b, 0, b.length)
+            String b = printer.receiver(args.getFirst(), true);
+            return value(o + ".read(&mut " + b + ", 0, " + b + ".len() as i32)");
+        }
+        String rest = printer.arguments(buffer ? args.subList(1, args.size()) : args, null);
+        String first = buffer ? "&mut " + printer.receiver(args.getFirst(), true) : "";
+        String all = first.isEmpty() ? rest : rest.isEmpty() ? first : first + ", " + rest;
+        return value(o + "." + RustNames.snake(name) + "(" + all + ")");
     }
 
     static Printed call(MethodCall mc, RustBodyPrinter printer) {
@@ -97,6 +125,9 @@ final class RustJdk {
         // exclusively, the arguments are only read
         boolean mutating = printer.mutatingPlace(false);
         // a nullable receiver is unwrapped, Java's NPE as a panic; an Optional is Rust's Option itself
+        if ("java.io.DataInputStream".equals(fqn) || "java.io.InputStream".equals(fqn)) {
+            return stream(mc, printer);
+        }
         String o = "Option".equals(RustTypes.mapped(owner)) || fqn.startsWith("java.util.stream.")
                 ? printer.text(mc.object()) : printer.receiver(mc.object(), modifies(mc) || mutating);
         if ("java.lang.Enum".equals(fqn)) {
