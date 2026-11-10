@@ -282,6 +282,12 @@ final class RustBodyPrinter {
             // a string borrowed out of a lookup ('(String) b.get("sku")'): a copy, which ends the borrow of what holds it
             text = text + (value.nullable ? ".cloned()" : ".clone()");
             held = Held.VALUE;
+        } else if (mutated && (held == Held.PLACE || held == Held.SHARED)
+                   && RustShared.current().isShared(lv.parameterizedType())) {
+            // a shared object modified through the local ('ListStack s = data.getStack(); s.push(t)'): the local is a
+            // handle of its own, as Java's reference is, so that it modifies without borrowing what holds it
+            text = text + (held == Held.SHARED && value.nullable ? ".cloned()" : ".clone()");
+            held = Held.VALUE;
         } else if (held == Held.PLACE && !RustTypes.isCopy(lv.parameterizedType())) {
             // an element or a field: the local refers to it, as Java's reference does
             text = (mutated ? "&mut " : "&") + text;

@@ -282,4 +282,50 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         contains(rust, "get_if_edge_mut()");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String POINT = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Point {
+                public static class Stack {
+                    private final List<Integer> items = new ArrayList<>();
+                    public void push(int i) { items.add(i); }
+                }
+                // fernflower's DataPoint
+                public static class Data {
+                    private Stack stack = new Stack();
+                    public Stack getStack() { return stack; }
+                    public void setStack(Stack s) { stack = s; }
+                }
+                // InstructionImpact.stepTypes: the stack, read through the getter, is modified through a local
+                public static void step(Data data) {
+                    Stack stack = data.getStack();
+                    stack.push(1);
+                    stack.push(2);
+                }
+            }
+            """;
+
+    @DisplayName("a shared object modified through a local: the local is a handle of its own")
+    @Test
+    public void localHandle() throws Exception {
+        List<TypeInfo> types = parse(POINT);
+        TypeInfo point = types.getFirst();
+        TypeInfo stack = point.findSubType("Stack");
+        TypeInfo data = point.findSubType("Data");
+        modifying(stack, "push");
+        modifying(data, "setStack");
+        nonModifying(data, "getStack");
+        modifying(point, "step");
+        kept(method(data, "setStack").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        dependentResult(data, "getStack");
+        exclusive(method(point, "step").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(java.util.Set.of()));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "let mut stack = data.get_stack().clone();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
