@@ -450,7 +450,9 @@ final class RustBodyPrinter {
         if (io.patternVariable() == null || io.patternVariable().localVariable() == null) return null;
         if (equalsParameter != null && isVariable(io.expression(), equalsParameter)
             && io.testType().typeInfo() == equalsParameter.methodInfo().typeInfo()) {
-            // equals' 'return o instanceof Version v && …': PartialEq's other is already a &Self
+            // equals' 'return o instanceof Version v && …': PartialEq's other is already a &Self (in a hierarchy, of
+            // the kind the hierarchy's eq tests first)
+            equalsTested = io.testType().typeInfo();
             LocalVariable lv = io.patternVariable().localVariable();
             locals.put(lv, Held.SHARED);
             nullableLocals.put(lv, false);
@@ -751,6 +753,8 @@ final class RustBodyPrinter {
      * the usual preamble tests ({@code this == o}, {@code o == null}, {@code getClass()}, {@code instanceof}): those
      * statements are left out, and {@code o}, its pattern variable and its cast are {@code other}.
      */
+    private TypeInfo equalsTested;
+
     String equalsBody(MethodInfo equals, int depth) {
         ParameterInfo o = equals.parameters().getFirst();
         aliases.put(o, "other");
@@ -797,9 +801,15 @@ final class RustBodyPrinter {
         return !other[0];
     }
 
+    /** The type {@link #equalsBody}'s preamble tests its parameter against ({@code o instanceof T}), or null. */
+    TypeInfo equalsTested() {
+        return equalsTested;
+    }
+
     /** {@code o instanceof T t}: {@code t} is {@code other}. */
     private boolean pattern(InstanceOf io, ParameterInfo o) {
         if (!isVariable(io.expression(), o)) return false;
+        if (io.testType() != null && io.testType().typeInfo() != null) equalsTested = io.testType().typeInfo();
         if (io.patternVariable() != null && io.patternVariable().localVariable() != null) {
             aliases.put(io.patternVariable().localVariable(), "other");
         }
@@ -1302,11 +1312,12 @@ final class RustBodyPrinter {
 
     /**
      * Java's {@code equals} of objects of this type is identity: a source class that declares no {@code equals}
-     * (nor does a superclass), or a member of a closed hierarchy (RustHierarchies, which prints no PartialEq).
+     * (nor does a superclass), or a member of a closed hierarchy (RustHierarchies) none of whose members declares one.
      */
     static boolean equalsIsIdentity(ParameterizedType type) {
         if (!identity(type)) return false;
-        if (RustHierarchies.current().isMember(type.typeInfo())) return true;
+        RustHierarchies.Hierarchy h = RustHierarchies.current().hierarchy(type.typeInfo());
+        if (h != null) return !RustTypePrinter.declaresEquals(h);
         for (TypeInfo t = type.typeInfo(); t != null && !t.isJavaLangObject();
              t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
             if (t.methods().stream().anyMatch(RustTypePrinter::isEquals)) return false;
@@ -1831,17 +1842,24 @@ final class RustBodyPrinter {
                 printed.held, printed.nullable);
     }
 
-    /* Enum.equals on an enum of the sources ('EdgeType.BREAK.equals(edge.getType())'): the variants' ==. */
-    private static boolean sourceEnumEquals(MethodCall mc) {
+    /*
+     * Enum.equals on an enum of the sources ('EdgeType.BREAK.equals(edge.getType())'): the variants' ==. Object.equals
+     * on a hierarchy whose members declare equals ('exprent.equals(other)', Exprent declaring none): its PartialEq.
+     */
+    private static boolean sourceEquals(MethodCall mc) {
         if (!RustTypePrinter.isEquals(mc.methodInfo()) || mc.object() == null || mc.objectIsImplicit()) return false;
         TypeInfo ti = mc.object().parameterizedType().typeInfo();
-        return ti != null && ti.typeNature().isEnum() && !ti.compilationUnit().externalLibrary()
-               && mc.object().parameterizedType().arrays() == 0;
+        if (ti == null || ti.compilationUnit().externalLibrary() || mc.object().parameterizedType().arrays() != 0) {
+            return false;
+        }
+        if (ti.typeNature().isEnum()) return true;
+        RustHierarchies.Hierarchy h = RustHierarchies.current().hierarchy(ti);
+        return h != null && RustTypePrinter.declaresEquals(h);
     }
 
     private Printed methodCall(MethodCall mc) {
         MethodInfo callee = mc.methodInfo();
-        if (callee.typeInfo().compilationUnit().externalLibrary() && !sourceEnumEquals(mc)) {
+        if (callee.typeInfo().compilationUnit().externalLibrary() && !sourceEquals(mc)) {
             boolean outer = mutatingPlace;
             Printed mapped;
             try {
@@ -1861,9 +1879,21 @@ final class RustBodyPrinter {
         }
         if (RustTypePrinter.isEquals(callee) && mc.object() != null && !mc.objectIsImplicit()) {
             if (RustShared.current().isShared(mc.object().parameterizedType())) {
-                // two handles' objects compared with the class's own equality, not the handles' identity
-                return value("crate::jrt::Shared::equals(" + adapt(expression(mc.object()), Held.SHARED) + ", "
-                             + adapt(expression(mc.parameterExpressions().getFirst()), Held.SHARED) + ")");
+                // two handles' objects compared with the class's own equality, not the handles' identity; a null
+                // other is false, a null receiver Java's NullPointerException
+                Printed left = expression(mc.object());
+                Printed right = expression(mc.parameterExpressions().getFirst());
+                String l = adapt(left, Held.SHARED);
+                if (left.nullable) {
+                    context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, mc, left.text);
+                    l = optionalReference(left) + ".unwrap()";
+                }
+                if (mc.parameterExpressions().getFirst() instanceof NullConstant) return value("false");
+                if (right.nullable) {
+                    return value(optionalReference(right) + ".map_or(false, |__o| crate::jrt::Shared::equals(" + l
+                                 + ", __o))");
+                }
+                return value("crate::jrt::Shared::equals(" + l + ", " + adapt(right, Held.SHARED) + ")");
             }
             Printed left = expression(mc.object());
             Printed right = expression(mc.parameterExpressions().getFirst());

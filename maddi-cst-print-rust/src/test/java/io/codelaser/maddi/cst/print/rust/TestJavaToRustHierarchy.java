@@ -406,4 +406,63 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
         assertFalse(rust.contains("-> &Vec<String>"), rust);
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String EQUALS = """
+            package a.b;
+            import java.util.List;
+            public class Eqs {
+                // fernflower's Exprent: the root declares no equals, its members do
+                public abstract static class Expr {
+                    public abstract int weight();
+                }
+                public static class Var extends Expr {
+                    private final int index;
+                    public Var(int index) { this.index = index; }
+                    public int weight() { return 1; }
+                    @Override
+                    public boolean equals(Object o) {
+                        if (o == this) return true;
+                        if (!(o instanceof Var v)) return false;
+                        return index == v.index;
+                    }
+                }
+                public static class Const extends Expr {
+                    private final int value;
+                    public Const(int value) { this.value = value; }
+                    public int weight() { return 0; }
+                    @Override
+                    public boolean equals(Object o) {
+                        return o instanceof Const c && value == c.value;
+                    }
+                }
+                public static class Field extends Expr {
+                    public int weight() { return 2; }
+                }
+                public static boolean same(Expr a, Expr b) { return a.equals(b); }
+                public static boolean sameOrNull(Expr a, Expr maybe) { return a.equals(maybe); }
+                public static void drop(List<Expr> exprs, Expr e) { exprs.remove(e); }
+            }
+            """;
+
+    @DisplayName("equals in a closed hierarchy: each member's own, PartialEq dispatching on the kind")
+    @Test
+    public void hierarchyEquals() throws Exception {
+        List<TypeInfo> types = parse(EQUALS);
+        TypeInfo eqs = types.getFirst();
+        for (String t : List.of("Expr", "Var", "Const", "Field")) nonModifying(eqs.findSubType(t), "weight");
+        nonModifying(eqs, "same", "sameOrNull");
+        modifying(eqs, "drop");
+        method(eqs, "same").parameters().forEach(CommonJavaToRust::borrowed);
+        method(eqs, "sameOrNull").parameters().forEach(CommonJavaToRust::borrowed);
+        exclusive(method(eqs, "drop").parameters().get(0));
+        borrowed(method(eqs, "drop").parameters().get(1));
+        RustTranslator.Result result = translate(types, nullable(java.util.Set.of("maybe")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "fn eq_eqs_var(&self, other: &Self) -> bool {");
+        contains(rust, "impl PartialEq for EqsExpr {");
+        contains(rust, "EqsExprKind::EqsField(..) => std::ptr::eq(self, other),");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

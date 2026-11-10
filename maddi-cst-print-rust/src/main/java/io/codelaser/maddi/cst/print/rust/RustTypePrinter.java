@@ -561,8 +561,12 @@ final class RustTypePrinter {
                                 ? "static initializer" : "instance initializer");
                         continue;
                     }
-                    if (isEquals(method) || isHashCode(method)) {
-                        context.message(RustPrintCode.UNSUPPORTED, method, "equals or hashCode in a class hierarchy");
+                    if (isEquals(method)) {
+                        inherent.append(hierarchyEquals(method));
+                        continue;
+                    }
+                    if (isHashCode(method)) {
+                        context.message(RustPrintCode.UNSUPPORTED, method, "hashCode in a class hierarchy");
                         continue;
                     }
                     RustHierarchies.Family family = hs.family(method);
@@ -590,7 +594,7 @@ final class RustTypePrinter {
             context.type = outer;
         }
         sb.append("\nimpl").append(generics).append(" ").append(name).append(generics).append(" {\n").append(inherent)
-                .append("}\n").append(traits);
+                .append("}\n").append(traits).append(hierarchyPartialEq(h, name, generics));
         if (h.members().stream().anyMatch(RustTypePrinter::hasToString)) {
             sb.append("\nimpl").append(generics).append(" std::fmt::Display for ").append(name).append(generics)
                     .append(" {\n").append(INDENT)
@@ -799,6 +803,64 @@ final class RustTypePrinter {
             }
         }
         return sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n").toString();
+    }
+
+    /** The name of a hierarchy member's own {@code equals}: {@code eq_var_exprent}. */
+    private static String equalsName(TypeInfo member) {
+        return "eq_" + RustHierarchies.accessor(member);
+    }
+
+    /**
+     * A member's {@code equals}, an inherent method of the root: Java's {@code o instanceof T t} preamble is the test
+     * of the other object's kind, after which {@code t} is {@code other}.
+     */
+    private String hierarchyEquals(MethodInfo equals) {
+        MethodInfo outerMethod = context.method;
+        context.method = equals;
+        try {
+            RustBodyPrinter printer = new RustBodyPrinter(context);
+            String body = printer.equalsBody(equals, 2);
+            TypeInfo tested = printer.equalsTested();
+            StringBuilder sb = new StringBuilder(INDENT).append("fn ").append(equalsName(equals.typeInfo()))
+                    .append("(&self, other: &Self) -> bool {\n");
+            if (tested != null && RustHierarchies.current().isMember(tested)) {
+                sb.append(INDENT).append(INDENT).append("if !").append(RustHierarchies.current().test("other", tested))
+                        .append(" {\n").append(INDENT.repeat(3)).append("return false;\n").append(INDENT).append(INDENT)
+                        .append("}\n");
+            }
+            return sb.append(body).append(INDENT).append("}\n").toString();
+        } finally {
+            context.method = outerMethod;
+        }
+    }
+
+    /**
+     * Java's {@code equals} of a hierarchy's objects: the nearest {@code equals} of the object's class, identity when
+     * there is none. Nothing when no member declares one, its objects compared by identity
+     * ({@link RustBodyPrinter#equalsIsIdentity}).
+     */
+    private String hierarchyPartialEq(RustHierarchies.Hierarchy h, String name, String generics) {
+        if (!declaresEquals(h)) return "";
+        RustHierarchies hs = RustHierarchies.current();
+        StringBuilder sb = new StringBuilder("\nimpl").append(generics).append(" PartialEq for ").append(name)
+                .append(generics).append(" {\n").append(INDENT).append("fn eq(&self, other: &Self) -> bool {\n")
+                .append(INDENT).append(INDENT).append("match self.kind {\n");
+        for (TypeInfo member : h.members()) {
+            TypeInfo declaring = null;
+            for (TypeInfo c = member; c != null && declaring == null;
+                 c = c != h.root() && hs.isMember(c) ? c.parentClass().typeInfo() : null) {
+                if (c.methods().stream().anyMatch(m -> isEquals(m) && m.methodBody() != null)) declaring = c;
+            }
+            sb.append(INDENT.repeat(3)).append(hs.pattern(member)).append(" => ")
+                    .append(declaring == null ? "std::ptr::eq(self, other)"
+                            : "self." + equalsName(declaring) + "(other)").append(",\n");
+        }
+        return sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n}\n").toString();
+    }
+
+    /** A member of the hierarchy declares {@code equals}. */
+    static boolean declaresEquals(RustHierarchies.Hierarchy h) {
+        return h.members().stream().anyMatch(m -> m.methods().stream().anyMatch(x -> isEquals(x) && x.methodBody() != null));
     }
 
     /** The source interfaces of the hierarchy's members, each implemented on the root through the families. */

@@ -891,7 +891,8 @@ final class RustJdk {
             case "contains/1" -> stringElements(mc)
                     // Vec<String>::contains takes a &String; a &str compares with each element instead
                     ? value(test(args.getFirst(), printer, k -> o + ".iter().any(|__e| __e == " + k + ")"))
-                    : typeArgument(mc, 0) != null && RustBodyPrinter.equalsIsIdentity(typeArgument(mc, 0))
+                    : typeArgument(mc, 0) != null && (RustBodyPrinter.equalsIsIdentity(typeArgument(mc, 0))
+                                                      || RustShared.current().isShared(typeArgument(mc, 0)))
                     ? value(o + ".iter().any(|__e| " + elementEquals(mc, args.getFirst(), printer) + ")")
                     : value(test(args.getFirst(), printer, k -> o + ".contains(" + k + ")"));
             case "addAll/1" -> value(o + ".extend(" + printer.text(args.getFirst()) + ".iter().cloned())");
@@ -932,7 +933,13 @@ final class RustJdk {
         if (element != null && RustShared.current().isShared(element)) {
             // handles: their == is identity; a nullable argument is an Option of one
             Printed p = printer.printed(arg);
-            if (p.nullable()) return "Some(__e) == " + (p.held() == Held.SHARED ? p.text() : p.text() + ".as_ref()");
+            String optional = p.held() == Held.SHARED ? p.text() : p.text() + ".as_ref()";
+            if (!RustBodyPrinter.equalsIsIdentity(element)) {
+                // the objects' own equality (Shared::equals); null equals no element
+                if (p.nullable()) return optional + ".map_or(false, |__o| crate::jrt::Shared::equals(__e, __o))";
+                return "crate::jrt::Shared::equals(__e, " + printer.reference(arg) + ")";
+            }
+            if (p.nullable()) return "Some(__e) == " + optional;
             return "__e == " + printer.reference(arg);
         }
         if (element != null && RustBodyPrinter.equalsIsIdentity(element)) {
