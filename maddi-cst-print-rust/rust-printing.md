@@ -30,13 +30,15 @@ report, and a test can supply any verdict it likes, a wrong one included.
 
 ## Strict on purpose
 
-Nothing is softened to please the borrow checker: no `clone()`, no `Rc<RefCell<…>>`. Where rustc rejects the
-output, it says where a verdict and the code disagree:
+Nothing is softened to please the borrow checker: no `clone()` of a mutable object, no `Rc<RefCell<…>>`. The one
+representation of sharing, `Shared<T>` (below, "Shared objects"), follows the verdicts: only what a method keeps
+is shared, and the borrow checker still judges every handle. Where rustc rejects the output, it says where a verdict
+and the code disagree:
 
 | rustc says | reading |
 |---|---|
 | E0596, E0594: cannot borrow or assign behind a `&` reference | a non-modifying (or unmodified) verdict the body contradicts: the **analyzer** is wrong |
-| E0382: use of a moved value | a dependent parameter: Java shares the object, Rust does not; the verdict is right, the **printer** needs another representation (`Rc`, a clone) |
+| E0382: use of a moved value | a dependent parameter: Java shares the object, Rust does not; the verdict is right, the **printer** needs another representation (`Shared<T>` for a kept class, a clone of a value) |
 | E0597, E0716: does not live long enough | a missed dependence |
 | E0502, E0499: overlapping borrows | aliasing plus modification |
 
@@ -152,6 +154,27 @@ Analyzer issues the oracle found, each with a minimal repro:
   list: &'a Vec<String> }`, `&'a mut` when the object modifies it. The constructor takes that borrow, and the caller
   passes `&l`. Records keep their owned components. A struct with a lifetime, like a generic one, is called by its
   name rather than `Self`, which would fix the impl's lifetime or type arguments.
+- **Shared objects** (`RustShared`, gate `NORUSTSHARED`). A source class whose objects a method keeps (a dependent
+  parameter, or independent with hidden content) and a field or a collection in a field holds is held as
+  `crate::jrt::Shared<T>` wherever it is held: fernflower's `Statement`, `Exprent`, `StatEdge`, `BasicBlock`. A
+  closed hierarchy is shared as a whole, through its root. `Shared<T>` (jrt.rs) is Java's reference over an `Rc`: a
+  clone shares the object, `==` and `Hash` are identity (so `HashSet<Shared<Statement>>` is Java's identity set), and
+  it dereferences to the object, `&` and `&mut` alike, without `RefCell`'s run-time flag. That keeps the oracle: a
+  handle the verdicts call unmodified is a `&Shared<T>`, which cannot be written through (E0596,
+  `TestJavaToRustSharing.wrongVerdict`), and a read stays a read for LLVM. The price is `unsafe` inside jrt.rs: two
+  handles may both hand out `&mut` to one object, Java's aliasing, which Rust calls undefined behaviour (Bart's choice
+  over `Rc<RefCell<T>>`, 2026-11-10).
+  - `new T(..)` is `Shared::new(T::new(..))`; an owned use of a borrowed handle clones it, as an immutable value is
+    cloned; a kept argument read again is cloned, one read once is moved.
+  - `this` kept or passed where a `Shared` is expected is `Shared::of(self)`, the handle of the object `self` is; it
+    is valid only once the object is in its handle, so inside its own constructor it is reported
+    (`SHARED_THIS_IN_CONSTRUCTOR`).
+  - Java's `==` is `Shared::is`; `this == other` compares `self` with the object behind the handle; `a.equals(b)` is
+    the objects' own `PartialEq` (`Shared::equals`).
+  - `e.getDestination().preds.add(e)`: the argument's clone is taken first (`{ let __e = e.clone(); … }`), as the
+    receiver chain holds `e` mutably; a borrowed handle walking a chain (`n = n.parent`) re-borrows.
+  - Not shared: a view borrowing an object that is not shared (row 7: its lifetime stays), a class with its own
+    `equals` (Java's collections compare it by that; it keeps value semantics), records, enums, `@Immutable` types.
 - An eventually immutable type (`RustTypestate`: a `@Mark`, one transition) is a typestate: `struct Config<S =
   Before>` with a `PhantomData<S>`; constructors, statics and `@Only(before)` methods in `impl Config<Before>`, a
   method of either state in `impl<S> Config<S>`, `@Only(after)` methods in `impl Config<After>`. The mark takes
@@ -223,7 +246,7 @@ Analyzer issues the oracle found, each with a minimal repro:
   a nullable one is `.as_deref()`. Owned, it stays a `Vec<T>`.
 - A struct holding itself by value, directly or through other structs, has no size (E0072): such a field is a
   `Box<T>`, `Option<Box<T>>` when nullable (`RustBoxes`), read as `(*self.f)` or `self.f.as_deref()`, written boxed.
-  A linked structure that Java shares (`node.next = other`) still fails: a Box owns, and sharing is a dependence.
+  A linked structure that Java shares (`node.setParent(other)`, kept) is a shared object instead, which has a size.
 - Java's `==` on objects of source classes is identity: `std::ptr::eq(a, b)`. Enum constants, strings and boxed
   primitives are values, compared with `==`.
 - A nullable value assigned where the verdicts hold the target non-null is unwrapped (`UNWRAP_AT_DEREFERENCE`).
