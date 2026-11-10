@@ -1146,6 +1146,38 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     /**
+     * A method's parameter of {@code Collection<?>} or {@code Set<?>} is captured, {@code ICollection<TE>}: C#'s
+     * non-generic {@code ICollection} is no {@code HashSet<T>}'s nor {@code ICollection<T>}'s (CS1503).
+     */
+    @Test
+    public void unboundedCollectionParameterCaptured() {
+        String cs = behaves("Empties", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.Collection;
+                import java.util.HashSet;
+                import java.util.List;
+                import java.util.Set;
+                class Empties {
+                    static boolean isEmpty(Collection<?> c) { return c == null || c.isEmpty(); }
+                    static int count(Set<?> s, Object o) { return s.contains(o) ? s.size() : -s.size(); }
+                    static boolean any(Collection<?> left, Collection<?> right) {
+                        for (Object o : left) if (right.contains(o)) return true;
+                        return false;
+                    }
+                    public static void main(String[] args) {
+                        Set<String> set = new HashSet<>(List.of("a", "b"));
+                        Collection<Integer> numbers = new ArrayList<>(List.of(1, 2));
+                        System.out.println(isEmpty(set) + " " + isEmpty(numbers) + " " + isEmpty(new ArrayList<String>()));
+                        System.out.println(count(set, "a") + " " + count(set, 3));
+                        System.out.println(any(set, List.of("x", "b")) + " " + any(numbers, set));
+                    }
+                }
+                """);
+        contains(cs, "IsEmpty<TE>(ICollection<TE> c)");
+    }
+
+    /**
      * A method reference into the program's delegate whose parameter is a BigDecimal: the lambda's typed parameter is
      * the delegate's {@code decimal?}, which picks the overload (CS1661 with {@code decimal}).
      */

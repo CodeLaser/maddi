@@ -143,8 +143,9 @@ public static class JavaCollections
         foreach (var x in e) action(x);
     }
 
+    // Enumerable's, named: as an extension, Contains would be this one, the nearer namespace's
     public static bool Contains(this System.Collections.IEnumerable e, object? item) =>
-        e.Cast<object>().Contains(item);
+        Enumerable.Contains(e.Cast<object>(), item);
 
     /// <summary>Iterable.iterator: Java's iterator, with remove.</summary>
     public static JavaIterator<T> Iterator<T>(this IEnumerable<T> e) => new JavaIterator<T>(e);
