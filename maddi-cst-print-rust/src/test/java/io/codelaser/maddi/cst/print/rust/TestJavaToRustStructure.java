@@ -1001,4 +1001,45 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         List<String> errors = rustcErrors();
         assertTrue(errors.stream().noneMatch(e -> e.contains("E0106")), () -> String.join("\n", errors) + "\n" + rust);
     }
+
+    @Language("java")
+    private static final String FRESH = """
+            package a.b;
+            import java.util.Set;
+            public class Fresh {
+                public static final class VT {
+                    private final int t;
+                    public VT(int t) { this.t = t; }
+                    public VT copy() { return new VT(t); }
+                }
+                public static class E {
+                    private final VT hard = new VT(1);
+                    private final VT other = new VT(2);
+                    private final String name = "n";
+                    // ArrayExprent.getExprType: a copy on one path, a field on the other
+                    public VT pick(boolean b) { if (b) return hard.copy(); return other; }
+                    // SwitchCandidate.usedSwitch: a new set of the field's value
+                    public Set<String> names() { return Set.of(name); }
+                }
+            }
+            """;
+
+    @DisplayName("a result that is new on one path: owned, also where the verdict calls it dependent")
+    @Test
+    public void freshOrExistingResult() throws Exception {
+        List<TypeInfo> types = parse(FRESH);
+        TypeInfo fresh = types.getFirst();
+        TypeInfo vt = fresh.findSubType("VT");
+        TypeInfo e = fresh.findSubType("E");
+        immutable(vt, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+        nonModifying(vt, "copy");
+        independentResult(vt, "copy");
+        nonModifying(e, "pick", "names");
+        dependentResult(e, "pick");
+        dependentResult(e, "names");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn names(&self) -> HashSet<String> {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

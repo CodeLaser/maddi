@@ -25,6 +25,7 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -445,7 +446,46 @@ public interface RustFacts extends NullabilityFacts {
             }
             return !found[0] && !(e instanceof Lambda);
         });
-        return found[0];
+        return found[0] || freshAndExisting(method);
+    }
+
+    /*
+     ArrayExprent.getExprType: 'return hardType.copy()' on one path, a type read from a field on the other. A borrow
+     cannot be of the fresh object (E0515), so the result is owned, the existing one a clone: exact for an object held
+     in a handle (Shared, an immutable class's Rc), whose clone is the same object; others are left to the verdicts.
+     */
+    private static boolean freshAndExisting(MethodInfo method) {
+        TypeInfo type = method.returnType().typeInfo();
+        if (type == null || method.returnType().arrays() > 0 || type.compilationUnit().externalLibrary()) return false;
+        Value.Immutable immutable = type.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
+        if (!RustShared.current().isShared(type) && (immutable == null || !immutable.isAtLeastImmutableHC())) return false;
+        boolean[] fresh = {false};
+        method.methodBody().visit(e -> {
+            if (e instanceof ReturnStatement rs && rs.expression() != null && fresh(rs.expression())) fresh[0] = true;
+            return !fresh[0] && !(e instanceof Lambda);
+        });
+        return fresh[0];
+    }
+
+    // a new object: constructed, a JDK collection factory's, or a call whose result is independent of everything
+    private static boolean fresh(Expression e) {
+        if (e instanceof ConstructorCall) return true;
+        if (!(e instanceof MethodCall mc)) return false;
+        if (factory(mc)) return true;
+        Value.Independent independent = mc.methodInfo().analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD,
+                ValueImpl.IndependentImpl.class);
+        return independent != null && independent.isIndependent() && !mc.methodInfo().isVoid();
+    }
+
+    Set<String> FACTORIES = Set.of("of", "copyOf", "singleton", "singletonList", "singletonMap",
+            "emptyList", "emptySet", "emptyMap");
+
+    // Set.of(…), List.copyOf(…), Collections.singleton(…): a new collection
+    private static boolean factory(MethodCall mc) {
+        MethodInfo m = mc.methodInfo();
+        String owner = m.typeInfo().fullyQualifiedName();
+        return m.isStatic() && FACTORIES.contains(m.name())
+               && Set.of("java.util.List", "java.util.Set", "java.util.Map", "java.util.Collections").contains(owner);
     }
 
     /** {@code parameter} may be replaced by a new object and returned: the method takes it owned. */
@@ -470,7 +510,8 @@ public interface RustFacts extends NullabilityFacts {
         method.methodBody().visit(e -> {
             if (e instanceof ReturnStatement rs) {
                 any[0] = true;
-                all[0] &= rs.expression() instanceof ConstructorCall;
+                all[0] &= rs.expression() instanceof ConstructorCall
+                          || rs.expression() instanceof MethodCall mc && factory(mc);
             }
             return !(e instanceof Lambda);
         });
