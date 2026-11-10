@@ -1468,6 +1468,9 @@ final class RustTypePrinter {
         }
     }
 
+    // the lifetime a static function gives the structs with a lifetime in its signature, outside such a struct's impl
+    private static final String STRUCT_LIFETIME = "'s";
+
     /** {@code pub fn name<T>(&self, p: &P) -> R}: the receiver and the parameters as the facts decide. */
     private String signature(MethodInfo m, boolean pub) {
         Receiver receiver = context.facts.receiver(m);
@@ -1486,10 +1489,18 @@ final class RustTypePrinter {
         String params = parameters(m);
         String all = self == null ? params : params.isEmpty() ? self : self + ", " + params;
         String result = resultType(m);
+        String generics = bounded(m.typeParameters(), false, context.facts.resultBorrows(m) != null
+                                                             || RESULT_LIFETIME.equals(keptLifetime(m)));
+        if (self == null && result.contains("'_")) {
+            // a static function outside a struct with the lifetime, returning a struct that has one
+            // (ClassWriter.findAssertionField(node: &'r ClassNode<'_>) -> Option<&'r Shared<StructMember<'_>>>): with
+            // more than one input lifetime the result's cannot be elided (E0106); the structs' lifetime is the function's
+            all = all.replace("'_", STRUCT_LIFETIME);
+            result = result.replace("'_", STRUCT_LIFETIME);
+            generics = generics.isEmpty() ? "<" + STRUCT_LIFETIME + ">" : "<" + STRUCT_LIFETIME + ", " + generics.substring(1);
+        }
         return (pub ? visibility(m.access().isPrivate()) : "") + (unsafeMethod(m, context) ? "unsafe " : "") + "fn "
-               + name(m) + bounded(m.typeParameters(), false, context.facts.resultBorrows(m) != null
-                                                                          || RESULT_LIFETIME.equals(keptLifetime(m)))
-               + "(" + all + ")" + result;
+               + name(m) + generics + "(" + all + ")" + result;
     }
 
     private String name(MethodInfo m) {

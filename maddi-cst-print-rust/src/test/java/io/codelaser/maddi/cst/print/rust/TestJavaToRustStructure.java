@@ -968,4 +968,37 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "for h in t.get_handlers_mut().iter_mut() {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String VIEWS = """
+            package a.b;
+            import java.util.List;
+            public class Views {
+                // a view: it borrows the caller's list
+                public static class View {
+                    private final List<String> lines;
+                    public View(List<String> lines) { this.lines = lines; }
+                    public int size() { return lines.size(); }
+                }
+                // ClassWriter.findAssertionField: a static function handing out a struct with a lifetime
+                public static View first(List<View> views) { return views.get(0); }
+            }
+            """;
+
+    @DisplayName("a static function returning a struct with a lifetime from a borrowed parameter: the lifetime named")
+    @Test
+    public void staticResultWithLifetime() throws Exception {
+        List<TypeInfo> types = parse(VIEWS);
+        TypeInfo views = types.getFirst();
+        TypeInfo view = views.findSubType("View");
+        nonModifying(view, "size");
+        kept(view.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        nonModifying(views, "first");
+        borrowed(method(views, "first").parameters().getFirst());
+        dependentResult(views, "first");
+        translate(types);
+        String rust = module("a.b");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().noneMatch(e -> e.contains("E0106")), () -> String.join("\n", errors) + "\n" + rust);
+    }
 }
