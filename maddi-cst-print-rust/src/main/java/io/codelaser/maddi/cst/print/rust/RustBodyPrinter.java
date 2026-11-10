@@ -808,7 +808,7 @@ final class RustBodyPrinter {
             boolean isDefault = isDefault(entry.conditions());
             hasDefault |= isDefault;
             entry.conditions().stream().filter(c -> !c.isEmpty()).forEach(labels::add);
-            String head = isDefault ? "_" : caseLabels(entry.conditions());
+            String head = isDefault ? "_" : caseLabels(entry.conditions(), sw.expression());
             List<Statement> body = entry.statement() instanceof Block b ? CstQueries.own(b.statements())
                     : List.of(entry.statement());
             sb.append(pad).append(INDENT).append(head).append(" => ").append(arm(withoutFinalBreak(body), depth + 1));
@@ -836,7 +836,7 @@ final class RustBodyPrinter {
             boolean isDefault = conditions.stream().anyMatch(c -> c == null || c.isEmpty());
             hasDefault |= isDefault;
             if (!isDefault) labels.addAll(conditions);
-            String head = isDefault ? "_" : caseLabels(conditions);
+            String head = isDefault ? "_" : caseLabels(conditions, sw.expression());
             sb.append(pad).append(INDENT).append(head).append(" => ").append(arm(withoutFinalBreak(arm), depth + 1));
         }
         if (!hasDefault && !exhaustive(sw.expression(), labels)) sb.append(pad).append(INDENT).append("_ => {}\n");
@@ -867,7 +867,7 @@ final class RustBodyPrinter {
             boolean isDefault = isDefault(entry.conditions());
             hasDefault |= isDefault;
             entry.conditions().stream().filter(c -> !c.isEmpty()).forEach(labels::add);
-            String head = isDefault ? "_" : caseLabels(entry.conditions());
+            String head = isDefault ? "_" : caseLabels(entry.conditions(), se.selector());
             sb.append(pad).append(INDENT).append(head).append(" => ")
                     .append(armValue(entry.statement(), se.parameterizedType(), depth + 1)).append(",\n");
         }
@@ -964,8 +964,15 @@ final class RustBodyPrinter {
         return text;
     }
 
-    private String caseLabels(List<Expression> conditions) {
-        return conditions.stream().filter(c -> c != null && !c.isEmpty()).map(this::caseLabel)
+    private String caseLabels(List<Expression> conditions, Expression selector) {
+        ParameterizedType type = selector.parameterizedType();
+        // a char label of an int selector ('switch (data.readUnsignedByte()) { case 'e': … }'): Java widens it, a Rust
+        // pattern cannot cast, so it is the char's code
+        boolean integral = type.arrays() == 0 && type.typeInfo() != null && type.isPrimitiveExcludingVoid()
+                           && !type.typeInfo().isChar() && !type.typeInfo().isBoolean();
+        return conditions.stream().filter(c -> c != null && !c.isEmpty())
+                .map(c -> integral && c instanceof CharConstant cc ? Integer.toString(cc.constant())
+                        : caseLabel(c))
                 .collect(Collectors.joining(" | "));
     }
 

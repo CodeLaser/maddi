@@ -632,6 +632,14 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                         default: return 2;
                     }
                 }
+                // StructAnnotationAttribute.parseAnnotationElement: an int read, matched against chars
+                static int element(int tag) {
+                    switch (tag) {
+                        case 'e': return 1;
+                        case 'c': return 2;
+                        default: return 0;
+                    }
+                }
                 static int kind2(short tag) {
                     return switch (tag) {
                         case UTF8 -> 0;
@@ -646,10 +654,11 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
     @Test
     public void byteSwitchOverIntConstants() throws Exception {
         List<TypeInfo> types = parse(TAGS);
-        nonModifying(types.getFirst(), "kind", "kind2");
+        nonModifying(types.getFirst(), "kind", "kind2", "element");
         translate(types);
         String rust = module("a.b");
         contains(rust, "match tag as i32 {");
+        contains(rust, "101 => {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
