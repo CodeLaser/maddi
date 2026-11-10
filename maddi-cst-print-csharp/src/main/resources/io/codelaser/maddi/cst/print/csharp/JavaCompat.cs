@@ -1489,6 +1489,21 @@ public static class JavaClass
 
 public static class JavaArrays
 {
+    /// <summary>
+    /// Arrays.sort: Java's natural order (ordinal for strings, JavaComparer) or the comparator's, stable as Java's
+    /// sort of objects is, where Array.Sort is not; from (inclusive) to (exclusive) where given.
+    /// </summary>
+    public static void Sort<T>(T[] a, Comparison<T>? comparison = null) => Sort(a, 0, a.Length, comparison);
+
+    public static void Sort<T>(T[] a, int from, int to, Comparison<T>? comparison = null)
+    {
+        if (from < 0 || to > a.Length) throw new IndexOutOfRangeException("Array index out of range: " + (from < 0 ? from : to));
+        if (from > to) throw new ArgumentException("fromIndex(" + from + ") > toIndex(" + to + ")");
+        var comparer = comparison == null ? JavaComparer<T>.Natural : Comparer<T>.Create(comparison);
+        var sorted = new ArraySegment<T>(a, from, to - from).Order(comparer).ToArray();
+        sorted.CopyTo(a, from);
+    }
+
     /// <summary>Arrays.deepEquals, Objects.deepEquals: arrays element by element, nested ones too.</summary>
     public static bool DeepEquals(object? a, object? b)
     {

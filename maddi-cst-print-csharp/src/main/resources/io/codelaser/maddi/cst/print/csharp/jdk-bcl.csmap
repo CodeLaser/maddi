@@ -451,6 +451,7 @@ member java.util.LinkedHashMap.newLinkedHashMap/1 -> new {R}($1)
 member java.util.HashSet.newHashSet/1 -> new {R}($1)
 member java.util.LinkedHashSet.newLinkedHashSet/1 -> new {R}($1)
 member java.util.Collections.emptyMap/0 -> new Dictionary<{R0}, {R1}>()
+member java.util.Collections.emptySortedMap/0 -> new SortedDictionary<{R0}, {R1}>()
 member java.util.Collections.singletonList/1 -> new List<{R0}> { $1 }
 member java.util.Collections.singleton/1 -> new HashSet<{R0}> { $1 }
 member java.util.Collections.singletonMap/2 -> new Dictionary<{R0}, {R1}> { [$1] = $2 }
@@ -475,7 +476,11 @@ member java.util.Arrays.hashCode/1 -> JavaArrays.HashCode($1) using Maddi.JavaCo
 member java.util.Arrays.toString/1 -> JavaArrays.ToString($1) using Maddi.JavaCompat
 member java.util.Arrays.deepToString/1 -> JavaArrays.DeepToString($1) using Maddi.JavaCompat
 member java.util.Arrays.fill/2 -> Array.Fill($1, $2) using System
-member java.util.Arrays.sort/1 -> Array.Sort($1) using System
+# Java's natural order (a string's ordinal) and, for objects, a stable sort: the compatibility library's
+member java.util.Arrays.sort/1 -> JavaArrays.Sort($1) using Maddi.JavaCompat
+member java.util.Arrays.sort/2 -> JavaArrays.Sort($1, $2) using Maddi.JavaCompat
+member java.util.Arrays.sort/3 -> JavaArrays.Sort($1, $2, $3) using Maddi.JavaCompat
+member java.util.Arrays.sort/4 -> JavaArrays.Sort($1, $2, $3, $4) using Maddi.JavaCompat
 # navigation, by the compatibility library's extensions (JavaNavigable): an entry is a JavaEntry, null when none
 member java.util.NavigableMap.firstEntry/0 ->? $0.FirstEntry() using Maddi.JavaCompat
 member java.util.NavigableMap.lastEntry/0 ->? $0.LastEntry() using Maddi.JavaCompat

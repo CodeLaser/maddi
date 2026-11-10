@@ -896,9 +896,10 @@ compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each a
   `LinkedHashMap` stays a gap: `Dictionary` and `OrderedDictionary` are unrelated, and declaring it an
   `IDictionary` loses `GetValueOrDefault` and the read-only interfaces (tried, fernflower 29 -> 86).
 - **Natural order.** Java orders Strings by UTF-16 code unit (`"B"` before `"a"`), .NET's default comparer for strings by
-  the culture (`"a"` before `"B"`). Where Java's natural order is implied (`Collections.sort`, `List.sort(null)`,
+  the culture (`"a"` before `"B"`). Where Java's natural order is implied (`Collections.sort`, `Arrays.sort`, `List.sort(null)`,
   `sorted()`, `naturalOrder()`, `reverseOrder()`, `Comparator.comparing`, a priority queue), the compatibility library
-  compares with `JavaComparer<T>.Natural`: ordinal for a string, a value's `CompareTo` otherwise. A `TreeMap` or
+  compares with `JavaComparer<T>.Natural`: ordinal for a string, a value's `CompareTo` otherwise. `Arrays.sort` is
+  `JavaArrays.Sort`, stable as Java's sort of objects is (`Array.Sort` is not), with a comparator and a range too. A `TreeMap` or
   `TreeSet` created without a comparator, whose keys may be Strings (a String, an Object, a CharSequence, a
   Comparable, a type parameter), takes it as its comparer: `new SortedDictionary<string, int>(JavaComparer<string>
   .Natural)`; one of numbers, enums or the program's types keeps the default, which is Java's order there.

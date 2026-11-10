@@ -1039,4 +1039,38 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
         contains(cs, "JavaCollections.UncheckedList<T>(list)");
         contains(cs, "JavaCollections.UncheckedList<V>(Objects())");
     }
+
+    /**
+     * Arrays.sort: Java's natural order (ordinal strings), stable for objects, with a comparator and a range;
+     * Collections.emptySortedMap.
+     */
+    @Test
+    public void arraysSort() {
+        String cs = behaves("ArraySorts", """
+                package a;
+                import java.util.Arrays;
+                import java.util.Collections;
+                import java.util.Comparator;
+                import java.util.SortedMap;
+                class ArraySorts {
+                    public static void main(String[] args) {
+                        String[] words = { "b", "B", "a", "A", "_" };
+                        Arrays.sort(words);
+                        System.out.println(String.join(",", words));
+                        String[] byLength = { "ccc", "a", "bb", "dd", "e", "fff" };
+                        Arrays.sort(byLength, Comparator.comparingInt(String::length));
+                        System.out.println(String.join(",", byLength));
+                        int[] numbers = { 5, 3, 9, 1, 7 };
+                        Arrays.sort(numbers, 1, 4);
+                        System.out.println(Arrays.toString(numbers));
+                        String[] letters = { "d", "b", "e", "a", "c" };
+                        Arrays.sort(letters, 1, 5, Comparator.reverseOrder());
+                        System.out.println(Arrays.toString(letters));
+                        SortedMap<String, Integer> empty = Collections.emptySortedMap();
+                        System.out.println(empty.size());
+                    }
+                }
+                """);
+        contains(cs, "JavaArrays.Sort(words);");
+    }
 }
