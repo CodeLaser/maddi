@@ -304,7 +304,7 @@ final class RustJdk {
             case "java.lang.Math.min/2" -> value(operand(printer, args.get(0)) + ".min(" + printer.text(args.get(1)) + ")");
             case "java.lang.Math.abs/1" -> value(operand(printer, args.getFirst()) + ".abs()");
             case "java.lang.Math.sqrt/1" -> value(operand(printer, args.getFirst()) + ".sqrt()");
-            case "java.util.Objects.equals/2" -> value(printer.text(args.get(0)) + " == " + printer.text(args.get(1)));
+            case "java.util.Objects.equals/2" -> objectsEquals(args, printer);
             case "java.util.Objects.requireNonNull/1", "java.util.Objects.requireNonNull/2" ->
                     same(printer.text(args.getFirst()));
             case "java.lang.Integer.parseInt/1" -> value(printer.text(args.getFirst()) + ".parse::<i32>().unwrap()");
@@ -885,6 +885,7 @@ final class RustJdk {
             // a list's elements are not Options: a nullable value is unwrapped, as add's is
             case "set/2" -> value(o + "[" + printer.index(args.get(0)) + "] = "
                                   + printer.ownedAs(args.get(1), typeArgument(mc, 0)));
+            case "equals/1" -> listEquals(o, mc, args.getFirst(), printer);
             case "size/0" -> value(o + ".len() as i32");
             case "isEmpty/0" -> value(o + ".is_empty()");
             case "clear/0" -> value(o + ".clear()");
@@ -946,6 +947,48 @@ final class RustJdk {
             return "std::ptr::eq(__e, " + printer.reference(arg) + ")";
         }
         return "__e == " + printer.reference(arg);
+    }
+
+    /**
+     * {@code Objects.equals(a, b)}: both sides as {@code Option<&T>} when either may be null; shared objects compared
+     * with their own equality ({@code Shared::equals}) unless their class's equals is identity.
+     */
+    private static Printed objectsEquals(List<Expression> args, RustBodyPrinter printer) {
+        ParameterizedType type = args.get(0).parameterizedType();
+        Printed a = printer.printed(args.get(0));
+        Printed b = printer.printed(args.get(1));
+        boolean sharedEquals = RustShared.current().isShared(type) && !RustBodyPrinter.equalsIsIdentity(type);
+        if (!a.nullable() && !b.nullable()) {
+            if (sharedEquals) {
+                return value("crate::jrt::Shared::equals(" + RustBodyPrinter.adapt(a, Held.SHARED) + ", "
+                             + RustBodyPrinter.adapt(b, Held.SHARED) + ")");
+            }
+            return value(a.text() + " == " + b.text());
+        }
+        if (RustTypes.isString(type)) {
+            // Option<&str> on both sides: an Option<String>, an Option<&String> and an Option<&str> alike
+            return value(optionalStr(a) + " == " + optionalStr(b));
+        }
+        String oa = printer.optionalReference(a);
+        String ob = printer.optionalReference(b);
+        return value(sharedEquals ? "crate::jrt::equals_shared(" + oa + ", " + ob + ")" : oa + " == " + ob);
+    }
+
+    private static String optionalStr(Printed p) {
+        if (!p.nullable()) return p.text().startsWith("\"") ? "Some(" + p.text() + ")" : "Some(&" + paren(p.text()) + "[..])";
+        return p.text() + ".as_deref()";
+    }
+
+    /** {@code list.equals(other)}: the elements pairwise, shared ones with their own equality. */
+    private static Printed listEquals(String o, MethodCall mc, Expression arg, RustBodyPrinter printer) {
+        ParameterizedType element = typeArgument(mc, 0);
+        Printed x = printer.printed(arg);
+        String other = x.nullable() ? printer.optionalReference(x) + ".unwrap()" : RustBodyPrinter.adapt(x, Held.SHARED);
+        if (element != null && RustShared.current().isShared(element) && !RustBodyPrinter.equalsIsIdentity(element)) {
+            return value("{ let __o = " + other + "; " + o + ".len() == __o.len() && " + o
+                         + ".iter().zip(__o.iter()).all(|(__a, __b)| crate::jrt::Shared::equals(__a, __b)) }");
+        }
+        return value("&" + paren(o) + "[..] == &" + paren(other) + "[..]");
     }
 
     private static Printed map(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {

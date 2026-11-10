@@ -1301,7 +1301,7 @@ final class RustBodyPrinter {
     // an object of a source class or record: Java compares it by identity; an enum constant, a string or a boxed
     // primitive is a value in Rust, compared by ==
     /** {@code p} as an {@code Option<&T>}. */
-    private String optionalReference(Printed p) {
+    String optionalReference(Printed p) {
         if (!p.nullable) return "Some(" + adapt(p, Held.SHARED) + ")";
         return switch (p.held) {
             case SHARED -> p.text;

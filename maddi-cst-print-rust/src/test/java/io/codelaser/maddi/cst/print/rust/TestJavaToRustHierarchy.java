@@ -439,6 +439,21 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
                 public static class Field extends Expr {
                     public int weight() { return 2; }
                 }
+                // ArrayExprent, FieldExprent: Objects.equals of nullable fields and getters, a list's equals
+                public static class Index extends Expr {
+                    private Expr array;
+                    private String name;
+                    private final List<String> names = new java.util.ArrayList<>();
+                    public int weight() { return 3; }
+                    public Expr getArray() { return array; }
+                    public String getName() { return name; }
+                    @Override
+                    public boolean equals(Object o) {
+                        if (!(o instanceof Index ix)) return false;
+                        return java.util.Objects.equals(array, ix.getArray()) && java.util.Objects.equals(name, ix.getName())
+                               && names.equals(ix.names);
+                    }
+                }
                 public static boolean same(Expr a, Expr b) { return a.equals(b); }
                 public static boolean sameOrNull(Expr a, Expr maybe) { return a.equals(maybe); }
                 public static void drop(List<Expr> exprs, Expr e) { exprs.remove(e); }
@@ -450,14 +465,17 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
     public void hierarchyEquals() throws Exception {
         List<TypeInfo> types = parse(EQUALS);
         TypeInfo eqs = types.getFirst();
-        for (String t : List.of("Expr", "Var", "Const", "Field")) nonModifying(eqs.findSubType(t), "weight");
+        for (String t : List.of("Expr", "Var", "Const", "Field", "Index")) nonModifying(eqs.findSubType(t), "weight");
+        nonModifying(eqs.findSubType("Index"), "getArray", "getName");
+        dependentResult(eqs.findSubType("Index"), "getArray");
+        dependentResult(eqs.findSubType("Index"), "getName");
         nonModifying(eqs, "same", "sameOrNull");
         modifying(eqs, "drop");
         method(eqs, "same").parameters().forEach(CommonJavaToRust::borrowed);
         method(eqs, "sameOrNull").parameters().forEach(CommonJavaToRust::borrowed);
         exclusive(method(eqs, "drop").parameters().get(0));
         borrowed(method(eqs, "drop").parameters().get(1));
-        RustTranslator.Result result = translate(types, nullable(java.util.Set.of("maybe")));
+        RustTranslator.Result result = translate(types, nullable(java.util.Set.of("maybe", "array", "name", "getArray()", "getName()")));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "fn eq_eqs_var(&self, other: &Self) -> bool {");
