@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -1028,9 +1030,22 @@ final class RustTypePrinter {
                && fields.stream().allMatch(f -> RustTypes.isCopy(f.type()) || RustTypes.isString(f.type()));
     }
 
+    /*
+     The static's object is not modified: by the verdict, or, the verdict undecided, by its type, immutable (with hidden
+     content or not; fernflower's FieldDescriptor.INTEGER_DESCRIPTOR = parseDescriptor(…), MODREACH leaving it open).
+     A LazyLock or an Rc hands out shared borrows only: a modification would be rustc's error, not a wrong translation.
+     */
+    private static boolean readOnly(FieldInfo f, RustContext context) {
+        if (context.facts.unmodified(f)) return true;
+        if (f.analysis().getOrNull(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.class) != null) return false;
+        TypeInfo ti = f.type().arrays() == 0 ? f.type().typeInfo() : null;
+        return ti != null && !ti.compilationUnit().externalLibrary()
+               && (context.facts.immutable(ti) || context.facts.immutableHc(ti));
+    }
+
     static boolean lazyStatic(FieldInfo f, RustContext context) {
         if (!f.isStatic() || !isFinal(f) || f.initializer() == null || f.initializer().isEmpty()
-            || constant(f) || !context.facts.unmodified(f)) {
+            || constant(f) || !readOnly(f, context)) {
             return false;
         }
         String type = RustTypes.owned(f.type(), context, f);

@@ -931,6 +931,37 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String DESCRIPTORS = """
+            package a.b;
+            public class Fd {
+                // fernflower's FieldDescriptor.INTEGER_DESCRIPTOR: a factory's object, its verdict left open
+                public static final Fd INTEGER = parse("I");
+                private final String descriptor;
+                private Fd(String descriptor) { this.descriptor = descriptor; }
+                public static Fd parse(String s) { return new Fd(s); }
+                public String getDescriptor() { return descriptor; }
+                public static String integer() { return INTEGER.getDescriptor(); }
+            }
+            """;
+
+    @DisplayName("a static of an immutable type, its verdict undecided: a read-only static")
+    @Test
+    public void undecidedImmutableStatic() throws Exception {
+        List<TypeInfo> types = parse(DESCRIPTORS);
+        TypeInfo fd = types.getFirst();
+        immutable(fd, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+        nonModifying(fd, "parse", "getDescriptor", "integer");
+        independentResult(fd, "parse");
+        dependentResult(fd, "getDescriptor");
+        borrowed(method(fd, "parse").parameters().getFirst());
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "pub static FD_INTEGER: Rc<Fd> = Fd::parse(\"I\");");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String HANDLERS = """
             package a.b;
             import java.util.ArrayList;
