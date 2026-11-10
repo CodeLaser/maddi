@@ -255,10 +255,12 @@
 # interface nested in an interface, hoisted, is a public delegate (CS0051): 498 -> 459 errors.
 # 2026-11-10, Java's unchecked list cast is JavaCollections.UncheckedList, a class's goes through object (CS0030);
 # Arrays.sort is JavaArrays.Sort with a comparator and a range, Collections.emptySortedMap: 459 -> 448 errors.
+# 2026-11-10, a method reference's lambda parameter as the program's delegate declares it, decimal? (CS1661,
+# CS1678); a template's $n receiver enclosed: 448 -> 426 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1381
+compilingFiles	1385
 unmappedJdkUses	100
-errors	448
+errors	426
