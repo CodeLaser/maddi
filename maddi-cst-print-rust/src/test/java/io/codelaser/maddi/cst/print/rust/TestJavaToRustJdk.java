@@ -502,4 +502,31 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "format!(\"{:x}\", i)");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String BORROWED_NULLABLE = """
+            package a.b;
+            public class Names {
+                // StructGeneralAttribute.createAttribute: '"Code".equals(name)', name a nullable borrowed string
+                public static int kind(String name) { return "Code".equals(name) ? 1 : 0; }
+                // Instruction.create(..., int[] operands, ...): a nullable borrowed array passed on
+                public static int count(int[] operands) { return inner(operands); }
+                static int inner(int[] ops) { return ops == null ? 0 : ops.length; }
+            }
+            """;
+
+    @DisplayName("a nullable borrowed string compared, a nullable borrowed array passed on: stable Rust")
+    @Test
+    public void borrowedNullable() throws Exception {
+        List<TypeInfo> types = parse(BORROWED_NULLABLE);
+        TypeInfo names = types.getFirst();
+        nonModifying(names, "kind", "count", "inner");
+        borrowed(method(names, "kind").parameters().getFirst());
+        borrowed(method(names, "count").parameters().getFirst());
+        borrowed(method(names, "inner").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("name", "operands", "ops")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

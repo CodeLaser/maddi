@@ -518,7 +518,8 @@ final class RustJdk {
         boolean object = type.typeInfo() != null && type.typeInfo().isJavaLangObject();
         String self = o.startsWith("\"") ? o : "&" + paren(o) + "[..]";
         String test = object ? "v.downcast_ref::<String>().map_or(false, |s| s.as_str() == " + self + ")"
-                : "v.as_str() == " + self;
+                // &v[..]: a &str of an Option<String>'s &String and an Option<&str>'s &&str alike (str has no stable as_str)
+                : "&v[..] == " + self;
         if (a.nullable()) return value(a.text() + ".as_ref().map_or(false, |v| " + test + ")");
         if (object) return value("{ let v = &" + a.text() + "; " + test + " }");
         return value(o + " == " + a.text());

@@ -2233,8 +2233,10 @@ final class RustBodyPrinter {
         return switch (p.held) {
             case STR -> p.text;
             case VALUE, PLACE -> p.text + (string || array ? ".as_deref()" : ".as_ref()");
-            case SHARED, EXCLUSIVE -> string ? p.text + ".map(|s| s.as_str())"
-                    : array ? p.text + ".map(|v| v.as_slice())" : p.text;
+            // &s[..]: a &String's and a &str's str alike, a &Vec's and a slice's slice (as_str, as_slice are not
+            // stable on str and slices)
+            case SHARED, EXCLUSIVE -> string ? p.text + ".map(|s| &s[..])"
+                    : array ? p.text + ".map(|v| &v[..])" : p.text;
         };
     }
 
