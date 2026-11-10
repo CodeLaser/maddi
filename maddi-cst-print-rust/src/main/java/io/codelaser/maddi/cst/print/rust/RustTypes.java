@@ -56,6 +56,9 @@ final class RustTypes {
             Map.entry("java.math.BigDecimal", new Mapped("f64", null)),
             Map.entry("java.time.LocalDateTime", new Mapped("SystemTime", "std::time::SystemTime")),
             Map.entry("java.time.Instant", new Mapped("SystemTime", "std::time::SystemTime")),
+            // an in-memory byte stream in jrt.rs, with Java's big-endian reads (fernflower's class-file parsing)
+            Map.entry("java.io.DataInputStream", new Mapped("crate::jrt::DataInputStream", null)),
+            Map.entry("java.io.InputStream", new Mapped("crate::jrt::DataInputStream", null)),
             Map.entry("java.util.Collection", new Mapped("Vec", null)),
             Map.entry("java.lang.Iterable", new Mapped("Vec", null)),
             Map.entry("java.util.List", new Mapped("Vec", null)),

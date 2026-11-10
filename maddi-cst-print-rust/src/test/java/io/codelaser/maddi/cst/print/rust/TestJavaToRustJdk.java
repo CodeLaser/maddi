@@ -154,4 +154,55 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "let f = |a: &str, n: i32| a.repeat(n as usize);");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String CLASS_FILE_STREAM = """
+            package a.b;
+            import java.io.ByteArrayInputStream;
+            import java.io.DataInputStream;
+            import java.io.IOException;
+            import java.io.InputStream;
+            public class Cls {
+                // fernflower's DataInputFullStream
+                public static class Full extends DataInputStream {
+                    public Full(byte[] bytes) { super(new ByteArrayInputStream(bytes)); }
+                    public void discard(int n) throws IOException { Util.discardBytes(this, n); }
+                }
+                public static class Util {
+                    public static void discardBytes(InputStream stream, int length) throws IOException {
+                        if (stream.skip(length) != length) throw new IOException("premature end of stream");
+                    }
+                }
+                public static class Pool {
+                    // ConstantPool(DataInputStream in)
+                    public static int magic(DataInputStream in) throws IOException { return in.readInt(); }
+                }
+                public static int header(byte[] bytes) throws IOException {
+                    Full in = new Full(bytes);
+                    int magic = Pool.magic(in);
+                    int minor = in.readUnsignedShort();
+                    in.discard(2);
+                    int count = in.readUnsignedByte();
+                    return magic == 0xCAFEBABE ? minor + count : -1;
+                }
+            }
+            """;
+
+    @DisplayName("a class extending DataInputStream reads big-endian through its base, and passes as a DataInputStream")
+    @Test
+    public void classFileStream() throws Exception {
+        List<TypeInfo> types = parse(CLASS_FILE_STREAM);
+        TypeInfo cls = types.getFirst();
+        modifying(cls.findSubType("Full"), "discard");
+        modified(method(cls.findSubType("Util"), "discardBytes").parameters().getFirst());
+        modified(method(cls.findSubType("Pool"), "magic").parameters().getFirst());
+        nonModifying(cls, "header");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was an empty struct, and a unit-struct DataInputStream without methods: every read unresolved
+        contains(rust, "pub base: crate::jrt::DataInputStream,");
+        contains(rust, "base: crate::jrt::DataInputStream::from_bytes(");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

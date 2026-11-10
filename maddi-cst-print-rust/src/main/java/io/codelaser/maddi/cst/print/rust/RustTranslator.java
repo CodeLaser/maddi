@@ -207,6 +207,90 @@ public final class RustTranslator {
             pub fn string_hash_code(s: &str) -> i32 {
                 s.encode_utf16().fold(0i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32))
             }
+
+            /// `java.io.DataInputStream`, and `java.io.InputStream`, over the bytes in memory: Java's big-endian reads.
+            /// Java's IOException at the end of the data is a panic, as the translation prints a `throw`.
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+            pub struct DataInputStream {
+                bytes: Vec<i8>,
+                pos: usize,
+            }
+
+            impl DataInputStream {
+                /// `new DataInputStream(new ByteArrayInputStream(bytes))`, whichever way the array is held
+                pub fn from_bytes(bytes: impl Bytes) -> Self {
+                    DataInputStream { bytes: bytes.into_bytes(), pos: 0 }
+                }
+                fn next(&mut self) -> u8 {
+                    let b = *self.bytes.get(self.pos).unwrap_or_else(|| panic!("EOFException"));
+                    self.pos += 1;
+                    b as u8
+                }
+                fn take<const N: usize>(&mut self) -> [u8; N] {
+                    std::array::from_fn(|_| self.next())
+                }
+                pub fn read_unsigned_byte(&mut self) -> i32 { self.next() as i32 }
+                pub fn read_byte(&mut self) -> i8 { self.next() as i8 }
+                pub fn read_boolean(&mut self) -> bool { self.next() != 0 }
+                pub fn read_unsigned_short(&mut self) -> i32 { u16::from_be_bytes(self.take()) as i32 }
+                pub fn read_short(&mut self) -> i16 { i16::from_be_bytes(self.take()) }
+                pub fn read_char(&mut self) -> char {
+                    char::from_u32(u16::from_be_bytes(self.take()) as u32).unwrap_or('\\u{FFFD}')
+                }
+                pub fn read_int(&mut self) -> i32 { i32::from_be_bytes(self.take()) }
+                pub fn read_long(&mut self) -> i64 { i64::from_be_bytes(self.take()) }
+                pub fn read_float(&mut self) -> f32 { f32::from_be_bytes(self.take()) }
+                pub fn read_double(&mut self) -> f64 { f64::from_be_bytes(self.take()) }
+                /// Java's modified UTF-8: a length, then one to three bytes per UTF-16 unit.
+                pub fn read_utf(&mut self) -> String {
+                    let len = self.read_unsigned_short() as usize;
+                    let end = self.pos + len;
+                    let mut units = Vec::new();
+                    while self.pos < end {
+                        let a = self.next() as u16;
+                        units.push(if a < 0x80 {
+                            a
+                        } else if a & 0xE0 == 0xC0 {
+                            ((a & 0x1F) << 6) | (self.next() as u16 & 0x3F)
+                        } else {
+                            ((a & 0x0F) << 12) | ((self.next() as u16 & 0x3F) << 6) | (self.next() as u16 & 0x3F)
+                        });
+                    }
+                    String::from_utf16_lossy(&units)
+                }
+                pub fn read_fully(&mut self, b: &mut [i8]) {
+                    for x in b.iter_mut() { *x = self.next() as i8; }
+                }
+                /// `InputStream.read(b, off, len)`: what is left, up to len; -1 at the end.
+                pub fn read(&mut self, b: &mut [i8], off: i32, len: i32) -> i32 {
+                    let left = self.bytes.len() - self.pos;
+                    if len > 0 && left == 0 { return -1; }
+                    let n = (len.max(0) as usize).min(left);
+                    b[off as usize..off as usize + n].copy_from_slice(&self.bytes[self.pos..self.pos + n]);
+                    self.pos += n;
+                    n as i32
+                }
+                /// Java widens an int argument to the long parameter.
+                pub fn skip(&mut self, n: impl Into<i64>) -> i64 {
+                    let k = (n.into().max(0) as usize).min(self.bytes.len() - self.pos);
+                    self.pos += k;
+                    k as i64
+                }
+                pub fn skip_bytes(&mut self, n: i32) -> i32 { self.skip(n) as i32 }
+                pub fn available(&self) -> i32 { (self.bytes.len() - self.pos) as i32 }
+                pub fn close(&mut self) {}
+            }
+
+            /// A byte[] as the translation holds it: owned, borrowed, nullable.
+            pub trait Bytes {
+                fn into_bytes(self) -> Vec<i8>;
+            }
+            impl Bytes for Vec<i8> { fn into_bytes(self) -> Vec<i8> { self } }
+            impl Bytes for &Vec<i8> { fn into_bytes(self) -> Vec<i8> { self.clone() } }
+            impl Bytes for &[i8] { fn into_bytes(self) -> Vec<i8> { self.to_vec() } }
+            impl<B: Bytes> Bytes for Option<B> {
+                fn into_bytes(self) -> Vec<i8> { self.expect("NullPointerException").into_bytes() }
+            }
             """;
 
     static String cargoToml() {

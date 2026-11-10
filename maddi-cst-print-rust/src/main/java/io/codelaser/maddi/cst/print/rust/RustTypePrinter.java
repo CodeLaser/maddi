@@ -851,6 +851,18 @@ final class RustTypePrinter {
         if (COLLECTION_BASES.contains(owner)) return owner + "::new()";
         if (statements != null) {
             for (Statement s : statements) {
+                if (s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && STREAM_BASE.equals(owner)) {
+                    // super(new ByteArrayInputStream(bytes)): the stream over those bytes; nothing else is in memory
+                    if (eci.parameterExpressions().size() == 1
+                        && eci.parameterExpressions().getFirst() instanceof ConstructorCall cc
+                        && cc.constructor() != null
+                        && "java.io.ByteArrayInputStream".equals(cc.constructor().typeInfo().fullyQualifiedName())
+                        && cc.parameterExpressions().size() == 1) {
+                        return owner + "::from_bytes(" + printer.arguments(cc.parameterExpressions(), cc.constructor())
+                               + ")";
+                    }
+                    return owner + "::default()";
+                }
                 if (s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && eci.methodInfo() != null) {
                     return owner + "::" + RustNames.method(eci.methodInfo()) + "("
                            + printer.arguments(eci.parameterExpressions(), eci.methodInfo()) + ")";
@@ -872,8 +884,12 @@ final class RustTypePrinter {
             return null;
         }
         String owned = RustTypes.owned(parent, context, typeInfo);
-        return COLLECTION_BASES.contains(owned.replaceFirst("<.*$", "")) ? owned : null;
+        String owner = owned.replaceFirst("<.*$", "");
+        return COLLECTION_BASES.contains(owner) || STREAM_BASE.equals(owner) ? owned : null;
     }
+
+    /** jrt.rs's in-memory stream, the base of a class extending {@code DataInputStream} (fernflower's own stream). */
+    private static final String STREAM_BASE = "crate::jrt::DataInputStream";
 
     private static final Set<String> COLLECTION_BASES = Set.of("Vec", "VecDeque", "HashMap", "HashSet", "BTreeMap",
             "BTreeSet");
