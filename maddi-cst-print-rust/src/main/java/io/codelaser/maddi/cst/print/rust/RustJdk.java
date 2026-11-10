@@ -221,9 +221,12 @@ final class RustJdk {
             return value(iter(o));
         }
         String collection = RustTypes.mapped(owner);
-        if (collection == null && Set.of("java.lang.AbstractStringBuilder", "java.lang.CharSequence").contains(fqn)
+        if (collection == null && Set.of("java.lang.AbstractStringBuilder", "java.lang.CharSequence",
+                "java.util.AbstractCollection", "java.util.AbstractSet", "java.util.AbstractList",
+                "java.util.AbstractMap", "java.util.Collection").contains(fqn)
             && mc.object() != null && mc.object().parameterizedType().typeInfo() != null) {
-            // StringBuilder's length() is AbstractStringBuilder's: a String's all the same
+            // StringBuilder's length() is AbstractStringBuilder's: a String's all the same; a HashSet's retainAll is
+            // AbstractCollection's, the set's own
             collection = RustTypes.mapped(mc.object().parameterizedType().typeInfo());
         }
         if ("String".equals(collection)) return string(o, name, args, printer, mc);

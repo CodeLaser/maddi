@@ -318,6 +318,13 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                 public static void drop(List<Integer> list, Set<Integer> gone) {
                     list.removeAll(gone);
                 }
+                // ControlFlowGraph's 'HashSet<BasicBlock> setBoth = new HashSet<>(common); setBoth.retainAll(range)':
+                // HashSet inherits retainAll from AbstractCollection
+                public static int both(Set<Integer> common, List<Integer> range) {
+                    HashSet<Integer> setBoth = new HashSet<>(common);
+                    setBoth.retainAll(range);
+                    return setBoth.size();
+                }
             }
             """;
 
@@ -327,7 +334,8 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         List<TypeInfo> types = parse(BULK);
         TypeInfo bulk = types.getFirst();
         modifying(bulk, "intersect", "subtract", "drop");
-        nonModifying(bulk, "covers");
+        nonModifying(bulk, "covers", "both");
+        method(bulk, "both").parameters().forEach(CommonJavaToRust::borrowed);
         exclusive(method(bulk, "intersect").parameters().get(0));
         borrowed(method(bulk, "intersect").parameters().get(1));
         exclusive(method(bulk, "subtract").parameters().get(0));
@@ -341,6 +349,7 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, ".retain(|__e| __c.contains(__e));");
         contains(rust, ".retain(|__e| !__c.contains(__e));");
         contains(rust, ".iter().all(|__e| ");
+        contains(rust, "set_both.retain(|__e| __c.contains(__e));");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
