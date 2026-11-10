@@ -447,9 +447,7 @@ final class CSharpBcl implements LibraryMapping {
             return false;
         }
         ParameterizedType element = receiver.parameters().getFirst();
-        // a Collection<?> parameter captured, ICollection<TE>, is generic: not the non-generic ICollection's
-        return !element.isJavaLangObject() && (element.wildcard() == null || !element.wildcard().isUnbound()
-                                               || CSharpWildcards.capturedParameterUse(call.object()));
+        return !element.isJavaLangObject() && (element.wildcard() == null || !element.wildcard().isUnbound());
     }
 
     /** Argument {@code index} creates an array, {@code new T[0]}, {@code new T[list.size()]}. */

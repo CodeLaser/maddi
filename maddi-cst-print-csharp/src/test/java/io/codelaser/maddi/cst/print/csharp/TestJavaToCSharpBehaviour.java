@@ -1146,35 +1146,32 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     /**
-     * A method's parameter of {@code Collection<?>} or {@code Set<?>} is captured, {@code ICollection<TE>}: C#'s
-     * non-generic {@code ICollection} is no {@code HashSet<T>}'s nor {@code ICollection<T>}'s (CS1503).
+     * A {@code Collection<?>} is C#'s non-generic {@code ICollection}, whose contains(Object) is the compatibility
+     * library's over objects (which called itself). Not captured: a field's or a constructor's stays non-generic,
+     * and an argument of either cannot go into {@code ICollection<TE>} (langchain4j's IsIn, CS0411).
      */
     @Test
-    public void unboundedCollectionParameterCaptured() {
+    public void unboundedCollectionParameter() {
         String cs = behaves("Empties", """
                 package a;
                 import java.util.ArrayList;
                 import java.util.Collection;
-                import java.util.HashSet;
                 import java.util.List;
-                import java.util.Set;
                 class Empties {
                     static boolean isEmpty(Collection<?> c) { return c == null || c.isEmpty(); }
-                    static int count(Set<?> s, Object o) { return s.contains(o) ? s.size() : -s.size(); }
                     static boolean any(Collection<?> left, Collection<?> right) {
                         for (Object o : left) if (right.contains(o)) return true;
                         return false;
                     }
                     public static void main(String[] args) {
-                        Set<String> set = new HashSet<>(List.of("a", "b"));
-                        Collection<Integer> numbers = new ArrayList<>(List.of(1, 2));
-                        System.out.println(isEmpty(set) + " " + isEmpty(numbers) + " " + isEmpty(new ArrayList<String>()));
-                        System.out.println(count(set, "a") + " " + count(set, 3));
-                        System.out.println(any(set, List.of("x", "b")) + " " + any(numbers, set));
+                        List<String> words = new ArrayList<>(List.of("a", "b"));
+                        List<Integer> numbers = new ArrayList<>(List.of(1, 2));
+                        System.out.println(isEmpty(words) + " " + isEmpty(new ArrayList<String>()));
+                        System.out.println(any(words, new ArrayList<>(List.of("x", "b"))) + " " + any(numbers, words));
                     }
                 }
                 """);
-        contains(cs, "IsEmpty<TE>(ICollection<TE> c)");
+        contains(cs, "IsEmpty(ICollection c)");
     }
 
     /**

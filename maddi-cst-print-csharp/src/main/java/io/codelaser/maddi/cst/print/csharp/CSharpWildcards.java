@@ -24,10 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -147,14 +144,6 @@ final class CSharpWildcards {
         return true;
     }
 
-    /** The expression is a parameter of the method being printed whose wildcards are captured. */
-    static boolean capturedParameterUse(Expression e) {
-        MethodInfo method = CSharpContext.currentMethod();
-        return method != null && CSharpExpressionPrinter.unwrap(e) instanceof VariableExpression ve
-               && ve.variable() instanceof ParameterInfo pi && pi.methodInfo() == method
-               && capturedParameter(method, pi.index());
-    }
-
     /** A captured wildcard's constraints: its own bound, else the type parameter's. */
     private static List<ParameterizedType> bounds(TypeParameter declared, ParameterizedType a) {
         return a.wildcard().isExtends() && !a.isJavaLangObject() ? List.of(a.withWildcard(null))
@@ -181,23 +170,11 @@ final class CSharpWildcards {
      */
     static boolean capturable(ParameterizedType pt) {
         TypeInfo t = pt.typeInfo();
-        return pt.arrays() == 0 && pt.wildcard() == null && t != null
-               && (CSharpNames.translated(t) || capturableLibrary(pt))
+        return pt.arrays() == 0 && pt.wildcard() == null && t != null && CSharpNames.translated(t)
                && !pt.parameters().isEmpty() && pt.parameters().size() == t.typeParameters().size()
                && pt.parameters().stream().anyMatch(a -> a.wildcard() != null && !a.wildcard().isSuper())
                && pt.parameters().stream().noneMatch(a -> a.wildcard() != null && a.wildcard().isSuper());
     }
-
-    /**
-     * {@code Collection<?>}, {@code Set<?>}: C#'s non-generic {@code ICollection} is no {@code HashSet<T>}'s,
-     * {@code ICollection<T>}'s nor {@code ISet<T>}'s; captured, {@code ICollection<TE>} is every collection's.
-     */
-    private static boolean capturableLibrary(ParameterizedType pt) {
-        return CAPTURED_LIBRARY.contains(pt.typeInfo().fullyQualifiedName()) && pt.parameters().size() == 1
-               && pt.parameters().getFirst().wildcard() != null && pt.parameters().getFirst().wildcard().isUnbound();
-    }
-
-    private static final Set<String> CAPTURED_LIBRARY = Set.of("java.util.Collection", "java.util.Set");
 
     /** {@code X<TEmbedded>}: the parameter's type with its wildcards named. */
     static String type(ParameterizedType pt, List<String> names, Qualification q) {

@@ -923,9 +923,7 @@ compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each a
   `IReadOnlyList<Node>`, which a `List<Block>` is. `Collection` and `Set` of `? extends T` are
   `IReadOnlyCollection<T>`, `Iterable` is `IEnumerable<T>`. A collection of `?` is C#'s non-generic interface, which every generic collection implements: `List<?>` is
   `IList`, `Collection<?>` and `Set<?>` are `ICollection`, `Iterable<?>` is `IEnumerable`, `Map<?, ?>` is
-  `IDictionary`, `Comparable<?>` is `IComparable`. Not quite every: no `HashSet<T>`, `ISet<T>`, `ICollection<T>` or
-  `IReadOnlyList<T>` is an `ICollection`, so a method's parameter of `Collection<?>` or `Set<?>` is captured as below,
-  `bool IsEmpty<TE>(ICollection<TE> c)`, and its `contains(Object)` is `ContainsObject`. A method's parameter of a program type with wildcards, `Context<?> c`, is captured as Java does
+  `IDictionary`, `Comparable<?>` is `IComparable`. A method's parameter of a program type with wildcards, `Context<?> c`, is captured as Java does
   in the body: the method gets a type parameter of its own, `void OnRequest<TEmbedded>(Context<TEmbedded> c)`,
   constrained by the wildcard's bound or the declared one (`CSharpWildcards`), and `notnull` where the type's own
   is a dictionary's key. A diamond whose argument is such a parameter takes the capture where Java infers it,
