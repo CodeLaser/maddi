@@ -343,4 +343,56 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         contains(rust, "data.get_stack().clone().push(5);");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String SEQS = """
+            package a.b;
+            import java.util.ArrayList;
+            public class Seqs {
+                // fernflower's VBStyleCollection: a source class that is a JDK collection
+                public static class Coll<E> extends ArrayList<E> {
+                    public E getAt(int i) { return get(i); }
+                    public void addAt(E e) { add(e); }
+                }
+                public static class Instr {
+                    private int op;
+                    public void setOp(int op) { this.op = op; }
+                }
+                // InstructionSequence: instructions kept in the collection, shared between sequences
+                public static class Seq {
+                    private final Coll<Instr> instrs = new Coll<>();
+                    public void add(Instr i) { instrs.addAt(i); }
+                    public Instr get(int k) { return instrs.getAt(k); }
+                }
+                public static void copy(Seq from, Seq to) { to.add(from.get(0)); }
+            }
+            """;
+
+    @DisplayName("objects kept in a source collection class are shared")
+    @Test
+    public void sourceCollection() throws Exception {
+        List<TypeInfo> types = parse(SEQS);
+        TypeInfo seqs = types.getFirst();
+        TypeInfo coll = seqs.findSubType("Coll");
+        TypeInfo instr = seqs.findSubType("Instr");
+        TypeInfo seq = seqs.findSubType("Seq");
+        modifying(coll, "addAt");
+        nonModifying(coll, "getAt");
+        kept(method(coll, "addAt").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        dependentResult(coll, "getAt");
+        modifying(instr, "setOp");
+        modifying(seq, "add");
+        nonModifying(seq, "get");
+        kept(method(seq, "add").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        dependentResult(seq, "get");
+        modifying(seqs, "copy");
+        borrowed(method(seqs, "copy").parameters().get(0));
+        exclusive(method(seqs, "copy").parameters().get(1));
+        RustTranslator.Result result = translate(types, nullable(java.util.Set.of()));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "instrs: SeqsColl<crate::jrt::Shared<SeqsInstr>>,");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().noneMatch(e -> e.contains("found `&")), () -> String.join("\n", errors) + "\n" + rust);
+    }
 }
