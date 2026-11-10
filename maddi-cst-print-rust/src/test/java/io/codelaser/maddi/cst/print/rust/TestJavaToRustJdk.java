@@ -395,20 +395,23 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                 private final Map<EdgeType, Integer> counts = new EnumMap<>(EdgeType.class);
                 public void count(EdgeType t) { counts.put(t, counts.getOrDefault(t, 0) + 1); }
                 public Integer get(EdgeType t) { return counts.get(t); }
+                // ExprProcessor: 'EdgeType.BREAK.equals(edge.getType())'
+                public static boolean isBreak(EdgeType t) { return EdgeType.BREAK.equals(t); }
             }
             """;
 
-    @DisplayName("an EnumMap: a HashMap keyed by the enum")
+    @DisplayName("an EnumMap: a HashMap keyed by the enum; an enum's equals, ==")
     @Test
     public void enumMap() throws Exception {
         List<TypeInfo> types = parse(ENUM_MAP);
         TypeInfo edges = types.getFirst();
         modifying(edges, "count");
-        nonModifying(edges, "get");
+        nonModifying(edges, "get", "isBreak");
         RustTranslator.Result result = translate(types, nullable(Set.of("get()")));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "counts: HashMap::new(),");
+        contains(rust, "EdgesEdgeType::Break == ");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

@@ -1831,9 +1831,17 @@ final class RustBodyPrinter {
                 printed.held, printed.nullable);
     }
 
+    /* Enum.equals on an enum of the sources ('EdgeType.BREAK.equals(edge.getType())'): the variants' ==. */
+    private static boolean sourceEnumEquals(MethodCall mc) {
+        if (!RustTypePrinter.isEquals(mc.methodInfo()) || mc.object() == null || mc.objectIsImplicit()) return false;
+        TypeInfo ti = mc.object().parameterizedType().typeInfo();
+        return ti != null && ti.typeNature().isEnum() && !ti.compilationUnit().externalLibrary()
+               && mc.object().parameterizedType().arrays() == 0;
+    }
+
     private Printed methodCall(MethodCall mc) {
         MethodInfo callee = mc.methodInfo();
-        if (callee.typeInfo().compilationUnit().externalLibrary()) {
+        if (callee.typeInfo().compilationUnit().externalLibrary() && !sourceEnumEquals(mc)) {
             boolean outer = mutatingPlace;
             Printed mapped;
             try {
