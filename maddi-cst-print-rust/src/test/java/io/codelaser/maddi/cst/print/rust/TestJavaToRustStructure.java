@@ -804,4 +804,40 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "r.get_blocks_mut().clear();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String NULLABLE_EQUALS = """
+            package a.b;
+            public class Types {
+                // fernflower's VarType, equals over its fields
+                public static final class VT {
+                    private final int t;
+                    public VT(int t) { this.t = t; }
+                    @Override public boolean equals(Object o) { return o instanceof VT v && t == v.t; }
+                    @Override public int hashCode() { return t; }
+                }
+                // ExprProcessor's 'md.ret.equals(cltype)', cltype nullable
+                public static boolean same(VT ret, VT cltype) { return ret.equals(cltype); }
+                public static boolean sameBoth(VT a, VT b) { return a.equals(b); }
+            }
+            """;
+
+    @DisplayName("equals with a nullable argument: false for null, both sides as Option<&T>")
+    @Test
+    public void nullableEquals() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_EQUALS);
+        TypeInfo t = types.getFirst();
+        TypeInfo vt = t.findSubType("VT");
+        nonModifying(vt, "equals", "hashCode");
+        nonModifying(t, "same", "sameBoth");
+        method(t, "same").parameters().forEach(CommonJavaToRust::borrowed);
+        method(t, "sameBoth").parameters().forEach(CommonJavaToRust::borrowed);
+        immutable(vt, ValueImpl.ImmutableImpl.IMMUTABLE);
+        RustTranslator.Result result = translate(types, nullable(Set.of("cltype", "a", "b", "o")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "Some(ret) == cltype");
+        contains(rust, "Some(a.unwrap()) == b");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

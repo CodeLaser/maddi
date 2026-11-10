@@ -1828,8 +1828,19 @@ final class RustBodyPrinter {
                 return value("crate::jrt::Shared::equals(" + adapt(expression(mc.object()), Held.SHARED) + ", "
                              + adapt(expression(mc.parameterExpressions().getFirst()), Held.SHARED) + ")");
             }
-            return value(adapt(expression(mc.object()), Held.SHARED) + " == "
-                         + adapt(expression(mc.parameterExpressions().getFirst()), Held.SHARED));
+            Printed left = expression(mc.object());
+            Printed right = expression(mc.parameterExpressions().getFirst());
+            if (right.nullable && !(mc.parameterExpressions().getFirst() instanceof NullConstant)) {
+                // a.equals(b), b nullable: Java's equals(null) is false, which an Option's equality gives exactly,
+                // both sides lifted to Option<&T>; a nullable a is unwrapped, Java's NullPointerException
+                String l = optionRef(left);
+                if (left.nullable) {
+                    context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, mc, left.text);
+                    l = "Some(" + l + ".unwrap())";
+                }
+                return value(l + " == " + optionRef(right));
+            }
+            return value(adapt(left, Held.SHARED) + " == " + adapt(right, Held.SHARED));
         }
         // a getter the caller modifies through: its exclusive twin (RustGetters)
         boolean mutableGetter = mutatingPlace && context.mutableGetters.contains(callee);
@@ -2111,6 +2122,16 @@ final class RustBodyPrinter {
             return nullableExclusive(p, argument, text);
         }
         return text;
+    }
+
+    /** {@code p} as an {@code Option<&T>}: a nullable one borrowed in place, another in {@code Some}. */
+    private static String optionRef(Printed p) {
+        if (!p.nullable) return "Some(" + adapt(p, Held.SHARED) + ")";
+        return switch (p.held) {
+            case VALUE, PLACE -> p.text + ".as_ref()";
+            case EXCLUSIVE -> p.text + ".as_deref()";
+            default -> p.text;
+        };
     }
 
     /**
