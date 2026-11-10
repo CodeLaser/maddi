@@ -1010,7 +1010,7 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
     private static final String DESCRIPTORS = """
             package a.b;
             public class Fd {
-                // fernflower's FieldDescriptor.INTEGER_DESCRIPTOR: a factory's object, its verdict left open
+                // fernflower's FieldDescriptor.INTEGER_DESCRIPTOR: a factory's object, modified by its verdict
                 public static final Fd INTEGER = parse("I");
                 private final String descriptor;
                 private Fd(String descriptor) { this.descriptor = descriptor; }
@@ -1020,7 +1020,7 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
             }
             """;
 
-    @DisplayName("a static of an immutable type, its verdict undecided: a read-only static")
+    @DisplayName("a static of an immutable type, modified by its verdict: a read-only static all the same")
     @Test
     public void undecidedImmutableStatic() throws Exception {
         List<TypeInfo> types = parse(DESCRIPTORS);
@@ -1030,6 +1030,7 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         independentResult(fd, "parse");
         dependentResult(fd, "getDescriptor");
         borrowed(method(fd, "parse").parameters().getFirst());
+        fd.getFieldByName("INTEGER", true).analysis().set(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.FALSE);
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
