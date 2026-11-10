@@ -1245,7 +1245,17 @@ final class RustTypePrinter {
     private String accessor(FieldInfo f) {
         String name = RustNames.snake(f.name());
         boolean copy = RustTypes.isCopy(f.type());
-        String type = copy ? fieldType(f) : "&" + fieldType(f);
+        String held = fieldType(f);
+        if (!copy && held.startsWith("Option<") && held.endsWith(">") && !context.cells.isCell(f)
+            && !context.boxes.isBoxed(f)) {
+            // a nullable component: an Option<&T>, as a call of any nullable getter reads it (was &Option<T>, and
+            // 'initializer.instance().cloned()' E0599)
+            String inner = held.substring("Option<".length(), held.length() - 1);
+            boolean string = RustTypes.isString(f.type());
+            return INDENT + "pub fn " + name + "(&self) -> Option<&" + (string ? "str" : inner) + "> {\n" + INDENT
+                   + INDENT + "self." + name + (string ? ".as_deref()" : ".as_ref()") + "\n" + INDENT + "}\n";
+        }
+        String type = copy ? held : "&" + held;
         return INDENT + "pub fn " + name + "(&self) -> " + type + " {\n" + INDENT + INDENT + (copy ? "" : "&")
                + "self." + name + "\n" + INDENT + "}\n";
     }

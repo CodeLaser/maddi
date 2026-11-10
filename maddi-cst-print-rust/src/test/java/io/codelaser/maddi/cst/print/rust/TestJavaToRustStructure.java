@@ -978,6 +978,35 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String NULLABLE_COMPONENT = """
+            package a.b;
+            import java.util.List;
+            public class Inits {
+                // fernflower's SwitchPatternHelper initializer records: a nullable component read by its accessor
+                public record Init(String label, List<String> parts) {}
+                public static int count(Init i) { return i.parts() == null ? 0 : i.parts().size(); }
+                public static String label(Init i) { return i.label(); }
+            }
+            """;
+
+    @DisplayName("a record's nullable component: its accessor an Option<&T>")
+    @Test
+    public void nullableRecordComponent() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_COMPONENT);
+        TypeInfo inits = types.getFirst();
+        nonModifying(inits, "count", "label");
+        borrowed(method(inits, "count").parameters().getFirst());
+        borrowed(method(inits, "label").parameters().getFirst());
+        dependentResult(inits, "label");
+        RustTranslator.Result result = translate(types, nullable(Set.of("parts", "label", "parts()", "label()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "pub fn parts(&self) -> Option<&Vec<String>> {");
+        contains(rust, "pub fn label(&self) -> Option<&str> {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String DESCRIPTORS = """
             package a.b;
             public class Fd {
