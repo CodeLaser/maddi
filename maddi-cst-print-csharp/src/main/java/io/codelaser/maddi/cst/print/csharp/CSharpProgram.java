@@ -275,6 +275,8 @@ public final class CSharpProgram {
             }
         }
         candidates.removeAll(implemented);
+        // C# constrains a type parameter by an interface, not by a delegate (CS0701)
+        candidates.removeAll(bounds);
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
         b.namespaceSegments = namespaceSegments(primaryTypes, all, policy.libraries());

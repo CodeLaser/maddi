@@ -355,7 +355,8 @@ implements the interface.
   those of other libraries are what their mapping makes of them, or dropped.
 - **Functional interfaces.** A translated functional interface is a C# `delegate` when the whole program allows it:
   one abstract method and nothing else, and no class or interface of the program implementing or extending it (an
-  anonymous class that becomes a lambda does not count). Its lambdas are plain lambdas, a call `f.apply(x)` is an
+  anonymous class that becomes a lambda does not count), nor bounding a type parameter (`<P extends
+  ConstraintProvider>`: C# constrains by no delegate, CS0701). Its lambdas are plain lambdas, a call `f.apply(x)` is an
   invocation `f(x)`, and a method reference `f::apply` is `f.Invoke`. `CSharpProgram` makes that decision once,
   over all the translated types, before the files are printed. Any other functional interface stays an interface
   and gets an adapter class beside it, `public sealed class ExprentIteratorLambda(Func<Exprent, int> f) :
@@ -983,7 +984,9 @@ compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each a
   is another object, which a reference comparison with the original tells apart. Not into a method's parameter that
   captures the wildcard. An interface whose statics have a companion, of
   the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members, a
-  self-bounded interface's too (two declarations of the name are CS0102). Where a
+  self-bounded interface's too (two declarations of the name are CS0102); when the wildcard interface is not generic.
+  One that keeps type parameters, `INotification<Solution_, ChangeEvent_>`, has an arity of its own, which C# reaches
+  statics through only constructed (CS0305): the companion is the static class beside it. Where a
   class's superclass is expected, its wildcard interface is cast to it, `(AbstractNode) node`: the interface cannot
   extend the class. A wildcard of a library type,
   and `? extends B` (what the code stores there is a `B`), is its bound (`WILDCARD_AS_BOUND`).

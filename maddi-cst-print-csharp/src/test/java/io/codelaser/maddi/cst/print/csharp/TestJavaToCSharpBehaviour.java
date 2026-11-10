@@ -1075,6 +1075,106 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     /**
+     * Library factories timefold uses: EnumSet.of, Predicate.not, LongStream.concat, Stream.builder; and the static
+     * method of an interface whose wildcard interface keeps type parameters, in a companion of its own (CS0305).
+     */
+    @Test
+    public void streamAndSetFactories() {
+        String cs = behaves("Factories", """
+                package a;
+                import java.util.Arrays;
+                import java.util.EnumSet;
+                import java.util.List;
+                import java.util.stream.Collectors;
+                import java.util.stream.LongStream;
+                import java.util.stream.Stream;
+                import static java.util.function.Predicate.not;
+                class Factories {
+                    enum Kind { A, B, C }
+                    interface Listener<S> { String hear(S s); default String name() { return "l"; } }
+                    interface Note<S, T extends Listener<S>> {
+                        static <S> Plain<S> of(S s) { return new Plain<>(s); }
+                        S source();
+                        String trigger(T listener);
+                    }
+                    record Plain<S>(S source) implements Note<S, Listener<S>> {
+                        public String trigger(Listener<S> listener) { return listener.hear(source); }
+                    }
+                    static <S> S sourceOf(Note<S, ?> note) { return note.source(); }
+                    static boolean empty(String s) { return s.isEmpty(); }
+                    public static void main(String[] args) {
+                        EnumSet<Kind> kinds = EnumSet.of(Kind.A, Kind.C);
+                        System.out.println(kinds.contains(Kind.C) + " " + kinds.contains(Kind.B) + " " + kinds.size());
+                        List<String> words = List.of("a", "", "b");
+                        System.out.println(words.stream().filter(not(Factories::empty)).collect(Collectors.joining(",")));
+                        long[] hard = { 1, 2 };
+                        long[] soft = { 3 };
+                        long[] levels = LongStream.concat(Arrays.stream(hard), Arrays.stream(soft)).toArray();
+                        System.out.println(Arrays.toString(levels));
+                        Stream.Builder<Object> b = Stream.builder().add("x");
+                        b.add("y");
+                        System.out.println(b.build().map(Object::toString).collect(Collectors.joining("+")));
+                        Plain<Integer> note = Note.of(7);
+                        System.out.println(sourceOf(note) + " " + note.trigger(new Listener<>() { public String hear(Integer i) { return "heard " + i; } }));
+                    }
+                }
+                """);
+        contains(cs, "new HashSet<Kind> { Kind.A, Kind.C }");
+        contains(cs, "INote.Of(7)");
+    }
+
+    /**
+     * A functional interface that bounds a type parameter stays an interface, as C# constrains by no delegate
+     * (CS0701); a lambda into it is its lambda class.
+     */
+    @Test
+    public void functionalInterfaceAsBound() {
+        String cs = behaves("Verifier", """
+                package a;
+                class Verifier<P extends Verifier.Provider> {
+                    interface Provider { String define(int x); }
+                    private final P provider;
+                    Verifier(P provider) { this.provider = provider; }
+                    String verify(int x) { return provider.define(x); }
+                    public static void main(String[] args) {
+                        Verifier<Provider> v = new Verifier<>(x -> "v" + x);
+                        System.out.println(v.verify(3));
+                    }
+                }
+                """);
+        contains(cs, "where P : IProvider");
+    }
+
+    /**
+     * A {@code Collection<?>} is C#'s non-generic {@code ICollection}, whose contains(Object) is the compatibility
+     * library's over objects (which called itself). Not captured: a field's or a constructor's stays non-generic,
+     * and an argument of either cannot go into {@code ICollection<TE>} (langchain4j's IsIn, CS0411).
+     */
+    @Test
+    public void unboundedCollectionParameter() {
+        String cs = behaves("Empties", """
+                package a;
+                import java.util.ArrayList;
+                import java.util.Collection;
+                import java.util.List;
+                class Empties {
+                    static boolean isEmpty(Collection<?> c) { return c == null || c.isEmpty(); }
+                    static boolean any(Collection<?> left, Collection<?> right) {
+                        for (Object o : left) if (right.contains(o)) return true;
+                        return false;
+                    }
+                    public static void main(String[] args) {
+                        List<String> words = new ArrayList<>(List.of("a", "b"));
+                        List<Integer> numbers = new ArrayList<>(List.of(1, 2));
+                        System.out.println(isEmpty(words) + " " + isEmpty(new ArrayList<String>()));
+                        System.out.println(any(words, new ArrayList<>(List.of("x", "b"))) + " " + any(numbers, words));
+                    }
+                }
+                """);
+        contains(cs, "IsEmpty(ICollection c)");
+    }
+
+    /**
      * A method reference into the program's delegate whose parameter is a BigDecimal: the lambda's typed parameter is
      * the delegate's {@code decimal?}, which picks the overload (CS1661 with {@code decimal}).
      */

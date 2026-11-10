@@ -821,10 +821,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /**
      * An interface's companion and its wildcard interface have the same name, {@code ITupleLifecycle}: one interface,
      * which C# lets have static members, {@code ITupleLifecycle.OfLeft(…)} as the companion's. A self-bounded
-     * interface's too ({@code Impacter<G extends Grade<G>>}): two declarations of the name are CS0102.
+     * interface's too ({@code Impacter<G extends Grade<G>>}): two declarations of the name are CS0102. Only a
+     * non-generic wildcard interface: one that keeps type parameters, {@code INotification<Solution_, ChangeEvent_>},
+     * has an arity of its own, and C# reaches its statics through a constructed type only (CS0305); the companion is
+     * the static class beside it.
      */
     private boolean companionInWildcardInterface() {
-        return typeInfo.isInterface() && CSharpNames.hasCompanion(typeInfo) && CSharpWildcardInterfaces.has(typeInfo);
+        return typeInfo.isInterface() && CSharpNames.hasCompanion(typeInfo) && CSharpWildcardInterfaces.has(typeInfo)
+               && CSharpWildcardInterfaces.removed(typeInfo).size() == typeInfo.typeParameters().size();
     }
 
     /**
