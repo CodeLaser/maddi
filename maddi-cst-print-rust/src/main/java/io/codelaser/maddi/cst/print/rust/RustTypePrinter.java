@@ -1380,7 +1380,10 @@ final class RustTypePrinter {
                 .filter(context.mutableGetters::contains).findFirst().orElse(null) : null;
         if (inTrait && declared == null) return "";
         boolean nullable = RustFacts.nullable(context.facts.field(f));
-        String field = "self." + RustNames.snake(f.name());
+        // a field a class below a hierarchy's root adds is in its data, in the kind (RustHierarchies)
+        String field = RustHierarchies.current().isSubMember(f.owner())
+                ? "self.kind." + RustHierarchies.accessor(f.owner()) + "_mut()." + RustNames.snake(f.name())
+                : "self." + RustNames.snake(f.name());
         String signature = declared != null ? mutableGetterSignature(declared)
                 : visibility(m.access().isPrivate()) + mutableGetterSignature(m, f.type(), nullable);
         return INDENT + signature + " {\n" + INDENT + INDENT + (nullable ? field + ".as_mut()" : "&mut " + field) + "\n"

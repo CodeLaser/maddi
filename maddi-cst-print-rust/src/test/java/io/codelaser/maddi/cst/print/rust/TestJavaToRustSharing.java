@@ -161,4 +161,125 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         List<String> errors = rustcErrors();
         assertTrue(errors.stream().anyMatch(e -> e.contains("E0596")), () -> String.join("\n", errors) + "\n" + rust);
     }
+
+    @Language("java")
+    private static final String STATS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.Set;
+            public class Stats {
+                public static class Stat {
+                    private Stat first;
+                    private final List<Stat> stats = new ArrayList<>();
+                    private int type;
+                    public void setFirst(Stat s) { first = s; }
+                    public Stat getFirst() { return first; }
+                    public void add(Stat s) { stats.add(s); }
+                    public int getType() { return type; }
+                }
+                // fernflower's findIfHead: a nullable borrowed handle walking the chain
+                public static int headType(Stat head) {
+                    while (head != null && head.getType() != 2) {
+                        head = head.getFirst();
+                    }
+                    return head == null ? -1 : head.getType();
+                }
+                // getDefStatement's setStats.add(stat), iterateExprents' exprents.set(i, res)
+                public static void collect(Stat stat, Set<Stat> set, List<Stat> list) {
+                    if (stat != null) {
+                        set.add(stat);
+                        list.set(0, stat);
+                    }
+                }
+                // a list of handles searched for a nullable one: identity
+                public static boolean has(List<Stat> list, Stat s) { return list.contains(s); }
+            }
+            """;
+
+    @DisplayName("nullable handles: a borrowed one walking the chain, one stored where the holder is not nullable, one searched")
+    @Test
+    public void nullableHandles() throws Exception {
+        List<TypeInfo> types = parse(STATS);
+        TypeInfo stats = types.getFirst();
+        TypeInfo stat = stats.findSubType("Stat");
+        modifying(stat, "setFirst", "add");
+        nonModifying(stat, "getFirst", "getType");
+        nonModifying(stats, "headType", "has");
+        modifying(stats, "collect");
+        kept(method(stat, "setFirst").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        kept(method(stat, "add").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        dependentResult(stat, "getFirst");
+        borrowed(method(stats, "headType").parameters().getFirst());
+        borrowed(method(stats, "collect").parameters().get(0));
+        exclusive(method(stats, "collect").parameters().get(1));
+        exclusive(method(stats, "collect").parameters().get(2));
+        method(stats, "has").parameters().forEach(CommonJavaToRust::borrowed);
+        RustTranslator.Result result = translate(types, nullable(java.util.Set.of("first", "getFirst()", "head", "stat", "s")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "head = head.as_ref().unwrap().get_first();");
+        contains(rust, "Some(__e) == s");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String DOM = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Dom {
+                public static class Edge {
+                    private Stat destination;
+                    public Edge(Stat destination) { this.destination = destination; }
+                    public Stat getDestination() { return destination; }
+                    public void retarget(Stat d) { destination = d; }
+                }
+                // fernflower's Statement and IfStatement: a closed hierarchy
+                public static class Stat {
+                    protected final List<Edge> succs = new ArrayList<>();
+                    public void addSuccessor(Edge e) { succs.add(e); }
+                    public void removeSuccessor(Edge e) { succs.remove(e); e.retarget(null); }
+                }
+                public static class IfStat extends Stat {
+                    private Edge ifEdge;
+                    public Edge getIfEdge() { return ifEdge; }
+                    public void setIfEdge(Edge e) { ifEdge = e; }
+                }
+                // DomHelper: the if-edge, reached through its getter, is modified by removeSuccessor
+                public static void unlink(Stat first, IfStat stat) {
+                    first.removeSuccessor(stat.getIfEdge());
+                }
+            }
+            """;
+
+    @DisplayName("an argument the callee modifies, from a hierarchy member's getter: the getter's exclusive twin")
+    @Test
+    public void hierarchyGetterTwin() throws Exception {
+        List<TypeInfo> types = parse(DOM);
+        TypeInfo dom = types.getFirst();
+        TypeInfo edge = dom.findSubType("Edge");
+        TypeInfo stat = dom.findSubType("Stat");
+        TypeInfo ifStat = dom.findSubType("IfStat");
+        modifying(edge, "retarget");
+        nonModifying(edge, "getDestination");
+        modifying(stat, "addSuccessor", "removeSuccessor");
+        modifying(ifStat, "setIfEdge");
+        nonModifying(ifStat, "getIfEdge");
+        modifying(dom, "unlink");
+        edge.constructors().getFirst().parameters().forEach(p -> kept(p, ValueImpl.IndependentImpl.DEPENDENT));
+        kept(method(stat, "addSuccessor").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        kept(method(ifStat, "setIfEdge").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        kept(method(edge, "retarget").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        exclusive(method(stat, "removeSuccessor").parameters().getFirst());
+        dependentResult(ifStat, "getIfEdge");
+        dependentResult(edge, "getDestination");
+        exclusive(method(dom, "unlink").parameters().get(0));
+        exclusive(method(dom, "unlink").parameters().get(1));
+        RustTranslator.Result result = translate(types, nullable(java.util.Set.of("ifEdge", "getIfEdge()", "destination", "d")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "get_if_edge_mut()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

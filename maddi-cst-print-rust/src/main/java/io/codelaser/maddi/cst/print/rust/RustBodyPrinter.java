@@ -1174,15 +1174,24 @@ final class RustBodyPrinter {
             return unsupported(a, "assignment inside an expression");
         }
         ParameterizedType targetType = a.target().parameterizedType();
-        if ("=".equals(operator) && RustShared.current().isShared(targetType) && !targetPrinted.nullable
+        if ("=".equals(operator) && RustShared.current().isShared(targetType)
             && (targetPrinted.held == Held.SHARED || targetPrinted.held == Held.EXCLUSIVE)
-            && a.variableTarget() instanceof ParameterInfo || "=".equals(operator)
-               && RustShared.current().isShared(targetType) && !targetPrinted.nullable
-               && a.variableTarget() instanceof LocalVariable lv && locals.get(lv) == Held.SHARED) {
-            // a borrowed handle walking a chain ('n = n.parent'): it borrows the next one, it does not keep it
+            && (a.variableTarget() instanceof ParameterInfo pi && context.passing(pi) != Passing.OWNED
+                || a.variableTarget() instanceof LocalVariable lv && locals.get(lv) == Held.SHARED)) {
+            // a borrowed handle walking a chain ('n = n.parent', 'head = head.getFirst()'): it borrows the next one,
+            // it does not keep it; a nullable one (Option<&Shared<T>>) borrows the Option's content
             boolean exclusive = targetPrinted.held == Held.EXCLUSIVE;
-            String borrowed = value.nullable ? value.text + (exclusive ? ".as_mut().unwrap()" : ".as_ref().unwrap()")
-                    : adapt(value, exclusive ? Held.EXCLUSIVE : Held.SHARED);
+            String borrowed;
+            if (a.value() instanceof NullConstant) {
+                borrowed = "None";
+            } else if (targetPrinted.nullable) {
+                borrowed = !value.nullable ? "Some(" + adapt(value, exclusive ? Held.EXCLUSIVE : Held.SHARED) + ")"
+                        : value.held == Held.SHARED || value.held == Held.EXCLUSIVE ? value.text
+                        : value.text + (exclusive ? ".as_mut()" : ".as_ref()");
+            } else {
+                borrowed = value.nullable ? value.text + (exclusive ? ".as_mut().unwrap()" : ".as_ref().unwrap()")
+                        : adapt(value, exclusive ? Held.EXCLUSIVE : Held.SHARED);
+            }
             return target + " = " + borrowed;
         }
         if ("+=".equals(operator) && RustTypes.isString(targetType)) {
@@ -1912,7 +1921,8 @@ final class RustBodyPrinter {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Expression a = arguments.get(i);
-            Printed p = expression(a);
+            // as in arguments0: an argument the callee modifies is a place written through
+            Printed p = modifiedArgument(arguments, i, callee) ? mutable(a) : expression(a);
             ParameterInfo pi = i < callee.parameters().size() ? callee.parameters().get(i) : null;
             boolean fromSelf = p.text.startsWith(context.receiver + ".") && RustTypes.isString(a.parameterizedType())
                                && !p.text.contains("(");
@@ -1966,13 +1976,7 @@ final class RustBodyPrinter {
     private String arguments0(List<Expression> arguments, MethodInfo callee) {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
-            ParameterInfo modified = callee == null || callee.parameters().isEmpty() ? null
-                    : callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
-            // an argument the callee modifies is a place written through: a getter's exclusive twin
-            boolean exclusive = modified != null && !callee.typeInfo().compilationUnit().externalLibrary()
-                                && !RustTypes.isCopy(modified.parameterizedType()) && !isClosure(arguments.get(i))
-                                && context.passing(modified) == RustFacts.Passing.EXCLUSIVE;
-            Printed p = exclusive ? mutable(arguments.get(i)) : expression(arguments.get(i));
+            Printed p = modifiedArgument(arguments, i, callee) ? mutable(arguments.get(i)) : expression(arguments.get(i));
             if (callee == null || i >= callee.parameters().size()) {
                 out.add(p.text);
                 continue;
@@ -1981,6 +1985,15 @@ final class RustBodyPrinter {
             out.add(argument(p, pi, arguments.get(i)));
         }
         return String.join(", ", out);
+    }
+
+    // an argument the callee modifies is a place written through: a getter's exclusive twin
+    private boolean modifiedArgument(List<Expression> arguments, int i, MethodInfo callee) {
+        ParameterInfo modified = callee == null || callee.parameters().isEmpty() ? null
+                : callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
+        return modified != null && !callee.typeInfo().compilationUnit().externalLibrary()
+               && !RustTypes.isCopy(modified.parameterizedType()) && !isClosure(arguments.get(i))
+               && context.passing(modified) == RustFacts.Passing.EXCLUSIVE;
     }
 
     private String argument(Printed p, ParameterInfo pi, Expression argument) {

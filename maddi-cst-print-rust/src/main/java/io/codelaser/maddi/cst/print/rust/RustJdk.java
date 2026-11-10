@@ -247,7 +247,7 @@ final class RustJdk {
                     : mutating && "entrySet".equals(name) && args.isEmpty() ? value(o + ".iter_mut()")
                     : mutating && "values".equals(name) && args.isEmpty() ? value(o + ".values_mut()")
                     : map(o, name, args, printer, mc);
-            case "HashSet", "BTreeSet" -> set(o, name, args, printer);
+            case "HashSet", "BTreeSet" -> set(o, name, args, printer, typeArgument(mc, 0));
             case "VecDeque" -> deque(o, name, args, printer);
             case "Option" -> option(o, name, args, printer, printer.printed(mc.object()).held());
             default -> null;
@@ -781,7 +781,9 @@ final class RustJdk {
             }
             case "add/2" -> value(o + ".insert(" + printer.index(args.get(0)) + ", " + printer.ownedText(args.get(1)) + ")");
             case "get/1" -> RustBodyPrinter.printed(o + "[" + printer.index(args.getFirst()) + "]", Held.PLACE, false);
-            case "set/2" -> value(o + "[" + printer.index(args.get(0)) + "] = " + printer.ownedText(args.get(1)));
+            // a list's elements are not Options: a nullable value is unwrapped, as add's is
+            case "set/2" -> value(o + "[" + printer.index(args.get(0)) + "] = "
+                                  + printer.ownedAs(args.get(1), typeArgument(mc, 0)));
             case "size/0" -> value(o + ".len() as i32");
             case "isEmpty/0" -> value(o + ".is_empty()");
             case "clear/0" -> value(o + ".clear()");
@@ -821,6 +823,12 @@ final class RustJdk {
      */
     private static String elementEquals(MethodCall mc, Expression arg, RustBodyPrinter printer) {
         ParameterizedType element = typeArgument(mc, 0);
+        if (element != null && RustShared.current().isShared(element)) {
+            // handles: their == is identity; a nullable argument is an Option of one
+            Printed p = printer.printed(arg);
+            if (p.nullable()) return "Some(__e) == " + (p.held() == Held.SHARED ? p.text() : p.text() + ".as_ref()");
+            return "__e == " + printer.reference(arg);
+        }
         if (element != null && RustBodyPrinter.equalsIsIdentity(element)) {
             return "std::ptr::eq(__e, " + printer.reference(arg) + ")";
         }
@@ -869,12 +877,14 @@ final class RustJdk {
         };
     }
 
-    private static Printed set(String o, String name, List<Expression> args, RustBodyPrinter printer) {
+    private static Printed set(String o, String name, List<Expression> args, RustBodyPrinter printer,
+                               ParameterizedType element) {
         int n = args.size();
         return switch (name + "/" + n) {
             case "forEach/1" -> value(o + ".iter().for_each(" + printer.text(args.getFirst()) + ")");
             case "addAll/1" -> value(o + ".extend(" + printer.text(args.getFirst()) + ".iter().cloned())");
-            case "add/1" -> value(o + ".insert(" + printer.ownedText(args.getFirst()) + ")");
+            // a set's elements are not Options: a nullable value is unwrapped, as a list's add does
+            case "add/1" -> value(o + ".insert(" + printer.ownedAs(args.getFirst(), element) + ")");
             case "contains/1" -> value(o + ".contains(" + printer.reference(args.getFirst()) + ")");
             case "remove/1" -> value(o + ".remove(" + printer.reference(args.getFirst()) + ")");
             case "size/0" -> value(o + ".len() as i32");
