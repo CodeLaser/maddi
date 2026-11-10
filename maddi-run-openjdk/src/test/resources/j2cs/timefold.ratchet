@@ -251,10 +251,12 @@
 # a put's result in DefaultLoadBalance compiles (CS0019). 501 -> 500 errors.
 # 2026-11-09, #188's Roslyn rejections: new int[a][b] is JavaArrays.Jagged (CS0178, ConstraintStreamsBavetNodeNetwork), a call
 # whose C# is no call is a discard _ = … (CS0201, DefaultSolverJob). 500 -> 498 errors.
+# 2026-11-10, Objects.requireNonNull(x, Supplier) calls the supplier for the message (CS1660); a functional
+# interface nested in an interface, hoisted, is a public delegate (CS0051): 498 -> 459 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1369
+compilingFiles	1378
 unmappedJdkUses	106
-errors	498
+errors	459
