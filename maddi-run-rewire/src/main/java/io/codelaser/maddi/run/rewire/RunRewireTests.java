@@ -199,6 +199,9 @@ public class RunRewireTests {
      sides' analysis output, to tell which of the runs is the odd one.
      */
     private static final boolean ORACLE_AT_START = Boolean.getBoolean("maddi.rewire.oracleAtStart");
+    // DIAGNOSTIC -Dmaddi.rewire.dumpTo=<directory>: each oracle call writes both sides' analysis output there
+    // (cold-N.txt, warm-N.txt, one element per line under its primary type), to compare runs of different JVMs
+    private static final String DUMP_TO = System.getProperty("maddi.rewire.dumpTo");
 
     private static void logHistogram(int iteration, boolean restore) {
         if (HISTOGRAM <= 0) return;
@@ -496,6 +499,8 @@ public class RunRewireTests {
         List<String> differences = new ArrayList<>();
         int coldDigest = 0;
         int warmDigest = 0;
+        StringBuilder coldDump = new StringBuilder();
+        StringBuilder warmDump = new StringBuilder();
         for (TypeInfo coldType : coldResult.primaryTypes().stream()
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList()) {
             TypeInfo warmType = lastParseResult.findType(coldType.fullyQualifiedName());
@@ -504,6 +509,12 @@ public class RunRewireTests {
                     .map(RunRewireTests::linksInOrder).toList();
             List<String> w = options.analysis().dump(javaInspector, warmType).lines().map(String::strip)
                     .map(RunRewireTests::linksInOrder).toList();
+            if (DUMP_TO != null) {
+                coldDump.append("== ").append(coldType.fullyQualifiedName()).append('\n');
+                c.forEach(l -> coldDump.append(l).append('\n'));
+                warmDump.append("== ").append(coldType.fullyQualifiedName()).append('\n');
+                w.forEach(l -> warmDump.append(l).append('\n'));
+            }
             coldDigest = 31 * coldDigest + c.hashCode();
             warmDigest = 31 * warmDigest + w.hashCode();
             if (c.equals(w)) continue;
@@ -514,6 +525,10 @@ public class RunRewireTests {
         }
         LOGGER.info("REWIRE ORACLE analysis digest: cold {}, warm {}", Integer.toHexString(coldDigest),
                 Integer.toHexString(warmDigest));
+        if (DUMP_TO != null) {
+            write(Path.of(DUMP_TO, "cold-" + oracleChecks + ".txt"), coldDump.toString());
+            write(Path.of(DUMP_TO, "warm-" + oracleChecks + ".txt"), warmDump.toString());
+        }
         return differences;
     }
 
