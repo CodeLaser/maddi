@@ -28,7 +28,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 /** The shapes of a Java program as Rust items: trait, record, enum, constants, nullable state, the collections. */
@@ -764,6 +766,42 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "e.as_ref().unwrap().get_type()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String RANGE = """
+            package a.b;
+            import java.util.List;
+            public class Ranges {
+                // fernflower's ExceptionRangeCFG: a view on the caller's list, modified through its getter
+                public static class Range {
+                    private final List<String> blocks;
+                    public Range(List<String> blocks) { this.blocks = blocks; }
+                    public List<String> getBlocks() { return blocks; }
+                }
+                public static void drop(Range r) { r.getBlocks().clear(); }
+            }
+            """;
+
+    @DisplayName("a getter of a field that borrows exclusively: its twin reborrows")
+    @Test
+    public void exclusiveBorrowGetterTwin() throws Exception {
+        List<TypeInfo> types = parse(RANGE);
+        TypeInfo ranges = types.getFirst();
+        TypeInfo range = ranges.findSubType("Range");
+        nonModifying(range, "getBlocks");
+        modifying(ranges, "drop");
+        ParameterInfo blocks = range.constructors().getFirst().parameters().getFirst();
+        // kept and modified: a dependent parameter whose object is modified, '&'a mut'
+        blocks.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE);
+        blocks.analysis().set(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.DEPENDENT);
+        dependentResult(range, "getBlocks");
+        exclusive(method(ranges, "drop").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "&mut *self.blocks");
+        contains(rust, "r.get_blocks_mut().clear();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

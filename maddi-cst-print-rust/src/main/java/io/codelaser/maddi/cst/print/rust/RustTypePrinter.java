@@ -1406,10 +1406,12 @@ final class RustTypePrinter {
     /** The exclusive twin of a getter a caller modifies through ({@link RustGetters}): the field, borrowed mutably. */
     private String mutableGetter(MethodInfo m, boolean inTrait) {
         FieldInfo f = RustGetters.field(m);
-        if (f == null || context.boxes.isBoxed(f) || context.cells.isCell(f)
-            || context.borrows.fields(f.owner()).containsKey(f)) {
-            return "";
-        }
+        if (f == null || context.boxes.isBoxed(f) || context.cells.isCell(f)) return "";
+        RustTypes.Form borrowed = context.borrows.fields(f.owner()).get(f);
+        // a field that borrows exclusively (ExceptionRangeCFG's '&'a mut Vec<…>' protected range) hands out a reborrow
+        boolean exclusiveBorrow = borrowed != null && fieldType(f).replaceFirst("^Option<", "")
+                .startsWith("&" + RustBorrows.LIFETIME + " mut ");
+        if (borrowed != null && !exclusiveBorrow) return "";
         // in an impl of a trait, the twin the trait declares (RustGetters): as the trait declares it, no visibility
         MethodInfo declared = inTrait ? m.overrides().stream().filter(RustGetters::abstractGetter)
                 .filter(context.mutableGetters::contains).findFirst().orElse(null) : null;
@@ -1421,8 +1423,9 @@ final class RustTypePrinter {
                 : "self." + RustNames.snake(f.name());
         String signature = declared != null ? mutableGetterSignature(declared)
                 : visibility(m.access().isPrivate()) + mutableGetterSignature(m, f.type(), nullable);
-        return INDENT + signature + " {\n" + INDENT + INDENT + (nullable ? field + ".as_mut()" : "&mut " + field) + "\n"
-               + INDENT + "}\n";
+        String body = exclusiveBorrow ? (nullable ? field + ".as_deref_mut()" : "&mut *" + field)
+                : nullable ? field + ".as_mut()" : "&mut " + field;
+        return INDENT + signature + " {\n" + INDENT + INDENT + body + "\n" + INDENT + "}\n";
     }
 
     /* an interface getter's twin, from its declared result */
