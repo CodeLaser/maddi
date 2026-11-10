@@ -108,6 +108,8 @@ final class RustTypes {
         TypeInfo ti = type.typeInfo();
         // an opaque stand-in has no state: a copy of it cannot be told from the shared one
         if (isOpaque(ti)) return true;
+        // a Shared handle: its clone is the shared object, as Java's reference is
+        if (RustShared.current().isShared(type)) return true;
         return ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()
                && !ti.typeNature().isEnum() && (facts.immutable(ti) || facts.immutableHc(ti));
     }
@@ -394,8 +396,9 @@ final class RustTypes {
                 String lifetime = ti == context.type
                                   || context.type != null && context.borrows.hasLifetime(context.type)
                         ? RustBorrows.LIFETIME : "'_";
-                return base + "<" + Stream.concat(Stream.of(lifetime),
+                String withLifetime = base + "<" + Stream.concat(Stream.of(lifetime),
                         type.parameters().stream().map(p -> owned(p, context, where))).collect(Collectors.joining(", ")) + ">";
+                return RustShared.current().isShared(ti) ? "crate::jrt::Shared<" + withLifetime + ">" : withLifetime;
             }
         }
         String named;
@@ -409,6 +412,8 @@ final class RustTypes {
             context.use("std::rc::Rc");
             return "Rc<" + named + ">";
         }
+        // Java's shared object: a reference with Java's semantics (RustShared)
+        if (RustShared.current().isShared(ti)) return "crate::jrt::Shared<" + named + ">";
         return named;
     }
 

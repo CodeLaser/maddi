@@ -113,9 +113,11 @@ public final class RustTranslator {
         StringBuilder lib = new StringBuilder("// The crate root: one module per Java package.\n\n");
         List<TypeInfo> all = byPackage.values().stream().flatMap(List::stream).toList();
         RustHierarchies outer = RustHierarchies.enter(RustHierarchies.of(all));
+        RustShared outerShared = RustShared.enter(RustShared.of(all, facts));
         try {
             return translate(byPackage, all, facts, out, src, lib);
         } finally {
+            RustShared.restore(outerShared);
             RustHierarchies.restore(outer);
         }
     }
@@ -373,6 +375,67 @@ public final class RustTranslator {
                 /// no trailing zero words: Java's equals compares the set bits, which derived PartialEq then does
                 fn trim(&mut self) {
                     while self.words.last() == Some(&0) { self.words.pop(); }
+                }
+            }
+
+            /// Java's reference to an object that more than one holder keeps (rust-printing.md, "Shared objects"): a
+            /// clone shares the object, `==` and hashing are identity. It dereferences to the object as Java does,
+            /// without Rust's aliasing check between handles: two handles may hand out a `&mut` to the same object,
+            /// Java's aliasing, which Rust calls undefined behaviour. The borrow checker still judges each handle.
+            pub struct Shared<T>(std::rc::Rc<std::cell::UnsafeCell<T>>);
+
+            impl<T> Shared<T> {
+                pub fn new(value: T) -> Self { Shared(std::rc::Rc::new(std::cell::UnsafeCell::new(value))) }
+                /// `this` as a reference to keep: the handle of the object `value` is, which must live in a `Shared`
+                /// (not yet inside its own constructor).
+                pub fn of(value: &T) -> Self {
+                    let ptr = value as *const T as *const std::cell::UnsafeCell<T>;
+                    unsafe {
+                        std::rc::Rc::increment_strong_count(ptr);
+                        Shared(std::rc::Rc::from_raw(ptr))
+                    }
+                }
+                /// Java's `==`: the same object.
+                pub fn is(a: &Shared<T>, b: &Shared<T>) -> bool { std::rc::Rc::ptr_eq(&a.0, &b.0) }
+                /// Java's `a.equals(b)`: the objects' own equality.
+                pub fn equals(a: &Shared<T>, b: &Shared<T>) -> bool where T: PartialEq { **a == **b }
+            }
+
+            impl<T> Clone for Shared<T> {
+                fn clone(&self) -> Self { Shared(self.0.clone()) }
+            }
+
+            impl<T> std::ops::Deref for Shared<T> {
+                type Target = T;
+                fn deref(&self) -> &T { unsafe { &*self.0.get() } }
+            }
+
+            impl<T> std::ops::DerefMut for Shared<T> {
+                fn deref_mut(&mut self) -> &mut T { unsafe { &mut *self.0.get() } }
+            }
+
+            impl<T> PartialEq for Shared<T> {
+                fn eq(&self, other: &Self) -> bool { std::rc::Rc::ptr_eq(&self.0, &other.0) }
+            }
+
+            impl<T> Eq for Shared<T> {}
+
+            impl<T> std::hash::Hash for Shared<T> {
+                fn hash<H: std::hash::Hasher>(&self, state: &mut H) { std::rc::Rc::as_ptr(&self.0).hash(state) }
+            }
+
+            impl<T> std::fmt::Debug for Shared<T> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, "Shared@{:p}", std::rc::Rc::as_ptr(&self.0))
+                }
+            }
+
+            /// Java's `==` on two shared objects either of which may be null.
+            pub fn same_shared<T>(a: Option<&Shared<T>>, b: Option<&Shared<T>>) -> bool {
+                match (a, b) {
+                    (Some(x), Some(y)) => Shared::is(x, y),
+                    (None, None) => true,
+                    _ => false,
                 }
             }
 

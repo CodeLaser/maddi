@@ -79,7 +79,7 @@ final class RustBoxes {
         if (f.isStatic() || f.type().arrays() > 0 || borrows.fields(f.owner()).containsKey(f)) return null;
         TypeInfo ti = f.type().typeInfo();
         if (ti == null || ti.compilationUnit().externalLibrary() || ti.isInterface() || ti.typeNature().isEnum()
-            || RustTypes.isShared(ti, facts)) {
+            || RustTypes.isShared(ti, facts) || RustShared.current().isShared(ti)) {
             return null;
         }
         return ti;

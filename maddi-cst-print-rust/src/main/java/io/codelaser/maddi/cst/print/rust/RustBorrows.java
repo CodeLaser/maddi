@@ -158,14 +158,14 @@ final class RustBorrows {
         return out;
     }
 
-    private static boolean dependent(ParameterInfo pi) {
+    static boolean dependent(ParameterInfo pi) {
         Value.Independent independent = pi.analysis().getOrNull(PropertyImpl.INDEPENDENT_PARAMETER,
                 ValueImpl.IndependentImpl.class);
         return independent != null && independent.isDependent();
     }
 
     /** The parameter the constructor assigns to {@code f}, as a top-level {@code this.f = p}; else {@code null}. */
-    private static ParameterInfo assigned(MethodInfo constructor, FieldInfo f) {
+    static ParameterInfo assigned(MethodInfo constructor, FieldInfo f) {
         if (constructor.methodBody() == null) return null;
         ParameterInfo found = null;
         for (Statement s : constructor.methodBody().statements()) {

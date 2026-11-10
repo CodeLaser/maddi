@@ -411,12 +411,14 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
             """;
 
     /**
-     * A struct holding itself by value has no size (E0072): the field is a {@code Box}, here {@code Option<Box<Node>>},
-     * read as {@code as_deref()} and written boxed. Java's {@code ==} on objects is identity: {@code std::ptr::eq}. A
+     * A struct holding itself: kept by {@code setParent} and held in a field, a node is a shared object (RustShared),
+     * {@code Option<Shared<Node>>}, which also has a size; a struct holding itself by value otherwise is boxed (E0072,
+     * RustBoxes). Java's {@code ==} on objects is identity: {@code this == other} compares self with the object behind
+     * the handle. A
      * nullable value assigned where the verdicts hold the target non-null is unwrapped, Java's NPE as a panic. A map
      * entry is the {@code (key, value)} tuple a map's iteration yields; a {@code SimpleEntry} is constructed as one.
      */
-    @DisplayName("a recursive field is boxed, == on objects is identity, an entry is a tuple: compiles")
+    @DisplayName("a node keeping its parent is shared, == on objects is identity, an entry is a tuple: compiles")
     @Test
     public void recursiveIdentityEntries() throws Exception {
         List<TypeInfo> types = parse(NODES);
@@ -428,11 +430,10 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         borrowed(method(node, "depth").parameters().getFirst());
         translate(types, nullable(Set.of("parent")));
         String rust = module("a.b");
-        contains(rust, "parent: Option<Box<Node>>,");
+        contains(rust, "parent: Option<crate::jrt::Shared<Node>>,");
         contains(rust, "counts: Vec<(String, i32)>,");
-        contains(rust, "self.parent = parent.map(Box::new);");
-        contains(rust, "return std::ptr::eq(self, other);");
-        contains(rust, "n = n.parent.as_deref().unwrap();");
+        contains(rust, "self.parent = parent;");
+        contains(rust, "return std::ptr::eq(self, &**other);");
         contains(rust, "self.counts.push((key, value));");
         contains(rust, "t += e.1.clone();");
         assertEquals(List.of(), rustcErrors(), rust);
