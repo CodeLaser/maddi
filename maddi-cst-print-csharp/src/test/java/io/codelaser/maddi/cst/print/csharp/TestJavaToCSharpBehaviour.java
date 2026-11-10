@@ -949,4 +949,30 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 """);
         contains(cs, "JavaLinkedHashSet<string> set = new JavaLinkedHashSet<string>();");
     }
+
+    /** {@code Objects.requireNonNull(x, () -> message)}: the supplier is called for the message, only when x is null. */
+    @Test
+    public void requireNonNullWithSupplier() {
+        String cs = behaves("RequireSupplied", """
+                package a;
+                import java.util.Objects;
+                class RequireSupplied {
+                    static int calls;
+                    static String message(String what) {
+                        calls++;
+                        return "no " + what;
+                    }
+                    public static void main(String[] args) {
+                        String given = args.length == 0 ? "here" : null;
+                        String present = Objects.requireNonNull(given, () -> message("x"));
+                        System.out.println(present + " " + calls);
+                        Objects.requireNonNull(present, () -> message("y"));
+                        System.out.println(calls);
+                        String absent = args.length == 0 ? null : "there";
+                        Objects.requireNonNull(absent, () -> message("z"));
+                    }
+                }
+                """);
+        contains(cs, "?? throw new NullReferenceException(Message(\"z\"))");
+    }
 }

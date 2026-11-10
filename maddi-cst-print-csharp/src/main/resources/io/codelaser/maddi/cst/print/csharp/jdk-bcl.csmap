@@ -530,6 +530,9 @@ member java.util.Objects.requireNonNull/1 -> $1 ?? throw new NullReferenceExcept
 statement java.util.Objects.requireNonNull/1 -> _ = $1 ?? throw new NullReferenceException()
 member java.util.Objects.requireNonNull/2 -> $1 ?? throw new NullReferenceException($2) using System
 statement java.util.Objects.requireNonNull/2 -> _ = $1 ?? throw new NullReferenceException($2)
+# the message of a Supplier: called only when the value is null
+member java.util.Objects.requireNonNull(Object,Supplier) -> $1 ?? throw new NullReferenceException($2()) using System
+statement java.util.Objects.requireNonNull(Object,Supplier) -> _ = $1 ?? throw new NullReferenceException($2())
 member java.util.Objects.requireNonNullElse/2 -> $1 ?? $2
 member java.util.Objects.requireNonNullElseGet/2 -> $1 ?? $2()
 member java.util.Objects.toString/1 -> JavaString.ValueOf($1) using Maddi.JavaCompat
