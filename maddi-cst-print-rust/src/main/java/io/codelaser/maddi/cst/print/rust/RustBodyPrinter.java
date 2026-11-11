@@ -137,18 +137,14 @@ final class RustBodyPrinter {
             case ReturnStatement rs -> pad + returnStatement(rs) + ";\n";
             case IfElseStatement ife -> pad + ifElse(ife, depth) + "\n";
             case WhileStatement ws -> pad + label + "while " + condition(ws.expression()) + " {\n"
-                                      + statements(ws.block(), depth + 1) + pad + "}\n";
-            case DoStatement ds -> pad + label + "loop {\n" + statements(ds.block(), depth + 1)
-                                   + pad + INDENT + "if !(" + condition(ds.expression()) + ") {\n"
-                                   + pad + INDENT + INDENT + "break;\n" + pad + INDENT + "}\n" + pad + "}\n";
+                                      + loopBody(statement, ws.block(), depth + 1) + pad + "}\n";
+            case DoStatement ds -> doStatement(ds, label, depth);
             case ForEachStatement fe -> forEach(fe, label, depth);
             case ForStatement fs -> forStatement(fs, label, depth);
             case Block b -> pad + label + "{\n" + statements(b, depth + 1) + pad + "}\n";
             case ThrowStatement ts -> pad + throwStatement(ts) + ";\n";
-            case BreakStatement bs -> pad + "break" + (bs.goToLabel() == null ? ""
-                    : " '" + RustNames.snake(bs.goToLabel())) + ";\n";
-            case ContinueStatement cs -> pad + "continue" + (cs.goToLabel() == null ? ""
-                    : " '" + RustNames.snake(cs.goToLabel())) + ";\n";
+            case BreakStatement bs -> pad + breakStatement(bs) + ";\n";
+            case ContinueStatement cs -> pad + continueStatement(cs) + ";\n";
             case YieldStatement ys when !yieldTargets.isEmpty() -> pad + "break " + yieldTargets.peek().label() + " "
                     + yieldTargets.peek().value().apply(ys.expression()) + ";\n";
             case EmptyStatement ignored -> "";
@@ -672,7 +668,7 @@ final class RustBodyPrinter {
             String c = collection.nullable ? receiver(fe.expression(), false) : collection.text;
             locals.put(lv, Held.VALUE);
             return pad + label + "for mut " + name + " in " + c + ".iter().cloned().collect::<Vec<_>>() {\n"
-                   + statements(fe.block(), depth + 1) + pad + "}\n";
+                   + loopBody(fe, fe.block(), depth + 1) + pad + "}\n";
         }
         if (RustJdk.isIterator(collection.text)) {
             iterator = collection.text;
@@ -684,8 +680,76 @@ final class RustBodyPrinter {
         boolean copy = RustTypes.isCopy(lv.parameterizedType());
         locals.put(lv, copy ? Held.VALUE : mutated ? Held.EXCLUSIVE : Held.SHARED);
         String pattern = copy && !mutated ? "&" + name : name;
-        return pad + label + "for " + pattern + " in " + iterator + " {\n" + statements(fe.block(), depth + 1)
+        return pad + label + "for " + pattern + " in " + iterator + " {\n" + loopBody(fe, fe.block(), depth + 1)
                + pad + "}\n";
+    }
+
+    /**
+     * A loop being printed: its Java label ({@code null} without one), and, when its body is a labelled block
+     * ({@link #labelledBody}), the loop's Rust label and the block's. A {@code continue} of such a loop breaks out
+     * of the block, so that what follows the body (a for loop's updaters, a do loop's condition) runs; an unlabelled
+     * {@code break} names the loop, as Rust refuses one inside a labelled block (E0695).
+     */
+    private record Loop(String javaLabel, String loopLabel, String bodyLabel) {
+    }
+
+    private final Deque<Loop> loops = new ArrayDeque<>();
+    private int loopCount;
+
+    private static String javaLabel(Statement loop) {
+        return loop.label() == null ? null : RustNames.snake(loop.label());
+    }
+
+    /** The statements of a loop's body, the loop the target of the {@code break}s and {@code continue}s in it. */
+    private String loopBody(Statement loop, Block block, int depth) {
+        loops.push(new Loop(javaLabel(loop), null, null));
+        try {
+            return statements(block, depth);
+        } finally {
+            loops.pop();
+        }
+    }
+
+    /** A loop's body as the labelled block {@code 'cN: { .. }}, the loop labelled {@code loopLabel}. */
+    private String labelledBody(Statement loop, Block block, String loopLabel, int depth) {
+        String bodyLabel = "'c" + (loopCount++);
+        String pad = INDENT.repeat(depth);
+        loops.push(new Loop(javaLabel(loop), loopLabel, bodyLabel));
+        try {
+            return pad + bodyLabel + ": {\n" + statements(block, depth + 1) + pad + "}\n";
+        } finally {
+            loops.pop();
+        }
+    }
+
+    private Loop loopOf(String goToLabel) {
+        if (goToLabel == null) return loops.peek();
+        String name = RustNames.snake(goToLabel);
+        return loops.stream().filter(l -> name.equals(l.javaLabel())).findFirst().orElse(null);
+    }
+
+    private String continueStatement(ContinueStatement cs) {
+        Loop loop = loopOf(cs.goToLabel());
+        if (loop != null && loop.bodyLabel() != null) return "break " + loop.bodyLabel();
+        return "continue" + (cs.goToLabel() == null ? "" : " '" + RustNames.snake(cs.goToLabel()));
+    }
+
+    private String breakStatement(BreakStatement bs) {
+        if (bs.goToLabel() == null) {
+            Loop loop = loops.peek();
+            return loop != null && loop.loopLabel() != null ? "break " + loop.loopLabel() : "break";
+        }
+        return "break '" + RustNames.snake(bs.goToLabel());
+    }
+
+    /** {@code do { .. } while (c)}: a loop whose condition ends the body; a continue goes on with the condition. */
+    private String doStatement(DoStatement ds, String label, int depth) {
+        String pad = INDENT.repeat(depth);
+        String end = pad + INDENT + "if !(" + condition(ds.expression()) + ") {\n" + pad + INDENT + INDENT + "break;\n"
+                     + pad + INDENT + "}\n" + pad + "}\n";
+        if (!containsContinue(ds.block())) return pad + label + "loop {\n" + loopBody(ds, ds.block(), depth + 1) + end;
+        String loopLabel = label.isEmpty() ? "'l" + (loopCount++) : label.substring(0, label.length() - 2);
+        return pad + loopLabel + ": loop {\n" + labelledBody(ds, ds.block(), loopLabel, depth + 1) + end;
     }
 
     /** {@code for (int i = a; i < b; i++)} as {@code for i in a..b}; anything else as a {@code while}. */
@@ -693,16 +757,23 @@ final class RustBodyPrinter {
         String pad = INDENT.repeat(depth);
         String range = range(fs);
         if (range != null) {
-            return pad + label + "for " + range + " {\n" + statements(fs.block(), depth + 1) + pad + "}\n";
+            return pad + label + "for " + range + " {\n" + loopBody(fs, fs.block(), depth + 1) + pad + "}\n";
         }
         StringBuilder sb = new StringBuilder(pad + "{\n");
         for (Element init : fs.initializers()) {
             if (init instanceof LocalVariableCreation lvc) sb.append(localVariables(lvc, pad + INDENT));
             else if (init instanceof Expression e) sb.append(pad).append(INDENT).append(expressionStatement(e)).append(";\n");
         }
-        if (containsContinue(fs.block())) context.message(RustPrintCode.UNSUPPORTED, fs, "continue in a for loop");
-        sb.append(pad).append(INDENT).append(label).append("while ").append(condition(fs.expression())).append(" {\n");
-        sb.append(statements(fs.block(), depth + 2));
+        String condition = condition(fs.expression());
+        if (!fs.updaters().isEmpty() && containsContinue(fs.block())) {
+            // a continue goes on with the updaters: the body is a labelled block, a continue a break out of it
+            String loopLabel = label.isEmpty() ? "'l" + (loopCount++) : label.substring(0, label.length() - 2);
+            sb.append(pad).append(INDENT).append(loopLabel).append(": while ").append(condition).append(" {\n");
+            sb.append(labelledBody(fs, fs.block(), loopLabel, depth + 2));
+        } else {
+            sb.append(pad).append(INDENT).append(label).append("while ").append(condition).append(" {\n");
+            sb.append(loopBody(fs, fs.block(), depth + 2));
+        }
         for (Expression update : fs.updaters()) {
             sb.append(pad).append(INDENT).append(INDENT).append(expressionStatement(update)).append(";\n");
         }

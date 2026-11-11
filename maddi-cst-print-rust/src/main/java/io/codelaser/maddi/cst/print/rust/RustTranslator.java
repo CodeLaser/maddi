@@ -175,6 +175,25 @@ public final class RustTranslator {
             /// The state of an eventually immutable object after its `@Mark`.
             pub struct After;
 
+            /// `String.format` with a format known only at run time: `%s` and `%d` take the (displayed) arguments in
+            /// order, `%n` is a line break, `%%` a percent sign; any other conversion is copied as it is.
+            pub fn java_format(format: &str, args: &[String]) -> String {
+                let mut out = String::new();
+                let mut next = args.iter();
+                let mut chars = format.chars();
+                while let Some(c) = chars.next() {
+                    if c != '%' { out.push(c); continue; }
+                    match chars.next() {
+                        Some('s') | Some('d') => out.push_str(next.next().map(|s| s.as_str()).unwrap_or("")),
+                        Some('n') => out.push('\\n'),
+                        Some('%') => out.push('%'),
+                        Some(other) => { out.push('%'); out.push(other); }
+                        None => out.push('%'),
+                    }
+                }
+                out
+            }
+
             /// `String.valueOf(Object)` of a `Box<dyn Any>`: the values the translation boxes, else the type's name.
             pub fn to_string(v: &Box<dyn Any>) -> String {
                 let v: &dyn Any = &**v;

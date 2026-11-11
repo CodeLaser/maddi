@@ -70,8 +70,11 @@ public abstract class CommonJavaToRust {
                 .setUri(URI.create("file:/")).build();
         SourceSet annotation = SourceSetImpl.sourceSetOf(Immutable.class);
         SourceSet support = SourceSetImpl.sourceSetOf(SetOnce.class, annotation);
+        // JUnit, for the translation of test classes
+        SourceSet opentest4j = SourceSetImpl.sourceSetOf(org.opentest4j.AssertionFailedError.class);
+        SourceSet junit = SourceSetImpl.sourceSetOf(org.junit.jupiter.api.Assertions.class, opentest4j);
         javaInspector.initialize(new InputConfigurationImpl.Builder().addSourceSets(sourceSet)
-                .addClassPath("jmod:java.base").addClassPathParts(annotation, support).build());
+                .addClassPath("jmod:java.base").addClassPathParts(annotation, support, opentest4j, junit).build());
         javaInspector.onlyPreload();
     }
 
@@ -144,6 +147,32 @@ public abstract class CommonJavaToRust {
             if (at >= 0) errors.add(line);
         }
         return errors;
+    }
+
+    /**
+     * The crate of the last {@link #translate} built as a test harness and run: the harness's output, ending in its
+     * {@code test result:} line; skips the test when rustc is not installed.
+     */
+    protected String rustTests() throws IOException, InterruptedException {
+        Path crate = Path.of("build/rust-samples", test).toAbsolutePath();
+        Path binary = crate.resolve("tests");
+        ProcessBuilder pb = new ProcessBuilder("rustc", "--edition", RustTranslator.EDITION, "--test", "-A", "warnings",
+                "--error-format", "short", "-o", binary.toString(), crate.resolve("src/lib.rs").toString())
+                .redirectErrorStream(true);
+        Process process;
+        try {
+            process = pb.start();
+        } catch (IOException e) {
+            assumeTrue(false, "rustc is not installed");
+            return "";
+        }
+        String output = new String(process.getInputStream().readAllBytes());
+        assertTrue(process.waitFor(2, TimeUnit.MINUTES), "rustc did not finish");
+        if (process.exitValue() != 0) return output;
+        Process run = new ProcessBuilder(binary.toString(), "--test-threads=1").redirectErrorStream(true).start();
+        String result = new String(run.getInputStream().readAllBytes());
+        assertTrue(run.waitFor(2, TimeUnit.MINUTES), "the tests did not finish");
+        return result;
     }
 
     // ---- the verdicts, as the analysis stores them

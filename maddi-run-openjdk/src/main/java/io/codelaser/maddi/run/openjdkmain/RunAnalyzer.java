@@ -449,7 +449,8 @@ public class RunAnalyzer implements Runnable {
     }
 
     /**
-     * The main sources, translated into {@code --translate-output}, with the nullability pass's facts when the
+     * The main sources (for Rust also the test sources, as {@code #[test]}s), translated into
+     * {@code --translate-output}, with the nullability pass's facts when the
      * modification analysis ran ({@code order} not null). A printer crash on one compilation unit is reported, and
      * the others are written. {@code translation-report.txt} beside the sources lists the crashes and the printer's
      * messages.
@@ -467,7 +468,8 @@ public class RunAnalyzer implements Runnable {
         // Rust, like Kotlin, has no platform type: what the analysis does not call nullable is not an Option
         NullabilityFacts facts = order == null ? null
                 : engine().nullabilityFacts(order, kotlin || rust ? NullabilityTarget.KOTLIN : NullabilityTarget.CSHARP);
-        LOGGER.info("Translating {} types to {} in {}, {}", main.size(), translate, out,
+        LOGGER.info("Translating {} types to {} in {}, {}", Main.TRANSLATE_RUST.equals(translate) ? all.size()
+                : main.size(), translate, out,
                 facts == null ? "without nullability facts" : "with the nullability pass's facts");
         List<String> crashes;
         List<String> messages;
@@ -490,7 +492,8 @@ public class RunAnalyzer implements Runnable {
             // where a result comes from (a new object, a borrow of what) from the links of this run
             LinkFacts links = order == null ? LinkFacts.NONE : engine().linkFacts(order);
             RustFacts rustFacts = RustFacts.of(facts == null ? NullabilityFacts.STORED : facts, RustFacts.STORED, links);
-            RustTranslator.Result result = RustTranslator.translate(main, rustFacts, out);
+            // the test sources too: Rust cannot run the Java tests against the crate, its own #[test]s can
+            RustTranslator.Result result = RustTranslator.translate(all, rustFacts, out);
             crashes = result.crashes();
             messages = result.messages().stream().map(Object::toString).toList();
             files = result.files().size();
