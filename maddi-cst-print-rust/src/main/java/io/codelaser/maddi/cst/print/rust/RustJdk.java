@@ -299,6 +299,7 @@ final class RustJdk {
     private static Printed staticCall(String fqn, String name, List<Expression> args, RustBodyPrinter printer,
                                       MethodCall mc) {
         int n = args.size();
+        if (JUNIT_ASSERTIONS.contains(fqn)) return junit(name, args, printer, "org.junit.Assert".equals(fqn));
         return switch (fqn + "." + name + "/" + n) {
             case "java.lang.Math.max/2" -> value(operand(printer, args.get(0)) + ".max(" + printer.text(args.get(1)) + ")");
             case "java.lang.Math.min/2" -> value(operand(printer, args.get(0)) + ".min(" + printer.text(args.get(1)) + ")");
@@ -953,6 +954,56 @@ final class RustJdk {
      * {@code Objects.equals(a, b)}: both sides as {@code Option<&T>} when either may be null; shared objects compared
      * with their own equality ({@code Shared::equals}) unless their class's equals is identity.
      */
+    /** JUnit 5's {@code Assertions} and JUnit 4's {@code Assert}: a translated test asserts with Rust's macros. */
+    static final Set<String> JUNIT_ASSERTIONS = Set.of("org.junit.jupiter.api.Assertions", "org.junit.Assert");
+
+    /**
+     * An assertion as {@code assert!}: a failed one panics, which fails the {@code #[test]} it runs in. JUnit 5 puts
+     * the message last, JUnit 4 ({@code messageFirst}) first; equality is {@code Objects.equals}'. {@code null} for
+     * an assertion without a counterpart (assertThrows, assertArrayEquals with a delta, ...).
+     */
+    private static Printed junit(String name, List<Expression> args, RustBodyPrinter printer, boolean messageFirst) {
+        int operands = switch (name) {
+            case "assertTrue", "assertFalse", "assertNull", "assertNotNull" -> 1;
+            case "assertEquals", "assertNotEquals", "assertSame", "assertNotSame" -> 2;
+            case "fail" -> 0;
+            default -> -1;
+        };
+        if (operands < 0 || args.size() < operands || args.size() > operands + 1) return null;
+        List<Expression> ops = messageFirst && args.size() > operands ? args.subList(1, args.size()) : args.subList(0, operands);
+        Expression message = args.size() == operands ? null : messageFirst ? args.getFirst() : args.getLast();
+        // a message is a String, or (JUnit 5) a Supplier<String>: only the first is printed
+        String tail = message == null || !RustTypes.isString(message.parameterizedType()) ? ""
+                : ", \"{}\", " + printer.text(message);
+        if (operands == 0) {
+            return value("panic!(" + (tail.isEmpty() ? "\"fail\"" : tail.substring(2)) + ")");
+        }
+        String condition = switch (name) {
+            case "assertTrue" -> printer.text(ops.getFirst());
+            case "assertFalse" -> "!(" + printer.text(ops.getFirst()) + ")";
+            case "assertNull", "assertNotNull" -> {
+                Printed x = printer.printed(ops.getFirst());
+                boolean isNull = "assertNull".equals(name);
+                // what the analysis calls never null: assertNotNull holds, assertNull fails
+                yield x.nullable() ? x.text() + (isNull ? ".is_none()" : ".is_some()") : isNull ? "false" : "true";
+            }
+            case "assertEquals", "assertNotEquals" -> {
+                // assertEquals(double, double) without a delta compares as Double.equals does
+                Printed eq = objectsEquals(ops, printer);
+                yield "assertEquals".equals(name) ? eq.text() : "!(" + eq.text() + ")";
+            }
+            default -> {
+                // assertSame: Java's ==, the same object
+                Printed a = printer.printed(ops.get(0));
+                Printed b = printer.printed(ops.get(1));
+                String same = "crate::jrt::same(" + (a.nullable() ? a.text() + ".as_ref()" : "Some(&" + a.text() + ")")
+                              + ", " + (b.nullable() ? b.text() + ".as_ref()" : "Some(&" + b.text() + ")") + ")";
+                yield "assertSame".equals(name) ? same : "!" + same;
+            }
+        };
+        return value("assert!(" + condition + tail + ")");
+    }
+
     private static Printed objectsEquals(List<Expression> args, RustBodyPrinter printer) {
         ParameterizedType type = args.get(0).parameterizedType();
         Printed a = printer.printed(args.get(0));

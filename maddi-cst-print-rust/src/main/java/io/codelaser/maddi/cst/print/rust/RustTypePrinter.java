@@ -99,9 +99,73 @@ final class RustTypePrinter {
         }
         sb.append(statics);
         statics.setLength(0);
+        sb.append(testRunners(typeInfo));
         for (TypeInfo sub : typeInfo.subTypes()) {
             if (sub.isSynthetic()) continue;
             sb.append("\n").append(print(sub));
+        }
+        return sb.toString();
+    }
+
+    static final Set<String> JUNIT_TESTS = Set.of("org.junit.jupiter.api.Test", "org.junit.Test");
+    static final Set<String> JUNIT_BEFORE = Set.of("org.junit.jupiter.api.BeforeEach", "org.junit.Before");
+    static final Set<String> JUNIT_AFTER = Set.of("org.junit.jupiter.api.AfterEach", "org.junit.After");
+
+    static boolean annotated(MethodInfo m, Set<String> annotations) {
+        return m.annotations().stream().anyMatch(a -> a.typeInfo() != null
+                                                     && annotations.contains(a.typeInfo().fullyQualifiedName()));
+    }
+
+    /**
+     * A JUnit test class's tests as Rust's: per {@code @Test} method of a concrete class (its own and inherited), a
+     * {@code #[test]} function that builds the object as JUnit does (the constructor without parameters), runs the
+     * {@code @BeforeEach} methods (the superclass's first), the test, and the {@code @AfterEach} methods (the
+     * subclass's first). A test that throws fails; Rust's panics. {@code @BeforeAll}, parameterized tests and
+     * extensions are not translated (UNSUPPORTED).
+     */
+    private String testRunners(TypeInfo typeInfo) {
+        if (typeInfo.isAbstract() || typeInfo.isInterface() || typeInfo.typeNature().isEnum()) return "";
+        List<TypeInfo> chain = new ArrayList<>(); // the class and its superclasses, the class first
+        for (TypeInfo t = typeInfo; t != null && !t.isJavaLangObject() && !t.compilationUnit().externalLibrary();
+             t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
+            chain.add(t);
+        }
+        List<MethodInfo> tests = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (TypeInfo t : chain) {
+            for (MethodInfo m : t.methods()) {
+                // an override of a test is the test, once
+                if (!m.isStatic() && annotated(m, JUNIT_TESTS) && m.parameters().isEmpty() && seen.add(m.name())) tests.add(m);
+            }
+        }
+        if (tests.isEmpty()) return "";
+        List<MethodInfo> before = new ArrayList<>();
+        List<MethodInfo> after = new ArrayList<>();
+        for (TypeInfo t : chain.reversed()) {
+            t.methods().stream().filter(m -> !m.isStatic() && annotated(m, JUNIT_BEFORE)).forEach(before::add);
+        }
+        for (TypeInfo t : chain) {
+            t.methods().stream().filter(m -> !m.isStatic() && annotated(m, JUNIT_AFTER)).forEach(after::add);
+        }
+        MethodInfo constructor = typeInfo.constructors().stream().filter(c -> c.parameters().isEmpty()).findFirst()
+                .orElse(null);
+        if (constructor == null && !typeInfo.constructors().isEmpty()) {
+            context.message(RustPrintCode.UNSUPPORTED, typeInfo, "a test class without a constructor without parameters");
+            return "";
+        }
+        String create = RustNames.type(typeInfo) + "::" + (constructor == null ? "new" : RustNames.method(constructor)) + "()";
+        boolean shared = RustShared.current().isShared(typeInfo);
+        if (shared) create = "crate::jrt::Shared::new(" + create + ")";
+        String prefix = RustNames.snake(typeInfo.simpleName());
+        StringBuilder sb = new StringBuilder();
+        for (MethodInfo test : tests) {
+            sb.append("\n/// The JUnit test `").append(typeInfo.fullyQualifiedName()).append('.').append(test.name())
+                    .append("`.\n#[test]\nfn ").append(prefix).append("__").append(RustNames.snake(test.name()))
+                    .append("() {\n").append(INDENT).append("let mut t = ").append(create).append(";\n");
+            for (MethodInfo m : before) sb.append(INDENT).append("t.").append(RustNames.method(m)).append("();\n");
+            sb.append(INDENT).append("t.").append(RustNames.method(test)).append("();\n");
+            for (MethodInfo m : after) sb.append(INDENT).append("t.").append(RustNames.method(m)).append("();\n");
+            sb.append("}\n");
         }
         return sb.toString();
     }
