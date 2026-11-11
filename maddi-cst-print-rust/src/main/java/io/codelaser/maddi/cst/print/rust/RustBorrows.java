@@ -93,6 +93,13 @@ final class RustBorrows {
             for (FieldInfo f : member.fields()) {
                 if (!f.isStatic() && !f.isSynthetic() && mentions(f.type(), seen)) return true;
             }
+            // a superclass outside the member's hierarchy is its 'base' field (inheritance as composition): its
+            // lifetime is the struct's
+            TypeInfo parent = member.parentClass() == null ? null : member.parentClass().typeInfo();
+            if (parent != null && !parent.isJavaLangObject() && !parent.compilationUnit().externalLibrary()
+                && (h == null || RustHierarchies.current().root(parent) != h.root()) && reaches(parent, seen)) {
+                return true;
+            }
         }
         return false;
     }

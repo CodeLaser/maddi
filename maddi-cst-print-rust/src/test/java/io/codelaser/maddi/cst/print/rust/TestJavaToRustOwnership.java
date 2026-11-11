@@ -149,6 +149,43 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
      * lifetime, so Rust refuses exactly that: the caller's modification while the holder lives is rustc's E0502. The
      * verdicts are right; Java's program needs another representation in Rust ({@code Rc<RefCell<…>>}).
      */
+    private static final String SUB_HOLDER = """
+            package a.b;
+            import java.util.List;
+            class Holder<T> {
+                private final List<T> list;
+                Holder(List<T> list) { this.list = list; }
+                int size() { return list.size(); }
+            }
+            class Counted extends Holder<String> {
+                private int count;
+                Counted(List<String> list) { super(list); }
+            }
+            """;
+
+    /**
+     * A subclass outside any hierarchy (a generic superclass is no closed hierarchy's root) is its superclass as a
+     * {@code base} field: when the superclass borrows, so does
+     * the subclass, and it declares the lifetime its base field needs (E0106 otherwise, which removed fernflower's
+     * test fixture and with it every test built on it).
+     */
+    @DisplayName("a subclass whose base borrows declares the lifetime")
+    @Test
+    public void baseWithLifetime() throws Exception {
+        List<TypeInfo> types = parse(SUB_HOLDER);
+        TypeInfo holder = types.stream().filter(t -> t.simpleName().equals("Holder")).findFirst().orElseThrow();
+        nonModifying(holder, "size");
+        unmodifiedField(holder, "list");
+        kept(holder.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "struct Holder<'a, T> {");
+        contains(rust, "struct Counted<'a> {\n    pub base: Holder<'a, String>,");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().noneMatch(e -> e.contains("E0106") || e.contains("E0261")),
+                () -> String.join("\n", errors) + "\n" + rust);
+    }
+
     @DisplayName("a dependent field is a borrow; the caller's modification while it lives is rustc's E0502")
     @Test
     public void dependentFieldIsBorrowed() throws Exception {
