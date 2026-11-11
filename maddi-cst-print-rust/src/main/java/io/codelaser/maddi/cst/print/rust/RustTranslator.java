@@ -439,6 +439,15 @@ public final class RustTranslator {
                 }
             }
 
+            /// Java's `Objects.equals` of two shared objects either of which may be null: their own equality.
+            pub fn equals_shared<T: PartialEq>(a: Option<&Shared<T>>, b: Option<&Shared<T>>) -> bool {
+                match (a, b) {
+                    (Some(x), Some(y)) => Shared::equals(x, y),
+                    (None, None) => true,
+                    _ => false,
+                }
+            }
+
             /// A byte[] as the translation holds it: owned, borrowed, nullable.
             pub trait Bytes {
                 fn into_bytes(self) -> Vec<i8>;

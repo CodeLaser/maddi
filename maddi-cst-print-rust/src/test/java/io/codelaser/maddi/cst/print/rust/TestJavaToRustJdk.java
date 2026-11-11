@@ -318,6 +318,13 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                 public static void drop(List<Integer> list, Set<Integer> gone) {
                     list.removeAll(gone);
                 }
+                // ControlFlowGraph's 'HashSet<BasicBlock> setBoth = new HashSet<>(common); setBoth.retainAll(range)':
+                // HashSet inherits retainAll from AbstractCollection
+                public static int both(Set<Integer> common, List<Integer> range) {
+                    HashSet<Integer> setBoth = new HashSet<>(common);
+                    setBoth.retainAll(range);
+                    return setBoth.size();
+                }
             }
             """;
 
@@ -327,7 +334,8 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         List<TypeInfo> types = parse(BULK);
         TypeInfo bulk = types.getFirst();
         modifying(bulk, "intersect", "subtract", "drop");
-        nonModifying(bulk, "covers");
+        nonModifying(bulk, "covers", "both");
+        method(bulk, "both").parameters().forEach(CommonJavaToRust::borrowed);
         exclusive(method(bulk, "intersect").parameters().get(0));
         borrowed(method(bulk, "intersect").parameters().get(1));
         exclusive(method(bulk, "subtract").parameters().get(0));
@@ -341,6 +349,7 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, ".retain(|__e| __c.contains(__e));");
         contains(rust, ".retain(|__e| !__c.contains(__e));");
         contains(rust, ".iter().all(|__e| ");
+        contains(rust, "set_both.retain(|__e| __c.contains(__e));");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
@@ -386,20 +395,217 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                 private final Map<EdgeType, Integer> counts = new EnumMap<>(EdgeType.class);
                 public void count(EdgeType t) { counts.put(t, counts.getOrDefault(t, 0) + 1); }
                 public Integer get(EdgeType t) { return counts.get(t); }
+                // ExprProcessor: 'EdgeType.BREAK.equals(edge.getType())'
+                public static boolean isBreak(EdgeType t) { return EdgeType.BREAK.equals(t); }
             }
             """;
 
-    @DisplayName("an EnumMap: a HashMap keyed by the enum")
+    @DisplayName("an EnumMap: a HashMap keyed by the enum; an enum's equals, ==")
     @Test
     public void enumMap() throws Exception {
         List<TypeInfo> types = parse(ENUM_MAP);
         TypeInfo edges = types.getFirst();
         modifying(edges, "count");
-        nonModifying(edges, "get");
+        nonModifying(edges, "get", "isBreak");
         RustTranslator.Result result = translate(types, nullable(Set.of("get()")));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "counts: HashMap::new(),");
+        contains(rust, "EdgesEdgeType::Break == ");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String OBJECT_ARGUMENT = """
+            package a.b;
+            public class Consts {
+                private String name;
+                // fernflower's new ConstExprent(VarType.VARTYPE_INT, 1, bytecode): an Object the callee only reads
+                public static boolean present(Object value) { return value != null; }
+                public boolean all() { return present(1) && present("s") && present(name); }
+                public void setName(String n) { name = n; }
+            }
+            """;
+
+    @DisplayName("a value passed where a borrowed Object is expected: a box of its own, borrowed")
+    @Test
+    public void objectArgument() throws Exception {
+        List<TypeInfo> types = parse(OBJECT_ARGUMENT);
+        TypeInfo consts = types.getFirst();
+        nonModifying(consts, "present", "all");
+        modifying(consts, "setName");
+        borrowed(method(consts, "present").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("value", "name", "n")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "Self::present(Some(&(Box::new(1) as Box<dyn Any>)))");
+        contains(rust, ".map(|v| Box::new(v) as Box<dyn Any>).as_ref()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String NULLABLE_ELEMENT = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.HashSet;
+            import java.util.List;
+            import java.util.Set;
+            public class Visited {
+                private final Set<String> seen = new HashSet<>();
+                private final List<String> order = new ArrayList<>();
+                private String current;
+                // fernflower's '!setVisited.contains(succ)', succ nullable
+                public boolean known() { return seen.contains(current) || order.contains(current); }
+                public void forget() { seen.remove(current); }
+                public void visit(String s) { current = s; seen.add(s); order.add(s); }
+            }
+            """;
+
+    @DisplayName("a set or list asked about a nullable element: false for null")
+    @Test
+    public void nullableElement() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_ELEMENT);
+        TypeInfo visited = types.getFirst();
+        nonModifying(visited, "known");
+        modifying(visited, "forget", "visit");
+        RustTranslator.Result result = translate(types, nullable(Set.of("current")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "self.current.as_ref().is_some_and(|__k| self.seen.contains(__k))");
+        contains(rust, "self.current.as_ref().is_some_and(|__k| self.seen.remove(__k))");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String BOXED = """
+            package a.b;
+            public class Boxed {
+                private Integer index;
+                private final Integer count = 3;
+                // fernflower's 'index.intValue()', 'Integer.valueOf(x).equals(y)', Integer.toHexString
+                public int value() { return index.intValue() + count.intValue(); }
+                public boolean same(Integer other) { return count.equals(other); }
+                public int order(Integer other) { return count.compareTo(other); }
+                public static Integer box(int i) { return Integer.valueOf(i); }
+                public static String hex(int i) { return Integer.toHexString(i); }
+                public void set(Integer n) { index = n; }
+                // ConstExprent's float and double constants
+                public static float tiny() { return Float.MIN_VALUE; }
+                public static double inf() { return Double.NEGATIVE_INFINITY; }
+                public static short top() { return Short.MAX_VALUE; }
+            }
+            """;
+
+    @DisplayName("an Integer's methods and statics: the int itself")
+    @Test
+    public void boxedNumbers() throws Exception {
+        List<TypeInfo> types = parse(BOXED);
+        TypeInfo boxed = types.getFirst();
+        nonModifying(boxed, "value", "same", "order", "box", "hex", "tiny", "inf", "top");
+        modifying(boxed, "set");
+        RustTranslator.Result result = translate(types, nullable(Set.of("index", "other", "n")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "format!(\"{:x}\", i)");
+        contains(rust, "f32::from_bits(1)");
+        contains(rust, "f64::NEG_INFINITY");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String TEXTS = """
+            package a.b;
+            import java.util.Locale;
+            public class Texts {
+                // fernflower's DotExporter: 'id.replaceAll("_try", "999")', a regex without metacharacters
+                public static String id(String id) { return id.replaceAll("_try", "999"); }
+                // ConverterHelper: 'value.toLowerCase(Locale.ENGLISH)'
+                public static String lower(String s) { return s.toLowerCase(Locale.ENGLISH); }
+                public static String upper(String s) { return s.toUpperCase(Locale.ROOT); }
+                // MergeHelper: 'stat.getExprents().addAll(0, ifstat.getExprents())'
+                public static void prepend(java.util.List<String> to, java.util.List<String> from) { to.addAll(0, from); }
+            }
+            """;
+
+    @DisplayName("replaceAll with a literal pattern; a case mapping with a Locale")
+    @Test
+    public void stringMappings() throws Exception {
+        List<TypeInfo> types = parse(TEXTS);
+        TypeInfo texts = types.getFirst();
+        nonModifying(texts, "id", "lower", "upper");
+        modifying(texts, "prepend");
+        exclusive(method(texts, "prepend").parameters().get(0));
+        borrowed(method(texts, "prepend").parameters().get(1));
+        for (String m : List.of("id", "lower", "upper")) borrowed(method(texts, m).parameters().getFirst());
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "id.replace(\"_try\", \"999\")");
+        contains(rust, "s.to_lowercase()");
+        contains(rust, "to.splice(0..0, from.iter().cloned())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String BORROWED_NULLABLE = """
+            package a.b;
+            public class Names {
+                // StructGeneralAttribute.createAttribute: '"Code".equals(name)', name a nullable borrowed string
+                public static int kind(String name) { return "Code".equals(name) ? 1 : 0; }
+                // Instruction.create(..., int[] operands, ...): a nullable borrowed array passed on
+                public static int count(int[] operands) { return inner(operands); }
+                static int inner(int[] ops) { return ops == null ? 0 : ops.length; }
+            }
+            """;
+
+    @DisplayName("a nullable borrowed string compared, a nullable borrowed array passed on: stable Rust")
+    @Test
+    public void borrowedNullable() throws Exception {
+        List<TypeInfo> types = parse(BORROWED_NULLABLE);
+        TypeInfo names = types.getFirst();
+        nonModifying(names, "kind", "count", "inner");
+        borrowed(method(names, "kind").parameters().getFirst());
+        borrowed(method(names, "count").parameters().getFirst());
+        borrowed(method(names, "inner").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("name", "operands", "ops")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String EQUALS_LEVELS = """
+            package a.b;
+            public class Descs {
+                private String descriptor;
+                private Kind kind;
+                // ClassWriter.isSyntheticRecordMethod: a nullable field's string against a computed one
+                public boolean synthetic(String name) {
+                    return descriptor != null && descriptor.equals("()" + name);
+                }
+                // PPandMMHelper: a nullable object's own equals, the other side non-null
+                public boolean sameKind(Kind other) {
+                    return kind != null && kind.equals(other);
+                }
+            }
+            class Kind {
+                private final int k;
+                Kind(int k) { this.k = k; }
+                @Override public boolean equals(Object o) { return o instanceof Kind other && other.k == k; }
+                @Override public int hashCode() { return k; }
+            }
+            """;
+
+    @DisplayName("equals with operands at different levels: a String against a &String, a nullable receiver")
+    @Test
+    public void equalsLevels() throws Exception {
+        List<TypeInfo> types = parse(EQUALS_LEVELS);
+        TypeInfo descs = types.getFirst();
+        nonModifying(descs, "synthetic", "sameKind");
+        RustTranslator.Result result = translate(types, nullable(Set.of("descriptor", "kind")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, ".unwrap() == ");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -632,6 +633,14 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                         default: return 2;
                     }
                 }
+                // StructAnnotationAttribute.parseAnnotationElement: an int read, matched against chars
+                static int element(int tag) {
+                    switch (tag) {
+                        case 'e': return 1;
+                        case 'c': return 2;
+                        default: return 0;
+                    }
+                }
                 static int kind2(short tag) {
                     return switch (tag) {
                         case UTF8 -> 0;
@@ -646,10 +655,11 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
     @Test
     public void byteSwitchOverIntConstants() throws Exception {
         List<TypeInfo> types = parse(TAGS);
-        nonModifying(types.getFirst(), "kind", "kind2");
+        nonModifying(types.getFirst(), "kind", "kind2", "element");
         translate(types);
         String rust = module("a.b");
         contains(rust, "match tag as i32 {");
+        contains(rust, "101 => {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
@@ -666,6 +676,12 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                 static final VT INT = new VT(1);
                 static int code() { return INT.t(); }
                 static VT intType() { return INT; }
+                // VarDefinitionHelper's 'VarType type = mapMin.get(paar); … type = VarType.VARTYPE_CHAR;'
+                static int pick(java.util.Map<String, VT> m, String k) {
+                    VT t = m.get(k);
+                    if (t == null) t = INT;
+                    return t.t();
+                }
             }
             """;
 
@@ -677,12 +693,14 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         TypeInfo vt = varTypes.findSubType("VT");
         immutable(vt, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
         nonModifying(vt, "t");
-        nonModifying(varTypes, "code", "intType");
+        nonModifying(varTypes, "code", "intType", "pick");
+        method(varTypes, "pick").parameters().forEach(CommonJavaToRust::borrowed);
         unmodifiedField(varTypes, "INT");
         translate(types);
         String rust = module("a.b");
         contains(rust, "thread_local! {");
         contains(rust, "VAR_TYPES_INT.with(|v| v.clone())");
+        contains(rust, "let mut t = m.get(k).cloned();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
@@ -803,5 +821,454 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "&mut *self.blocks");
         contains(rust, "r.get_blocks_mut().clear();");
         assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String NULLABLE_EQUALS = """
+            package a.b;
+            public class Types {
+                // fernflower's VarType, equals over its fields
+                public static final class VT {
+                    private final int t;
+                    public VT(int t) { this.t = t; }
+                    @Override public boolean equals(Object o) { return o instanceof VT v && t == v.t; }
+                    @Override public int hashCode() { return t; }
+                }
+                // ExprProcessor's 'md.ret.equals(cltype)', cltype nullable
+                public static boolean same(VT ret, VT cltype) { return ret.equals(cltype); }
+                public static boolean sameBoth(VT a, VT b) { return a.equals(b); }
+            }
+            """;
+
+    @DisplayName("equals with a nullable argument: false for null, both sides as Option<&T>")
+    @Test
+    public void nullableEquals() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_EQUALS);
+        TypeInfo t = types.getFirst();
+        TypeInfo vt = t.findSubType("VT");
+        nonModifying(vt, "equals", "hashCode");
+        nonModifying(t, "same", "sameBoth");
+        method(t, "same").parameters().forEach(CommonJavaToRust::borrowed);
+        method(t, "sameBoth").parameters().forEach(CommonJavaToRust::borrowed);
+        immutable(vt, ValueImpl.ImmutableImpl.IMMUTABLE);
+        RustTranslator.Result result = translate(types, nullable(Set.of("cltype", "a", "b", "o")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "Some(ret) == cltype");
+        contains(rust, "Some(a.unwrap()) == b");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String EXPRESSIONS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Exprs {
+                // fernflower's PrimitiveExpressionList
+                public static class Data {
+                    private final List<String> expressions = new ArrayList<>();
+                    public List<String> getExpressions() { return expressions; }
+                }
+                static void push(List<String> list, String s) { list.add(s); }
+                // ExprProcessor.processBlock: 'List<Exprent> exprlist = data.getExpressions(); pushEx(..., exprlist, ...)'
+                static void fill(Data data) {
+                    List<String> list = data.getExpressions();
+                    push(list, "a");
+                    push(list, "b");
+                }
+            }
+            """;
+
+    @DisplayName("a getter's result held in a local the code modifies: the getter's exclusive twin")
+    @Test
+    public void localOfMutableGetter() throws Exception {
+        List<TypeInfo> types = parse(EXPRESSIONS);
+        TypeInfo exprs = types.getFirst();
+        TypeInfo data = exprs.findSubType("Data");
+        nonModifying(data, "getExpressions");
+        dependentResult(data, "getExpressions");
+        modifying(exprs, "push", "fill");
+        exclusive(method(exprs, "push").parameters().get(0));
+        borrowed(method(exprs, "push").parameters().get(1));
+        exclusive(method(exprs, "fill").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let list = data.get_expressions_mut();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String DEFAULTS = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Prefs {
+                // fernflower's IFernflowerPreferences.DEFAULTS = getDefaults()
+                public static final Map<String, String> DEFAULTS = getDefaults();
+                static Map<String, String> getDefaults() {
+                    Map<String, String> m = new HashMap<>();
+                    m.put("a", "1");
+                    return m;
+                }
+                public static String get(String k) { return DEFAULTS.get(k); }
+            }
+            """;
+
+    @DisplayName("a static initialized by a call of its own class: named, no Self at module level")
+    @Test
+    public void staticInitializerCall() throws Exception {
+        List<TypeInfo> types = parse(DEFAULTS);
+        TypeInfo prefs = types.getFirst();
+        nonModifying(prefs, "getDefaults", "get");
+        independentResult(prefs, "getDefaults");
+        borrowed(method(prefs, "get").parameters().getFirst());
+        unmodifiedField(prefs, "DEFAULTS");
+        RustTranslator.Result result = translate(types, nullable(Set.of("get()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "std::sync::LazyLock::new(|| Prefs::get_defaults())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String SIZES = """
+            package a.b;
+            import java.util.List;
+            public class Sizes {
+                // fernflower's ClassesProcessor.AVERAGE_CLASS_SIZE: not a literal, a lazily computed int
+                private static final int AVERAGE = 16 * 1024;
+                public static int twice() { return AVERAGE * 2; }
+                // BasicBlock.removePredecessor: 'while (lst.remove(o));'
+                public static void dropAll(List<String> lst, String s) { while (lst.remove(s)) ; }
+                // ConstExprent.convertStringToJava: a capacity, an int label of a char selector
+                public static String escape(String value) {
+                    char[] arr = value.toCharArray();
+                    StringBuilder buffer = new StringBuilder(arr.length);
+                    for (char c : arr) {
+                        switch (c) {
+                            case '\\\\' -> buffer.append("\\\\\\\\");
+                            case 8 -> buffer.append("\\\\b");
+                            default -> buffer.append(c);
+                        }
+                    }
+                    return buffer.toString();
+                }
+            }
+            """;
+
+    @DisplayName("a computed int static read as an int; remove(Object) as a loop condition; a capacity; an int char label")
+    @Test
+    public void lazyIntAndRemoveCondition() throws Exception {
+        List<TypeInfo> types = parse(SIZES);
+        TypeInfo sizes = types.getFirst();
+        nonModifying(sizes, "twice", "escape");
+        borrowed(method(sizes, "escape").parameters().getFirst());
+        modifying(sizes, "dropAll");
+        unmodifiedField(sizes, "AVERAGE");
+        exclusive(method(sizes, "dropAll").parameters().getFirst());
+        borrowed(method(sizes, "dropAll").parameters().get(1));
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "(*SIZES_AVERAGE) * 2");
+        contains(rust, ".is_some()");
+        contains(rust, "String::with_capacity((arr.len() as i32) as usize)");
+        contains(rust, "'\\u{8}' =>");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String NULLABLE_COMPONENT = """
+            package a.b;
+            import java.util.List;
+            public class Inits {
+                // fernflower's SwitchPatternHelper initializer records: a nullable component read by its accessor
+                public record Init(String label, List<String> parts) {}
+                public static int count(Init i) { return i.parts() == null ? 0 : i.parts().size(); }
+                public static String label(Init i) { return i.label(); }
+            }
+            """;
+
+    @DisplayName("a record's nullable component: its accessor an Option<&T>")
+    @Test
+    public void nullableRecordComponent() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_COMPONENT);
+        TypeInfo inits = types.getFirst();
+        nonModifying(inits, "count", "label");
+        borrowed(method(inits, "count").parameters().getFirst());
+        borrowed(method(inits, "label").parameters().getFirst());
+        dependentResult(inits, "label");
+        RustTranslator.Result result = translate(types, nullable(Set.of("parts", "label", "parts()", "label()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "pub fn parts(&self) -> Option<&Vec<String>> {");
+        contains(rust, "pub fn label(&self) -> Option<&str> {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String LATE_FIELD = """
+            package a.b;
+            public class Lambdas {
+                public static class Member {
+                    private final String name;
+                    public Member(String name) { this.name = name; }
+                    public String getName() { return name; }
+                }
+                // ClassesProcessor.Inner's new_2: a field of a type without an empty value, assigned among other work
+                public static class Node {
+                    private final Member member;
+                    private int size;
+                    public Node(Member member) {
+                        this.member = member;
+                        grow();
+                    }
+                    private void grow() { size++; }
+                    public int getSize() { return size; }
+                }
+            }
+            """;
+
+    @DisplayName("a constructor's general shape: a field without an empty value takes its assignment's value")
+    @Test
+    public void earlyFieldAssignment() throws Exception {
+        List<TypeInfo> types = parse(LATE_FIELD);
+        TypeInfo lambdas = types.getFirst();
+        TypeInfo member = lambdas.findSubType("Member");
+        TypeInfo node = lambdas.findSubType("Node");
+        nonModifying(member, "getName");
+        modifying(node, "grow");
+        nonModifying(node, "getSize");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        assertFalse(rust.contains("Default::default()"), rust);
+        contains(rust, "member: member,");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String NULLABLE_ARGUMENT = """
+            package a.b;
+            public class Holders {
+                public static class Node {
+                    private int size;
+                    public int getSize() { return size; }
+                    public void grow() { size++; }
+                }
+                // fernflower's tracker.getRecord(operand): a nullable value passed where a non-null borrow is expected
+                private Node node;
+                private String name;
+                public int measured() { return measure(node) + name(name) + growAll(node); }
+                public static int measure(Node n) { return n.getSize(); }
+                public static int name(String s) { return s.length(); }
+                public static int growAll(Node n) { n.grow(); return n.getSize(); }
+                public void setNode(Node n) { node = n; }
+            }
+            """;
+
+    @DisplayName("a nullable value where a non-null borrow is expected: a borrow of the content, not a move")
+    @Test
+    public void nullableToBorrow() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_ARGUMENT);
+        TypeInfo holders = types.getFirst();
+        TypeInfo node = holders.findSubType("Node");
+        nonModifying(node, "getSize");
+        modifying(node, "grow");
+        modifying(holders, "measured", "setNode", "growAll");
+        nonModifying(holders, "measure", "name");
+        borrowed(method(holders, "measure").parameters().getFirst());
+        borrowed(method(holders, "name").parameters().getFirst());
+        exclusive(method(holders, "growAll").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("node", "name")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "Self::measure(self.node.as_ref().unwrap())");
+        contains(rust, "Self::name(self.name.as_deref().unwrap())");
+        contains(rust, "Self::grow_all(self.node.as_mut().unwrap())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String DESCRIPTORS = """
+            package a.b;
+            public class Fd {
+                // fernflower's FieldDescriptor.INTEGER_DESCRIPTOR: a factory's object, modified by its verdict
+                public static final Fd INTEGER = parse("I");
+                private final String descriptor;
+                private Fd(String descriptor) { this.descriptor = descriptor; }
+                public static Fd parse(String s) { return new Fd(s); }
+                public String getDescriptor() { return descriptor; }
+                public static String integer() { return INTEGER.getDescriptor(); }
+            }
+            """;
+
+    @DisplayName("a static of an immutable type, modified by its verdict: a read-only static all the same")
+    @Test
+    public void undecidedImmutableStatic() throws Exception {
+        List<TypeInfo> types = parse(DESCRIPTORS);
+        TypeInfo fd = types.getFirst();
+        immutable(fd, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+        nonModifying(fd, "parse", "getDescriptor", "integer");
+        independentResult(fd, "parse");
+        dependentResult(fd, "getDescriptor");
+        borrowed(method(fd, "parse").parameters().getFirst());
+        fd.getFieldByName("INTEGER", true).analysis().set(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.FALSE);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "pub static FD_INTEGER: Rc<Fd> = Fd::parse(\"I\");");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String HANDLERS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Tables {
+                public static class Handler {
+                    private int h;
+                    public void setH(int h) { this.h = h; }
+                }
+                // fernflower's ExceptionTable
+                public static class Table {
+                    private final List<Handler> handlers = new ArrayList<>();
+                    public List<Handler> getHandlers() { return handlers; }
+                }
+                // CodeConstants' 'for (ExceptionHandler handler : extable.getHandlers()) handler.setHandler(…)'
+                public static void shift(Table t) {
+                    for (Handler h : t.getHandlers()) h.setH(1);
+                }
+            }
+            """;
+
+    @DisplayName("a loop modifying the elements of a getter's list: the getter's exclusive twin")
+    @Test
+    public void loopOverMutableGetter() throws Exception {
+        List<TypeInfo> types = parse(HANDLERS);
+        TypeInfo tables = types.getFirst();
+        modifying(tables.findSubType("Handler"), "setH");
+        TypeInfo table = tables.findSubType("Table");
+        nonModifying(table, "getHandlers");
+        dependentResult(table, "getHandlers");
+        modifying(tables, "shift");
+        exclusive(method(tables, "shift").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "for h in t.get_handlers_mut().iter_mut() {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String VIEWS = """
+            package a.b;
+            import java.util.List;
+            public class Views {
+                // a view: it borrows the caller's list
+                public static class View {
+                    private final List<String> lines;
+                    public View(List<String> lines) { this.lines = lines; }
+                    public int size() { return lines.size(); }
+                }
+                // ClassWriter.findAssertionField: a static function handing out a struct with a lifetime
+                public static View first(List<View> views) { return views.get(0); }
+                // ClassWrapper and MethodWrapper in one static function: one lifetime for both
+                public static void move(List<View> from, List<View> to) { to.add(from.remove(0)); }
+            }
+            """;
+
+    @DisplayName("a static function returning a struct with a lifetime from a borrowed parameter: the lifetime named")
+    @Test
+    public void staticResultWithLifetime() throws Exception {
+        List<TypeInfo> types = parse(VIEWS);
+        TypeInfo views = types.getFirst();
+        TypeInfo view = views.findSubType("View");
+        nonModifying(view, "size");
+        kept(view.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        nonModifying(views, "first");
+        borrowed(method(views, "first").parameters().getFirst());
+        dependentResult(views, "first");
+        modifying(views, "move");
+        exclusive(method(views, "move").parameters().get(0));
+        exclusive(method(views, "move").parameters().get(1));
+        translate(types);
+        String rust = module("a.b");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().noneMatch(e -> e.contains("E0106") || e.contains("lifetime may not live long enough")),
+                () -> String.join("\n", errors) + "\n" + rust);
+        contains(rust, "fn r#move<'s>(");
+    }
+
+    @Language("java")
+    private static final String FRESH = """
+            package a.b;
+            import java.util.Set;
+            public class Fresh {
+                public static final class VT {
+                    private final int t;
+                    public VT(int t) { this.t = t; }
+                    public VT copy() { return new VT(t); }
+                }
+                public static class E {
+                    private final VT hard = new VT(1);
+                    private final VT other = new VT(2);
+                    private final String name = "n";
+                    // ArrayExprent.getExprType: a copy on one path, a field on the other
+                    public VT pick(boolean b) { if (b) return hard.copy(); return other; }
+                    // SwitchCandidate.usedSwitch: a new set of the field's value
+                    public Set<String> names() { return Set.of(name); }
+                }
+            }
+            """;
+
+    @DisplayName("a result that is new on one path: owned, also where the verdict calls it dependent")
+    @Test
+    public void freshOrExistingResult() throws Exception {
+        List<TypeInfo> types = parse(FRESH);
+        TypeInfo fresh = types.getFirst();
+        TypeInfo vt = fresh.findSubType("VT");
+        TypeInfo e = fresh.findSubType("E");
+        immutable(vt, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+        nonModifying(vt, "copy");
+        independentResult(vt, "copy");
+        nonModifying(e, "pick", "names");
+        dependentResult(e, "pick");
+        dependentResult(e, "names");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn names(&self) -> HashSet<String> {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String COLLECT = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Collect {
+                private final List<String> items = new ArrayList<>();
+                // Exprent.getAllExprents(List<Exprent> lst): adds its own, returns the list it was given
+                public List<String> collect(List<String> lst) { lst.addAll(items); return lst; }
+                public void add(String s) { items.add(s); }
+            }
+            """;
+
+    @DisplayName("a method returning the parameter it was given: that value, not a borrow of the receiver")
+    @Test
+    public void returnedParameter() throws Exception {
+        List<TypeInfo> types = parse(COLLECT);
+        TypeInfo collect = types.getFirst();
+        nonModifying(collect, "collect");
+        modifying(collect, "add");
+        dependentResult(collect, "collect");
+        ParameterInfo lst = method(collect, "collect").parameters().getFirst();
+        lst.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE);
+        lst.analysis().set(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.DEPENDENT);
+        translate(types);
+        String rust = module("a.b");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().noneMatch(e -> e.contains("E0515")), () -> String.join("\n", errors) + "\n" + rust);
     }
 }

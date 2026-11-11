@@ -105,13 +105,25 @@ final class RustShared {
         type.subTypes().forEach(sub -> visit(sub, facts, kept, held));
     }
 
-    // a field's type, and the element types of the collections and maps it is (a List<Edge>, Map<K, Statement>)
+    // a field's type, and the element types of the collections and maps it is (a List<Edge>, Map<K, Statement>), also
+    // of a source class that is one (fernflower's VBStyleCollection<Instruction, Integer> extends ArrayList<E>)
     private static void heldIn(ParameterizedType type, RustFacts facts, Set<TypeInfo> held) {
         TypeInfo t = candidate(type, facts);
         if (t != null) held.add(t);
-        if (type.typeInfo() != null && type.typeInfo().compilationUnit().externalLibrary()) {
+        if (type.typeInfo() != null && (type.typeInfo().compilationUnit().externalLibrary() || collection(type.typeInfo()))) {
             for (ParameterizedType p : type.parameters()) heldIn(p, facts, held);
         }
+    }
+
+    // a source class extending a JDK collection
+    private static boolean collection(TypeInfo ti) {
+        for (TypeInfo t = ti; t != null && !t.isJavaLangObject();
+             t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
+            if (t.compilationUnit().externalLibrary()) {
+                return RustTypes.mapped(t) != null && !"String".equals(RustTypes.mapped(t));
+            }
+        }
+        return false;
     }
 
     /*

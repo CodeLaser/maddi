@@ -292,6 +292,8 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
                 public static class Stack {
                     private final List<Integer> items = new ArrayList<>();
                     public void push(int i) { items.add(i); }
+                    public int top() { return items.get(items.size() - 1); }
+                    public void insert(int at, int v) { items.add(at, v); }
                 }
                 // fernflower's DataPoint
                 public static class Data {
@@ -315,6 +317,14 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
                 public static void pushThrough(Data data) {
                     data.getStack().push(5);
                 }
+                // InstructionImpact: 'stack.insertByOffset(depth, stack.getByOffset(-1).copy())'
+                public static void dup(Data data) {
+                    Stack s = data.getStack();
+                    s.insert(0, s.top());
+                }
+                // fernflower's isAssertionField(fexpr, ...): a borrowed handle passed where the callee modifies
+                public static void grow(Stack s) { s.push(4); }
+                public static void growBorrowed(Stack s) { grow(s); }
             }
             """;
 
@@ -325,10 +335,14 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         TypeInfo point = types.getFirst();
         TypeInfo stack = point.findSubType("Stack");
         TypeInfo data = point.findSubType("Data");
-        modifying(stack, "push");
+        modifying(stack, "push", "insert");
+        nonModifying(stack, "top");
         modifying(data, "setStack");
         nonModifying(data, "getStack", "getStacks");
-        modifying(point, "step", "pushAll", "pushThrough");
+        modifying(point, "step", "pushAll", "pushThrough", "dup", "grow", "growBorrowed");
+        exclusive(method(point, "grow").parameters().getFirst());
+        borrowed(method(point, "growBorrowed").parameters().getFirst());
+        exclusive(method(point, "dup").parameters().getFirst());
         kept(method(data, "setStack").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
         dependentResult(data, "getStack");
         dependentResult(data, "getStacks");
@@ -341,6 +355,60 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         contains(rust, "let mut stack = data.get_stack().clone();");
         contains(rust, "for mut s in data.get_stacks().iter().cloned().collect::<Vec<_>>() {");
         contains(rust, "data.get_stack().clone().push(5);");
+        contains(rust, "{ let __a1 = s.top(); s.insert(0, __a1) }");
+        contains(rust, "Self::grow(&mut s.clone());");
         assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String SEQS = """
+            package a.b;
+            import java.util.ArrayList;
+            public class Seqs {
+                // fernflower's VBStyleCollection: a source class that is a JDK collection
+                public static class Coll<E> extends ArrayList<E> {
+                    public E getAt(int i) { return get(i); }
+                    public void addAt(E e) { add(e); }
+                }
+                public static class Instr {
+                    private int op;
+                    public void setOp(int op) { this.op = op; }
+                }
+                // InstructionSequence: instructions kept in the collection, shared between sequences
+                public static class Seq {
+                    private final Coll<Instr> instrs = new Coll<>();
+                    public void add(Instr i) { instrs.addAt(i); }
+                    public Instr get(int k) { return instrs.getAt(k); }
+                }
+                public static void copy(Seq from, Seq to) { to.add(from.get(0)); }
+            }
+            """;
+
+    @DisplayName("objects kept in a source collection class are shared")
+    @Test
+    public void sourceCollection() throws Exception {
+        List<TypeInfo> types = parse(SEQS);
+        TypeInfo seqs = types.getFirst();
+        TypeInfo coll = seqs.findSubType("Coll");
+        TypeInfo instr = seqs.findSubType("Instr");
+        TypeInfo seq = seqs.findSubType("Seq");
+        modifying(coll, "addAt");
+        nonModifying(coll, "getAt");
+        kept(method(coll, "addAt").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        dependentResult(coll, "getAt");
+        modifying(instr, "setOp");
+        modifying(seq, "add");
+        nonModifying(seq, "get");
+        kept(method(seq, "add").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        dependentResult(seq, "get");
+        modifying(seqs, "copy");
+        borrowed(method(seqs, "copy").parameters().get(0));
+        exclusive(method(seqs, "copy").parameters().get(1));
+        RustTranslator.Result result = translate(types, nullable(java.util.Set.of()));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "instrs: SeqsColl<crate::jrt::Shared<SeqsInstr>>,");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().noneMatch(e -> e.contains("found `&")), () -> String.join("\n", errors) + "\n" + rust);
     }
 }

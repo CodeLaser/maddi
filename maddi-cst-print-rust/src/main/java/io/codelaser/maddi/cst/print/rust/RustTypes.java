@@ -100,6 +100,19 @@ final class RustTypes {
      * A source class or record the facts call {@code @Immutable} (no hidden content): printed with
      * {@code #[derive(Clone)]}, and cloned where an owned value is expected, as a string is.
      */
+    /*
+     The translated type derives or implements Clone: a primitive, a string, an immutable value (isImmutableValue), or a
+     JDK collection or array of such elements. A clone of a collection is a copy, not Java's shared object: only for a
+     result nothing modifies (RustFacts.ownedResult's family members).
+     */
+    static boolean cloneable(ParameterizedType type, RustFacts facts) {
+        if (type.arrays() > 0) return cloneable(type.copyWithoutArrays(), facts);
+        if (isCopy(type) || isString(type) || isImmutableValue(type, facts)) return true;
+        TypeInfo ti = type.typeInfo();
+        if (ti == null || !ti.fullyQualifiedName().startsWith("java.util.")) return false;
+        return !type.parameters().isEmpty() && type.parameters().stream().allMatch(p -> cloneable(p, facts));
+    }
+
     static boolean isImmutableValue(ParameterizedType type, RustFacts facts) {
         if (type.arrays() > 0) return false;
         if (type.isTypeParameter()) {
