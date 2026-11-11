@@ -70,6 +70,16 @@ public interface Info extends Element {
     CompilationUnit compilationUnit();
 
     /**
+     * This element is declared in a source file that was parsed: the program's own code, which can be edited. False
+     * for an element of the JDK or of a library on the class path, and for one without a compilation unit or a
+     * source set (a primitive, a type that could not be loaded): see {@link CompilationUnit#externalLibrary()}.
+     */
+    default boolean parsedFromSource() {
+        CompilationUnit compilationUnit = compilationUnit();
+        return compilationUnit != null && !compilationUnit.externalLibrary();
+    }
+
+    /**
      * Returns the unqualified name, e.g. {@code "ArrayList"} or {@code "add"}.
      */
     String simpleName();

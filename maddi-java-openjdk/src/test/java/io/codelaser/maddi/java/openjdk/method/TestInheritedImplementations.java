@@ -191,4 +191,49 @@ public class TestInheritedImplementations extends CommonTest {
         assertEquals(false, families.reachesOutside(area, inside));
         assertEquals(3, families.families().size());
     }
+
+    @Language("java")
+    private static final String NESTING = """
+            package a.b;
+            class X {
+                static class Member { }
+                Runnable run() {
+                    class Local { class Inner { } }
+                    return new Runnable() { public void run() { } };
+                }
+            }
+            """;
+
+    /** {@link TypeInfo#enclosingType()}, {@link TypeInfo#nearestEnclosingMethod()}, {@code parsedFromSource()}. */
+    @Test
+    public void enclosingAndSource() {
+        TypeInfo X = scan("a.b.X", NESTING);
+        TypeInfo member = X.findSubType("Member");
+        MethodInfo run = X.findUniqueMethod("run", 0);
+        java.util.List<TypeInfo> inRun = X.localTypeStream().toList();
+        TypeInfo local = inRun.stream().filter(t -> "Local".equals(t.simpleName())).findFirst().orElseThrow();
+        TypeInfo anonymous = inRun.stream().filter(TypeInfo::isAnonymous).findFirst().orElseThrow();
+        TypeInfo inner = local.findSubType("Inner");
+
+        assertEquals(null, X.enclosingType());
+        assertEquals(X, member.enclosingType());
+        assertEquals(X, local.enclosingType());
+        assertEquals(X, anonymous.enclosingType());
+        assertEquals(local, inner.enclosingType());
+
+        assertEquals(null, member.nearestEnclosingMethod());
+        assertEquals(run, local.nearestEnclosingMethod());
+        assertEquals(run, anonymous.nearestEnclosingMethod());
+        // a member of a local class has no enclosing method of its own
+        assertEquals(null, inner.enclosingMethod());
+        assertEquals(run, inner.nearestEnclosingMethod());
+
+        assertEquals(true, X.parsedFromSource());
+        assertEquals(true, run.parsedFromSource());
+        assertEquals(true, anonymous.parsedFromSource());
+        MethodInfo runnableRun = anonymous.findUniqueMethod("run", 0).overrides().iterator().next();
+        assertEquals("java.lang.Runnable.run()", runnableRun.toString());
+        assertEquals(false, runnableRun.parsedFromSource());
+        assertEquals(false, runnableRun.typeInfo().parsedFromSource());
+    }
 }

@@ -87,6 +87,27 @@ public interface TypeInfo extends NamedType, Info {
      */
     boolean isEqualToOrInnerClassOf(TypeInfo typeInfo);
 
+    /**
+     * The type this type is declared in: a member type's, and a local or an anonymous class's. Null for a primary
+     * type. The other side of {@link #compilationUnitOrEnclosingType()}.
+     */
+    default TypeInfo enclosingType() {
+        return compilationUnitOrEnclosingType().isRight() ? compilationUnitOrEnclosingType().getRight() : null;
+    }
+
+    /**
+     * The nearest method whose body this type is declared in: its own {@link #enclosingMethod()}, else that of the
+     * nearest {@link #enclosingType()} that has one (a member class of a local class). Null for a type that is in
+     * no method body.
+     */
+    default MethodInfo nearestEnclosingMethod() {
+        for (TypeInfo t = this; t != null; t = t.enclosingType()) {
+            MethodInfo enclosing = t.enclosingMethod();
+            if (enclosing != null) return enclosing;
+        }
+        return null;
+    }
+
     /** Returns {@code true} if this type is owned directly by a {@link CompilationUnit}. */
     default boolean isPrimaryType() {
         return compilationUnitOrEnclosingType().isLeft();

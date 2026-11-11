@@ -72,8 +72,7 @@ public final class CstQueries {
 
     /** The type {@code typeInfo} is a member of; null for a top-level type. */
     public static TypeInfo enclosing(TypeInfo typeInfo) {
-        var cuOrEnclosing = typeInfo.compilationUnitOrEnclosingType();
-        return cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
+        return typeInfo.enclosingType();
     }
 
     /** The superclass of {@code typeInfo}; null for {@code Object}, an interface without one, or an unknown type. */
