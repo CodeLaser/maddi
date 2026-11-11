@@ -300,6 +300,10 @@ final class RustJdk {
                                       MethodCall mc) {
         int n = args.size();
         if (JUNIT_ASSERTIONS.contains(fqn)) return junit(name, args, printer, "org.junit.Assert".equals(fqn));
+        if ("java.lang.String".equals(fqn) && ("format".equals(name) || "formatted".equals(name)) && n >= 1) {
+            Printed f = stringFormat(args.getFirst(), args.subList(1, n), printer);
+            if (f != null) return f;
+        }
         return switch (fqn + "." + name + "/" + n) {
             case "java.lang.Math.max/2" -> value(operand(printer, args.get(0)) + ".max(" + printer.text(args.get(1)) + ")");
             case "java.lang.Math.min/2" -> value(operand(printer, args.get(0)) + ".min(" + printer.text(args.get(1)) + ")");
@@ -954,6 +958,55 @@ final class RustJdk {
      * {@code Objects.equals(a, b)}: both sides as {@code Option<&T>} when either may be null; shared objects compared
      * with their own equality ({@code Shared::equals}) unless their class's equals is identity.
      */
+    /**
+     * {@code String.format(format, args...)} with {@code %s}, {@code %d}, {@code %n} and {@code %%}: a constant format
+     * is Rust's {@code format!}, each argument displayed as string concatenation displays it ({@code null} for an
+     * absent value); a format known only at run time goes to {@code crate::jrt::java_format}. {@code null} for any
+     * other conversion ({@code %.2f}, {@code %x}, a width), or an explicit {@code Object[]} of arguments.
+     */
+    private static Printed stringFormat(Expression format, List<Expression> args, RustBodyPrinter printer) {
+        if (args.size() == 1 && args.getFirst().parameterizedType().arrays() > 0) return null;
+        List<String[]> shown = new ArrayList<>();
+        for (Expression a : args) shown.add(printer.display(a));
+        if (format instanceof StringConstant sc) {
+            String text = sc.constant();
+            StringBuilder out = new StringBuilder();
+            List<String> used = new ArrayList<>();
+            int next = 0;
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                if (c == '{' || c == '}') {
+                    out.append(c).append(c);
+                    continue;
+                }
+                if (c != '%') {
+                    out.append(c);
+                    continue;
+                }
+                char k = i + 1 < text.length() ? text.charAt(i + 1) : 0;
+                i++;
+                switch (k) {
+                    case 's', 'd' -> {
+                        if (next >= shown.size()) return null;
+                        out.append(shown.get(next)[0]);
+                        used.add(shown.get(next++)[1]);
+                    }
+                    case 'n' -> out.append('\n');
+                    case '%' -> out.append('%');
+                    default -> {
+                        return null;
+                    }
+                }
+            }
+            return value("format!(" + RustBodyPrinter.stringLiteral(out.toString())
+                         + (used.isEmpty() ? "" : ", " + String.join(", ", used)) + ")");
+        }
+        List<String> strings = new ArrayList<>();
+        for (String[] d : shown) strings.add("format!(\"" + d[0] + "\", " + d[1] + ")");
+        return value("crate::jrt::java_format(&(" + printer.text(format) + ")[..], &[" + String.join(", ", strings)
+                     + "])");
+    }
+
     /** JUnit 5's {@code Assertions} and JUnit 4's {@code Assert}: a translated test asserts with Rust's macros. */
     static final Set<String> JUNIT_ASSERTIONS = Set.of("org.junit.jupiter.api.Assertions", "org.junit.Assert");
 

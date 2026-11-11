@@ -66,6 +66,93 @@ public class TestJavaToRustJUnit extends CommonJavaToRust {
             }
             """;
 
+    private static final String FORMAT_TEST = """
+            package a.b;
+            import org.junit.jupiter.api.Test;
+            import static org.junit.jupiter.api.Assertions.*;
+            public class FormatTest {
+                private boolean verbose = true;
+                @Test
+                void constant() {
+                    assertEquals("a 1 {50%}", String.format("%s %d {50%%}", "a", 1));
+                }
+                @Test
+                void runtime() {
+                    String f = verbose ? "x %s y %d" : "%s";
+                    assertEquals("x b y 2", String.format(f, "b", 2));
+                }
+            }
+            """;
+
+    private static final String CONTINUE_TEST = """
+            package a.b;
+            import org.junit.jupiter.api.Test;
+            import static org.junit.jupiter.api.Assertions.*;
+            public class ContinueTest {
+                @Test
+                void forWithContinue() {
+                    int sum = 0;
+                    for (int i = 10; i > 0; i -= 2) {
+                        if (i == 6) continue;
+                        if (i == 2) break;
+                        sum += i;
+                    }
+                    assertEquals(22, sum);
+                }
+                @Test
+                void doWithContinue() {
+                    int i = 0;
+                    int odd = 0;
+                    do {
+                        i++;
+                        if (i % 2 == 0) continue;
+                        odd++;
+                    } while (i < 7);
+                    assertEquals(4, odd);
+                }
+                @Test
+                void labelledContinue() {
+                    int n = 0;
+                    outer:
+                    for (int i = 0; i < 4; i = i + 1) {
+                        for (int j = 0; j < 4; j = j + 1) {
+                            if (j > i) continue outer;
+                            n++;
+                        }
+                    }
+                    assertEquals(10, n);
+                }
+            }
+            """;
+
+    /**
+     * A continue in a for loop with updaters, or in a do loop, goes on with the updaters or the condition: printed
+     * as the while loop it was, it skipped them (fernflower's extendCases looped forever).
+     */
+    @Test
+    public void continueRunsTheUpdaters() throws Exception {
+        List<TypeInfo> types = parse(CONTINUE_TEST);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        assertEquals(List.of(), rustcErrors(), rust);
+        String run = rustTests();
+        assertTrue(run.contains("test result: ok. 3 passed"), run + "\n" + rust);
+    }
+
+    @Test
+    public void stringFormat() throws Exception {
+        List<TypeInfo> types = parse(FORMAT_TEST);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "format!(\"{} {} {{50%}}\", \"a\", 1)");
+        contains(rust, "crate::jrt::java_format(");
+        assertEquals(List.of(), rustcErrors(), rust);
+        String run = rustTests();
+        assertTrue(run.contains("test result: ok. 2 passed"), run);
+    }
+
     @Test
     public void runners() throws Exception {
         List<TypeInfo> types = parse(COUNTER_TEST);
