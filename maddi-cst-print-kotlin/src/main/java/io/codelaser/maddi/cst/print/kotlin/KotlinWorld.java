@@ -26,7 +26,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-import io.codelaser.maddi.cst.print.translate.OverrideFamilies;
+import io.codelaser.maddi.inspection.api.util.MethodFamilies;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -124,7 +124,7 @@ public final class KotlinWorld {
      * JDK interface's method, a type not translated with it), or when a lambda or method reference of the world
      * implements one of its members: Kotlin types such an implementation's parameters from the interface, and its
      * body is not checked here. A superclass's method that implements a subclass's interface method is of the
-     * family ({@link OverrideFamilies}), though Java's {@code overrides()} does not link them. {@link #FILE} has no
+     * family ({@link MethodFamilies}), though Java's {@code overrides()} does not link them. {@link #FILE} has no
      * families.
      */
     public List<MethodInfo> family(MethodInfo method) {
@@ -139,8 +139,8 @@ public final class KotlinWorld {
 
     private Map<MethodInfo, List<MethodInfo>> computeFamilies() {
         List<TypeInfo> all = types.stream().flatMap(TypeInfo::recursiveSubTypeStreamIncludingLocal).toList();
-        // the families, with a superclass's method that implements a subclass's interface method (OverrideFamilies)
-        OverrideFamilies families = OverrideFamilies.of(all);
+        // the families, with a superclass's method that implements a subclass's interface method (MethodFamilies)
+        MethodFamilies families = MethodFamilies.of(all);
         Set<MethodInfo> implementedByFunction = Collections.newSetFromMap(new IdentityHashMap<>());
         types.forEach(t -> KotlinReadOnly.forEachBody(t, (method, body) -> body.visit((Element e) -> {
             TypeInfo functional = e instanceof Lambda l
@@ -155,7 +155,7 @@ public final class KotlinWorld {
         for (TypeInfo t : all) {
             for (MethodInfo m : t.methods()) {
                 if (m.isStatic() || result.containsKey(m)) continue;
-                List<MethodInfo> family = families.family(m);
+                List<MethodInfo> family = List.copyOf(families.family(m));
                 boolean complete = family.stream().allMatch(x -> types.contains(x.typeInfo().primaryType())
                                                                   && !implementedByFunction.contains(x));
                 if (complete) family.forEach(x -> result.put(x, family));

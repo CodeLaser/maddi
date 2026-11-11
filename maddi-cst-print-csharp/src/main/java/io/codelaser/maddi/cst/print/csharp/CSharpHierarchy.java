@@ -33,7 +33,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.print.translate.OverrideFamilies;
 import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 /**
@@ -200,6 +199,9 @@ final class CSharpHierarchy {
         // an abstract superclass of the program declares what it leaves abstract itself: a second declaration would hide
         // it (CS0533), and the subclasses' overrides would not implement it (CS0534)
         // (any of them: one in between that declares nothing does not make a third one's declaration go away)
+        // a superclass's method that takes an interface method's place, in the class that declares the interface
+        Set<MethodInfo> inherited = new HashSet<>();
+        chain.forEach(t -> inherited.addAll(t.inheritedImplementations().keySet()));
         Set<MethodInfo> declaredAbove = new HashSet<>();
         CstQueries.superclasses(cls).forEach(t -> leftAbstract(t).forEach(l -> declaredAbove.add(l.method())));
         List<LeftAbstract> left = new ArrayList<>();
@@ -212,8 +214,8 @@ final class CSharpHierarchy {
                 if (m.isStatic() || !m.isAbstract() || !m.typeParameters().isEmpty() || m.isSynthetic()
                     || CSharpWildcards.mayCapture(m)) continue;
                 if (CSharpBcl.objectOverridable(m)) continue;
-                if (implementations.stream().anyMatch(x -> x != m && (x.overrides().contains(m)
-                                                                       || OverrideFamilies.inheritedImplementation(x, m)))) continue;
+                if (inherited.contains(m)
+                    || implementations.stream().anyMatch(x -> x != m && x.overrides().contains(m))) continue;
                 left.add(new LeftAbstract(m, CstSupertypes.typeArguments(i)));
             }
         });
@@ -228,11 +230,11 @@ final class CSharpHierarchy {
 
     /**
      * The methods of {@code cls}'s superclasses that implement an interface method of {@code cls} without Java's
-     * overrides() saying so ({@link OverrideFamilies#inheritedImplementations}): {@code class B { public boolean d()
+     * overrides() saying so ({@link TypeInfo#inheritedImplementations()}): {@code class B { public boolean d()
      * {…} }}, {@code class C extends B implements I}, with I's {@code d()}. C#'s public {@code B.D()} implements
      * {@code I.D()} for C as Java's does; it is no property.
      */
     static Set<MethodInfo> inheritedImplementations(TypeInfo cls) {
-        return Set.copyOf(OverrideFamilies.inheritedImplementations(cls).values());
+        return Set.copyOf(cls.inheritedImplementations().values());
     }
 }

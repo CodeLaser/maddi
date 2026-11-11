@@ -437,6 +437,42 @@ class MemberTest : KotlinScanTestBase() {
     }
 
     /**
+     * A superclass's member that implements an interface's, `class Sub : Base(), Plain` with `Base.d()`: no
+     * `overrides()` links the two (`Base.d()` overrides nothing), `TypeInfo.inheritedImplementations()` does, by the
+     * signatures as members of the class. A property's getter as a function; the interface's type argument picks
+     * the overload.
+     */
+    @Test
+    fun aSuperclassMemberImplementsAnInterfaceMember() {
+        val types = KotlinScan(runtime, sourceSet).parse("h/H.kt",
+            "package h\n" +
+                "interface Plain { fun d(): Boolean; val name: String }\n" +
+                "open class Base { fun d(): Boolean = true; val name: String = \"b\" }\n" +
+                "class Sub : Base(), Plain\n" +
+                "class Own : Plain { override fun d(): Boolean = false; override val name: String = \"o\" }\n" +
+                "interface Typed<T> { fun take(t: T) }\n" +
+                "open class Overloads { fun take(i: Int) {}; fun take(s: String) {}; fun take(a: Any) {} }\n" +
+                "class OfString : Overloads(), Typed<String>\n" +
+                "open class Generic<U> { fun take(u: U) {} }\n" +
+                "class Both : Generic<Int>(), Typed<Int>\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        fun type(name: String) = all.single { it.simpleName() == name }
+        fun inherited(name: String) = type(name).inheritedImplementations().entries
+            .map { "${it.key.typeInfo().simpleName()}.${it.key.name()} <- ${it.value}" }.sorted().joinToString("; ")
+
+        assertEquals("Plain.d <- h.Base.d(); Plain.getName <- h.Base.getName()", inherited("Sub"))
+        assertEquals("", inherited("Own"))
+        assertEquals("Typed.take <- h.Overloads.take(String)", inherited("OfString"))
+        assertEquals("Typed.take <- h.Generic.take(Object)", inherited("Both"))
+
+        val families = io.codelaser.maddi.inspection.api.util.MethodFamilies.of(all)
+        val d = type("Plain").methods().single { it.name() == "d" }
+        assertEquals(listOf("Base.d", "Own.d", "Plain.d"),
+            families.family(d).map { "${it.typeInfo().simpleName()}.${it.name()}" })
+        assertEquals(listOf("Base.d", "Own.d"), families.overriders(d).map { "${it.typeInfo().simpleName()}.${it.name()}" })
+    }
+
+    /**
      * The accessors of a property with a backing field are synthesized, and were committed on the spot -- so they
      * never reached [KotlinScan.commitDeferred], where overrides are computed, and every one recorded `overrides()`
      * empty. An `override val` implementing an interface's `val` overrode nothing in the CST: prep registered no

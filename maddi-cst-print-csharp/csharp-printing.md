@@ -103,7 +103,7 @@ implements the interface.
     not. Each argument must be of a class whose C# counterpart implements the read-only interface (`HashMap` →
     `Dictionary`, `TreeSet` → `SortedSet`, …), `null`, or a read-only parameter itself.
   - Every method of an override family has the parameter read-only, or none does. A superclass's method that
-    implements a subclass's interface method is of the interface method's family (`OverrideFamilies`, shared with the
+    implements a subclass's interface method is of the interface method's family (`MethodFamilies`, shared with the
     Kotlin printer), though Java's `overrides()` does not link them: `Scoring.collect` keeps the `ISet` that `Base.collect` adds to (CS0535 otherwise). The same
     families make properties (below), so such a pair of parameterless methods is one property too. Delegates, a functional interface's
     method, records and a method that a method reference names keep Java's types.

@@ -33,7 +33,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.print.translate.OverrideFamilies;
+import io.codelaser.maddi.inspection.api.util.MethodFamilies;
 
 /**
  * What the whole-program analyses of {@link CSharpProgram} ask of the program, gathered in one pass over its types and
@@ -44,7 +44,7 @@ import io.codelaser.maddi.cst.print.translate.OverrideFamilies;
  * @param overrides  each method of the program, and each method one overrides, to the methods it overrides or that
  *                   override it, directly; not itself
  * @param families   the methods that override one another, connected, with a superclass's method that implements a
- *                   subclass's interface method ({@link OverrideFamilies}): the families of two or more
+ *                   subclass's interface method ({@link MethodFamilies}): the families of two or more
  * @param referenced the methods a method reference names
  * @param calls      each method or constructor called, to the arguments of its calls ({@code this(…)} and
  *                   {@code super(…)} too)
@@ -91,7 +91,7 @@ record CSharpProgramIndex(List<TypeInfo> types, Map<MethodInfo, Set<MethodInfo>>
                 });
             }
         }
-        return new CSharpProgramIndex(List.copyOf(all), overrides, OverrideFamilies.of(all).families(), referenced, calls,
+        return new CSharpProgramIndex(List.copyOf(all), overrides, MethodFamilies.of(all).families().stream().map(List::copyOf).toList(), referenced, calls,
                 referencedAs);
     }
 

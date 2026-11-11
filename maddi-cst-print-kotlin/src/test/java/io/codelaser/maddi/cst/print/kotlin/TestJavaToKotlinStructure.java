@@ -1192,7 +1192,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
 
     /**
      * A superclass's method that implements a subclass's interface method is of the interface method's override family
-     * ({@code OverrideFamilies}), though Java's {@code overrides()} does not link them: {@code Scoring.collect}'s
+     * ({@code MethodFamilies}), though Java's {@code overrides()} does not link them: {@code Scoring.collect}'s
      * parameter stays mutable, as {@code Leaf.collect} adds to it, where its own verdict alone would make it
      * {@code List<String>} and {@code Score} would implement the interface with a {@code MutableList}.
      */
