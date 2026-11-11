@@ -472,4 +472,12 @@ public interface MethodInfo extends Info {
         if (parameters().isEmpty()) return false;
         return parameters().getLast().isVarArgs();
     }
+
+    /** Its own access, narrowed by its type's effective access ({@link Info#effectiveAccess()}). */
+    @Override
+    default Access effectiveAccess() {
+        Access own = access();
+        Access owner = typeInfo() == null ? null : typeInfo().effectiveAccess();
+        return own == null || owner == null ? own : own.combine(owner);
+    }
 }

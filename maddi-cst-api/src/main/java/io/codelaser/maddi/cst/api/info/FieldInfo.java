@@ -189,4 +189,12 @@ public interface FieldInfo extends Info {
          */
         Expression initializer();
     }
+
+    /** Its own access, narrowed by its owner's effective access ({@link Info#effectiveAccess()}). */
+    @Override
+    default Access effectiveAccess() {
+        Access own = access();
+        Access outer = owner() == null ? null : owner().effectiveAccess();
+        return own == null || outer == null ? own : own.combine(outer);
+    }
 }

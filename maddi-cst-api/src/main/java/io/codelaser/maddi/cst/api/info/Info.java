@@ -60,9 +60,22 @@ public interface Info extends Element {
     String info();
 
     /**
-     * Returns the effective visibility of this element.
+     * The access this element is declared with: its modifier, or the language's default where it has none (an
+     * interface's member is public). For a member that is its own, whatever its type's: a {@code public} method of a
+     * {@code private} nested class is public here. For a type, the narrowest of its own and of the types enclosing it.
+     * What code outside the element can reach is {@link #effectiveAccess()}.
      */
     Access access();
+
+    /**
+     * From where outside its own declaration this element can be used: the narrowest of its {@link #access()} and
+     * that of everything it is declared in. A {@code public} method of a {@code private} nested class is private; a
+     * constant of a package-private interface is package-private. The same as {@link #access()} for what is declared
+     * in nothing.
+     */
+    default Access effectiveAccess() {
+        return access();
+    }
 
     /**
      * Returns the compilation unit that directly or transitively owns this element.

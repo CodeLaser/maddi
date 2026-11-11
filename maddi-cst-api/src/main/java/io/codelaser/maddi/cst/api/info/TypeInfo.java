@@ -91,6 +91,16 @@ public interface TypeInfo extends NamedType, Info {
      * The type this type is declared in: a member type's, and a local or an anonymous class's. Null for a primary
      * type. The other side of {@link #compilationUnitOrEnclosingType()}.
      */
+    /** Its own access, narrowed by each enclosing type's ({@link Info#effectiveAccess()}). */
+    @Override
+    default Access effectiveAccess() {
+        Access own = access();
+        TypeInfo enclosing = enclosingType();
+        if (own == null || enclosing == null) return own;
+        Access outer = enclosing.effectiveAccess();
+        return outer == null ? own : own.combine(outer);
+    }
+
     default TypeInfo enclosingType() {
         return compilationUnitOrEnclosingType().isRight() ? compilationUnitOrEnclosingType().getRight() : null;
     }
