@@ -16,7 +16,6 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -27,8 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import io.codelaser.maddi.inspection.api.util.MethodFamilies;
+import io.codelaser.maddi.inspection.api.util.MethodUses;
 import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -141,16 +140,8 @@ public final class KotlinWorld {
         List<TypeInfo> all = types.stream().flatMap(TypeInfo::recursiveSubTypeStreamIncludingLocal).toList();
         // the families, with a superclass's method that implements a subclass's interface method (MethodFamilies)
         MethodFamilies families = MethodFamilies.of(all);
-        Set<MethodInfo> implementedByFunction = Collections.newSetFromMap(new IdentityHashMap<>());
-        types.forEach(t -> KotlinReadOnly.forEachBody(t, (method, body) -> body.visit((Element e) -> {
-            TypeInfo functional = e instanceof Lambda l
-                    ? l.concreteFunctionalType().typeInfo()
-                    : e instanceof MethodReference mr ? mr.parameterizedType().typeInfo() : null;
-            if (functional != null && functional.singleAbstractMethod() != null) {
-                implementedByFunction.add(functional.singleAbstractMethod());
-            }
-            return true;
-        })));
+        // a functional interface's method that a lambda or a method reference of the world implements
+        Set<MethodInfo> implementedByFunction = MethodUses.of(all).methods(MethodUses.Kind.IMPLEMENTATION);
         Map<MethodInfo, List<MethodInfo>> result = new IdentityHashMap<>();
         for (TypeInfo t : all) {
             for (MethodInfo m : t.methods()) {

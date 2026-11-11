@@ -24,16 +24,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.inspection.api.util.MethodFamilies;
+import io.codelaser.maddi.inspection.api.util.MethodUses;
 
 /**
  * What the whole-program analyses of {@link CSharpProgram} ask of the program, gathered in one pass over its types and
@@ -65,38 +61,31 @@ record CSharpProgramIndex(List<TypeInfo> types, Map<MethodInfo, Set<MethodInfo>>
                 }
             }
         }
-        Set<MethodInfo> referenced = new HashSet<>();
+        // the calls, the creations and the constructor invocations as the code writes them; a method reference
+        // names a method, as the functional type it is passed as
+        MethodUses uses = MethodUses.of(all);
+        Set<MethodInfo> referenced = new HashSet<>(uses.methods(MethodUses.Kind.REFERENCE));
         Map<MethodInfo, List<List<Expression>>> calls = new HashMap<>();
         Map<TypeInfo, List<MethodInfo>> referencedAs = new HashMap<>();
-        for (TypeInfo t : all) {
-            for (Element element : CstQueries.code(t)) {
-                element.visit((Element e) -> {
-                    switch (e) {
-                        case MethodReference mr -> {
-                            referenced.add(mr.methodInfo());
-                            TypeInfo functional = mr.parameterizedType() == null ? null : mr.parameterizedType().typeInfo();
-                            if (functional != null) {
-                                referencedAs.computeIfAbsent(functional, k -> new ArrayList<>()).add(mr.methodInfo());
-                            }
-                        }
-                        case MethodCall mc -> call(calls, mc.methodInfo(), mc.parameterExpressions());
-                        case ConstructorCall cc when cc.constructor() != null ->
-                                call(calls, cc.constructor(), cc.parameterExpressions());
-                        case ExplicitConstructorInvocation eci ->
-                                call(calls, eci.methodInfo(), eci.parameterExpressions());
-                        default -> {
+        for (MethodInfo method : uses.methods()) {
+            for (MethodUses.Use use : uses.uses(method)) {
+                switch (use.kind()) {
+                    case CALL, CREATION, CONSTRUCTOR_INVOCATION ->
+                            calls.computeIfAbsent(method, k -> new ArrayList<>()).add(use.arguments());
+                    case REFERENCE -> {
+                        MethodReference mr = (MethodReference) use.element();
+                        TypeInfo functional = mr.parameterizedType() == null ? null : mr.parameterizedType().typeInfo();
+                        if (functional != null) {
+                            referencedAs.computeIfAbsent(functional, k -> new ArrayList<>()).add(method);
                         }
                     }
-                    return true;
-                });
+                    default -> {
+                    }
+                }
             }
         }
         return new CSharpProgramIndex(List.copyOf(all), overrides, MethodFamilies.of(all).families().stream().map(List::copyOf).toList(), referenced, calls,
                 referencedAs);
-    }
-
-    private static void call(Map<MethodInfo, List<List<Expression>>> calls, MethodInfo callee, List<Expression> arguments) {
-        if (callee != null) calls.computeIfAbsent(callee, k -> new ArrayList<>()).add(arguments);
     }
 
     /** The methods that override {@code m} or that it overrides, directly. */
