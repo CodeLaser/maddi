@@ -72,11 +72,12 @@ public interface Info extends Element {
     /**
      * This element is declared in a source file that was parsed: the program's own code, which can be edited. False
      * for an element of the JDK or of a library on the class path, and for one without a compilation unit or a
-     * source set (a primitive, a type that could not be loaded): see {@link CompilationUnit#externalLibrary()}.
+     * source set (a primitive, a type that could not be loaded): see {@link CompilationUnit#externalLibrary()} and
+     * {@link CompilationUnit#partOfJdk()}, both asked, as a source set states the two separately.
      */
     default boolean parsedFromSource() {
         CompilationUnit compilationUnit = compilationUnit();
-        return compilationUnit != null && !compilationUnit.externalLibrary();
+        return compilationUnit != null && !compilationUnit.externalLibrary() && !compilationUnit.partOfJdk();
     }
 
     /**
