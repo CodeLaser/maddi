@@ -30,7 +30,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 /**
  * The computation behind {@link TypeInfo#inheritedImplementations()}: for a class, the methods of its superclasses
- * that take the place of its interfaces' abstract methods.
+ * that take the place of its interfaces' abstract and default methods.
  * <p>
  * The match is the Java Language Specification's (§8.4.2, subsignature), as far as compiled code needs it: both
  * signatures are taken as members of the class, that is with the type parameters of the interface and of the
@@ -57,8 +57,10 @@ final class InheritedImplementations {
         Map<MethodInfo, MethodInfo> found = new LinkedHashMap<>();
         for (Seen iface : interfaces(cls)) {
             for (MethodInfo m : iface.typeInfo().methods()) {
+                // an abstract method and a default one alike: the superclass's method wins over the default
+                // (JLS §8.4.8, a class's method is preferred), and runs in its place
                 // the class's own method that overrides it is the implementation
-                if (m.isStatic() || !m.isAbstract() || overriddenByOwn.contains(m)) continue;
+                if (!(m.isAbstract() || m.isDefault()) || overriddenByOwn.contains(m)) continue;
                 MethodInfo x = implementation(m, iface, superclasses);
                 if (x != null) found.put(m, x);
             }

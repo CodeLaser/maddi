@@ -236,4 +236,31 @@ public class TestInheritedImplementations extends CommonTest {
         assertEquals(false, runnableRun.parsedFromSource());
         assertEquals(false, runnableRun.typeInfo().parsedFromSource());
     }
+
+    @Language("java")
+    private static final String OVERRIDES_AND_DEFAULTS = """
+            package a.b;
+            class X {
+                interface Mixed<T> { void put(T t, String s); }
+                static class OfInteger implements Mixed<Integer> { public void put(Integer i, String s) { } }
+
+                interface Twice { void d(); }
+                static abstract class Between implements Twice { public abstract void d(); }
+                static class Below extends Between { public void d() { } }
+
+                interface WithDefault { default int d() { return 0; } }
+                static class Has { public int d() { return 1; } }
+                static class Wins extends Has implements WithDefault { }
+            }
+            """;
+
+    @Test
+    public void overridesAndDefaults() {
+        TypeInfo X = scan("a.b.X", OVERRIDES_AND_DEFAULTS);
+        // overrides() has these two itself: a type parameter beside a concrete type, and a method declared twice above
+        assertEquals("Mixed.put", names(Set.copyOf(X.findSubType("OfInteger").findUniqueMethod("put", 2).overrides())));
+        assertEquals(2, X.findSubType("Below").findUniqueMethod("d", 0).overrides().size());
+        // the superclass's method runs instead of the interface's default one
+        assertEquals("a.b.X.WithDefault.d() <- a.b.X.Has.d()", inherited(X.findSubType("Wins")));
+    }
 }

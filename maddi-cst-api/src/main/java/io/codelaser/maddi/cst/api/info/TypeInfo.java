@@ -174,11 +174,13 @@ public interface TypeInfo extends NamedType, Info {
     Set<TypeInfo> superTypesExcludingJavaLangObject();
 
     /**
-     * Per abstract method of the interfaces this class declares (and of the interfaces they extend), the method of a
-     * superclass that takes its place in this class without overriding it: in {@code class C extends B implements I},
-     * {@code B.d()} for {@code I.d()}, when {@code B} does not implement {@code I} itself. The link is a fact of
-     * {@code C}, not of either method, so {@link MethodInfo#overrides()} does not have it: {@code B.d()} overrides
-     * nothing. The superclass's method may be abstract; then both leave the same method to the subclasses.
+     * Per abstract or default method of the interfaces this class declares (and of the interfaces they extend), the
+     * method of a superclass that takes its place in this class without overriding it: in
+     * {@code class C extends B implements I}, {@code B.d()} for {@code I.d()}, when {@code B} does not implement
+     * {@code I} itself. The link is a fact of {@code C}, not of either method, so {@link MethodInfo#overrides()} does
+     * not have it: {@code B.d()} overrides nothing. The superclass's method may be abstract; then both leave the same
+     * method to the subclasses. An interface's default method is replaced as an abstract one is implemented: the
+     * class's method is the one that runs.
      * <p>
      * Not the interface methods this class overrides itself, nor those of the interfaces its superclasses declare
      * (ask them). Empty for an interface. The signatures are compared as members of this class, by erasure; see
