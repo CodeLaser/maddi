@@ -140,6 +140,39 @@ public class TestJavaToRustJUnit extends CommonJavaToRust {
         assertTrue(run.contains("test result: ok. 3 passed"), run + "\n" + rust);
     }
 
+    private static final String BASE_TEST = """
+            package a.b;
+            import org.junit.jupiter.api.BeforeEach;
+            import org.junit.jupiter.api.Test;
+            import static org.junit.jupiter.api.Assertions.*;
+            abstract class Fixture<T> {
+                protected int ready;
+                @BeforeEach
+                public void setUp() { ready = 1; }
+            }
+            public class UsesFixture extends Fixture<String> {
+                @Test
+                void ready() {
+                    assertEquals(1, base().ready);
+                }
+                Fixture<String> base() { return this; }
+            }
+            """;
+
+    /**
+     * A generic superclass is no closed hierarchy: the test class holds it as its {@code base} field, and the
+     * runner reaches the superclass's {@code @BeforeEach} through it (E0599 otherwise, which stubbed fernflower's
+     * 176 SingleClassesTestBase runners).
+     */
+    @Test
+    public void inheritedSetUpThroughBase() throws Exception {
+        List<TypeInfo> types = parse(BASE_TEST);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "    t.base.set_up();\n    t.ready();\n");
+    }
+
     @Test
     public void stringFormat() throws Exception {
         List<TypeInfo> types = parse(FORMAT_TEST);

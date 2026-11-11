@@ -162,12 +162,32 @@ final class RustTypePrinter {
             sb.append("\n/// The JUnit test `").append(typeInfo.fullyQualifiedName()).append('.').append(test.name())
                     .append("`.\n#[test]\nfn ").append(prefix).append("__").append(RustNames.snake(test.name()))
                     .append("() {\n").append(INDENT).append("let mut t = ").append(create).append(";\n");
-            for (MethodInfo m : before) sb.append(INDENT).append("t.").append(RustNames.method(m)).append("();\n");
-            sb.append(INDENT).append("t.").append(RustNames.method(test)).append("();\n");
-            for (MethodInfo m : after) sb.append(INDENT).append("t.").append(RustNames.method(m)).append("();\n");
+            for (MethodInfo m : before) sb.append(INDENT).append(runnerCall(typeInfo, m)).append(";\n");
+            sb.append(INDENT).append(runnerCall(typeInfo, test)).append(";\n");
+            for (MethodInfo m : after) sb.append(INDENT).append(runnerCall(typeInfo, m)).append(";\n");
             sb.append("}\n");
         }
         return sb.toString();
+    }
+
+    /**
+     * A runner's call of {@code m} on the test object {@code t} of {@code testClass}: through {@code .base} for each
+     * superclass on the way that is composition ({@link #sourceParent}), in an {@code unsafe} block when the method
+     * is an {@code unsafe fn} (RustUnsafety).
+     */
+    private String runnerCall(TypeInfo testClass, MethodInfo m) {
+        StringBuilder receiver = new StringBuilder("t");
+        for (TypeInfo t = testClass; t != null && t != m.typeInfo(); ) {
+            TypeInfo base = sourceParent(t);
+            if (base != null) {
+                receiver.append(".base");
+                t = base;
+            } else {
+                t = t.parentClass() == null ? null : t.parentClass().typeInfo();
+            }
+        }
+        String call = receiver + "." + RustNames.method(m) + "()";
+        return context.unsafety.unsafe(m, context) ? "unsafe { " + call + " }" : call;
     }
 
     /** No instance fields and no constructor with parameters: Rust's {@code enum} of unit variants, {@code Copy}. */
