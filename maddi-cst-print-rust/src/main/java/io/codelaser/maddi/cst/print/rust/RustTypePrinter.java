@@ -495,8 +495,10 @@ final class RustTypePrinter {
             sb.append("\nimpl").append(implGenerics).append(" ").append(name).append(generics).append(" {\n")
                     .append(inherent).append("}\n");
         }
-        // unbounded: the struct holds any element, and Deref needs nothing of it (an element that is not Clone)
-        if (base == null && baseType != null) sb.append(derefToBase(name, generics, generics, baseType));
+        // unbounded: the struct holds any element, and Deref needs nothing of it (an element that is not Clone). A
+        // composed source superclass too: Java's implicit upcast is Rust's deref coercion (&Sub where &Super is
+        // expected), and a call on the subclass of a method only the base has is an auto-deref
+        if (baseType != null) sb.append(derefToBase(name, generics, base == null ? generics : implGenerics, baseType));
         for (Map.Entry<TypeInfo, List<MethodInfo>> e : byTrait.entrySet()) {
             ParameterizedType traitType = typeInfo.interfacesImplemented().stream()
                     .filter(i -> i.typeInfo() == e.getKey()).findFirst().orElse(e.getKey().asSimpleParameterizedType());

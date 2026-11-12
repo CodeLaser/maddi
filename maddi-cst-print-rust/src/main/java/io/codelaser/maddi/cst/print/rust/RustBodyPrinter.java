@@ -381,6 +381,14 @@ final class RustBodyPrinter {
             // Option<&T>: a borrow of the Option's content, not of the Option ('&self.t' is an &Option<T>)
             Printed inner = value.text.startsWith("if ") ? new Printed("(" + value.text + ")", value.held, true) : value;
             text = nullableBorrow(inner, e, RustTypes.isString(method.returnType()), method.returnType().arrays() > 0);
+            // a composed subclass where its superclass is declared ('ConsoleDecompiler getDecompiler()' returning a
+            // TestConsoleDecompiler field): Deref to the base, which an Option's content needs spelled out
+            if (upcastToBase(e, method.returnType())) {
+                if (text.endsWith(".as_ref()")) text = text.substring(0, text.length() - ".as_ref()".length()) + ".as_deref()";
+                else if (text.endsWith(".as_mut()")) {
+                    text = text.substring(0, text.length() - ".as_mut()".length()) + ".as_deref_mut()";
+                }
+            }
         } else if (borrows && !nullable && value.nullable && !(e instanceof NullConstant)) {
             // never null by the verdict, held in an Option: a borrow of its content ('&self.t.unwrap()' borrows a
             // temporary moved out of the field)
@@ -410,6 +418,14 @@ final class RustBodyPrinter {
             text = text + ".unwrap()";
         }
         return text;
+    }
+
+    /** {@code e}'s class is a composed subclass of {@code target}'s: reached through its base (RustTypePrinter.basePath). */
+    private static boolean upcastToBase(Expression e, ParameterizedType target) {
+        TypeInfo from = e.parameterizedType().typeInfo();
+        TypeInfo to = target.typeInfo();
+        return from != null && to != null && from != to && e.parameterizedType().arrays() == 0
+               && !RustTypePrinter.basePath(from, to).isEmpty();
     }
 
     private String ifElse(IfElseStatement ife, int depth) {

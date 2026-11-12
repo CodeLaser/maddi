@@ -129,6 +129,8 @@ final class RustTypes {
         TypeInfo ti = type.typeInfo();
         // an opaque stand-in has no state: a copy of it cannot be told from the shared one
         if (isOpaque(ti)) return true;
+        // java.io.File and java.nio.file.Path are immutable: jrt.rs's derive Clone (CodeLaser/maddi#203)
+        if (ti != null && ("crate::jrt::File".equals(mapped(ti)) || "crate::jrt::Path".equals(mapped(ti)))) return true;
         // a Shared handle: its clone is the shared object, as Java's reference is
         if (RustShared.current().isShared(type)) return true;
         return ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()

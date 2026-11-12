@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -431,6 +432,59 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
         contains(rust, "pub struct Attr<'a> {");
         contains(rust, "static ATTR_CODE: ");
         assertFalse(rust.matches("(?s).*static [A-Z_]+: [^=\\n]*'a.*"), rust);
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String UPCAST_TO_BASE = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Console<T> {
+                private final List<T> sources = new ArrayList<>();
+                void addSource(T t) { sources.add(t); }
+                int count() { return sources.size(); }
+            }
+            class TestConsole extends Console<String> {
+                private int closed;
+                void close() { closed++; }
+            }
+            class Fixture {
+                private TestConsole decompiler;
+                void setUp() { decompiler = new TestConsole(); }
+                Console<String> getDecompiler() { return decompiler; }
+                int run(String name) {
+                    getDecompiler().addSource(name);
+                    decompiler.addSource(name);
+                    return decompiler.count();
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#203 (fernflower's DecompilerTestFixture.getDecompiler, a TestConsoleDecompiler field returned as
+     * the ConsoleDecompiler it extends): a composed subclass Derefs to its base, so Java's implicit upcast is Rust's
+     * deref coercion, an Option's content through as_deref, and a call of the base's method on the subclass an auto-deref.
+     */
+    @DisplayName("a composed subclass returned or used as its superclass: Deref to the base")
+    @Test
+    public void upcastToBase() throws Exception {
+        List<TypeInfo> types = parse(UPCAST_TO_BASE);
+        TypeInfo console = types.stream().filter(t -> t.simpleName().equals("Console")).findFirst().orElseThrow();
+        TypeInfo test = types.stream().filter(t -> t.simpleName().equals("TestConsole")).findFirst().orElseThrow();
+        TypeInfo fixture = types.stream().filter(t -> t.simpleName().equals("Fixture")).findFirst().orElseThrow();
+        modifying(console, "addSource");
+        nonModifying(console, "count");
+        kept(method(console, "addSource").parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        modifying(test, "close");
+        modifying(fixture, "setUp", "run");
+        nonModifying(fixture, "getDecompiler");
+        dependentResult(fixture, "getDecompiler");
+        borrowed(method(fixture, "run").parameters().getFirst());
+        translate(types, nullable(Set.of("decompiler", "getDecompiler()")));
+        String rust = module("a.b");
+        contains(rust, "impl std::ops::Deref for TestConsole {");
+        contains(rust, "self.decompiler.as_deref()");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }
