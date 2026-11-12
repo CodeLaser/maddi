@@ -35,7 +35,9 @@ import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
  * Java's shared objects: the source classes whose objects are held as {@code crate::jrt::Shared<T>}, a reference
  * with Java's semantics (a clone shares the object; {@code ==} and hashing are identity). A class is shared when the
  * verdicts say Java shares its objects: some method or constructor keeps one (a dependent parameter, or one
- * independent with hidden content: moved in), and a field or a collection in a field holds them. A closed hierarchy
+ * independent with hidden content: moved in), and a field or a collection in a field holds them. So is a class whose
+ * shape is a graph with back-links, holding its own kind both in a collection and in a plain field (linkedGraph): its
+ * objects can be wired to each other between locals, where no verdict sees it. A closed hierarchy
  * (RustHierarchies) is shared as a whole, through its root, as its members print as the root.
  * <p>
  * Kept is read from the stored verdict itself, not from {@link RustFacts#passing}: a parameter without a verdict is
@@ -84,25 +86,29 @@ final class RustShared {
         if (OFF) return NONE;
         Set<TypeInfo> kept = new HashSet<>();
         Set<TypeInfo> held = new HashSet<>();
-        for (TypeInfo t : types) visit(t, facts, kept, held);
+        Set<TypeInfo> linkedGraph = new HashSet<>();
+        for (TypeInfo t : types) visit(t, facts, kept, held, linkedGraph);
         Set<TypeInfo> shared = new HashSet<>();
         for (TypeInfo t : kept) {
             if (held.contains(t) && !view(t, facts)) shared.add(t);
         }
+        shared.addAll(linkedGraph);
         return shared.isEmpty() ? NONE : new RustShared(Set.copyOf(shared));
     }
 
-    private static void visit(TypeInfo type, RustFacts facts, Set<TypeInfo> kept, Set<TypeInfo> held) {
+    private static void visit(TypeInfo type, RustFacts facts, Set<TypeInfo> kept, Set<TypeInfo> held,
+                              Set<TypeInfo> linkedGraph) {
         for (FieldInfo f : type.fields()) {
             if (!f.isStatic()) heldIn(f.type(), facts, held);
         }
+        if (linkedGraph(type, facts)) linkedGraph.add(candidate(type, facts));
         for (MethodInfo m : type.constructorsAndMethods()) {
             for (ParameterInfo p : m.parameters()) {
                 TypeInfo t = candidate(p.parameterizedType(), facts);
                 if (t != null && keptVerdict(p)) kept.add(t);
             }
         }
-        type.subTypes().forEach(sub -> visit(sub, facts, kept, held));
+        type.subTypes().forEach(sub -> visit(sub, facts, kept, held, linkedGraph));
     }
 
     // a field's type, and the element types of the collections and maps it is (a List<Edge>, Map<K, Statement>), also
@@ -150,6 +156,32 @@ final class RustShared {
         return false;
     }
 
+    /*
+     The type's shape, not a verdict (CodeLaser/maddi#202, Bart's option C): a class that holds its own kind both in a
+     collection (its children) and in a plain field (a back-link to its parent) is a graph with back-links, which no
+     single owner can hold, whatever the analysis says of its parameters. Fernflower's ClassesProcessor.ClassNode
+     ('List<ClassNode> nested', 'ClassNode parent'): its objects are wired to each other between locals
+     ('superNode.nested.add(nestedNode); nestedNode.parent = superNode'), where no parameter verdict sees the sharing.
+     */
+    private static boolean linkedGraph(TypeInfo type, RustFacts facts) {
+        TypeInfo self = candidate(type, facts);
+        if (self == null) return false;
+        boolean backLink = false;
+        boolean children = false;
+        for (FieldInfo f : type.fields()) {
+            if (f.isStatic()) continue;
+            ParameterizedType ft = f.type();
+            if (self.equals(candidate(ft, facts))) {
+                backLink = true;
+            } else if (ft.arrays() == 0 && ft.typeInfo() != null
+                       && (ft.typeInfo().compilationUnit().externalLibrary() || collection(ft.typeInfo()))
+                       && ft.parameters().stream().anyMatch(p -> self.equals(candidate(p, facts)))) {
+                children = true;
+            }
+        }
+        return backLink && children;
+    }
+
     private static boolean keptVerdict(ParameterInfo p) {
         Value.Independent independent = p.analysis().getOrNull(PropertyImpl.INDEPENDENT_PARAMETER,
                 ValueImpl.IndependentImpl.class);
@@ -159,7 +191,10 @@ final class RustShared {
     // a mutable source class, as its struct: a closed hierarchy's root
     private static TypeInfo candidate(ParameterizedType type, RustFacts facts) {
         if (type == null || type.arrays() > 0 || type.isTypeParameter()) return null;
-        TypeInfo ti = type.typeInfo();
+        return candidate(type.typeInfo(), facts);
+    }
+
+    private static TypeInfo candidate(TypeInfo ti, RustFacts facts) {
         if (ti == null || ti.compilationUnit().externalLibrary() || ti.isInterface() || ti.typeNature().isEnum()
             || ti.typeNature().isRecord() || facts.immutable(ti) || facts.immutableHc(ti)) {
             return null;

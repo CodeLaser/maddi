@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -410,5 +411,52 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         contains(rust, "instrs: SeqsColl<crate::jrt::Shared<SeqsInstr>>,");
         List<String> errors = rustcErrors();
         assertTrue(errors.stream().noneMatch(e -> e.contains("found `&")), () -> String.join("\n", errors) + "\n" + rust);
+    }
+
+    @Language("java")
+    private static final String LINKED_TREE = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.HashMap;
+            import java.util.List;
+            import java.util.Map;
+            public class Tree {
+                public static class Node {
+                    public final String name;
+                    public final List<Node> nested = new ArrayList<>();
+                    public Node parent;
+                    public Node(String name) { this.name = name; }
+                }
+                private final Map<String, Node> roots = new HashMap<>();
+                public void add(String name) { roots.put(name, new Node(name)); }
+                public void attach(String parentName, String childName) {
+                    Node parentNode = roots.get(parentName);
+                    Node childNode = roots.get(childName);
+                    parentNode.nested.add(childNode);
+                    childNode.parent = parentNode;
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#202 (fernflower's ClassesProcessor.ClassNode), option C: a class holding its own kind both in a
+     * collection and in a plain field is a graph with back-links. Its objects are wired to each other between locals,
+     * where no parameter verdict sees the sharing; no single owner can hold it, so it is Shared by its shape.
+     */
+    @DisplayName("a class with children and a back-link to its own kind is Shared by its shape, without a kept verdict")
+    @Test
+    public void linkedTree() throws Exception {
+        List<TypeInfo> types = parse(LINKED_TREE);
+        TypeInfo tree = types.getFirst();
+        modifying(tree, "add", "attach");
+        for (String m : List.of("add", "attach")) {
+            method(tree, m).parameters().forEach(CommonJavaToRust::borrowed);
+        }
+        // as in fernflower: the back-link and a map lookup may be null
+        translate(types, nullable(Set.of("parent", "get()")));
+        String rust = module("a.b");
+        contains(rust, "pub nested: Vec<crate::jrt::Shared<TreeNode>>,");
+        contains(rust, "pub parent: Option<crate::jrt::Shared<TreeNode>>,");
+        assertEquals(List.of(), rustcErrors(), rust);
     }
 }
