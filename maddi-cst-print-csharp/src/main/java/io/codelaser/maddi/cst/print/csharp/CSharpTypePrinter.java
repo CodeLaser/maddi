@@ -154,14 +154,17 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             StringBuilder modifiers = new StringBuilder();
             String access = typeAccess();
             if (access != null) modifiers.append(access).append(' ');
-            if (staticClass) modifiers.append("static ");
+            boolean struct = CSharpContext.program().struct(typeInfo);
+            if (struct) modifiers.append("readonly ");
+            else if (staticClass) modifiers.append("static ");
             else if (typeInfo.isAbstract() && !typeInfo.isInterface()) modifiers.append("abstract ");
             else if (record || enumClass || typeInfo.typeNature().isClass()
                                             && (typeInfo.isFinal() || !CSharpContext.program().open(typeInfo))
                                             && !CSharpContext.program().boundsTypeParameter(typeInfo)) {
                 modifiers.append("sealed ");
             }
-            String keyword = typeInfo.isInterface() ? "interface" : record ? "record" : "class";
+            String keyword = typeInfo.isInterface() ? "interface" : struct ? (record ? "record struct" : "struct")
+                    : record ? "record" : "class";
             List<TypeParameter> declaredTypeParameters = self != null ? self.typeParameters() : typeInfo.typeParameters();
             String typeParameters = typeInfo.isInterface() && self == null
                     ? CSharpNames.declaredTypeParameters(declaredTypeParameters)

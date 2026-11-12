@@ -60,7 +60,7 @@ public sealed class PhaseScopes {
     public interface IScore { bool IsZero(); }
     public sealed class ScoreLambda<Score_>(Func<bool> f) : IScore<Score_> where Score_ : IScore<Score_> { public bool IsZero() => f(); }
 
-    public sealed record SimpleScore(int Value) : IScore<SimpleScore> {
+    public readonly record struct SimpleScore(int Value) : IScore<SimpleScore> {
         public bool IsZero() => Value == 0;
         public override string ToString() => "SimpleScore[value=" + JavaString.ValueOf(Value) + "]";
     }

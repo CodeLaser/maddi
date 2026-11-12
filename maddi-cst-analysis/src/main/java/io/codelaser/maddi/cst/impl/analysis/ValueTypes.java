@@ -203,7 +203,7 @@ public final class ValueTypes {
                     TypeInfo right = typeOf(bo.rhs());
                     if (bo.lhs().isNullConstant()) nullFor(right, in, bo, builders);
                     else if (bo.rhs().isNullConstant()) nullFor(left, in, bo, builders);
-                    else {
+                    else if (!equalsShortcut(in, bo)) {
                         Builder b = builders.get(left);
                         if (b == null) b = builders.get(right);
                         if (b != null) b.add(Obstacle.IDENTITY_COMPARISON, in, bo);
@@ -250,6 +250,20 @@ public final class ValueTypes {
             return m.typeInfo() == owner && (m.isConstructor() || m.isInstanceInitializer());
         }
         return in instanceof FieldInfo f && f.owner() == owner && !f.isStatic();
+    }
+
+    /**
+     * {@code this == o} in the class's own {@code equals}: the shortcut before the comparison of the fields, which
+     * gives the same answer when the values are compared by content.
+     */
+    private static boolean equalsShortcut(Info in, BinaryOperator bo) {
+        return in instanceof MethodInfo m && "equals".equals(m.name()) && m.parameters().size() == 1 && !m.isStatic()
+               && (ownThis(bo.lhs(), m.typeInfo()) || ownThis(bo.rhs(), m.typeInfo()));
+    }
+
+    private static boolean ownThis(Expression e, TypeInfo owner) {
+        return e instanceof VariableExpression ve && ve.variable() instanceof This th && !th.writeSuper()
+               && th.typeInfo() == owner;
     }
 
     private static boolean referenceEquality(BinaryOperator bo) {

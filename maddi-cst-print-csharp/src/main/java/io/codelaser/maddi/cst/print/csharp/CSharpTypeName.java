@@ -244,6 +244,8 @@ public final class CSharpTypeName {
      * mapping makes of Java's types (Guid, DateOnly, decimal, KeyValuePair for an entry) stay as they are.
      */
     private static boolean valueTypeFree(ParameterizedType pt, String type) {
+        // a struct of the program is never null (CSharpStructs)
+        if (pt.arrays() == 0 && !pt.isTypeParameter() && CSharpContext.program().struct(pt.typeInfo())) return false;
         if (pt.arrays() == 0 && pt.typeInfo() != null && pt.typeInfo().typeNature().isEnum()
             && CSharpNames.simpleEnum(pt.typeInfo())) {
             return false;

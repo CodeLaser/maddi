@@ -2818,7 +2818,12 @@ public final class CSharpExpressionPrinter {
         ParameterizedType r = rhs.parameterizedType();
         if (l == null || r == null || l.arrays() > 0 || r.arrays() > 0) return false;
         return l.isJavaLangString() && r.isJavaLangString() || l.isTypeParameter() || r.isTypeParameter()
-               || translatedRecord(l) || translatedRecord(r);
+               || translatedRecord(l) || translatedRecord(r) || struct(l) || struct(r);
+    }
+
+    /** A struct of the program: C# has no {@code ==} on it; Java's {@code this == o} in its equals, by reference. */
+    private static boolean struct(ParameterizedType t) {
+        return !t.isTypeParameter() && CSharpContext.program().struct(t.typeInfo());
     }
 
     /** A record of the program: C#'s {@code ==} on it compares the components, Java's the references. */

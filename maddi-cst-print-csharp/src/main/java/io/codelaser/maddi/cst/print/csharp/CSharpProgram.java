@@ -161,6 +161,7 @@ public final class CSharpProgram {
     private final List<TypeInfo> types;
     private final Set<TypeParameter> notNullKeys;
     private final CSharpWildcardInterfaces.Uses wildcardUses;
+    private final Set<TypeInfo> structs;
     private final Memo memo = new Memo();
 
     /** The decisions as the analyses make them, one after the other; what none has made yet is the NONE program's. */
@@ -186,6 +187,7 @@ public final class CSharpProgram {
         List<TypeInfo> types = List.of();
         Set<TypeParameter> notNullKeys = Set.of();
         CSharpWildcardInterfaces.Uses wildcardUses = CSharpWildcardInterfaces.Uses.NONE;
+        Set<TypeInfo> structs = Set.of();
 
         CSharpProgram build() {
             return new CSharpProgram(this);
@@ -221,6 +223,7 @@ public final class CSharpProgram {
         types = b.types;
         notNullKeys = b.notNullKeys;
         wildcardUses = b.wildcardUses;
+        structs = b.structs;
     }
 
     @SuppressWarnings("unused") // kept: the analysis under the default policy, for callers outside --translate
@@ -311,6 +314,9 @@ public final class CSharpProgram {
         CSharpContext.program(b.build());
         Set<MethodInfo> erased = b.erasedGenerics;
         b.wildcardUses = CSharpWildcardInterfaces.wildcarded(all, erased::contains);
+        // which classes are structs: what is open, a bound, a delegate or self-bounded is known now
+        CSharpContext.program(b.build());
+        b.structs = CSharpStructs.analyze(primaryTypes, all);
         return b.build();
     }
 
@@ -737,6 +743,11 @@ public final class CSharpProgram {
 
     public boolean delegate(TypeInfo typeInfo) {
         return delegates.contains(typeInfo);
+    }
+
+    /** A class or record of the program that C# declares as a {@code readonly struct} ({@link CSharpStructs}). */
+    public boolean struct(TypeInfo typeInfo) {
+        return typeInfo != null && structs.contains(typeInfo);
     }
 
     /** A class that may have subclasses: one of the program extends it, or the policy keeps it open. */

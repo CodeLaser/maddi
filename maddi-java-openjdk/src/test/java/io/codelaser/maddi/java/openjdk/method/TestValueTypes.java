@@ -50,7 +50,11 @@ public class TestValueTypes extends CommonTest {
                     private final int y;
                     public Point(int x, int y) { this.x = x; this.y = y; }
                     public int x() { return x; }
-                    @Override public boolean equals(Object o) { return o instanceof Point p && p.x == x && p.y == y; }
+                    // this == o: the shortcut of its own equals, no identity comparison
+                    @Override public boolean equals(Object o) {
+                        if (this == o) return true;
+                        return o instanceof Point p && p.x == x && p.y == y;
+                    }
                     @Override public int hashCode() { return 31 * x + y; }
                 }
                 public record Range(int from, int to) { }

@@ -118,7 +118,7 @@ public sealed class Lifecycles {
     }
     public interface IOverrides { IDictionary Weights { get; } }
 
-    public sealed record Pair(int Size) : ITuple {
+    public readonly record struct Pair(int Size) : ITuple {
         int ITuple.Size() => Size;
         public override string ToString() => "Pair[size=" + JavaString.ValueOf(Size) + "]";
     }

@@ -33,7 +33,7 @@ internal static class Unchecked {
 }
 internal sealed class Assign<S> : IMv<S> { }
 internal sealed class Cell<T> { internal T t; }
-internal sealed record Entry<E, V>(E Entity, V Value) {
+internal readonly record struct Entry<E, V>(E Entity, V Value) {
     public override string ToString() => "Entry[entity=" + JavaString.ValueOf(Entity) + ", value=" + JavaString.ValueOf(Value) + "]";
 }
 internal static class Entry { internal static Entry<E, V> Of<E, V>(E entity, V value) => new Entry<E, V>(entity, value); }
