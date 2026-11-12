@@ -2285,6 +2285,8 @@ final class RustBodyPrinter {
     }
 
     private String arguments0(List<Expression> arguments, MethodInfo callee) {
+        String packed = varargs(arguments, callee);
+        if (packed != null) return packed;
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Printed p = modifiedArgument(arguments, i, callee) ? mutable(arguments.get(i)) : expression(arguments.get(i));
@@ -2295,6 +2297,40 @@ final class RustBodyPrinter {
             ParameterInfo pi = callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
             out.add(argument(p, pi, arguments.get(i)));
         }
+        return String.join(", ", out);
+    }
+
+    /*
+     A source method's varargs, 'doTest(String testFile, String... companionFiles)' called as doTest("a") or
+     doTest("a", "b", "c"): the trailing arguments packed into the slice (or Vec) its last parameter is, empty when
+     there are none. null when the call passes an array itself, or the callee has no varargs.
+     */
+    private String varargs(List<Expression> arguments, MethodInfo callee) {
+        if (callee == null || !callee.isVarargs() || callee.typeInfo().compilationUnit().externalLibrary()) return null;
+        int n = callee.parameters().size();
+        ParameterInfo last = callee.parameters().getLast();
+        ParameterizedType arrayType = last.parameterizedType();
+        if (arguments.size() == n) {
+            ParameterizedType given = arguments.getLast().parameterizedType();
+            if (given != null && given.arrays() == arrayType.arrays() || arguments.getLast() instanceof NullConstant) {
+                return null;
+            }
+        }
+        List<String> out = new ArrayList<>();
+        List<Expression> fixed = arguments.subList(0, Math.min(n - 1, arguments.size()));
+        for (int i = 0; i < fixed.size(); i++) {
+            Printed p = modifiedArgument(arguments, i, callee) ? mutable(arguments.get(i)) : expression(arguments.get(i));
+            out.add(argument(p, callee.parameters().get(i), arguments.get(i)));
+        }
+        ParameterizedType element = arrayType.copyWithArrays(arrayType.arrays() - 1);
+        List<String> elements = new ArrayList<>();
+        for (int i = n - 1; i < arguments.size(); i++) elements.add(owned(expression(arguments.get(i)), element));
+        String joined = String.join(", ", elements);
+        out.add(switch (context.passing(last)) {
+            case SHARED -> "&[" + joined + "]";
+            case EXCLUSIVE -> "&mut [" + joined + "]";
+            case OWNED -> "vec![" + joined + "]";
+        });
         return String.join(", ", out);
     }
 

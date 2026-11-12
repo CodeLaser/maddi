@@ -1292,4 +1292,33 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         List<String> errors = rustcErrors();
         assertTrue(errors.stream().noneMatch(e -> e.contains("E0515")), () -> String.join("\n", errors) + "\n" + rust);
     }
+
+    @Language("java")
+    private static final String VARARGS = """
+            package a.b;
+            public class Varargs {
+                // SingleClassesTestBase.doTest(String testFile, String... companionFiles)
+                public static int count(String first, String... more) {
+                    int n = first.length();
+                    for (String m : more) n += m.length();
+                    return n;
+                }
+                public static int use() { return count("a") + count("a", "bc", "d"); }
+            }
+            """;
+
+    @DisplayName("a source method's varargs: the trailing arguments packed into its slice, empty without any")
+    @Test
+    public void sourceVarargs() throws Exception {
+        List<TypeInfo> types = parse(VARARGS);
+        TypeInfo varargs = types.getFirst();
+        nonModifying(varargs, "count", "use");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'Self::count("a")' and 'Self::count("a", "bc", "d")': E0061
+        contains(rust, "Self::count(\"a\".to_string(), vec![])");
+        contains(rust, "Self::count(\"a\".to_string(), vec![\"bc\".to_string(), \"d\".to_string()])");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
