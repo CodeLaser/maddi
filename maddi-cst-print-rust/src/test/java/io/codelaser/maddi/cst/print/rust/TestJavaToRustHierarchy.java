@@ -262,6 +262,53 @@ public class TestJavaToRustHierarchy extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String TYPED = """
+            package a.b;
+            public class Typed {
+                public static class Type {
+                    private final String name;
+                    public Type(String name) { this.name = name; }
+                    public String getName() { return name; }
+                }
+                public abstract static class Expr {
+                    private int offsets;
+                    public void addOffsets(int n) { offsets += n; }
+                    public abstract String describe();
+                }
+                // fernflower's ArrayExprent: the hard type assigned among other work
+                public static class Array extends Expr {
+                    private final Type hardType;
+                    public Array(Type hardType, int n) {
+                        this.hardType = hardType;
+                        addOffsets(n);
+                    }
+                    public String describe() { return hardType.getName(); }
+                }
+                public static class Other extends Expr {
+                    public String describe() { return ""; }
+                }
+            }
+            """;
+
+    @DisplayName("a member's field without an empty value, assigned among other work: its value goes into the data")
+    @Test
+    public void memberFieldAssignedEarly() throws Exception {
+        List<TypeInfo> types = parse(TYPED);
+        TypeInfo typed = types.getFirst();
+        nonModifying(typed.findSubType("Type"), "getName");
+        modifying(typed.findSubType("Expr"), "addOffsets");
+        nonModifying(typed.findSubType("Array"), "describe");
+        nonModifying(typed.findSubType("Other"), "describe");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'hard_type: Default::default()', assigned after: E0277, TypedType has no empty value
+        assertFalse(rust.contains("Default::default()"), rust);
+        contains(rust, "hard_type: hard_type");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String MATCHABLES = """
             package a.b;
             import java.util.List;

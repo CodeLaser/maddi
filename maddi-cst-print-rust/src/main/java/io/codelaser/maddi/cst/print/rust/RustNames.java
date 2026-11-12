@@ -113,9 +113,18 @@ public final class RustNames {
         return packageName.isEmpty() ? "root" : identifier(packageName.replace('.', '_'));
     }
 
+    /**
+     * The module a type's items are in: its package's, except for a member of a closed hierarchy, which is printed
+     * with the hierarchy's root (RustHierarchies), also when the member is in another package.
+     */
+    public static String module(TypeInfo typeInfo) {
+        TypeInfo root = RustHierarchies.current().root(typeInfo);
+        return module((root != null ? root : typeInfo).packageName());
+    }
+
     /** The path from the crate root: {@code crate::com_example_util::Parser}. */
     public static String path(TypeInfo typeInfo) {
-        return "crate::" + module(typeInfo.packageName()) + "::" + type(typeInfo);
+        return "crate::" + module(typeInfo) + "::" + type(typeInfo);
     }
 
     /**

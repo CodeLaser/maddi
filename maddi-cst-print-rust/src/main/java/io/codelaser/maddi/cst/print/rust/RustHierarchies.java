@@ -120,8 +120,9 @@ final class RustHierarchies {
             if (sourceParentClass(root) != null || !eligible(root)) continue;
             List<TypeInfo> members = new ArrayList<>();
             if (!collect(root, children, members)) continue;
-            // one module: what names a member's module names the root's (RustNames.module of its package)
-            if (members.stream().anyMatch(m -> !m.packageName().equals(root.packageName()))) continue;
+            // members in other packages are printed with the root, in its module (RustNames.module of a type), so that
+            // a subclass in another package is still Java's object of the root's class (CodeLaser/maddi#203:
+            // PrintStreamLogger extends IFernflowerLogger, a test's TestConsoleDecompiler extends ConsoleDecompiler)
             Hierarchy h = new Hierarchy(root, List.copyOf(members), families(root, members));
             members.forEach(m -> byMember.put(m, h));
         }

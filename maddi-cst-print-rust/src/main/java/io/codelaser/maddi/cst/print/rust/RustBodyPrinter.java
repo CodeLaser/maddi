@@ -272,7 +272,13 @@ final class RustBodyPrinter {
         nullableLocals.put(lv, nullable);
         String text = value.text;
         Held held = value.held;
-        if (reassigned && (held == Held.SHARED || held == Held.STR) && RustTypes.isString(lv.parameterizedType())
+        String thisHandle = sharedThis(value, lv.parameterizedType());
+        if (thisHandle != null) {
+            // 'ClassNode node = this;' of a Shared class (fernflower's ClassNode.getWrapper): the handle of the object
+            // self is, as the local walks on to other nodes ('node = node.parent')
+            text = thisHandle;
+            held = Held.VALUE;
+        } else if (reassigned && (held == Held.SHARED || held == Held.STR) && RustTypes.isString(lv.parameterizedType())
             && !(init instanceof NullConstant)) {
             // 'String x = s; … x = "default";': an assignment gives the local an owned string, so it owns its first
             text = value.nullable ? text + ".map(|v| v.to_string())" : text + ".to_string()";
@@ -375,6 +381,14 @@ final class RustBodyPrinter {
             // Option<&T>: a borrow of the Option's content, not of the Option ('&self.t' is an &Option<T>)
             Printed inner = value.text.startsWith("if ") ? new Printed("(" + value.text + ")", value.held, true) : value;
             text = nullableBorrow(inner, e, RustTypes.isString(method.returnType()), method.returnType().arrays() > 0);
+            // a composed subclass where its superclass is declared ('ConsoleDecompiler getDecompiler()' returning a
+            // TestConsoleDecompiler field): Deref to the base, which an Option's content needs spelled out
+            if (upcastToBase(e, method.returnType())) {
+                if (text.endsWith(".as_ref()")) text = text.substring(0, text.length() - ".as_ref()".length()) + ".as_deref()";
+                else if (text.endsWith(".as_mut()")) {
+                    text = text.substring(0, text.length() - ".as_mut()".length()) + ".as_deref_mut()";
+                }
+            }
         } else if (borrows && !nullable && value.nullable && !(e instanceof NullConstant)) {
             // never null by the verdict, held in an Option: a borrow of its content ('&self.t.unwrap()' borrows a
             // temporary moved out of the field)
@@ -404,6 +418,14 @@ final class RustBodyPrinter {
             text = text + ".unwrap()";
         }
         return text;
+    }
+
+    /** {@code e}'s class is a composed subclass of {@code target}'s: reached through its base (RustTypePrinter.basePath). */
+    private static boolean upcastToBase(Expression e, ParameterizedType target) {
+        TypeInfo from = e.parameterizedType().typeInfo();
+        TypeInfo to = target.typeInfo();
+        return from != null && to != null && from != to && e.parameterizedType().arrays() == 0
+               && !RustTypePrinter.basePath(from, to).isEmpty();
     }
 
     private String ifElse(IfElseStatement ife, int depth) {
@@ -594,7 +616,7 @@ final class RustBodyPrinter {
 
     // the kind enum a test names, imported where the hierarchy is another module's
     private void useKind(TypeInfo member) {
-        String module = RustNames.module(member.packageName());
+        String module = RustNames.module(member);
         if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustHierarchies.current().kind(member));
     }
 
@@ -1230,7 +1252,7 @@ final class RustBodyPrinter {
             if (jdk != null) return value(jdk);
             String prefix = owner == context.type ? "Self" : RustNames.type(owner);
             if (owner != context.type && !owner.compilationUnit().externalLibrary()) {
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(owner));
             }
             if (owner.typeNature().isEnum() && f.type().typeInfo() == owner) {
@@ -1239,21 +1261,21 @@ final class RustBodyPrinter {
             if (RustTypePrinter.interfaceConstant(f)) {
                 // a module-level const beside the trait
                 String name = RustTypePrinter.staticName(f);
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
                 return new Printed(name, RustTypes.isString(f.type()) ? Held.STR : Held.VALUE, nullable);
             }
             if (RustTypePrinter.mutableStaticValue(f, context) != null) {
                 // Java's static state: a static mut, touched inside the unsafe body of the method
                 String name = RustTypePrinter.staticName(f);
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
                 // Rust 2024 refuses a reference to a static mut: a method call on one goes through a raw pointer
                 return new Printed(RustTypes.isCopy(f.type()) ? name : "(*&raw mut " + name + ")", Held.PLACE, nullable);
             }
             if (!owner.compilationUnit().externalLibrary() && RustTypePrinter.lazyStatic(f, context)) {
                 String name = RustTypePrinter.staticName(f);
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
                 if (RustTypePrinter.threadLocalStatic(f, context)) return new Printed(name + ".with(|v| v.clone())", Held.VALUE, nullable);
                 // a LazyLock<i32> derefs to its value: an int where one is expected
@@ -1857,7 +1879,7 @@ final class RustBodyPrinter {
         }
         String owner = m.typeInfo() == context.type ? "Self" : RustNames.type(m.typeInfo());
         if (m.typeInfo() != context.type) {
-            String module = RustNames.module(m.typeInfo().packageName());
+            String module = RustNames.module(m.typeInfo());
             if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(m.typeInfo()));
         }
         String name = RustNames.method(m);
@@ -2001,7 +2023,7 @@ final class RustBodyPrinter {
             TypeInfo owner = callee.typeInfo();
             String prefix = owner == context.type ? "Self" : RustNames.type(owner);
             if (owner != context.type) {
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(owner));
             }
             call = prefix + "::" + name + "(" + args + ")";
@@ -2009,7 +2031,7 @@ final class RustBodyPrinter {
             // a trait's method is callable where the trait is in scope
             TypeInfo trait = callee.typeInfo().isInterface() ? callee.typeInfo() : RustTypePrinter.implementedTrait(callee);
             if (trait != null) {
-                String module = RustNames.module(trait.packageName());
+                String module = RustNames.module(trait);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(trait));
             }
             boolean own = mc.object() == null || mc.objectIsImplicit()
@@ -2041,6 +2063,7 @@ final class RustBodyPrinter {
             // through a Shared handle's DerefMut only: a plain &mut receiver has Rust's two-phase borrow
             String hoisted = exclusive && !own && RustShared.current().isShared(mc.object().parameterizedType())
                     ? hoistReceiverReads(object, exclusiveArgs, callee) : null;
+            if (hoisted == null && exclusive && !own) hoisted = hoistSelfCalls(object, exclusiveArgs);
             if (hoisted != null) {
                 int bar = hoisted.indexOf('\u0000');
                 call = "{ " + hoisted.substring(0, bar) + object + path + "." + name + "(" + hoisted.substring(bar + 1) + ") }";
@@ -2110,7 +2133,7 @@ final class RustBodyPrinter {
         String owner = ti == context.type && !context.borrows.hasLifetime(ti) && ti.typeParameters().isEmpty()
                 ? "Self" : RustNames.type(ti);
         if (ti != context.type) {
-            String module = RustNames.module(ti.packageName());
+            String module = RustNames.module(ti);
             if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(ti));
         }
         String name = constructor == null ? "new" : RustNames.method(constructor);
@@ -2119,6 +2142,12 @@ final class RustBodyPrinter {
         if (RustTypes.isShared(ti, context.facts)) {
             context.use("std::rc::Rc");
             return value("Rc::new(" + call + ")");
+        }
+        // a constructor handing out 'this' (RustShared.isCyclic): built in its handle, given a weak one of itself
+        if (RustShared.current().isCyclic(ti)) {
+            String arguments = arguments(cc.parameterExpressions(), constructor);
+            return value("crate::jrt::Shared::new_cyclic(|__w| " + owner + "::" + name + "(" + arguments
+                         + (arguments.isEmpty() ? "" : ", ") + "__w))");
         }
         // Java's shared object: the new object in its handle (RustShared)
         if (RustShared.current().isShared(ti)) return value("crate::jrt::Shared::new(" + call + ")");
@@ -2195,6 +2224,35 @@ final class RustBodyPrinter {
         return any ? lets + "\u0000" + String.join(", ", out) : null;
     }
 
+    /*
+     'fixture.setUp(getDecompilerOptions())' (fernflower's SingleClassesTestBase): the receiver is a chain off self held
+     exclusively ('self.fixture.as_mut().unwrap()') while an argument calls a method on self (E0502). Java evaluates
+     the argument first anyway: '{ let __a0 = self.get_decompiler_options(); self.fixture…set_up(&__a0) }', a borrowed
+     argument borrowed again. Answers as hoistReceiverReads.
+     */
+    private static final java.util.regex.Pattern SELF_CALL = java.util.regex.Pattern.compile("\\bself\\.[a-z_][a-z0-9_]*\\(");
+
+    private static String hoistSelfCalls(String object, List<String> printed) {
+        if (!object.startsWith("self.")) return null;
+        StringBuilder lets = new StringBuilder();
+        List<String> out = new ArrayList<>();
+        boolean any = false;
+        for (int i = 0; i < printed.size(); i++) {
+            String text = printed.get(i);
+            if (!SELF_CALL.matcher(text).find()) {
+                out.add(text);
+                continue;
+            }
+            String prefix = text.startsWith("&mut ") ? "&mut " : text.startsWith("&") ? "&" : "";
+            String value = text.substring(prefix.length());
+            lets.append("let ").append(prefix.equals("&mut ") ? "mut " : "").append("__a").append(i).append(" = ")
+                    .append(value).append("; ");
+            out.add(prefix + "__a" + i);
+            any = true;
+        }
+        return any ? lets + "\u0000" + String.join(", ", out) : null;
+    }
+
     /** A method reference's closure parameters, each a place (see {@link #parameter}), adapted to the callee's. */
     private String passed(List<String> names, MethodInfo callee) {
         List<String> out = new ArrayList<>();
@@ -2227,6 +2285,8 @@ final class RustBodyPrinter {
     }
 
     private String arguments0(List<Expression> arguments, MethodInfo callee) {
+        String packed = varargs(arguments, callee);
+        if (packed != null) return packed;
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Printed p = modifiedArgument(arguments, i, callee) ? mutable(arguments.get(i)) : expression(arguments.get(i));
@@ -2237,6 +2297,40 @@ final class RustBodyPrinter {
             ParameterInfo pi = callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
             out.add(argument(p, pi, arguments.get(i)));
         }
+        return String.join(", ", out);
+    }
+
+    /*
+     A source method's varargs, 'doTest(String testFile, String... companionFiles)' called as doTest("a") or
+     doTest("a", "b", "c"): the trailing arguments packed into the slice (or Vec) its last parameter is, empty when
+     there are none. null when the call passes an array itself, or the callee has no varargs.
+     */
+    private String varargs(List<Expression> arguments, MethodInfo callee) {
+        if (callee == null || !callee.isVarargs() || callee.typeInfo().compilationUnit().externalLibrary()) return null;
+        int n = callee.parameters().size();
+        ParameterInfo last = callee.parameters().getLast();
+        ParameterizedType arrayType = last.parameterizedType();
+        if (arguments.size() == n) {
+            ParameterizedType given = arguments.getLast().parameterizedType();
+            if (given != null && given.arrays() == arrayType.arrays() || arguments.getLast() instanceof NullConstant) {
+                return null;
+            }
+        }
+        List<String> out = new ArrayList<>();
+        List<Expression> fixed = arguments.subList(0, Math.min(n - 1, arguments.size()));
+        for (int i = 0; i < fixed.size(); i++) {
+            Printed p = modifiedArgument(arguments, i, callee) ? mutable(arguments.get(i)) : expression(arguments.get(i));
+            out.add(argument(p, callee.parameters().get(i), arguments.get(i)));
+        }
+        ParameterizedType element = arrayType.copyWithArrays(arrayType.arrays() - 1);
+        List<String> elements = new ArrayList<>();
+        for (int i = n - 1; i < arguments.size(); i++) elements.add(owned(expression(arguments.get(i)), element));
+        String joined = String.join(", ", elements);
+        out.add(switch (context.passing(last)) {
+            case SHARED -> "&[" + joined + "]";
+            case EXCLUSIVE -> "&mut [" + joined + "]";
+            case OWNED -> "vec![" + joined + "]";
+        });
         return String.join(", ", out);
     }
 
@@ -2268,6 +2362,11 @@ final class RustBodyPrinter {
         }
         p = widen(p, argument, type);
         boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
+        if (RustShared.current().isBackLink(backLinkType(type))) {
+            // a back-link (RustShared): 'this' as a weak handle of the object, another one cloned
+            String weak = backLinkThis(argument);
+            return weak == null ? owned(p, type) : nullable ? "Some(" + weak + ")" : weak;
+        }
         String handle = sharedThis(p, type);
         if (handle != null && !RustTypes.isCopy(type)) {
             // 'this' passed where a Shared is expected, borrowed or kept: its own handle
@@ -2460,6 +2559,27 @@ final class RustBodyPrinter {
             return p.text + (p.nullable && p.held == Held.SHARED ? ".cloned()" : ".clone()");
         }
         return p.text;
+    }
+
+    private static TypeInfo backLinkType(ParameterizedType type) {
+        return type == null || type.arrays() > 0 || type.isTypeParameter() ? null : type.typeInfo();
+    }
+
+    /**
+     * A bare {@code this} handed out as a back-link (RustShared): inside the constructor of a cyclic class the weak
+     * handle {@code Shared::new_cyclic} gives it, elsewhere a weak handle of the object {@code self} is; null for
+     * another argument. The handle's type is the interface's: {@code WeakShared(...)} coerces it.
+     */
+    private String backLinkThis(Expression argument) {
+        if (!(CstQueries.unwrap(argument) instanceof VariableExpression ve && ve.variable() instanceof This th)
+            || th.explicitlyWriteType() != null || th.writeSuper() || context.type == null) {
+            return null;
+        }
+        if (context.method != null && context.method.isConstructor() && RustShared.current().isCyclic(context.type)) {
+            return "crate::jrt::WeakShared(__this.0.clone())";
+        }
+        String receiver = "this".equals(context.receiver) ? "&this" : context.receiver;
+        return "crate::jrt::WeakShared(crate::jrt::Shared::of(" + receiver + ").weak())";
     }
 
     /**

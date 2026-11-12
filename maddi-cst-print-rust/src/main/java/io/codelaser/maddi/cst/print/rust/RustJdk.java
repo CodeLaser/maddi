@@ -110,6 +110,103 @@ final class RustJdk {
         return value(o + "." + RustNames.snake(name) + "(" + all + ")");
     }
 
+    /*
+     jrt.rs's file system (CodeLaser/maddi#203): File and Path on std::path, Files on std::fs. Its functions take any form
+     of a path or a string (the JPath trait: owned, borrowed, nullable), so an argument is passed as a reference; what
+     only tunes Java's call (a Charset, a LinkOption, a FileAttribute, a CopyOption) is left out.
+     */
+    private static final Set<String> FILE_OPTIONS = Set.of("java.nio.charset.Charset", "java.nio.file.LinkOption",
+            "java.nio.file.attribute.FileAttribute", "java.nio.file.CopyOption", "java.nio.file.StandardCopyOption",
+            "java.nio.file.OpenOption", "java.nio.file.StandardOpenOption", "java.nio.file.FileVisitOption");
+
+    private static boolean fileOption(Expression e) {
+        TypeInfo t = e.parameterizedType().typeInfo();
+        return t != null && FILE_OPTIONS.contains(t.fullyQualifiedName());
+    }
+
+    private static String pathArgument(Expression e, RustBodyPrinter printer) {
+        return printer.reference(e);
+    }
+
+    private static String pathArguments(List<Expression> args, RustBodyPrinter printer) {
+        return args.stream().filter(a -> !fileOption(a)).map(a -> pathArgument(a, printer))
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    private static Printed fileCall(MethodCall mc, RustBodyPrinter printer) {
+        String name = mc.methodInfo().name();
+        List<Expression> args = mc.parameterExpressions();
+        if ("equals".equals(name) || "hashCode".equals(name) || "compareTo".equals(name)) return null;
+        String o = printer.receiver(mc.object(), false);
+        if ("toString".equals(name) && args.isEmpty()) return value(o + ".to_string()");
+        return value(o + "." + RustNames.snake(name) + "(" + pathArguments(args, printer) + ")");
+    }
+
+    private static Printed filesStatic(String fqn, String name, List<Expression> args, RustBodyPrinter printer) {
+        List<Expression> real = args.stream().filter(a -> !fileOption(a)).toList();
+        if ("java.nio.file.Paths".equals(fqn) || "java.nio.file.Path".equals(fqn)) {
+            if (!"get".equals(name) && !"of".equals(name) || real.isEmpty()) return null;
+            String first = pathArgument(real.getFirst(), printer);
+            if (real.size() == 1) return value("crate::jrt::Path::of(" + first + ")");
+            String more = real.subList(1, real.size()).stream().map(a -> printer.text(a) + ".to_string()")
+                    .collect(java.util.stream.Collectors.joining(", "));
+            return value("crate::jrt::Path::of_all(" + first + ", &[" + more + "])");
+        }
+        switch (name) {
+            case "walkFileTree" -> {
+                // the delete-everything visitor (a test fixture's cleanup): Files.delete in each of its methods
+                if (real.size() == 2 && deletingVisitor(real.get(1))) {
+                    return value("crate::jrt::Files::delete_recursively(" + pathArgument(real.getFirst(), printer) + ")");
+                }
+                return null;
+            }
+            case "createTempDirectory" -> {
+                // (prefix, attrs...); the (dir, prefix, attrs...) form is not in jrt.rs
+                return real.size() == 1 ? value("crate::jrt::Files::create_temp_directory("
+                                                 + pathArgument(real.getFirst(), printer) + ")") : null;
+            }
+            case "writeString" -> {
+                if (real.size() != 2) return null;
+                return value("crate::jrt::Files::write_string(" + pathArgument(real.get(0), printer) + ", &("
+                             + printer.text(real.get(1)) + ")[..])");
+            }
+            case "copy" -> {
+                // two paths; a stream source is not in jrt.rs
+                boolean paths = real.size() == 2 && real.stream().allMatch(a -> a.parameterizedType().typeInfo() != null
+                        && "java.nio.file.Path".equals(a.parameterizedType().typeInfo().fullyQualifiedName()));
+                return paths ? value("crate::jrt::Files::copy(" + pathArguments(real, printer) + ")") : null;
+            }
+            default -> {
+                return value("crate::jrt::Files::" + RustNames.snake(name) + "(" + pathArguments(real, printer) + ")");
+            }
+        }
+    }
+
+    // an anonymous FileVisitor whose every call is Files.delete / deleteIfExists (and super's), and which handles no
+    // failure itself: what remove_dir_all does
+    private static boolean deletingVisitor(Expression e) {
+        if (!(e instanceof ConstructorCall cc) || cc.anonymousClass() == null) return false;
+        boolean[] deletes = {false};
+        boolean[] other = {false};
+        for (MethodInfo m : cc.anonymousClass().methods()) {
+            if ("visitFileFailed".equals(m.name())) return false;
+            if (m.methodBody() == null) continue;
+            m.methodBody().visit(x -> {
+                if (x instanceof MethodCall call) {
+                    String owner = call.methodInfo().typeInfo().fullyQualifiedName();
+                    if ("java.nio.file.Files".equals(owner)
+                        && ("delete".equals(call.methodInfo().name()) || "deleteIfExists".equals(call.methodInfo().name()))) {
+                        deletes[0] = true;
+                    } else if (!call.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.nio.file.")) {
+                        other[0] = true;
+                    }
+                }
+                return true;
+            });
+        }
+        return deletes[0] && !other[0];
+    }
+
     static final String BIT_SET = "crate::jrt::BitSet";
 
     /**
@@ -156,6 +253,20 @@ final class RustJdk {
             return stream(mc, printer);
         }
         if ("java.util.BitSet".equals(fqn)) return bitSet(mc, printer);
+        if ("java.io.File".equals(fqn) || "java.nio.file.Path".equals(fqn)) return fileCall(mc, printer);
+        if ("java.io.PrintStream".equals(fqn)) {
+            // a held stream: print and println format their argument as Java's string conversion does
+            String n = mc.methodInfo().name();
+            String o = printer.receiver(mc.object(), false);
+            List<Expression> a = mc.parameterExpressions();
+            if (("println".equals(n) || "print".equals(n)) && a.size() == 1) {
+                String[] d = printer.display(a.getFirst());
+                return value(o + "." + n + "(&format!(\"" + d[0] + "\", " + d[1] + "))");
+            }
+            if ("println".equals(n) && a.isEmpty()) return value(o + ".println(\"\")");
+            if ("flush".equals(n) && a.isEmpty()) return value(o + ".flush()");
+            return null;
+        }
         String o = "Option".equals(RustTypes.mapped(owner)) || fqn.startsWith("java.util.stream.")
                 ? printer.text(mc.object()) : printer.receiver(mc.object(), modifies(mc) || mutating);
         if ("java.lang.Enum".equals(fqn)) {
@@ -300,6 +411,9 @@ final class RustJdk {
                                       MethodCall mc) {
         int n = args.size();
         if (JUNIT_ASSERTIONS.contains(fqn)) return junit(name, args, printer, "org.junit.Assert".equals(fqn));
+        if ("java.nio.file.Files".equals(fqn) || "java.nio.file.Paths".equals(fqn) || "java.nio.file.Path".equals(fqn)) {
+            return filesStatic(fqn, name, args, printer);
+        }
         if ("java.lang.String".equals(fqn) && ("format".equals(name) || "formatted".equals(name)) && n >= 1) {
             Printed f = stringFormat(args.getFirst(), args.subList(1, n), printer);
             if (f != null) return f;
@@ -385,6 +499,9 @@ final class RustJdk {
                     value("(" + printer.ownedText(args.get(0)) + ", " + printer.ownedText(args.get(1)) + ")");
             case "java.lang.System.exit/1" -> value("std::process::exit(" + printer.text(args.getFirst()) + ")");
             case "java.lang.System.lineSeparator/0" -> value("String::from(\"\\n\")");
+            // a system property: jrt.rs's, from the environment (fernflower's tests: "idea.home.path", unset)
+            case "java.lang.System.getProperty/1" -> RustBodyPrinter.printed("crate::jrt::system_property(&("
+                    + printer.text(args.getFirst()) + ")[..])", Held.VALUE, true); // null when unset
             case "java.lang.System.arraycopy/5" -> value(arraycopy(args, printer));
             case "java.util.Collections.sort/1" -> value(printer.receiver(args.getFirst(), true) + ".sort()");
             case "java.util.Collections.singleton/1" -> {
@@ -429,9 +546,16 @@ final class RustJdk {
                 if (fqn.equals("java.util.Map") && name.equals("of") && n % 2 == 0) {
                     printer.context().use("std::collections::HashMap");
                     List<String> pairs = new ArrayList<>();
-                    for (int i = 0; i < n; i += 2) {
-                        pairs.add("(" + printer.ownedText(args.get(i)) + ", " + printer.ownedText(args.get(i + 1)) + ")");
-                    }
+                    for (int i = 0; i < n; i += 2) pairs.add(mapPair(args.get(i), args.get(i + 1), mc, printer));
+                    yield value("HashMap::from([" + String.join(", ", pairs) + "])");
+                }
+                // Map.ofEntries(Map.entry(k, v), ...): the same map (SingleClassesTest.getDecompilerOptions)
+                if (fqn.equals("java.util.Map") && name.equals("ofEntries")
+                    && args.stream().allMatch(a -> a instanceof MethodCall e && "entry".equals(e.methodInfo().name())
+                                                   && e.parameterExpressions().size() == 2)) {
+                    printer.context().use("std::collections::HashMap");
+                    List<String> pairs = args.stream().map(a -> ((MethodCall) a).parameterExpressions())
+                            .map(kv -> mapPair(kv.get(0), kv.get(1), mc, printer)).toList();
                     yield value("HashMap::from([" + String.join(", ", pairs) + "])");
                 }
                 if (fqn.equals("java.util.List") && name.equals("of")) {
@@ -440,6 +564,21 @@ final class RustJdk {
                 yield null;
             }
         };
+    }
+
+    /*
+     A key and value of Map.of / Map.ofEntries as a tuple; a value of a Map<K, Object> is a Box<dyn Any>, as the map's
+     type is (RustTypes: Object), so each is boxed: '"1"' and '20000' side by side.
+     */
+    private static String mapPair(Expression key, Expression value, MethodCall mc, RustBodyPrinter printer) {
+        String v = printer.ownedText(value);
+        ParameterizedType mapType = mc.parameterizedType();
+        if (mapType != null && mapType.parameters().size() == 2 && mapType.parameters().get(1).typeInfo() != null
+            && mapType.parameters().get(1).typeInfo().isJavaLangObject() && mapType.parameters().get(1).arrays() == 0) {
+            printer.context().use("std::any::Any");
+            v = "Box::new(" + v + ") as Box<dyn Any>";
+        }
+        return "(" + printer.ownedText(key) + ", " + v + ")";
     }
 
     /**
@@ -483,6 +622,8 @@ final class RustJdk {
             case "startsWith/1" -> value(o + ".starts_with(" + printer.reference(args.getFirst()) + ")");
             case "endsWith/1" -> value(o + ".ends_with(" + printer.reference(args.getFirst()) + ")");
             case "trim/0", "strip/0" -> value(o + ".trim().to_string()");
+            case "stripTrailing/0" -> value(o + ".trim_end().to_string()");
+            case "stripLeading/0" -> value(o + ".trim_start().to_string()");
             case "toCharArray/0" -> value(o + ".chars().collect::<Vec<char>>()");
             // with a Locale (Locale.ENGLISH, ROOT): Rust's case mapping is the locale-independent one
             case "toUpperCase/0", "toUpperCase/1" -> value(o + ".to_uppercase()");
@@ -1098,8 +1239,12 @@ final class RustJdk {
     private static Printed map(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         int n = args.size();
         return switch (name + "/" + n) {
+            // a map of Object (Box<dyn Any>): Java shares the values, immutable ones in practice (fernflower's option
+            // strings), and a copy of an immutable value cannot be told from it (jrt.rs's clone_any)
             case "putAll/1" -> value(o + ".extend(" + printer.text(args.getFirst())
-                                     + ".iter().map(|(k, v)| (k.clone(), v.clone())))");
+                                     + ".iter().map(|(k, v)| (k.clone(), "
+                                     + (typeArgument(mc, 1) != null && isObject(typeArgument(mc, 1))
+                                        ? "crate::jrt::clone_any(v)" : "v.clone()") + ")))");
             case "put/2" -> {
                 String key = printer.ownedAs(args.get(0), typeArgument(mc, 0));
                 String v = printer.ownedAs(args.get(1), typeArgument(mc, 1));
@@ -1237,6 +1382,9 @@ final class RustJdk {
     /** The JDK's constants: {@code Math.PI}, {@code Integer.MAX_VALUE}, … {@code null} for another field. */
     static String constant(FieldInfo f) {
         return switch (f.owner().fullyQualifiedName() + "." + f.name()) {
+            // a PrintStream held in a field or passed on (fernflower's PrintStreamLogger): jrt.rs's
+            case "java.lang.System.out" -> "crate::jrt::PrintStream::stdout()";
+            case "java.lang.System.err" -> "crate::jrt::PrintStream::stderr()";
             case "java.lang.Math.PI" -> "std::f64::consts::PI";
             case "java.lang.Boolean.TRUE" -> "true";
             case "java.lang.Boolean.FALSE" -> "false";
@@ -1358,6 +1506,15 @@ final class RustJdk {
         String mapped = RustTypes.mapped(ti);
         if (mapped == null) return null;
         List<Expression> args = cc.parameterExpressions();
+        if ("crate::jrt::File".equals(mapped)) {
+            // new File(pathname), new File(parent, child): Rust has no overloading
+            if (args.size() == 1) return value(mapped + "::new(" + pathArgument(args.getFirst(), printer) + ")");
+            if (args.size() == 2) {
+                return value(mapped + "::child(" + pathArgument(args.get(0), printer) + ", "
+                             + pathArgument(args.get(1), printer) + ")");
+            }
+            return null;
+        }
         if (BIT_SET.equals(mapped)) {
             // new BitSet(), new BitSet(nbits): nbits is only a capacity
             return value(args.isEmpty() ? BIT_SET + "::new()" : BIT_SET + "::with_capacity(" + printer.text(args.getFirst()) + ")");

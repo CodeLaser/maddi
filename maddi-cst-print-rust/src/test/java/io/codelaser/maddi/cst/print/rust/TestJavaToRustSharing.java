@@ -19,9 +19,11 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -410,5 +412,251 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         contains(rust, "instrs: SeqsColl<crate::jrt::Shared<SeqsInstr>>,");
         List<String> errors = rustcErrors();
         assertTrue(errors.stream().noneMatch(e -> e.contains("found `&")), () -> String.join("\n", errors) + "\n" + rust);
+    }
+
+    @Language("java")
+    private static final String LINKED_TREE = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.Collections;
+            import java.util.HashMap;
+            import java.util.List;
+            import java.util.Map;
+            public class Tree {
+                public static class Node implements Comparable<Node> {
+                    public final String name;
+                    public final List<Node> nested = new ArrayList<>();
+                    public Node parent;
+                    public Node(String name) { this.name = name; }
+                    public int compareTo(Node o) { return name.compareTo(o.name); }
+                    public String rootName() {
+                        Node node = this;
+                        while (node.parent != null) node = node.parent;
+                        return node.name;
+                    }
+                }
+                private final Map<String, Node> roots = new HashMap<>();
+                public void add(String name) { roots.put(name, new Node(name)); }
+                public void attach(String parentName, String childName) {
+                    Node parentNode = roots.get(parentName);
+                    Node childNode = roots.get(childName);
+                    parentNode.nested.add(childNode);
+                    childNode.parent = parentNode;
+                    Collections.sort(parentNode.nested);
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#202 (fernflower's ClassesProcessor.ClassNode), option C: a class holding its own kind both in a
+     * collection and in a plain field is a graph with back-links. Its objects are wired to each other between locals,
+     * where no parameter verdict sees the sharing; no single owner can hold it, so it is Shared by its shape.
+     */
+    @DisplayName("a class with children and a back-link to its own kind is Shared by its shape, without a kept verdict")
+    @Test
+    public void linkedTree() throws Exception {
+        List<TypeInfo> types = parse(LINKED_TREE);
+        TypeInfo tree = types.getFirst();
+        TypeInfo node = tree.findSubType("Node");
+        modifying(tree, "add", "attach");
+        nonModifying(node, "compareTo", "rootName");
+        borrowed(method(node, "compareTo").parameters().getFirst());
+        for (String m : List.of("add", "attach")) {
+            method(tree, m).parameters().forEach(CommonJavaToRust::borrowed);
+        }
+        // as in fernflower: the back-link and a map lookup may be null
+        translate(types, nullable(Set.of("parent", "get()")));
+        String rust = module("a.b");
+        contains(rust, "pub nested: Vec<crate::jrt::Shared<TreeNode>>,");
+        contains(rust, "pub parent: Option<crate::jrt::Shared<TreeNode>>,");
+        // Comparable: sorted as the handle (ClassNode in its parent's 'nested')
+        contains(rust, "impl Ord for crate::jrt::Shared<TreeNode> {");
+        // 'Node node = this;' walks on to other nodes: the handle of self (ClassNode.getWrapper)
+        contains(rust, "crate::jrt::Shared::of(self)");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String ENGINES = """
+            package a.b;
+            public class Engines {
+                public interface IData {
+                    String name();
+                    int bump();
+                }
+                public static class Unit {
+                    private final IData data;
+                    public Unit(IData data) { this.data = data; }
+                    public String describe() { return data.name(); }
+                }
+                public static class Context {
+                    private final IData data;
+                    private final Unit unit;
+                    public Context(IData data) {
+                        this.data = data;
+                        this.unit = new Unit(data);
+                    }
+                    public String run() { data.bump(); return unit.describe(); }
+                }
+                // fernflower's Fernflower: 'new StructContext(saver, this, ...)', itself the decompiled data
+                public static class Engine implements IData {
+                    private final Context context;
+                    private int count;
+                    public Engine(int start) {
+                        this.count = start;
+                        this.context = new Context(this);
+                    }
+                    public Engine() { this(0); }
+                    public String name() { return "engine" + count; }
+                    public int bump() { return ++count; }
+                    public String run() { return context.run(); }
+                }
+                public static class User {
+                    public String go() { return new Engine(5).run(); }
+                }
+            }
+            """;
+
+    @DisplayName("a constructor handing out 'this' to an object it holds: built with new_cyclic, a weak back-link")
+    @Test
+    public void selfReferentialConstruction() throws Exception {
+        List<TypeInfo> types = parse(ENGINES);
+        TypeInfo engines = types.getFirst();
+        TypeInfo unit = engines.findSubType("Unit");
+        TypeInfo context = engines.findSubType("Context");
+        TypeInfo engine = engines.findSubType("Engine");
+        nonModifying(unit, "describe");
+        modifying(context, "run");
+        modifying(engine, "bump", "run");
+        nonModifying(engine, "name");
+        nonModifying(engines.findSubType("User"), "go");
+        modifying(engines.findSubType("IData"), "bump");
+        nonModifying(engines.findSubType("IData"), "name");
+        kept(unit.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        kept(context.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'data: &'a mut dyn EnginesIData' and 'Context::new(&mut this)' in the half-built Engine: E0499, E0277
+        contains(rust, "data: crate::jrt::WeakShared<dyn EnginesIData>,");
+        contains(rust, "pub fn new(start: i32, __this: &crate::jrt::WeakShared<Self>) -> Self {");
+        contains(rust, "context: EnginesContext::new(crate::jrt::WeakShared(__this.0.clone())),");
+        // this(0) passes the handle on; a caller builds the object in its handle
+        contains(rust, "Self::new(0, __this)");
+        contains(rust, "crate::jrt::Shared::new_cyclic(|__w| EnginesEngine::new(5, __w))");
+        // the back-link passed on is a clone of the weak handle
+        contains(rust, "EnginesUnit::new(data.clone())");
+        assertFalse(rust.contains("Default::default()"), rust);
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String CONSOLES = """
+            package a.b;
+            public class Consoles {
+                public interface Provider {
+                    String bytes(String path);
+                }
+                public interface Saver {
+                    void save(String content);
+                }
+                public static class Engine {
+                    private final Provider provider;
+                    private final Saver saver;
+                    public Engine(Provider provider, Saver saver) {
+                        this.provider = provider;
+                        this.saver = saver;
+                    }
+                    public void run(String path) { saver.save(provider.bytes(path)); }
+                }
+                // fernflower's ConsoleDecompiler: 'new Fernflower(this, this, ...)'
+                public static class Console implements Provider, Saver {
+                    private final Engine engine;
+                    private String saved = "";
+                    public Console() { this.engine = new Engine(this, this); }
+                    public String bytes(String path) { return "console:" + path; }
+                    public void save(String content) { saved = content; }
+                    public void run(String path) { engine.run(path); }
+                    public String getSaved() { return saved; }
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String TEST_CONSOLES = """
+            package a.c;
+            import a.b.Consoles;
+            public class TestConsoles {
+                // DecompilerTestFixture.TestConsoleDecompiler, another package: composition, overriding the provider
+                public static class TestConsole extends Consoles.Console {
+                    public TestConsole() { super(); }
+                    @Override
+                    public String bytes(String path) { return "test:" + path; }
+                }
+                public static class User {
+                    public String go() {
+                        TestConsole c = new TestConsole();
+                        c.run("x");
+                        return c.getSaved();
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("a subclass in another package of a class handing out 'this': one hierarchy, its override dispatched")
+    @Test
+    public void selfReferentialConstructionInherited() throws Exception {
+        List<TypeInfo> types = consoles(CONSOLES, TEST_CONSOLES);
+        String rust = module("a.b");
+        String sub = module("a.c");
+        // a.c's TestConsole is a member of a.b's hierarchy (was composed: E0308 where Shared<Console> is expected)
+        contains(rust, "TestConsolesTestConsole(TestConsolesTestConsoleData),");
+        contains(rust, "pub fn new_consoles_console(__this: &crate::jrt::WeakShared<Self>) -> Self {");
+        contains(rust, "engine: ConsolesEngine::new(crate::jrt::WeakShared(__this.0.clone()), crate::jrt::WeakShared(__this.0.clone())),");
+        contains(rust, "let mut this = Self::new_consoles_console(__this);");
+        // the engine's back-link reaches the subclass's override through the kind
+        contains(rust, "ConsolesConsoleKind::TestConsolesTestConsole(..) => self.bytes_test_consoles_test_console(path),");
+        contains(sub, "use crate::a_b::ConsolesConsole;");
+        contains(sub, "crate::jrt::Shared::new_cyclic(|__w| ConsolesConsole::new_test_consoles_test_console(__w))");
+        assertEquals(List.of(), rustcErrors(), rust + "\n" + sub);
+    }
+
+    @DisplayName("a composed subclass of a class handing out 'this': its own handle passed to super, forwarding impls")
+    @Test
+    public void selfReferentialConstructionComposed() throws Exception {
+        // a generic superclass is no closed hierarchy's root: the subclass composes it
+        consoles(CONSOLES.replace("class Console implements", "class Console<T> implements"),
+                TEST_CONSOLES.replace("extends Consoles.Console {", "extends Consoles.Console<String> {"));
+        String rust = module("a.b");
+        String sub = module("a.c");
+        // the superclass's constructor takes any object's handle that is both back-links
+        contains(rust, "pub fn new<__S: ConsolesProvider + ConsolesSaver + 'static>(__this: &crate::jrt::WeakShared<__S>) -> Self {");
+        // the subclass passes its own on, and is both: its override, the superclass's save
+        contains(sub, "base: ConsolesConsole::new(__this),");
+        contains(sub, "impl ConsolesProvider for TestConsolesTestConsole {");
+        contains(sub, "ConsolesSaver::save(&mut self.base, content)");
+        contains(sub, "crate::jrt::Shared::new_cyclic(|__w| TestConsolesTestConsole::new(__w))");
+        assertEquals(List.of(), rustcErrors(), rust + "\n" + sub);
+    }
+
+    private List<TypeInfo> consoles(String consolesJava, String testsJava) throws Exception {
+        List<TypeInfo> types = parseAll(consolesJava, testsJava);
+        TypeInfo consoles = types.stream().filter(t -> t.simpleName().equals("Consoles")).findFirst().orElseThrow();
+        TypeInfo tests = types.stream().filter(t -> t.simpleName().equals("TestConsoles")).findFirst().orElseThrow();
+        TypeInfo engine = consoles.findSubType("Engine");
+        TypeInfo console = consoles.findSubType("Console");
+        TypeInfo testConsole = tests.findSubType("TestConsole");
+        nonModifying(consoles.findSubType("Provider"), "bytes");
+        modifying(consoles.findSubType("Saver"), "save");
+        modifying(engine, "run");
+        nonModifying(console, "bytes", "getSaved");
+        modifying(console, "save", "run");
+        nonModifying(testConsole, "bytes");
+        nonModifying(tests.findSubType("User"), "go");
+        // independent, as fernflower's 'provider' is (no state the analysis sees): stored all the same
+        engine.constructors().getFirst().parameters().forEach(p -> kept(p, ValueImpl.IndependentImpl.INDEPENDENT));
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        return types;
     }
 }

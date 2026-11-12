@@ -91,6 +91,10 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                     return i > MAX ? "big" : "small " + i;
                 }
 
+                public static Color color(String s) {
+                    return Color.valueOf(s.toUpperCase());
+                }
+
                 public static double total(List<Shape> shapes) {
                     double sum = 0;
                     for (Shape s : shapes) sum += s.area();
@@ -113,6 +117,8 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         kept(method(shapes, "count").parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
         borrowed(method(shapes, "longWords").parameters().getFirst());
         borrowed(method(shapes, "total").parameters().getFirst());
+        nonModifying(shapes, "color");
+        borrowed(method(shapes, "color").parameters().getFirst());
         independentResult(shapes, "last");
 
         RustTranslator.Result result = translate(types, nullable(Set.of("last", "last()")));
@@ -129,6 +135,9 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                     pub r: f64,
                 }""");
         contains(rust, "impl ShapesShape for ShapesCircle {");
+        // java.lang.Enum's valueOf: the constant of that name
+        contains(rust, "\"DARK_GREEN\" => Self::DarkGreen,");
+        contains(rust, "ShapesColor::value_of(");
         contains(rust, """
                 pub enum ShapesColor {
                     Red,
@@ -1027,6 +1036,17 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                     private void grow() { size++; }
                     public int getSize() { return size; }
                 }
+                // FastFixedSetIterator, SwitchPatternHelper's finder: the field read after its assignment, the
+                // parameter read through again by a later statement
+                public static class Tracked {
+                    private final Member member;
+                    private int length;
+                    public Tracked(String name, String suffix) {
+                        this.member = new Member(name + suffix);
+                        this.length = this.member.getName().length() + suffix.length();
+                    }
+                    public int getLength() { return length; }
+                }
             }
             """;
 
@@ -1040,6 +1060,7 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         nonModifying(member, "getName");
         modifying(node, "grow");
         nonModifying(node, "getSize");
+        nonModifying(lambdas.findSubType("Tracked"), "getLength");
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
@@ -1270,5 +1291,34 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         String rust = module("a.b");
         List<String> errors = rustcErrors();
         assertTrue(errors.stream().noneMatch(e -> e.contains("E0515")), () -> String.join("\n", errors) + "\n" + rust);
+    }
+
+    @Language("java")
+    private static final String VARARGS = """
+            package a.b;
+            public class Varargs {
+                // SingleClassesTestBase.doTest(String testFile, String... companionFiles)
+                public static int count(String first, String... more) {
+                    int n = first.length();
+                    for (String m : more) n += m.length();
+                    return n;
+                }
+                public static int use() { return count("a") + count("a", "bc", "d"); }
+            }
+            """;
+
+    @DisplayName("a source method's varargs: the trailing arguments packed into its slice, empty without any")
+    @Test
+    public void sourceVarargs() throws Exception {
+        List<TypeInfo> types = parse(VARARGS);
+        TypeInfo varargs = types.getFirst();
+        nonModifying(varargs, "count", "use");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'Self::count("a")' and 'Self::count("a", "bc", "d")': E0061
+        contains(rust, "Self::count(\"a\".to_string(), vec![])");
+        contains(rust, "Self::count(\"a\".to_string(), vec![\"bc\".to_string(), \"d\".to_string()])");
+        assertEquals(List.of(), rustcErrors(), rust);
     }
 }

@@ -288,14 +288,11 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "pub bytecode: Option<crate::jrt::BitSet>,");
         contains(rust, "offsets.set_range(offset, offset + length);");
         contains(rust, "let mut pass = crate::jrt::BitSet::with_capacity(size);");
-        // an unmapped JDK constructor names the opaque stand-in, as its type does
+        // java.io.File is jrt.rs's own since #203 (it was an opaque stand-in without a constructor, rustc's one error)
         contains(rust, "crate::jrt::File::new(");
         contains(rust, "o.fill_bytecode_range(values.as_deref_mut());");
         contains(rust, "other.fill_bytecode_range(self.bytecode.as_mut());");
-        List<String> errors = rustcErrors();
-        // only the opaque File's constructor, which does not exist
-        assertEquals(1, errors.size(), () -> String.join("\n", errors) + "\n" + rust);
-        assertTrue(errors.getFirst().contains("E0599") && errors.getFirst().contains("File"), errors::toString);
+        assertEquals(List.of(), rustcErrors(), rust);
     }
 
     @Language("java")
@@ -606,6 +603,174 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, ".unwrap() == ");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String FILE_SYSTEM = """
+            package a.b;
+            import java.io.File;
+            import java.io.IOException;
+            import java.nio.charset.StandardCharsets;
+            import java.nio.file.FileVisitResult;
+            import java.nio.file.Files;
+            import java.nio.file.Path;
+            import java.nio.file.SimpleFileVisitor;
+            import java.nio.file.attribute.BasicFileAttributes;
+            public class Fixture {
+                private Path tempDir;
+                private Path targetDir;
+                public void setUp() throws IOException {
+                    tempDir = Files.createTempDirectory("fixture_");
+                    targetDir = Files.createDirectories(tempDir.resolve("decompiled"));
+                    File target = targetDir.toFile();
+                    File child = new File(target, "x.txt");
+                    Files.writeString(child.toPath(), "hello");
+                }
+                public String read(String name) throws IOException {
+                    Path p = targetDir.resolve(name);
+                    if (!Files.isRegularFile(p)) return null;
+                    return Files.readString(p, StandardCharsets.UTF_8);
+                }
+                public void tearDown() throws IOException {
+                    if (tempDir != null) deleteRecursively(tempDir);
+                }
+                public static String home() { return System.getProperty("idea.home.path"); }
+                public static String normalize(String s) { return s.stripTrailing(); }
+                private static void deleteRecursively(Path file) throws IOException {
+                    Files.walkFileTree(file, new SimpleFileVisitor<>() {
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                            Files.delete(file);
+                            return FileVisitResult.CONTINUE;
+                        }
+                        @Override
+                        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                            Files.delete(dir);
+                            return FileVisitResult.CONTINUE;
+                        }
+                    });
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#203: fernflower's test fixture, on jrt.rs's File, Path and Files (std::fs, std::path). The
+     * overloaded File constructor has its own names; options a call only tunes (a Charset) are left out; the
+     * delete-everything visitor is remove_dir_all.
+     */
+    @DisplayName("java.io.File, java.nio.file.Path and Files on std: a test fixture's temporary directory")
+    @Test
+    public void fileSystem() throws Exception {
+        List<TypeInfo> types = parse(FILE_SYSTEM);
+        TypeInfo fixture = types.getFirst();
+        modifying(fixture, "setUp", "tearDown");
+        nonModifying(fixture, "read");
+        borrowed(method(fixture, "read").parameters().getFirst());
+        borrowed(method(fixture, "deleteRecursively").parameters().getFirst());
+        nonModifying(fixture, "home", "normalize");
+        borrowed(method(fixture, "normalize").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("tempDir", "targetDir", "read()", "home()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "crate::jrt::Files::create_temp_directory(\"fixture_\")");
+        contains(rust, "crate::jrt::File::child(");
+        contains(rust, "crate::jrt::Files::delete_recursively(");
+        contains(rust, "crate::jrt::system_property(");
+        contains(rust, ".trim_end().to_string()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String SET_UP_CHAIN = """
+            package a.b;
+            import java.io.PrintStream;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Base {
+                public static class Logger {
+                    private final PrintStream stream;
+                    public Logger(PrintStream stream) { this.stream = stream; }
+                    public void write(String message) { stream.println("[x] " + message); }
+                }
+                public static class Fixture {
+                    private Map<String, Object> options;
+                    private Logger logger;
+                    public void setUp(Map<String, Object> customOptions) {
+                        Map<String, Object> o = new HashMap<>();
+                        o.put("log", "warn");
+                        o.putAll(customOptions);
+                        options = o;
+                        logger = new Logger(System.out);
+                        logger.write("set up");
+                    }
+                }
+                private Fixture fixture;
+                protected Map<String, Object> getOptions() { return new HashMap<>(); }
+                public void setUp() {
+                    fixture = new Fixture();
+                    fixture.setUp(getOptions());
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#203, behind the file system: what stood between fernflower's tests and their fixture. A held
+     * System.out (PrintStreamLogger), putAll on a map of Object values (Box&lt;dyn Any&gt;, copied by clone_any), and
+     * 'fixture.setUp(getDecompilerOptions())', whose argument reads self while the receiver holds it (E0502).
+     */
+    @DisplayName("a held System.out, putAll of Object values, and an argument calling self while the receiver holds it")
+    @Test
+    public void setUpChain() throws Exception {
+        List<TypeInfo> types = parse(SET_UP_CHAIN);
+        TypeInfo base = types.getFirst();
+        TypeInfo fixture = base.findSubType("Fixture");
+        TypeInfo logger = base.findSubType("Logger");
+        modifying(base, "setUp");
+        nonModifying(base, "getOptions");
+        modifying(fixture, "setUp");
+        borrowed(method(fixture, "setUp").parameters().getFirst());
+        nonModifying(logger, "write");
+        borrowed(method(logger, "write").parameters().getFirst());
+        kept(logger.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        RustTranslator.Result result = translate(types, nullable(Set.of("fixture", "options", "logger")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "crate::jrt::PrintStream::stdout()");
+        contains(rust, "crate::jrt::clone_any(v)");
+        contains(rust, "let __a0 = self.get_options();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String OPTIONS = """
+            package a.b;
+            import java.util.Map;
+            public class Options {
+                // SingleClassesTest.getDecompilerOptions: Object values, a string beside an int
+                public Map<String, Object> entries() {
+                    return Map.ofEntries(Map.entry("ren", "1"), Map.entry("mpm", 20000));
+                }
+                public Map<String, Object> pairs() {
+                    return Map.of("ren", "1", "mpm", 20000);
+                }
+                public Map<String, String> strings() {
+                    return Map.ofEntries(Map.entry("ren", "1"));
+                }
+            }
+            """;
+
+    @DisplayName("Map.ofEntries and Map.of: a HashMap from pairs, a value of Map<K, Object> boxed")
+    @Test
+    public void mapOfEntries() throws Exception {
+        List<TypeInfo> types = parse(OPTIONS);
+        nonModifying(types.getFirst(), "entries", "pairs", "strings");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'HashMap::of_entries(...)': E0599
+        contains(rust, "HashMap::from([(\"ren\".to_string(), Box::new(\"1\".to_string()) as Box<dyn Any>), (\"mpm\".to_string(), Box::new(20000) as Box<dyn Any>)])");
+        contains(rust, "HashMap::from([(\"ren\".to_string(), \"1\".to_string())])");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

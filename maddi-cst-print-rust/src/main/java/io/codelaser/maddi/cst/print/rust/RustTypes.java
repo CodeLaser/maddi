@@ -60,6 +60,12 @@ final class RustTypes {
             Map.entry("java.io.DataInputStream", new Mapped("crate::jrt::DataInputStream", null)),
             Map.entry("java.io.InputStream", new Mapped("crate::jrt::DataInputStream", null)),
             Map.entry("java.util.BitSet", new Mapped("crate::jrt::BitSet", null)),
+            // jrt.rs's file system on std::fs and std::path (CodeLaser/maddi#203; RustJdk.files)
+            Map.entry("java.io.File", new Mapped("crate::jrt::File", null)),
+            Map.entry("java.nio.file.Path", new Mapped("crate::jrt::Path", null)),
+            Map.entry("java.nio.file.Paths", new Mapped("crate::jrt::Path", null)),
+            Map.entry("java.nio.file.Files", new Mapped("crate::jrt::Files", null)),
+            Map.entry("java.io.PrintStream", new Mapped("crate::jrt::PrintStream", null)),
             Map.entry("java.util.Collection", new Mapped("Vec", null)),
             Map.entry("java.lang.Iterable", new Mapped("Vec", null)),
             Map.entry("java.util.List", new Mapped("Vec", null)),
@@ -123,8 +129,11 @@ final class RustTypes {
         TypeInfo ti = type.typeInfo();
         // an opaque stand-in has no state: a copy of it cannot be told from the shared one
         if (isOpaque(ti)) return true;
-        // a Shared handle: its clone is the shared object, as Java's reference is
+        // java.io.File and java.nio.file.Path are immutable: jrt.rs's derive Clone (CodeLaser/maddi#203)
+        if (ti != null && ("crate::jrt::File".equals(mapped(ti)) || "crate::jrt::Path".equals(mapped(ti)))) return true;
+        // a Shared handle: its clone is the shared object, as Java's reference is; so is a back-link's weak one
         if (RustShared.current().isShared(type)) return true;
+        if (ti != null && RustShared.current().isBackLink(ti)) return true;
         return ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()
                && !ti.typeNature().isEnum() && (facts.immutable(ti) || facts.immutableHc(ti));
     }
@@ -170,6 +179,8 @@ final class RustTypes {
             String element = owned(type.copyWithArrays(type.arrays() - 1), context, where);
             return (form == Form.SHARED ? "&[" : "&mut [") + element + "]";
         }
+        // a back-link (RustShared): a handle in every form, cloned where it is passed on
+        if (ti != null && type.arrays() == 0 && RustShared.current().isBackLink(ti)) return backLink(type, context, where);
         if (form != Form.OWNED && ti != null && type.arrays() == 0 && isInterface(ti)) {
             // a borrowed closure is passed as '&|| …' or '&mut || …' (RustBodyPrinter.argument), never a borrowed Box
             String trait = isFunctional(ti) ? function(type, context, where) : "dyn " + named(type, context, where);
@@ -210,8 +221,18 @@ final class RustTypes {
             context.use("std::any::Any");
             return "(Box<dyn Any>, Box<dyn Any>)";
         }
+        if (RustShared.current().isBackLink(ti)) return backLink(type, context, where);
         if (isInterface(ti)) return "Box<dyn " + named(type, context, where) + ">";
         return named(type, context, where);
+    }
+
+    /*
+     A back-link interface's value, a weak handle of the one object implementing it (RustShared.isBackLink). In a
+     struct with a lifetime, the object may carry it too: the trait object is bounded by it.
+     */
+    private static String backLink(ParameterizedType type, RustContext context, Element where) {
+        String bound = context.type != null && context.borrows.hasLifetime(context.type) ? " + " + RustBorrows.LIFETIME : "";
+        return "crate::jrt::WeakShared<dyn " + named(type, context, where) + bound + ">";
     }
 
     /**
@@ -402,7 +423,7 @@ final class RustTypes {
             return "crate::jrt::" + context.opaque(ti);
         } else {
             base = RustNames.type(ti);
-            String module = RustNames.module(ti.packageName());
+            String module = RustNames.module(ti);
             if (!module.equals(context.module)) context.use("crate::" + module + "::" + base);
             // a struct with borrowed fields: its lifetime, elided where a signature allows it; in its own impl, the
             // impl's, so that a static method returning one says what it borrows from

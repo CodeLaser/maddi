@@ -414,6 +414,14 @@ public final class RustTranslator {
                         Shared(std::rc::Rc::from_raw(ptr))
                     }
                 }
+                /// Java's constructor that hands out `this` (rust-printing.md, "Back-links"): the object is built
+                /// in its handle, given a weak handle of itself to hand out.
+                pub fn new_cyclic(f: impl FnOnce(&WeakShared<T>) -> T) -> Self {
+                    Shared(std::rc::Rc::new_cyclic(|w| std::cell::UnsafeCell::new(f(&WeakShared(w.clone())))))
+                }
+                /// A weak handle of the object, as a back-link holds it: `WeakShared(s.weak())` coerces to the
+                /// back-link's trait object.
+                pub fn weak(&self) -> std::rc::Weak<std::cell::UnsafeCell<T>> { std::rc::Rc::downgrade(&self.0) }
                 /// Java's `==`: the same object.
                 pub fn is(a: &Shared<T>, b: &Shared<T>) -> bool { std::rc::Rc::ptr_eq(&a.0, &b.0) }
                 /// Java's `a.equals(b)`: the objects' own equality.
@@ -449,6 +457,40 @@ public final class RustTranslator {
                 }
             }
 
+            /// A back-link: Java's reference to an object handed out by its own constructor (`this`), held
+            /// without keeping the object alive, as the object holds its holder. It dereferences to the object
+            /// while that lives, and panics as Java's NullPointerException would once it is gone.
+            pub struct WeakShared<T: ?Sized>(pub std::rc::Weak<std::cell::UnsafeCell<T>>);
+
+            impl<T: ?Sized> Clone for WeakShared<T> {
+                fn clone(&self) -> Self { WeakShared(self.0.clone()) }
+            }
+
+            impl<T: ?Sized> std::ops::Deref for WeakShared<T> {
+                type Target = T;
+                fn deref(&self) -> &T {
+                    assert!(self.0.strong_count() > 0, "NullPointerException: a back-link to an object that is gone");
+                    unsafe { &*(*self.0.as_ptr()).get() }
+                }
+            }
+
+            impl<T: ?Sized> std::ops::DerefMut for WeakShared<T> {
+                fn deref_mut(&mut self) -> &mut T {
+                    assert!(self.0.strong_count() > 0, "NullPointerException: a back-link to an object that is gone");
+                    unsafe { &mut *(*self.0.as_ptr()).get() }
+                }
+            }
+
+            impl<T: ?Sized> PartialEq for WeakShared<T> {
+                fn eq(&self, other: &Self) -> bool { std::rc::Weak::ptr_eq(&self.0, &other.0) }
+            }
+
+            impl<T: ?Sized> std::fmt::Debug for WeakShared<T> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, "WeakShared@{:p}", self.0.as_ptr() as *const u8)
+                }
+            }
+
             /// Java's `==` on two shared objects either of which may be null.
             pub fn same_shared<T>(a: Option<&Shared<T>>, b: Option<&Shared<T>>) -> bool {
                 match (a, b) {
@@ -476,6 +518,279 @@ public final class RustTranslator {
             impl Bytes for &[i8] { fn into_bytes(self) -> Vec<i8> { self.to_vec() } }
             impl<B: Bytes> Bytes for Option<B> {
                 fn into_bytes(self) -> Vec<i8> { self.expect("NullPointerException").into_bytes() }
+            }
+
+            /// A copy of a Java `Object` held as `Box<dyn Any>`. Java shares the reference; for an immutable value (a
+            /// string, a boxed number) a copy cannot be told from it. Anything else is not copied: a panic.
+            pub fn clone_any(v: &Box<dyn std::any::Any>) -> Box<dyn std::any::Any> {
+                macro_rules! copy {
+                    ($($t:ty),*) => { $( if let Some(x) = v.downcast_ref::<$t>() { return Box::new(x.clone()); } )* };
+                }
+                copy!(String, i32, i64, i16, i8, f64, f32, bool, char);
+                panic!("a Java Object that is not an immutable value cannot be copied")
+            }
+
+            /// `System.getProperty(key)`: the JVM's own ones this process has a counterpart for, any other from the
+            /// environment variable of that name; null when unset.
+            pub fn system_property(key: &str) -> Option<String> {
+                match key {
+                    "user.dir" => std::env::current_dir().ok().map(|d| d.to_string_lossy().into_owned()),
+                    "java.io.tmpdir" => Some(std::env::temp_dir().to_string_lossy().into_owned()),
+                    "line.separator" => Some("\\n".to_string()),
+                    "file.separator" => Some(std::path::MAIN_SEPARATOR.to_string()),
+                    _ => std::env::var(key).ok(),
+                }
+            }
+
+            /// `java.io.PrintStream`: `System.out` or `System.err`, held or passed on.
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+            pub struct PrintStream {
+                err: bool,
+            }
+
+            impl PrintStream {
+                pub fn stdout() -> PrintStream { PrintStream { err: false } }
+                pub fn stderr() -> PrintStream { PrintStream { err: true } }
+                pub fn println(&self, s: &str) { if self.err { eprintln!("{}", s) } else { println!("{}", s) } }
+                pub fn print(&self, s: &str) { if self.err { eprint!("{}", s) } else { print!("{}", s) } }
+                pub fn flush(&self) {}
+            }
+
+            /// What Java passes as a file name or a path: a string, a `Path` or a `File`, owned, borrowed or nullable (a null
+            /// one is Java's NullPointerException, a panic).
+            pub trait JPath {
+                fn jpath(self) -> std::path::PathBuf;
+            }
+            impl JPath for &str { fn jpath(self) -> std::path::PathBuf { std::path::PathBuf::from(self) } }
+            impl JPath for String { fn jpath(self) -> std::path::PathBuf { std::path::PathBuf::from(self) } }
+            impl JPath for &String { fn jpath(self) -> std::path::PathBuf { std::path::PathBuf::from(self) } }
+            impl JPath for &&str { fn jpath(self) -> std::path::PathBuf { std::path::PathBuf::from(*self) } }
+            impl JPath for Path { fn jpath(self) -> std::path::PathBuf { self.0 } }
+            impl JPath for &Path { fn jpath(self) -> std::path::PathBuf { self.0.clone() } }
+            impl JPath for &mut Path { fn jpath(self) -> std::path::PathBuf { self.0.clone() } }
+            impl JPath for File { fn jpath(self) -> std::path::PathBuf { self.0 } }
+            impl JPath for &File { fn jpath(self) -> std::path::PathBuf { self.0.clone() } }
+            impl JPath for &mut File { fn jpath(self) -> std::path::PathBuf { self.0.clone() } }
+            impl<T: JPath> JPath for Option<T> {
+                fn jpath(self) -> std::path::PathBuf { self.expect("NullPointerException").jpath() }
+            }
+            impl<'x, T> JPath for &'x Option<T> where &'x T: JPath {
+                fn jpath(self) -> std::path::PathBuf { self.as_ref().expect("NullPointerException").jpath() }
+            }
+
+            fn path_string(p: &std::path::Path) -> String {
+                p.to_string_lossy().into_owned()
+            }
+
+            /// `java.nio.file.Path`: a path, not a file; nothing touches the file system but `to_absolute_path`.
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+            pub struct Path(pub std::path::PathBuf);
+
+            impl Path {
+                /// `Path.of(first)`, `Paths.get(first)`.
+                pub fn of<P: JPath>(first: P) -> Path { Path(first.jpath()) }
+                /// `Path.of(first, more...)`.
+                pub fn of_all<P: JPath>(first: P, more: &[String]) -> Path {
+                    let mut p = first.jpath();
+                    for m in more { p.push(m); }
+                    Path(p)
+                }
+                pub fn resolve<P: JPath>(&self, other: P) -> Path { Path(self.0.join(other.jpath())) }
+                pub fn resolve_sibling<P: JPath>(&self, other: P) -> Path {
+                    let parent = self.0.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+                    Path(parent.join(other.jpath()))
+                }
+                pub fn relativize<P: JPath>(&self, other: P) -> Path {
+                    let other = other.jpath();
+                    Path(other.strip_prefix(&self.0).map(|p| p.to_path_buf()).unwrap_or(other))
+                }
+                pub fn to_file(&self) -> File { File(self.0.clone()) }
+                pub fn to_absolute_path(&self) -> Path {
+                    Path(std::path::absolute(&self.0).unwrap_or_else(|_| self.0.clone()))
+                }
+                pub fn normalize(&self) -> Path {
+                    let mut out = std::path::PathBuf::new();
+                    for c in self.0.components() {
+                        match c {
+                            std::path::Component::CurDir => {}
+                            std::path::Component::ParentDir => { if !out.pop() { out.push(".."); } }
+                            other => out.push(other.as_os_str()),
+                        }
+                    }
+                    Path(out)
+                }
+                pub fn get_file_name(&self) -> Option<Path> { self.0.file_name().map(|n| Path(std::path::PathBuf::from(n))) }
+                pub fn get_parent(&self) -> Option<Path> {
+                    self.0.parent().filter(|p| !p.as_os_str().is_empty()).map(|p| Path(p.to_path_buf()))
+                }
+                pub fn get_name_count(&self) -> i32 { self.0.components().count() as i32 }
+                pub fn starts_with<P: JPath>(&self, other: P) -> bool { self.0.starts_with(other.jpath()) }
+                pub fn ends_with<P: JPath>(&self, other: P) -> bool { self.0.ends_with(other.jpath()) }
+                pub fn is_absolute(&self) -> bool { self.0.is_absolute() }
+            }
+
+            impl std::fmt::Display for Path {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "{}", path_string(&self.0)) }
+            }
+
+            /// `java.io.File`: a path name, which the methods resolve against the file system when they are called.
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+            pub struct File(pub std::path::PathBuf);
+
+            impl File {
+                /// `new File(pathname)`.
+                pub fn new<P: JPath>(pathname: P) -> File { File(pathname.jpath()) }
+                /// `new File(parent, child)`, the parent a `File` or a string.
+                pub fn child<P: JPath, C: JPath>(parent: P, child: C) -> File { File(parent.jpath().join(child.jpath())) }
+                pub fn get_name(&self) -> String { self.0.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default() }
+                pub fn get_path(&self) -> String { path_string(&self.0) }
+                pub fn get_absolute_path(&self) -> String {
+                    path_string(&std::path::absolute(&self.0).unwrap_or_else(|_| self.0.clone()))
+                }
+                pub fn get_absolute_file(&self) -> File { File(std::path::absolute(&self.0).unwrap_or_else(|_| self.0.clone())) }
+                pub fn get_canonical_path(&self) -> String {
+                    path_string(&std::fs::canonicalize(&self.0).unwrap_or_else(|_| self.0.clone()))
+                }
+                pub fn get_parent(&self) -> Option<String> {
+                    self.0.parent().filter(|p| !p.as_os_str().is_empty()).map(path_string)
+                }
+                pub fn get_parent_file(&self) -> Option<File> {
+                    self.0.parent().filter(|p| !p.as_os_str().is_empty()).map(|p| File(p.to_path_buf()))
+                }
+                pub fn to_path(&self) -> Path { Path(self.0.clone()) }
+                pub fn exists(&self) -> bool { self.0.exists() }
+                pub fn is_directory(&self) -> bool { self.0.is_dir() }
+                pub fn is_file(&self) -> bool { self.0.is_file() }
+                pub fn length(&self) -> i64 { std::fs::metadata(&self.0).map(|m| m.len() as i64).unwrap_or(0) }
+                pub fn last_modified(&self) -> i64 {
+                    std::fs::metadata(&self.0).and_then(|m| m.modified()).ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_millis() as i64).unwrap_or(0)
+                }
+                /// null when this is not a directory, as Java's.
+                pub fn list_files(&self) -> Option<Vec<File>> {
+                    let entries = std::fs::read_dir(&self.0).ok()?;
+                    let mut files: Vec<File> = entries.filter_map(|e| e.ok()).map(|e| File(e.path())).collect();
+                    files.sort();
+                    Some(files)
+                }
+                pub fn list(&self) -> Option<Vec<String>> {
+                    self.list_files().map(|v| v.iter().map(|f| f.get_name()).collect())
+                }
+                pub fn mkdirs(&self) -> bool { std::fs::create_dir_all(&self.0).is_ok() }
+                pub fn mkdir(&self) -> bool { std::fs::create_dir(&self.0).is_ok() }
+                pub fn delete(&self) -> bool {
+                    if self.0.is_dir() { std::fs::remove_dir(&self.0).is_ok() } else { std::fs::remove_file(&self.0).is_ok() }
+                }
+                pub fn create_new_file(&self) -> bool {
+                    std::fs::OpenOptions::new().write(true).create_new(true).open(&self.0).is_ok()
+                }
+                pub fn rename_to<P: JPath>(&self, dest: P) -> bool { std::fs::rename(&self.0, dest.jpath()).is_ok() }
+            }
+
+            impl std::fmt::Display for File {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "{}", path_string(&self.0)) }
+            }
+
+            /// `java.nio.file.Files`: an IOException is a panic, the test or the caller fails with its message.
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+            pub struct Files;
+
+            impl Files {
+                pub fn create_temp_directory<P: JPath>(prefix: P) -> Path {
+                    let prefix = prefix.jpath();
+                    let base = std::env::temp_dir();
+                    let pid = std::process::id();
+                    for i in 0..10_000u32 {
+                        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.subsec_nanos()).unwrap_or(0);
+                        let dir = base.join(format!("{}{}{}{}", prefix.to_string_lossy(), pid, nanos, i));
+                        if std::fs::create_dir(&dir).is_ok() { return Path(dir); }
+                    }
+                    panic!("IOException: cannot create a temporary directory in {}", base.display())
+                }
+                pub fn create_directories<P: JPath>(dir: P) -> Path {
+                    let dir = dir.jpath();
+                    std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("IOException: {}: {}", dir.display(), e));
+                    Path(dir)
+                }
+                pub fn create_directory<P: JPath>(dir: P) -> Path {
+                    let dir = dir.jpath();
+                    std::fs::create_dir(&dir).unwrap_or_else(|e| panic!("IOException: {}: {}", dir.display(), e));
+                    Path(dir)
+                }
+                pub fn exists<P: JPath>(p: P) -> bool { p.jpath().exists() }
+                pub fn not_exists<P: JPath>(p: P) -> bool { !p.jpath().exists() }
+                pub fn is_directory<P: JPath>(p: P) -> bool { p.jpath().is_dir() }
+                pub fn is_regular_file<P: JPath>(p: P) -> bool { p.jpath().is_file() }
+                /// UTF-8, whatever charset Java names.
+                pub fn read_string<P: JPath>(p: P) -> String {
+                    let p = p.jpath();
+                    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("IOException: {}: {}", p.display(), e))
+                }
+                pub fn read_all_bytes<P: JPath>(p: P) -> Vec<i8> {
+                    let p = p.jpath();
+                    std::fs::read(&p).unwrap_or_else(|e| panic!("IOException: {}: {}", p.display(), e))
+                        .into_iter().map(|b| b as i8).collect()
+                }
+                pub fn read_all_lines<P: JPath>(p: P) -> Vec<String> {
+                    Files::read_string(p).lines().map(|l| l.to_string()).collect()
+                }
+                pub fn write_string<P: JPath>(p: P, content: &str) -> Path {
+                    let p = p.jpath();
+                    std::fs::write(&p, content).unwrap_or_else(|e| panic!("IOException: {}: {}", p.display(), e));
+                    Path(p)
+                }
+                pub fn delete<P: JPath>(p: P) {
+                    let p = p.jpath();
+                    let r = if p.is_dir() { std::fs::remove_dir(&p) } else { std::fs::remove_file(&p) };
+                    r.unwrap_or_else(|e| panic!("IOException: {}: {}", p.display(), e));
+                }
+                pub fn delete_if_exists<P: JPath>(p: P) -> bool {
+                    let p = p.jpath();
+                    if !p.exists() { return false; }
+                    Files::delete(Path(p));
+                    true
+                }
+                /// `Files.copy(source, target)` of two paths.
+                pub fn copy<P: JPath, Q: JPath>(source: P, target: Q) -> Path {
+                    let (s, t) = (source.jpath(), target.jpath());
+                    std::fs::copy(&s, &t).unwrap_or_else(|e| panic!("IOException: {} -> {}: {}", s.display(), t.display(), e));
+                    Path(t)
+                }
+                pub fn size<P: JPath>(p: P) -> i64 {
+                    let p = p.jpath();
+                    std::fs::metadata(&p).map(|m| m.len() as i64).unwrap_or_else(|e| panic!("IOException: {}: {}", p.display(), e))
+                }
+                /// `Files.list(dir)` collected: the directory's entries, sorted.
+                pub fn list<P: JPath>(dir: P) -> Vec<Path> {
+                    let dir = dir.jpath();
+                    let mut v: Vec<Path> = std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("IOException: {}: {}", dir.display(), e))
+                        .filter_map(|e| e.ok()).map(|e| Path(e.path())).collect();
+                    v.sort();
+                    v
+                }
+                /// `Files.walk(start)` collected: the start and everything below it, a directory before its contents.
+                pub fn walk<P: JPath>(start: P) -> Vec<Path> {
+                    fn go(p: &std::path::Path, out: &mut Vec<Path>) {
+                        out.push(Path(p.to_path_buf()));
+                        if p.is_dir() {
+                            if let Ok(rd) = std::fs::read_dir(p) {
+                                let mut kids: Vec<std::path::PathBuf> = rd.filter_map(|e| e.ok()).map(|e| e.path()).collect();
+                                kids.sort();
+                                for k in kids { go(&k, out); }
+                            }
+                        }
+                    }
+                    let mut out = Vec::new();
+                    go(&start.jpath(), &mut out);
+                    out
+                }
+                /// Deletes `p` and everything below it: what a `walkFileTree` with a deleting visitor does.
+                pub fn delete_recursively<P: JPath>(p: P) {
+                    let p = p.jpath();
+                    let r = if p.is_dir() { std::fs::remove_dir_all(&p) } else { std::fs::remove_file(&p) };
+                    r.unwrap_or_else(|e| panic!("IOException: {}: {}", p.display(), e));
+                }
             }
             """;
 
