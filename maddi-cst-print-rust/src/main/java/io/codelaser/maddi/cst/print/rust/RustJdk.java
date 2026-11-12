@@ -546,9 +546,16 @@ final class RustJdk {
                 if (fqn.equals("java.util.Map") && name.equals("of") && n % 2 == 0) {
                     printer.context().use("std::collections::HashMap");
                     List<String> pairs = new ArrayList<>();
-                    for (int i = 0; i < n; i += 2) {
-                        pairs.add("(" + printer.ownedText(args.get(i)) + ", " + printer.ownedText(args.get(i + 1)) + ")");
-                    }
+                    for (int i = 0; i < n; i += 2) pairs.add(mapPair(args.get(i), args.get(i + 1), mc, printer));
+                    yield value("HashMap::from([" + String.join(", ", pairs) + "])");
+                }
+                // Map.ofEntries(Map.entry(k, v), ...): the same map (SingleClassesTest.getDecompilerOptions)
+                if (fqn.equals("java.util.Map") && name.equals("ofEntries")
+                    && args.stream().allMatch(a -> a instanceof MethodCall e && "entry".equals(e.methodInfo().name())
+                                                   && e.parameterExpressions().size() == 2)) {
+                    printer.context().use("std::collections::HashMap");
+                    List<String> pairs = args.stream().map(a -> ((MethodCall) a).parameterExpressions())
+                            .map(kv -> mapPair(kv.get(0), kv.get(1), mc, printer)).toList();
                     yield value("HashMap::from([" + String.join(", ", pairs) + "])");
                 }
                 if (fqn.equals("java.util.List") && name.equals("of")) {
@@ -557,6 +564,21 @@ final class RustJdk {
                 yield null;
             }
         };
+    }
+
+    /*
+     A key and value of Map.of / Map.ofEntries as a tuple; a value of a Map<K, Object> is a Box<dyn Any>, as the map's
+     type is (RustTypes: Object), so each is boxed: '"1"' and '20000' side by side.
+     */
+    private static String mapPair(Expression key, Expression value, MethodCall mc, RustBodyPrinter printer) {
+        String v = printer.ownedText(value);
+        ParameterizedType mapType = mc.parameterizedType();
+        if (mapType != null && mapType.parameters().size() == 2 && mapType.parameters().get(1).typeInfo() != null
+            && mapType.parameters().get(1).typeInfo().isJavaLangObject() && mapType.parameters().get(1).arrays() == 0) {
+            printer.context().use("std::any::Any");
+            v = "Box::new(" + v + ") as Box<dyn Any>";
+        }
+        return "(" + printer.ownedText(key) + ", " + v + ")";
     }
 
     /**

@@ -741,4 +741,36 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "let __a0 = self.get_options();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String OPTIONS = """
+            package a.b;
+            import java.util.Map;
+            public class Options {
+                // SingleClassesTest.getDecompilerOptions: Object values, a string beside an int
+                public Map<String, Object> entries() {
+                    return Map.ofEntries(Map.entry("ren", "1"), Map.entry("mpm", 20000));
+                }
+                public Map<String, Object> pairs() {
+                    return Map.of("ren", "1", "mpm", 20000);
+                }
+                public Map<String, String> strings() {
+                    return Map.ofEntries(Map.entry("ren", "1"));
+                }
+            }
+            """;
+
+    @DisplayName("Map.ofEntries and Map.of: a HashMap from pairs, a value of Map<K, Object> boxed")
+    @Test
+    public void mapOfEntries() throws Exception {
+        List<TypeInfo> types = parse(OPTIONS);
+        nonModifying(types.getFirst(), "entries", "pairs", "strings");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'HashMap::of_entries(...)': E0599
+        contains(rust, "HashMap::from([(\"ren\".to_string(), Box::new(\"1\".to_string()) as Box<dyn Any>), (\"mpm\".to_string(), Box::new(20000) as Box<dyn Any>)])");
+        contains(rust, "HashMap::from([(\"ren\".to_string(), \"1\".to_string())])");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
