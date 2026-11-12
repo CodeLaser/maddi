@@ -396,8 +396,11 @@ final class RustTypePrinter {
         if (baseType != null && baseType.startsWith("Rc<") && baseType.endsWith(">")) {
             baseType = baseType.substring("Rc<".length(), baseType.length() - 1);
         }
-        // ... nor the Shared handle (RustShared): the subclass's object holds its parent's part itself
-        if (baseType != null && baseType.startsWith("crate::jrt::Shared<") && baseType.endsWith(">")) {
+        // ... nor, for a cyclic parent (RustShared.isCyclic), its Shared handle: the parent's constructor is given the
+        // subclass's weak handle, so its part lives inside the subclass's object. Another shared parent keeps its
+        // handle as the base (ExpressionStack's ListStack<Exprent>, passed where a Shared<ListStack> is expected).
+        if (baseType != null && RustShared.current().isCyclic(base) && baseType.startsWith("crate::jrt::Shared<")
+            && baseType.endsWith(">")) {
             baseType = baseType.substring("crate::jrt::Shared<".length(), baseType.length() - 1);
         }
         this.base = baseType;
