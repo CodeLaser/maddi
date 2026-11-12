@@ -343,6 +343,17 @@ final class RustTypePrinter {
                     .append(constants.get(i)).append("\",\n");
         }
         sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n");
+        // and valueOf(String): the constant of that name, Java's IllegalArgumentException otherwise (fernflower's
+        // 'Severity.valueOf(level.toUpperCase())'); any string form the call site has
+        sb.append(INDENT).append("pub fn value_of<S: AsRef<str>>(name: S) -> Self {\n").append(INDENT).append(INDENT)
+                .append("match name.as_ref() {\n");
+        for (int i = 0; i < n; i++) {
+            sb.append(INDENT.repeat(3)).append("\"").append(constants.get(i)).append("\" => Self::")
+                    .append(variants.get(i)).append(",\n");
+        }
+        sb.append(INDENT.repeat(3)).append("other => panic!(\"IllegalArgumentException: No enum constant ")
+                .append(typeInfo.fullyQualifiedName()).append(".{}\", other),\n");
+        sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n");
         // a field each constant sets to a literal: a match over the variants
         for (FieldInfo f : state) {
             List<Expression> literals = constantField(f);

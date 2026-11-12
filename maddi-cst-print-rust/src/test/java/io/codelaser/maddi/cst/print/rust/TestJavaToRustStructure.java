@@ -91,6 +91,10 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                     return i > MAX ? "big" : "small " + i;
                 }
 
+                public static Color color(String s) {
+                    return Color.valueOf(s.toUpperCase());
+                }
+
                 public static double total(List<Shape> shapes) {
                     double sum = 0;
                     for (Shape s : shapes) sum += s.area();
@@ -113,6 +117,8 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         kept(method(shapes, "count").parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
         borrowed(method(shapes, "longWords").parameters().getFirst());
         borrowed(method(shapes, "total").parameters().getFirst());
+        nonModifying(shapes, "color");
+        borrowed(method(shapes, "color").parameters().getFirst());
         independentResult(shapes, "last");
 
         RustTranslator.Result result = translate(types, nullable(Set.of("last", "last()")));
@@ -129,6 +135,9 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                     pub r: f64,
                 }""");
         contains(rust, "impl ShapesShape for ShapesCircle {");
+        // java.lang.Enum's valueOf: the constant of that name
+        contains(rust, "\"DARK_GREEN\" => Self::DarkGreen,");
+        contains(rust, "ShapesColor::value_of(");
         contains(rust, """
                 pub enum ShapesColor {
                     Red,
