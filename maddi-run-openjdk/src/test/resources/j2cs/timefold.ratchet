@@ -262,10 +262,12 @@
 # 2026-11-10, a functional interface that bounds a type parameter stays an interface (CS0701): 419 -> 406 errors.
 # 2026-11-12, an inner class that uses its enclosing instance through a written Outer.this or by creating a sibling
 # with C::new takes an outer (maddi's EnclosingInstance): 406 -> 405 errors.
+# 2026-11-12, small value classes and records as readonly struct / readonly record struct (CSharpStructs, on
+# maddi's ValueTypes), and params on a varargs record's component: 1389 -> 1390 compiling files.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1389
+compilingFiles	1390
 unmappedJdkUses	91
 errors	405
