@@ -1247,11 +1247,6 @@ final class CSharpWildcardInterfaces {
                && !returnType.endsWith("?") ? "!" : "";
     }
 
-    /** {@code interface IScore : … { members }}, after the type's own declaration. */
-    static OutputBuilder declaration(TypeInfo t, String access, Qualification q) {
-        return declaration(t, access, q, List.of());
-    }
-
     /** As above, with the static members of an interface's companion, which has the wildcard interface's name. */
     static OutputBuilder declaration(TypeInfo t, String access, Qualification q, List<OutputBuilder> statics) {
         List<TypeParameter> remaining = remaining(t);
