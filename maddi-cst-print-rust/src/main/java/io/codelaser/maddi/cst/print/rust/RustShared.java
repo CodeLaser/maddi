@@ -54,14 +54,14 @@ final class RustShared {
 
     static final boolean OFF = System.getenv("NORUSTSHARED") != null;
 
-    private static final RustShared NONE = new RustShared(Set.of(), Set.of(), Set.of());
+    private static final RustShared NONE = new RustShared(Set.of(), Map.of(), Set.of());
     private static final ThreadLocal<RustShared> CURRENT = ThreadLocal.withInitial(() -> NONE);
 
     private final Set<TypeInfo> shared;
-    private final Set<TypeInfo> cyclic;
+    private final Map<TypeInfo, Set<TypeInfo>> cyclic;
     private final Set<TypeInfo> backLinks;
 
-    private RustShared(Set<TypeInfo> shared, Set<TypeInfo> cyclic, Set<TypeInfo> backLinks) {
+    private RustShared(Set<TypeInfo> shared, Map<TypeInfo, Set<TypeInfo>> cyclic, Set<TypeInfo> backLinks) {
         this.shared = shared;
         this.cyclic = cyclic;
         this.backLinks = backLinks;
@@ -72,7 +72,28 @@ final class RustShared {
      * (isBackLink): the object is built with {@code Shared::new_cyclic}, its constructors given a weak handle of it.
      */
     boolean isCyclic(TypeInfo ti) {
-        return ti != null && cyclic.contains(ti);
+        return ti != null && cyclic.containsKey(ti);
+    }
+
+    /**
+     * The back-link interfaces a cyclic class hands out, its own or its superclass's: a subclass passes its weak
+     * handle to the superclass's constructor, which hands it out as those (TestConsoleDecompiler extends
+     * ConsoleDecompiler, whose 'new Fernflower(this, this, ...)' must reach the subclass's getBytecode).
+     */
+    Set<TypeInfo> handedOut(TypeInfo ti) {
+        return ti == null ? Set.of() : cyclic.getOrDefault(ti, Set.of());
+    }
+
+    /** Whether {@code ti} is a cyclic class with a cyclic subclass: its constructors take any object's handle. */
+    boolean cyclicWithSubclasses(TypeInfo ti) {
+        return isCyclic(ti) && cyclic.keySet().stream().anyMatch(t -> t != ti && t.superTypesExcludingJavaLangObject().contains(ti));
+    }
+
+    /** The cyclic superclass {@code ti} composes, whose constructor takes its handle; null when there is none. */
+    TypeInfo cyclicSuperclass(TypeInfo ti) {
+        if (ti == null || ti.parentClass() == null) return null;
+        TypeInfo parent = ti.parentClass().typeInfo();
+        return isCyclic(parent) ? parent : null;
     }
 
     /**
@@ -121,20 +142,31 @@ final class RustShared {
             if (held.contains(t) && !view(t, facts)) shared.add(t);
         }
         shared.addAll(linkedGraph);
-        Set<TypeInfo> cyclic = new HashSet<>();
+        Map<TypeInfo, Set<TypeInfo>> cyclic = new HashMap<>();
         Set<TypeInfo> backLinks = new HashSet<>();
         Map<TypeInfo, Set<TypeInfo>> handedOut = new HashMap<>();
         Map<TypeInfo, Set<TypeInfo>> implementations = new HashMap<>();
         for (TypeInfo t : types) selfHandOuts(t, facts, handedOut, implementations);
         handedOut.forEach((iface, classes) -> {
-            // the interface's only implementation in the sources, so that every value of it is that object's handle
-            if (classes.size() == 1 && implementations.getOrDefault(iface, Set.of()).equals(classes)) {
-                backLinks.add(iface);
-                cyclic.addAll(classes);
-                shared.addAll(classes);
+            // one class hands it out, and every implementation in the sources is that class or a subclass of it, so
+            // that every value of the interface is such an object's handle
+            if (classes.size() != 1) return;
+            TypeInfo c = classes.iterator().next();
+            Set<TypeInfo> impls = implementations.getOrDefault(iface, Set.of());
+            if (!impls.stream().allMatch(t -> t == c || t.superTypesExcludingJavaLangObject().contains(c))) return;
+            // a subclass composes its superclass (no closed hierarchy): its constructor passes its handle on
+            if (impls.stream().anyMatch(t -> t != c && (RustHierarchies.current().root(t) != null || candidate(t, facts) != t))) {
+                return;
             }
+            backLinks.add(iface);
+            for (TypeInfo t : impls) cyclic.computeIfAbsent(t, k -> new HashSet<>()).add(iface);
+            cyclic.computeIfAbsent(c, k -> new HashSet<>()).add(iface);
+            shared.add(c);
+            shared.addAll(impls);
         });
-        return shared.isEmpty() ? NONE : new RustShared(Set.copyOf(shared), Set.copyOf(cyclic), Set.copyOf(backLinks));
+        Map<TypeInfo, Set<TypeInfo>> frozen = new HashMap<>();
+        cyclic.forEach((k, v) -> frozen.put(k, Set.copyOf(v)));
+        return shared.isEmpty() ? NONE : new RustShared(Set.copyOf(shared), Map.copyOf(frozen), Set.copyOf(backLinks));
     }
 
     /*
@@ -175,7 +207,7 @@ final class RustShared {
                         ParameterizedType pt = p.parameterizedType();
                         TypeInfo iface = pt.arrays() == 0 && !pt.isTypeParameter() ? pt.typeInfo() : null;
                         if (iface != null && iface.isInterface() && !iface.compilationUnit().externalLibrary()
-                            && !RustTypes.isFunctional(pt) && keptVerdict(p)) {
+                            && keptVerdict(p)) {
                             handedOut.computeIfAbsent(iface, k -> new HashSet<>()).add(type);
                         }
                     }

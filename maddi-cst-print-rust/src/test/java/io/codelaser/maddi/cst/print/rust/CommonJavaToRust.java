@@ -87,6 +87,19 @@ public abstract class CommonJavaToRust {
                 new JavaInspector.ParseOptions.Builder().build()).parseResult().primaryTypes());
     }
 
+    /** The primary types of several compilation units, which may be in different packages. */
+    protected List<TypeInfo> parseAll(String... javas) {
+        Map<String, String> sources = new java.util.LinkedHashMap<>();
+        for (String java : javas) {
+            String code = java.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("//[^\\n]*", "");
+            String pkg = code.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
+            String first = code.replaceAll("(?s)^.*?(?<![@\\w])(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
+            sources.put(pkg + "." + first, java);
+        }
+        return List.copyOf(javaInspector.parse(sources, new JavaInspector.ParseOptions.Builder().build())
+                .parseResult().primaryTypes());
+    }
+
     /** The translation of {@code types}, all of one package, written as a crate under {@code build/rust-samples}. */
     protected RustTranslator.Result translate(List<TypeInfo> types) throws IOException {
         return translate(types, RustFacts.STORED);

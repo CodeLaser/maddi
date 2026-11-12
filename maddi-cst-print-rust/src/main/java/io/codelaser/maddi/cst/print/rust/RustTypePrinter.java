@@ -396,6 +396,10 @@ final class RustTypePrinter {
         if (baseType != null && baseType.startsWith("Rc<") && baseType.endsWith(">")) {
             baseType = baseType.substring("Rc<".length(), baseType.length() - 1);
         }
+        // ... nor the Shared handle (RustShared): the subclass's object holds its parent's part itself
+        if (baseType != null && baseType.startsWith("crate::jrt::Shared<") && baseType.endsWith(">")) {
+            baseType = baseType.substring("crate::jrt::Shared<".length(), baseType.length() - 1);
+        }
         this.base = baseType;
         List<FieldInfo> fields = typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
         String name = RustNames.type(typeInfo);
@@ -535,6 +539,7 @@ final class RustTypePrinter {
             if (RustHierarchies.current().downcasts(e.getKey()).contains(typeInfo)) sb.append(conversions(typeInfo, true));
             sb.append("}\n");
         }
+        sb.append(backLinkForwards(typeInfo, name, generics, implGenerics, byTrait.keySet()));
         if (equals != null) sb.append(partialEq(equals, name, generics, implGenerics));
         else if (hashedFields) {
             String eq = fields.stream().map(f -> "self." + RustNames.snake(f.name()) + " == other." + RustNames.snake(f.name()))
@@ -1096,12 +1101,19 @@ final class RustTypePrinter {
                     return owner + "::default()";
                 }
                 if (s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && eci.methodInfo() != null) {
-                    return owner + "::" + RustNames.method(eci.methodInfo()) + "("
-                           + printer.arguments(eci.parameterExpressions(), eci.methodInfo()) + ")";
+                    // a cyclic superclass: the subclass's own weak handle, which it hands out
+                    String args = printer.arguments(eci.parameterExpressions(), eci.methodInfo());
+                    if (RustShared.current().isCyclic(eci.methodInfo().typeInfo())) {
+                        args = args.isEmpty() ? "__this" : args + ", __this";
+                    }
+                    return owner + "::" + RustNames.method(eci.methodInfo()) + "(" + args + ")";
                 }
             }
         }
-        return owner + "::new()";
+        // the implicit super(): a cyclic superclass's takes the handle too
+        boolean handle = statements != null && context.method != null && context.method.isConstructor()
+                         && RustShared.current().cyclicSuperclass(context.type) != null;
+        return owner + "::new(" + (handle ? "__this" : "") + ")";
     }
 
     /**
@@ -1519,7 +1531,7 @@ final class RustTypePrinter {
         context.method = c;
         try {
             StringBuilder sb = new StringBuilder(INDENT + visibility(c.access().isPrivate()) + "fn " + RustNames.method(c)
-                                                 + "(" + parameters(c) + ") -> Self {\n");
+                                                 + cyclicGenerics(c) + "(" + parameters(c) + ") -> Self {\n");
             Block body = c.methodBody();
             List<Statement> statements = body == null ? List.of() : body.statements();
             String pad = INDENT.repeat(2);
@@ -1732,7 +1744,7 @@ final class RustTypePrinter {
         boolean[] found = {false};
         Set<Expression> handedOut = handedOutThis(element);
         element.visit(e -> {
-            if (e instanceof VariableExpression ve && handedOut.stream().anyMatch(h -> h == ve)) return true;
+            if (e instanceof VariableExpression ve && handedOut.contains(ve)) return true;
             if (e instanceof VariableExpression ve && (ve.variable() instanceof This
                 || ve.variable() instanceof FieldReference fr && !fr.fieldInfo().isStatic() && fr.scopeIsThis())) {
                 found[0] = true;
@@ -1752,7 +1764,8 @@ final class RustTypePrinter {
      constructor is given, they do not read the object under construction.
      */
     private static Set<Expression> handedOutThis(Element element) {
-        Set<Expression> out = new HashSet<>();
+        // by identity: 'new Engine(this, this)' hands out two equal expressions
+        Set<Expression> out = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         RustShared shared = RustShared.current();
         element.visit(e -> {
             List<Expression> arguments;
@@ -1938,9 +1951,68 @@ final class RustTypePrinter {
         for (ParameterInfo p : m.parameters()) out.add(parameter(m, p));
         // a constructor handing out 'this' (RustShared.isCyclic): the weak handle Shared::new_cyclic gives it
         if (m.isConstructor() && RustShared.current().isCyclic(m.typeInfo())) {
-            out.add("__this: &crate::jrt::WeakShared<Self>");
+            out.add("__this: &crate::jrt::WeakShared<"
+                    + (RustShared.current().cyclicWithSubclasses(m.typeInfo()) ? CYCLIC_SELF : "Self") + ">");
         }
         return String.join(", ", out);
+    }
+
+    private static final String CYCLIC_SELF = "__S";
+
+    /*
+     A cyclic class with cyclic subclasses (RustShared): its constructors take the weak handle of whatever object is
+     being built, the class's own or a subclass's that composes it, as long as it implements the back-links the
+     constructor hands out. '<__S: IBytecodeProvider + IResultSaver + 'a>'.
+     */
+    private String cyclicGenerics(MethodInfo c) {
+        TypeInfo t = c.typeInfo();
+        if (!c.isConstructor() || !RustShared.current().cyclicWithSubclasses(t)) return "";
+        String bounds = RustShared.current().handedOut(t).stream().map(this::traitName).sorted()
+                .collect(Collectors.joining(" + "));
+        String lifetime = context.borrows.hasLifetime(t) ? RustBorrows.LIFETIME : "'static";
+        return "<" + CYCLIC_SELF + ": " + bounds + " + " + lifetime + ">";
+    }
+
+    private String traitName(TypeInfo iface) {
+        return RustTypes.owned(iface.asSimpleParameterizedType(), context, iface).replaceFirst(TRAIT_OBJECT, "$1");
+    }
+
+    /*
+     A subclass of a cyclic class implements the back-links its superclass hands out, so that its weak handle is one
+     of them: each method its own override, else the composed superclass's.
+     */
+    private String backLinkForwards(TypeInfo typeInfo, String name, String generics, String implGenerics,
+                                    Set<TypeInfo> implemented) {
+        if (RustShared.current().cyclicSuperclass(typeInfo) == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (TypeInfo iface : RustShared.current().handedOut(typeInfo).stream()
+                .sorted(java.util.Comparator.comparing(TypeInfo::fullyQualifiedName)).toList()) {
+            if (implemented.contains(iface)) continue;
+            String trait = traitName(iface);
+            sb.append("\nimpl").append(implGenerics).append(" ").append(trait).append(" for ").append(name)
+                    .append(generics).append(" {\n");
+            for (MethodInfo d : iface.methods()) {
+                if (d.isStatic() || d.isSynthetic() || !d.isAbstract()) continue;
+                MethodInfo own = typeInfo.methods().stream()
+                        .filter(m -> !m.isStatic() && m.name().equals(d.name())
+                                     && m.parameters().size() == d.parameters().size())
+                        .findFirst().orElse(null);
+                if (own != null) {
+                    sb.append(delegate(own, d));
+                    continue;
+                }
+                String receiver = switch (context.facts.receiver(d)) {
+                    case EXCLUSIVE, OWNED -> "&mut self.base";
+                    default -> "&self.base";
+                };
+                String args = d.parameters().stream().map(p -> RustNames.snake(p.name())).collect(Collectors.joining(", "));
+                sb.append(INDENT).append(signature(d, false)).append(" {\n").append(INDENT).append(INDENT)
+                        .append(trait).append("::").append(RustNames.method(d)).append("(").append(receiver)
+                        .append(args.isEmpty() ? "" : ", " + args).append(")\n").append(INDENT).append("}\n");
+            }
+            sb.append("}\n");
+        }
+        return sb.toString();
     }
 
     /** The arguments of {@code this(...)}: a cyclic class's constructor passes its weak handle on. */

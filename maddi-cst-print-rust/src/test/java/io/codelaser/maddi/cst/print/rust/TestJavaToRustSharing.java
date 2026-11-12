@@ -549,4 +549,89 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         assertFalse(rust.contains("Default::default()"), rust);
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String CONSOLES = """
+            package a.b;
+            public class Consoles {
+                public interface Provider {
+                    String bytes(String path);
+                }
+                public interface Saver {
+                    void save(String content);
+                }
+                public static class Engine {
+                    private final Provider provider;
+                    private final Saver saver;
+                    public Engine(Provider provider, Saver saver) {
+                        this.provider = provider;
+                        this.saver = saver;
+                    }
+                    public void run(String path) { saver.save(provider.bytes(path)); }
+                }
+                // fernflower's ConsoleDecompiler: 'new Fernflower(this, this, ...)'
+                public static class Console implements Provider, Saver {
+                    private final Engine engine;
+                    private String saved = "";
+                    public Console() { this.engine = new Engine(this, this); }
+                    public String bytes(String path) { return "console:" + path; }
+                    public void save(String content) { saved = content; }
+                    public void run(String path) { engine.run(path); }
+                    public String getSaved() { return saved; }
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String TEST_CONSOLES = """
+            package a.c;
+            import a.b.Consoles;
+            public class TestConsoles {
+                // DecompilerTestFixture.TestConsoleDecompiler, another package: composition, overriding the provider
+                public static class TestConsole extends Consoles.Console {
+                    public TestConsole() { super(); }
+                    @Override
+                    public String bytes(String path) { return "test:" + path; }
+                }
+                public static class User {
+                    public String go() {
+                        TestConsole c = new TestConsole();
+                        c.run("x");
+                        return c.getSaved();
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("a subclass of a class handing out 'this': its own handle passed to super, its override reached")
+    @Test
+    public void selfReferentialConstructionInherited() throws Exception {
+        List<TypeInfo> types = parseAll(CONSOLES, TEST_CONSOLES);
+        TypeInfo consoles = types.stream().filter(t -> t.simpleName().equals("Consoles")).findFirst().orElseThrow();
+        TypeInfo tests = types.stream().filter(t -> t.simpleName().equals("TestConsoles")).findFirst().orElseThrow();
+        TypeInfo engine = consoles.findSubType("Engine");
+        TypeInfo console = consoles.findSubType("Console");
+        TypeInfo testConsole = tests.findSubType("TestConsole");
+        nonModifying(consoles.findSubType("Provider"), "bytes");
+        modifying(consoles.findSubType("Saver"), "save");
+        modifying(engine, "run");
+        nonModifying(console, "bytes", "getSaved");
+        modifying(console, "save", "run");
+        nonModifying(testConsole, "bytes");
+        nonModifying(tests.findSubType("User"), "go");
+        engine.constructors().getFirst().parameters().forEach(p -> kept(p, ValueImpl.IndependentImpl.DEPENDENT));
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        String sub = module("a.c");
+        // the superclass's constructor takes any object's handle that is both back-links
+        contains(rust, "pub fn new<__S: ConsolesProvider + ConsolesSaver + 'static>(__this: &crate::jrt::WeakShared<__S>) -> Self {");
+        contains(rust, "ConsolesEngine::new(crate::jrt::WeakShared(__this.0.clone()), crate::jrt::WeakShared(__this.0.clone()))");
+        // the subclass passes its own on, and is both: its override, the superclass's save
+        contains(sub, "base: ConsolesConsole::new(__this),");
+        contains(sub, "impl ConsolesProvider for TestConsolesTestConsole {");
+        contains(sub, "ConsolesSaver::save(&mut self.base, content)");
+        contains(sub, "crate::jrt::Shared::new_cyclic(|__w| TestConsolesTestConsole::new(__w))");
+        assertEquals(List.of(), rustcErrors(), rust + "\n" + sub);
+    }
 }
