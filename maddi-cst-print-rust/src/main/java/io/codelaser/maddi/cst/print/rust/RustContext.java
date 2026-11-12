@@ -36,6 +36,9 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
@@ -137,7 +140,46 @@ final class RustContext {
             && parameter.parameterizedType().arrays() == 0 && stored(parameter)) {
             return RustFacts.Passing.OWNED;
         }
+        if (passing == RustFacts.Passing.OWNED && modifiedNotKept(parameter)) {
+            // dependent because the RECEIVER's content goes into it ('engine.checkAndSetVariableValue(name, this.value)',
+            // CodeLaser/maddi#202 pattern 4), not because the method keeps it: moved in, the caller would lose what
+            // the method did to it
+            return RustFacts.Passing.EXCLUSIVE;
+        }
         return passing;
+    }
+
+    /*
+     Modified, and neither returned, assigned, handed to a callee that keeps it, nor kept in a new result: the body
+     decides (stored). An abstract method has no body: every implementation decides, and one without a body or one that
+     keeps it keeps the move.
+     */
+    private boolean modifiedNotKept(ParameterInfo parameter) {
+        ParameterizedType type = parameter.parameterizedType();
+        // decided modified: an undecided verdict (no facts) keeps the move
+        var unmodified = parameter.analysis().getOrNull(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+        if (unmodified == null || !unmodified.isFalse() || RustTypes.isCopy(type) || RustTypes.isString(type) || RustTypes.isFunctional(type)
+            || type.isTypeParameter()) {
+            return false;
+        }
+        MethodInfo method = parameter.methodInfo();
+        if (method.methodBody() != null && !method.methodBody().isEmpty()) return notKept(parameter);
+        if (!method.isAbstract()) return false;
+        var implementations = method.analysis().getOrDefault(PropertyImpl.IMPLEMENTATIONS,
+                ValueImpl.SetOfMethodInfoImpl.EMPTY);
+        if (implementations.isEmpty()) return false;
+        for (MethodInfo implementation : implementations.methodInfoSet()) {
+            if (implementation.methodBody() == null || implementation.methodBody().isEmpty()
+                || parameter.index() >= implementation.parameters().size()
+                || !notKept(implementation.parameters().get(parameter.index()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean notKept(ParameterInfo parameter) {
+        return !stored(parameter) && !facts.keptInNewResult(parameter) && !RustFacts.renewedResult(parameter);
     }
 
     private final Map<ParameterInfo, Boolean> stored = new HashMap<>();

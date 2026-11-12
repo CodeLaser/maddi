@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 /**
@@ -338,6 +339,58 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
         // was 'Self::touch(s.get_if_edge())': a & where the parameter is &mut (E0308; fernflower's removeSuccessor)
         contains(rust, "Self::touch(s.get_if_edge_mut());");
         contains(rust, "pub fn get_if_edge_mut(&mut self) -> &mut GsEdge {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String RECEIVER_INTO_PARAMETER = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Node {
+                public static class Engine {
+                    private final Map<String, String> variables = new HashMap<>();
+                    public boolean checkAndSet(String name, String value) {
+                        String old = variables.get(name);
+                        if (old != null) return old.equals(value);
+                        variables.put(name, value);
+                        return true;
+                    }
+                }
+                private final String value = "v";
+                public boolean match(String name, Engine engine) { return engine.checkAndSet(name, value); }
+                public static boolean run(Node node) {
+                    Engine engine = new Engine();
+                    return node.match("x", engine) && node.match("y", engine);
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#202, pattern 4 (fernflower's Exprent.match(MatchNode, MatchEngine)): the parameter is dependent
+     * because the receiver's content goes INTO it, and modified; the method does not keep it. Moved in, the caller
+     * would lose the engine after the first match: it is a {@code &mut}.
+     */
+    @DisplayName("a modified parameter that receives the receiver's content, not kept, is &mut")
+    @Test
+    public void receiverIntoParameterIsExclusive() throws Exception {
+        List<TypeInfo> types = parse(RECEIVER_INTO_PARAMETER);
+        TypeInfo node = types.getFirst();
+        TypeInfo engine = node.findSubType("Engine");
+        modifying(engine, "checkAndSet");
+        MethodInfo checkAndSet = method(engine, "checkAndSet");
+        borrowed(checkAndSet.parameters().getFirst());
+        kept(checkAndSet.parameters().get(1), ValueImpl.IndependentImpl.DEPENDENT);
+        nonModifying(node, "match", "run");
+        MethodInfo match = method(node, "match");
+        borrowed(match.parameters().getFirst());
+        match.parameters().get(1).analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE);
+        match.parameters().get(1).analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.DEPENDENT);
+        borrowed(method(node, "run").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "engine: &mut NodeEngine");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }
