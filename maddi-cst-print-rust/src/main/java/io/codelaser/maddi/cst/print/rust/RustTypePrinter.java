@@ -613,7 +613,7 @@ final class RustTypePrinter {
         String name = RustHierarchies.downcastName(struct);
         boolean lifetime = context.borrows.hasLifetime(struct);
         String type = RustNames.ownType(struct) + (lifetime ? "<'_>" : "");
-        String module = RustNames.module(struct.packageName());
+        String module = RustNames.module(struct);
         if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.ownType(struct));
         String value = impl ? "Some(self)" : "None";
         StringBuilder sb = new StringBuilder(INDENT).append("fn ").append(name).append("(&self) -> Option<&")
@@ -809,9 +809,11 @@ final class RustTypePrinter {
             return sb.toString();
         }
         if (constructors.isEmpty()) {
-            sb.append(INDENT).append("pub fn ").append(RustHierarchies.defaultConstructorName(m)).append("() -> Self {\n")
+            boolean cyclic = RustShared.current().isCyclic(m);
+            sb.append(INDENT).append("pub fn ").append(RustHierarchies.defaultConstructorName(m))
+                    .append(cyclic ? "(__this: &crate::jrt::WeakShared<Self>)" : "()").append(" -> Self {\n")
                     .append(INDENT).append(INDENT).append("let mut this = Self::").append(parentNoArgConstructor(m))
-                    .append("();\n").append(intoVariant(m, INDENT.repeat(2), Map.of(), null))
+                    .append(cyclic ? "(__this);\n" : "();\n").append(intoVariant(m, INDENT.repeat(2), Map.of(), null))
                     .append(INDENT).append(INDENT).append("this\n").append(INDENT).append("}\n");
         }
         for (MethodInfo c : constructors) sb.append(subConstructor(m, c));
@@ -913,10 +915,12 @@ final class RustTypePrinter {
             if (eci != null && !eci.isSuper()) {
                 // this(...): the other constructor makes it one of m already
                 sb.append(pad).append("let mut this = Self::").append(RustNames.method(eci.methodInfo())).append("(")
-                        .append(printer.arguments(eci.parameterExpressions(), eci.methodInfo())).append(");\n");
+                        .append(chainedArguments(printer, eci)).append(");\n");
             } else {
                 String parent = eci == null ? parentNoArgConstructor(m) : RustNames.method(eci.methodInfo());
                 String args = eci == null ? "" : printer.arguments(eci.parameterExpressions(), eci.methodInfo());
+                // a cyclic hierarchy (RustShared): the root's constructor takes the object's weak handle
+                if (RustShared.current().isCyclic(m)) args = args.isEmpty() ? "__this" : args + ", __this";
                 sb.append(pad).append("let mut this = Self::").append(parent).append("(").append(args).append(");\n");
                 sb.append(intoVariant(m, pad, assigned == null ? earlyValues(m, statements, fields, printer, skip)
                         : assigned, printer));

@@ -616,7 +616,7 @@ final class RustBodyPrinter {
 
     // the kind enum a test names, imported where the hierarchy is another module's
     private void useKind(TypeInfo member) {
-        String module = RustNames.module(member.packageName());
+        String module = RustNames.module(member);
         if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustHierarchies.current().kind(member));
     }
 
@@ -1252,7 +1252,7 @@ final class RustBodyPrinter {
             if (jdk != null) return value(jdk);
             String prefix = owner == context.type ? "Self" : RustNames.type(owner);
             if (owner != context.type && !owner.compilationUnit().externalLibrary()) {
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(owner));
             }
             if (owner.typeNature().isEnum() && f.type().typeInfo() == owner) {
@@ -1261,21 +1261,21 @@ final class RustBodyPrinter {
             if (RustTypePrinter.interfaceConstant(f)) {
                 // a module-level const beside the trait
                 String name = RustTypePrinter.staticName(f);
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
                 return new Printed(name, RustTypes.isString(f.type()) ? Held.STR : Held.VALUE, nullable);
             }
             if (RustTypePrinter.mutableStaticValue(f, context) != null) {
                 // Java's static state: a static mut, touched inside the unsafe body of the method
                 String name = RustTypePrinter.staticName(f);
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
                 // Rust 2024 refuses a reference to a static mut: a method call on one goes through a raw pointer
                 return new Printed(RustTypes.isCopy(f.type()) ? name : "(*&raw mut " + name + ")", Held.PLACE, nullable);
             }
             if (!owner.compilationUnit().externalLibrary() && RustTypePrinter.lazyStatic(f, context)) {
                 String name = RustTypePrinter.staticName(f);
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
                 if (RustTypePrinter.threadLocalStatic(f, context)) return new Printed(name + ".with(|v| v.clone())", Held.VALUE, nullable);
                 // a LazyLock<i32> derefs to its value: an int where one is expected
@@ -1879,7 +1879,7 @@ final class RustBodyPrinter {
         }
         String owner = m.typeInfo() == context.type ? "Self" : RustNames.type(m.typeInfo());
         if (m.typeInfo() != context.type) {
-            String module = RustNames.module(m.typeInfo().packageName());
+            String module = RustNames.module(m.typeInfo());
             if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(m.typeInfo()));
         }
         String name = RustNames.method(m);
@@ -2023,7 +2023,7 @@ final class RustBodyPrinter {
             TypeInfo owner = callee.typeInfo();
             String prefix = owner == context.type ? "Self" : RustNames.type(owner);
             if (owner != context.type) {
-                String module = RustNames.module(owner.packageName());
+                String module = RustNames.module(owner);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(owner));
             }
             call = prefix + "::" + name + "(" + args + ")";
@@ -2031,7 +2031,7 @@ final class RustBodyPrinter {
             // a trait's method is callable where the trait is in scope
             TypeInfo trait = callee.typeInfo().isInterface() ? callee.typeInfo() : RustTypePrinter.implementedTrait(callee);
             if (trait != null) {
-                String module = RustNames.module(trait.packageName());
+                String module = RustNames.module(trait);
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(trait));
             }
             boolean own = mc.object() == null || mc.objectIsImplicit()
@@ -2133,7 +2133,7 @@ final class RustBodyPrinter {
         String owner = ti == context.type && !context.borrows.hasLifetime(ti) && ti.typeParameters().isEmpty()
                 ? "Self" : RustNames.type(ti);
         if (ti != context.type) {
-            String module = RustNames.module(ti.packageName());
+            String module = RustNames.module(ti);
             if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(ti));
         }
         String name = constructor == null ? "new" : RustNames.method(constructor);

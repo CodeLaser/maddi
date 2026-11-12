@@ -72,7 +72,13 @@ final class RustShared {
      * (isBackLink): the object is built with {@code Shared::new_cyclic}, its constructors given a weak handle of it.
      */
     boolean isCyclic(TypeInfo ti) {
-        return ti != null && cyclic.containsKey(ti);
+        return ti != null && cyclic.containsKey(struct(ti));
+    }
+
+    // a member of a closed hierarchy is its root's struct
+    private static TypeInfo struct(TypeInfo ti) {
+        TypeInfo root = RustHierarchies.current().root(ti);
+        return root != null ? root : ti;
     }
 
     /**
@@ -81,7 +87,7 @@ final class RustShared {
      * ConsoleDecompiler, whose 'new Fernflower(this, this, ...)' must reach the subclass's getBytecode).
      */
     Set<TypeInfo> handedOut(TypeInfo ti) {
-        return ti == null ? Set.of() : cyclic.getOrDefault(ti, Set.of());
+        return ti == null ? Set.of() : cyclic.getOrDefault(struct(ti), Set.of());
     }
 
     /** Whether {@code ti} is a cyclic class with a cyclic subclass: its constructors take any object's handle. */
@@ -154,12 +160,11 @@ final class RustShared {
             TypeInfo c = classes.iterator().next();
             Set<TypeInfo> impls = implementations.getOrDefault(iface, Set.of());
             if (!impls.stream().allMatch(t -> t == c || t.superTypesExcludingJavaLangObject().contains(c))) return;
-            // a subclass composes its superclass (no closed hierarchy): its constructor passes its handle on
-            if (impls.stream().anyMatch(t -> t != c && (RustHierarchies.current().root(t) != null || candidate(t, facts) != t))) {
-                return;
-            }
+            // a subclass composes its superclass, and its constructor passes its handle on; or it is a member of the
+            // closed hierarchy c is the root of, the same struct
+            if (impls.stream().anyMatch(t -> t != c && candidate(t, facts) != t && candidate(t, facts) != c)) return;
             backLinks.add(iface);
-            for (TypeInfo t : impls) cyclic.computeIfAbsent(t, k -> new HashSet<>()).add(iface);
+            for (TypeInfo t : impls) cyclic.computeIfAbsent(struct(t), k -> new HashSet<>()).add(iface);
             cyclic.computeIfAbsent(c, k -> new HashSet<>()).add(iface);
             shared.add(c);
             shared.addAll(impls);
@@ -183,7 +188,7 @@ final class RustShared {
                 }
             }
         }
-        if (candidate(type, facts) == type && RustHierarchies.current().root(type) == null) {
+        if (candidate(type, facts) == type) {
             for (MethodInfo c : type.constructors()) {
                 if (c.methodBody() == null) continue;
                 c.methodBody().visit(e -> {

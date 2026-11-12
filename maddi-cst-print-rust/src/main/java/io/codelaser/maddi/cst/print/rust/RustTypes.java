@@ -423,7 +423,7 @@ final class RustTypes {
             return "crate::jrt::" + context.opaque(ti);
         } else {
             base = RustNames.type(ti);
-            String module = RustNames.module(ti.packageName());
+            String module = RustNames.module(ti);
             if (!module.equals(context.module)) context.use("crate::" + module + "::" + base);
             // a struct with borrowed fields: its lifetime, elided where a signature allows it; in its own impl, the
             // impl's, so that a static method returning one says what it borrows from
