@@ -955,14 +955,6 @@ final class CSharpWildcardInterfaces {
         return printed;
     }
 
-    /**
-     * The bridge's body for a member whose result is an erased delegate: the type's own delegate, once, adapted by a
-     * lambda, {@code { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }}.
-     */
-    static String delegateBridge(MethodInfo m, String call, List<TypeParameter> removed, Qualification q) {
-        return delegateBridge(m, call, removed, q, false);
-    }
-
     /** As above; {@code nullableResult}: the own member's result may be null (its {@code ?}), and the bridge passes the null on (CS8602). */
     static String delegateBridge(MethodInfo m, String call, List<TypeParameter> removed, Qualification q, boolean nullableResult) {
         ParameterizedType pt = m.returnType();
@@ -1245,11 +1237,6 @@ final class CSharpWildcardInterfaces {
     private static String asserted(MethodInfo m, List<TypeParameter> removed, String returnType) {
         return CSharpContext.program().facts().nullabilityAnalysed() && CstQueries.mentionsAny(m.returnType(), removed)
                && !returnType.endsWith("?") ? "!" : "";
-    }
-
-    /** {@code interface IScore : … { members }}, after the type's own declaration. */
-    static OutputBuilder declaration(TypeInfo t, String access, Qualification q) {
-        return declaration(t, access, q, List.of());
     }
 
     /** As above, with the static members of an interface's companion, which has the wildcard interface's name. */
