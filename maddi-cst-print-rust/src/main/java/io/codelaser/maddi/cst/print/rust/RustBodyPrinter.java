@@ -2125,14 +2125,6 @@ final class RustBodyPrinter {
         return value(call);
     }
 
-    /**
-     * The arguments of a call that borrows {@code self} exclusively: a string read from {@code self} is passed as a
-     * copy, as a borrow of it could not live beside the exclusive one (Java shares an immutable string freely).
-     */
-    private String withoutSelfBorrows(List<Expression> arguments, MethodInfo callee) {
-        return String.join(", ", withoutSelfBorrowsList(arguments, callee));
-    }
-
     private List<String> withoutSelfBorrowsList(List<Expression> arguments, MethodInfo callee) {
         boolean outer = mutatingPlace(false); // an argument is read, also of a call on a place written through
         try {
