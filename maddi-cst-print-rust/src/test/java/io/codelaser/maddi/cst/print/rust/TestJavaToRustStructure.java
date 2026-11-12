@@ -1036,6 +1036,17 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
                     private void grow() { size++; }
                     public int getSize() { return size; }
                 }
+                // FastFixedSetIterator, SwitchPatternHelper's finder: the field read after its assignment, the
+                // parameter read through again by a later statement
+                public static class Tracked {
+                    private final Member member;
+                    private int length;
+                    public Tracked(String name, String suffix) {
+                        this.member = new Member(name + suffix);
+                        this.length = this.member.getName().length() + suffix.length();
+                    }
+                    public int getLength() { return length; }
+                }
             }
             """;
 
@@ -1049,6 +1060,7 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         nonModifying(member, "getName");
         modifying(node, "grow");
         nonModifying(node, "getSize");
+        nonModifying(lambdas.findSubType("Tracked"), "getLength");
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");

@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import io.codelaser.maddi.cst.api.element.Element;
@@ -843,6 +844,32 @@ final class RustTypePrinter {
                 .append("(").append(String.join(", ", parts)).append(");\n").toString();
     }
 
+    /*
+     The general shape of a member's constructor: a field without an empty value takes the value of its early
+     assignment (earlyAssignment), whose statement goes into 'skip'.
+     */
+    private Map<FieldInfo, Expression> earlyValues(TypeInfo m, List<Statement> statements, List<FieldInfo> fields,
+                                                   RustBodyPrinter printer, List<Statement> skip) {
+        Map<FieldInfo, Expression> values = new HashMap<>();
+        TypeInfo outer = context.type;
+        context.type = m;
+        try {
+            for (FieldInfo f : fields) {
+                if (!initial(f).contains("Default::default()")) continue;
+                Early first = earlyAssignment(statements, f);
+                if (first == null) continue;
+                Expression value = ((Assignment) ((ExpressionAsStatement) first.statement()).expression()).value();
+                String text = fieldValue(printer, f, value);
+                if (first.reused().stream().anyMatch(name -> movedIn(text, name))) continue;
+                values.put(f, value);
+                skip.add(first.statement());
+            }
+        } finally {
+            context.type = outer;
+        }
+        return values;
+    }
+
     private String subConstructor(TypeInfo m, MethodInfo c) {
         context.method = c;
         String outerReceiver = context.receiver;
@@ -860,6 +887,7 @@ final class RustTypePrinter {
             List<FieldInfo> fields = instanceFields(m);
             Map<FieldInfo, Expression> assigned = eci != null && !eci.isSuper() ? null
                     : simpleAssignments(statements, fields);
+            List<Statement> skip = new ArrayList<>();
             if (assigned != null) {
                 for (Statement s : statements) {
                     if (!(s instanceof ExplicitConstructorInvocation) && assignedField(s, fields) == null) {
@@ -875,12 +903,13 @@ final class RustTypePrinter {
                 String parent = eci == null ? parentNoArgConstructor(m) : RustNames.method(eci.methodInfo());
                 String args = eci == null ? "" : printer.arguments(eci.parameterExpressions(), eci.methodInfo());
                 sb.append(pad).append("let mut this = Self::").append(parent).append("(").append(args).append(");\n");
-                sb.append(intoVariant(m, pad, assigned == null ? Map.of() : assigned, printer));
+                sb.append(intoVariant(m, pad, assigned == null ? earlyValues(m, statements, fields, printer, skip)
+                        : assigned, printer));
             }
             context.receiver = "this";
             if (assigned == null) {
                 for (Statement s : statements) {
-                    if (s instanceof ExplicitConstructorInvocation) continue;
+                    if (s instanceof ExplicitConstructorInvocation || skip.stream().anyMatch(x -> x == s)) continue;
                     sb.append(printer.statement(s, 2));
                 }
             }
@@ -1529,12 +1558,16 @@ final class RustTypePrinter {
             Map<FieldInfo, Statement> early = new HashMap<>();
             for (FieldInfo f : fields) {
                 String initial = initial(f);
-                Statement first = initial.contains("Default::default()") ? earlyAssignment(statements, f) : null;
+                Early first = initial.contains("Default::default()") ? earlyAssignment(statements, f) : null;
                 if (first != null) {
-                    early.put(f, first);
-                    Expression value = ((Assignment) ((ExpressionAsStatement) first).expression()).value();
-                    initial = context.borrows.fields(f.owner()).containsKey(f) ? printer.text(value)
+                    Expression value = ((Assignment) ((ExpressionAsStatement) first.statement()).expression()).value();
+                    String text = context.borrows.fields(f.owner()).containsKey(f) ? printer.text(value)
                             : fieldValue(printer, f, value);
+                    // a parameter another statement uses may be read or cloned here, not moved into the struct
+                    if (first.reused().stream().noneMatch(name -> movedIn(text, name))) {
+                        early.put(f, first.statement());
+                        initial = text;
+                    }
                 }
                 sb.append(pad).append(INDENT).append(RustNames.snake(f.name())).append(": ").append(initial).append(",\n");
             }
@@ -1587,21 +1620,25 @@ final class RustTypePrinter {
         return assigned;
     }
 
-    /*
-     The one assignment of f in a constructor body whose value can be computed before the object
-     ('this.classStruct = classStruct;' among other statements): a top-level statement, f assigned nowhere else and read
-     by no statement before it, its value reading neither the object nor a local, nor a parameter that another
-     statement uses (it is moved into the struct). Rust has no empty value for f's type (a Shared, a struct, a trait
-     object: 'Default::default()', E0277). null when there is none.
+    /**
+     * The one assignment of f in a constructor body whose value can be computed before the object
+     * ('this.classStruct = classStruct;' among other statements), with the names of the parameters it reads that other
+     * statements use too: a top-level statement, f mentioned by no statement before it (a later read or assignment
+     * works on the struct's value), its value reading neither the object nor a local, nor a parameter a statement
+     * before it assigns. Rust has no empty value for f's type (a Shared, a struct, a trait object:
+     * 'Default::default()', E0277). null when there is none.
      */
-    private static Statement earlyAssignment(List<Statement> statements, FieldInfo f) {
+    private record Early(Statement statement, Set<String> reused) {
+    }
+
+    private static Early earlyAssignment(List<Statement> statements, FieldInfo f) {
         Statement found = null;
+        List<Statement> before = new ArrayList<>();
         for (Statement s : statements) {
-            if (found == null && assignedField(s, List.of(f)) != null) {
-                found = s;
-            } else if (mentions(s, f)) {
-                return null;
-            }
+            if (found != null) break;
+            if (assignedField(s, List.of(f)) != null) found = s;
+            else if (mentions(s, f)) return null;
+            else before.add(s);
         }
         if (found == null) return null;
         Expression value = ((Assignment) ((ExpressionAsStatement) found).expression()).value();
@@ -1616,16 +1653,51 @@ final class RustTypePrinter {
             return !local[0];
         });
         if (local[0]) return null;
+        for (Statement s : before) {
+            boolean[] assigns = {false};
+            s.visit(e -> {
+                if (e instanceof Assignment a && parameters.contains(a.target().variable())) assigns[0] = true;
+                return !assigns[0];
+            });
+            if (assigns[0]) return null;
+        }
+        Set<String> reused = new HashSet<>();
         for (Statement s : statements) {
             if (s == found) continue;
-            boolean[] uses = {false};
             s.visit(e -> {
-                if (e instanceof VariableExpression ve && parameters.contains(ve.variable())) uses[0] = true;
-                return !uses[0];
+                if (e instanceof VariableExpression ve && parameters.contains(ve.variable())) {
+                    reused.add(RustNames.snake(((ParameterInfo) ve.variable()).name()));
+                }
+                return true;
             });
-            if (uses[0]) return null;
         }
-        return found;
+        return new Early(found, reused);
+    }
+
+    /**
+     * {@code name} moved by the expression {@code text}: a bare mention, not one borrowed, read through or cloned, nor
+     * an argument of {@code format!}, which borrows its arguments.
+     */
+    static boolean movedIn(String text, String name) {
+        StringBuilder outside = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            if (text.startsWith("format!(", i)) {
+                int depth = 0;
+                int j = i + "format!".length();
+                for (; j < text.length(); j++) {
+                    char c = text.charAt(j);
+                    if (c == '"') {
+                        for (j++; j < text.length() && text.charAt(j) != '"'; j++) if (text.charAt(j) == '\\') j++;
+                    } else if (c == '(') depth++;
+                    else if (c == ')' && --depth == 0) break;
+                }
+                i = j;
+                outside.append(' ');
+            } else {
+                outside.append(text.charAt(i));
+            }
+        }
+        return Pattern.compile("(?<![&\\w.])" + Pattern.quote(name) + "\\b(?!\\s*[.(\\[])").matcher(outside).find();
     }
 
     private static boolean mentions(Element element, FieldInfo f) {
