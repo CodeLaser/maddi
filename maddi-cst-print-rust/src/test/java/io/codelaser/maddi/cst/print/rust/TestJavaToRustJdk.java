@@ -288,14 +288,11 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "pub bytecode: Option<crate::jrt::BitSet>,");
         contains(rust, "offsets.set_range(offset, offset + length);");
         contains(rust, "let mut pass = crate::jrt::BitSet::with_capacity(size);");
-        // an unmapped JDK constructor names the opaque stand-in, as its type does
+        // java.io.File is jrt.rs's own since #203 (it was an opaque stand-in without a constructor, rustc's one error)
         contains(rust, "crate::jrt::File::new(");
         contains(rust, "o.fill_bytecode_range(values.as_deref_mut());");
         contains(rust, "other.fill_bytecode_range(self.bytecode.as_mut());");
-        List<String> errors = rustcErrors();
-        // only the opaque File's constructor, which does not exist
-        assertEquals(1, errors.size(), () -> String.join("\n", errors) + "\n" + rust);
-        assertTrue(errors.getFirst().contains("E0599") && errors.getFirst().contains("File"), errors::toString);
+        assertEquals(List.of(), rustcErrors(), rust);
     }
 
     @Language("java")
@@ -606,6 +603,75 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, ".unwrap() == ");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String FILE_SYSTEM = """
+            package a.b;
+            import java.io.File;
+            import java.io.IOException;
+            import java.nio.charset.StandardCharsets;
+            import java.nio.file.FileVisitResult;
+            import java.nio.file.Files;
+            import java.nio.file.Path;
+            import java.nio.file.SimpleFileVisitor;
+            import java.nio.file.attribute.BasicFileAttributes;
+            public class Fixture {
+                private Path tempDir;
+                private Path targetDir;
+                public void setUp() throws IOException {
+                    tempDir = Files.createTempDirectory("fixture_");
+                    targetDir = Files.createDirectories(tempDir.resolve("decompiled"));
+                    File target = targetDir.toFile();
+                    File child = new File(target, "x.txt");
+                    Files.writeString(child.toPath(), "hello");
+                }
+                public String read(String name) throws IOException {
+                    Path p = targetDir.resolve(name);
+                    if (!Files.isRegularFile(p)) return null;
+                    return Files.readString(p, StandardCharsets.UTF_8);
+                }
+                public void tearDown() throws IOException {
+                    if (tempDir != null) deleteRecursively(tempDir);
+                }
+                private static void deleteRecursively(Path file) throws IOException {
+                    Files.walkFileTree(file, new SimpleFileVisitor<>() {
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                            Files.delete(file);
+                            return FileVisitResult.CONTINUE;
+                        }
+                        @Override
+                        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                            Files.delete(dir);
+                            return FileVisitResult.CONTINUE;
+                        }
+                    });
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#203: fernflower's test fixture, on jrt.rs's File, Path and Files (std::fs, std::path). The
+     * overloaded File constructor has its own names; options a call only tunes (a Charset) are left out; the
+     * delete-everything visitor is remove_dir_all.
+     */
+    @DisplayName("java.io.File, java.nio.file.Path and Files on std: a test fixture's temporary directory")
+    @Test
+    public void fileSystem() throws Exception {
+        List<TypeInfo> types = parse(FILE_SYSTEM);
+        TypeInfo fixture = types.getFirst();
+        modifying(fixture, "setUp", "tearDown");
+        nonModifying(fixture, "read");
+        borrowed(method(fixture, "read").parameters().getFirst());
+        borrowed(method(fixture, "deleteRecursively").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("tempDir", "targetDir", "read()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "crate::jrt::Files::create_temp_directory(\"fixture_\")");
+        contains(rust, "crate::jrt::File::child(");
+        contains(rust, "crate::jrt::Files::delete_recursively(");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

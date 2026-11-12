@@ -60,6 +60,11 @@ final class RustTypes {
             Map.entry("java.io.DataInputStream", new Mapped("crate::jrt::DataInputStream", null)),
             Map.entry("java.io.InputStream", new Mapped("crate::jrt::DataInputStream", null)),
             Map.entry("java.util.BitSet", new Mapped("crate::jrt::BitSet", null)),
+            // jrt.rs's file system on std::fs and std::path (CodeLaser/maddi#203; RustJdk.files)
+            Map.entry("java.io.File", new Mapped("crate::jrt::File", null)),
+            Map.entry("java.nio.file.Path", new Mapped("crate::jrt::Path", null)),
+            Map.entry("java.nio.file.Paths", new Mapped("crate::jrt::Path", null)),
+            Map.entry("java.nio.file.Files", new Mapped("crate::jrt::Files", null)),
             Map.entry("java.util.Collection", new Mapped("Vec", null)),
             Map.entry("java.lang.Iterable", new Mapped("Vec", null)),
             Map.entry("java.util.List", new Mapped("Vec", null)),
