@@ -67,7 +67,9 @@ tasks.withType<JavaCompile> {
             "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
             "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
             "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-            "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.util=io.codelaser.maddi.inspection.openjdk,ALL-UNNAMED",
+            // SharedArchives: one archive file system per jar for all the inspector's file managers
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.file=io.codelaser.maddi.inspection.openjdk,ALL-UNNAMED"
         )
     )
 }
@@ -88,6 +90,7 @@ tasks.test {
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.file=io.codelaser.maddi.inspection.openjdk,ALL-UNNAMED"
     )
 }

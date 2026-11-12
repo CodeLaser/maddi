@@ -153,6 +153,8 @@ public class JavaInspectorImpl implements JavaInspector {
     // low-count "tree.starImportScope is null" flakes that no concurrency fix could cure. Closed in
     // invalidateAllSources(), when every retained task is dropped.
     private final List<StandardJavaFileManager> openFileManagers = new ArrayList<>();
+    // the archive file systems those file managers share, one per jar (see SharedArchives); closed with them
+    private SharedArchives sharedArchives = new SharedArchives();
     private boolean parameterNames;
     private ParameterNameIndex parameterNameIndex; // lazily loaded when parameterNames is on
     private boolean jdkInternals; // "we're working with JDK internals": load jdk.internal.* types + open javac
@@ -209,6 +211,11 @@ public class JavaInspectorImpl implements JavaInspector {
     public static final ParseOptions FAIL_FAST = new ParseOptions.Builder().setFailFast(true).build();
     public static final ParseOptions DETAILED_SOURCES = new ParseOptions.Builder().setDetailedSources(true).build();
 
+    /** The archive file systems the file managers share now; -1 when they do not share (see SharedArchives). */
+    public int sharedArchiveCount() {
+        return sharedArchives.openArchives();
+    }
+
     @Override
     public void invalidateAllSources() {
         infoByFqn.removeAllSources();
@@ -221,6 +228,12 @@ public class JavaInspectorImpl implements JavaInspector {
             }
         }
         openFileManagers.clear();
+        try {
+            sharedArchives.close();
+        } catch (IOException e) {
+            LOGGER.debug("Ignoring exception closing the shared archives: {}", e.toString());
+        }
+        sharedArchives = new SharedArchives();
         lastScanUnits = null;
         lastScanUnitsGenerated = false;
         loaderUnits = null; // its file manager was in openFileManagers and has just been closed
@@ -1617,7 +1630,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         // NOT try-with-resources: the returned JavacTask holds this manager and is driven long after this
         // method returns (parse/analyze in scan(), lazy getOrLoad far later). See openFileManagers.
-        StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null);
+        StandardJavaFileManager fm = sharedArchives.newFileManager(javaCompiler, diagnostics, null, null);
         openFileManagers.add(fm);
         {
             Iterable<? extends JavaFileObject> allCompilationUnits = loaderOnly ? List.of()
