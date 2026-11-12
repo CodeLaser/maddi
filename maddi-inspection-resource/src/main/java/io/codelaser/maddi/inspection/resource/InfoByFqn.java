@@ -79,8 +79,19 @@ public class InfoByFqn {
 
     public synchronized void removeAllSources() {
         singleTypeByFqn.values().removeIf(InfoByFqn::isSourceType);
-        multiTypeByFqn.values().forEach(list -> list.removeIf(InfoByFqn::isSourceType));
-        multiTypeByFqn.values().removeIf(List::isEmpty);
+        // rebuild, as removeType does: the lists in this map are immutable (List.of/Stream.toList), and removeIf on
+        // them threw UnsupportedOperationException before the inspector's file managers were closed (refactor
+        // server, maddi-audit, 2026-11-12)
+        for (String fqn : List.copyOf(multiTypeByFqn.keySet())) {
+            List<TypeInfo> list = multiTypeByFqn.get(fqn);
+            List<TypeInfo> remaining = list.stream().filter(ti -> !isSourceType(ti)).toList();
+            if (remaining.size() == list.size()) continue;
+            if (remaining.isEmpty()) multiTypeByFqn.remove(fqn);
+            else if (remaining.size() == 1) {
+                multiTypeByFqn.remove(fqn);
+                singleTypeByFqn.put(fqn, remaining.getFirst());
+            } else multiTypeByFqn.put(fqn, remaining);
+        }
         classScannerSetupDone.removeIf(InfoByFqn::isSourceType);
     }
 

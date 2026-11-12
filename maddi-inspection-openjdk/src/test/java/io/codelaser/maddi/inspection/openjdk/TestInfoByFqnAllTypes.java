@@ -79,6 +79,34 @@ public class TestInfoByFqnAllTypes {
         assertEquals(List.of(firstAgain, second), registry.allTypes("com.example.lib.Thing"));
     }
 
+    // a name defined in two source sets is kept in an immutable list; removeAllSources (invalidateAllSources) threw
+    // UnsupportedOperationException on it, and the inspector's file managers stayed open (refactor server, 2026-11-12)
+    @Test
+    public void removeAllSourcesWithANameInTwoSourceSets() {
+        Runtime runtime = new RuntimeImpl();
+        SourceSet main = sourceSet("main");
+        SourceSet test = sourceSet("test");
+        SourceSet jar = library("lib-1.0.jar");
+        InfoByFqn registry = new InfoByFqn();
+        TypeInfo inMain = type(runtime, main);
+        registry.put(inMain.fullyQualifiedName(), inMain, main);
+        TypeInfo inTest = type(runtime, test);
+        registry.put(inTest.fullyQualifiedName(), inTest, test);
+        assertEquals(List.of(inMain, inTest), registry.allTypes("com.example.lib.Thing"));
+
+        registry.removeAllSources();
+        assertEquals(List.of(), registry.allTypes("com.example.lib.Thing"));
+
+        // a library copy beside a source copy: the library copy stays, alone
+        TypeInfo fromJar = type(runtime, jar);
+        registry.put(fromJar.fullyQualifiedName(), fromJar, jar);
+        TypeInfo again = type(runtime, main);
+        registry.put(again.fullyQualifiedName(), again, main);
+        registry.removeAllSources();
+        assertEquals(List.of(fromJar), registry.allTypes("com.example.lib.Thing"));
+        assertEquals(fromJar, registry.getType("com.example.lib.Thing", main));
+    }
+
     @Test
     public void aStubIsNoCopy() {
         Runtime runtime = new RuntimeImpl();
