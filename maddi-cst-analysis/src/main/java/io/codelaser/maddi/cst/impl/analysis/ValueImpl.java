@@ -1316,9 +1316,11 @@ public abstract class ValueImpl implements Value {
                     .sorted(Map.Entry.comparingByKey(Comparator.comparing(Variable::fullyQualifiedName)))
                     .map(e -> codec.encodeList(context, List.of(
                             codec.encodeVariable(context, e.getKey()),
+                            // each type as an Info, as the decoder reads it: written as its name, it came back as
+                            // null, and the whole results file was dropped (fernflower: 55 of 229 checkpoint files)
                             codec.encodeList(context, e.getValue().stream()
                                     .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
-                                    .map(info -> codec.encodeString(context, info.fullyQualifiedName()))
+                                    .map(info -> codec.encodeInfoOutOfContext(context, info))
                                     .toList()))))
                     .toList();
             return codec.encodeList(context, pairs);
@@ -1331,7 +1333,7 @@ public abstract class ValueImpl implements Value {
                     List<Codec.EncodedValue> pair = codec.decodeList(context, pairEv);
                     Variable variable = codec.decodeVariable(context, pair.getFirst());
                     Set<TypeInfo> set = codec.decodeList(context, pair.get(1)).stream()
-                            .map(ev -> (TypeInfo) codec.decodeInfoOutOfContext(context, ev))
+                            .map(ev -> decodeType(codec, context, ev))
                             .collect(Collectors.toUnmodifiableSet());
                     decoded.put(variable, set);
                 }
@@ -1341,11 +1343,21 @@ public abstract class ValueImpl implements Value {
                 for (Map.Entry<Codec.EncodedValue, Codec.EncodedValue> e : map.entrySet()) {
                     decoded.put(codec.decodeVariable(context, e.getKey()),
                             codec.decodeList(context, e.getValue()).stream()
-                                    .map(ev -> (TypeInfo) codec.decodeInfoOutOfContext(context, ev))
+                                    .map(ev -> decodeType(codec, context, ev))
                                     .collect(Collectors.toUnmodifiableSet()));
                 }
             }
             return new VariableToTypeInfoSetImpl(Map.copyOf(decoded));
+        }
+
+        /* a type, as an Info; a file written before 2026-11-12 has its name, which does not decode */
+        private static TypeInfo decodeType(Codec codec, Codec.Context context, Codec.EncodedValue ev) {
+            TypeInfo typeInfo = codec.isList(ev) ? (TypeInfo) codec.decodeInfoOutOfContext(context, ev) : null;
+            if (typeInfo == null) {
+                throw new UnsupportedOperationException("Cannot decode the type " + ev
+                                                        + " (a name: results written before 2026-11-12)");
+            }
+            return typeInfo;
         }
 
         public String nice() {
@@ -1394,17 +1406,24 @@ public abstract class ValueImpl implements Value {
             return typeInfoSet.isEmpty();
         }
 
+        /*
+         A primary type by its name, as always; any other out of context. In context, a nested type was written as
+         "S<name>()", with no index and no enclosing type, which cannot be read back (guava: 170 types' results lost,
+         2026-11-12). The reader takes both forms.
+         */
         @Override
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
             List<Codec.EncodedValue> encodedValues = typeInfoSet.stream()
                     .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
-                    .map(info -> codec.encodeInfoInContext(context, info, "")).toList();
+                    .map(info -> info.isPrimaryType() ? codec.encodeInfoInContext(context, info, "")
+                            : codec.encodeInfoOutOfContext(context, info)).toList();
             return codec.encodeList(context, encodedValues);
         }
 
         public static SetOfTypeInfo from(Codec codec, Codec.Context context, Codec.EncodedValue encodedList) {
             List<Codec.EncodedValue> encodedValues = codec.decodeList(context, encodedList);
-            Set<TypeInfo> set = encodedValues.stream().map(e -> (TypeInfo) codec.decodeInfoInContext(context, e))
+            Set<TypeInfo> set = encodedValues.stream().map(e -> (TypeInfo) (codec.isList(e)
+                            ? codec.decodeInfoOutOfContext(context, e) : codec.decodeInfoInContext(context, e)))
                     .collect(Collectors.toUnmodifiableSet());
             return new SetOfTypeInfoImpl(set);
         }

@@ -91,6 +91,20 @@ public interface Codec {
 
     EncodedValue encodeInt(Context context, int value);
 
+    /**
+     * What this codec has registered while encoding, for back-references to definitions it wrote earlier (the link
+     * codec's marker variables). A writer that leaves out a value whose encoding failed half-way puts it back with
+     * {@link #restoreEncodingState}: otherwise a definition registered by the failed value stays registered, a later
+     * value refers back to it, and the file cannot be read. Default: no state.
+     */
+    default Object encodingState() {
+        return null;
+    }
+
+    default void restoreEncodingState(Object state) {
+        // no state
+    }
+
     EncodedValue encodeList(Context context, List<EncodedValue> encodedValues);
 
     EncodedValue encodeMap(Context context, Map<EncodedValue, EncodedValue> map);

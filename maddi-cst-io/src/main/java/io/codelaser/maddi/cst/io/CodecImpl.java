@@ -315,7 +315,7 @@ public class CodecImpl implements Codec {
                 DR dr = decodeInfo(context, current, tas, type, src.substring(1), list, pos);
                 current = dr.current;
                 tas = dr.typeAndSorted;
-                if (type != 'T' && type != 'S' && type != 'M' && type != 'C' && type != 'U') {
+                if (type != 'T' && type != 'S' && type != 'A' && type != 'M' && type != 'C' && type != 'U') {
                     break; // nothing can follow; in particular, we definitely want to stop after F and V (see linking)
                 }
             } //else throw new UnsupportedOperationException();
@@ -338,6 +338,17 @@ public class CodecImpl implements Codec {
             case 'S' -> {
                 TypeInfo sub = decodeSubType(tas, name);
                 yield new DR(sub, new TypeAndSorted(sub));
+            }
+            case 'A' -> {
+                Matcher m = NAME_INDEX_PATTERN.matcher(name);
+                List<TypeInfo> locals = localTypes(tas);
+                int index = m.matches() ? Integer.parseInt(m.group(2)) : -1;
+                if (index < 0 || index >= locals.size()) {
+                    throw new UnsupportedOperationException("Cannot find the local type " + name + " in "
+                                                            + tas.typeInfo());
+                }
+                TypeInfo local = locals.get(index);
+                yield new DR(local, new TypeAndSorted(local));
             }
             case 'P' -> new DR(decodeParameterInfo((MethodInfo) current, name), tas);
             default -> throw new UnsupportedOperationException();
@@ -502,7 +513,7 @@ public class CodecImpl implements Codec {
             case 'X' -> runtime.parameterizedTypeNullConstant();
             case '?' -> runtime.parameterizedTypeWildcard();
             case 'T' -> {
-                TypeInfo type = context.findType(typeProvider, substring);
+                TypeInfo type = findTypeOrLocalType(context, substring);
                 assert type != null : "Cannot find " + substring;
                 yield type.asSimpleParameterizedType();
             }
@@ -589,18 +600,18 @@ public class CodecImpl implements Codec {
             String fqn = unquote(sl.getSource());
             char first = fqn.charAt(0);
             if ('T' == first) {
-                nt = context.findType(typeProvider, fqn.substring(1));
+                nt = findTypeOrLocalType(context, fqn.substring(1));
             } else if ('?' == first) {
                 return runtime.parameterizedTypeWildcard();
             } else {
                 int index = Integer.parseInt(fqn.substring(1));
                 boolean ownerNotInContext = !(list.get(i) instanceof D(Node s1) && s1 instanceof NumberLiteral);
                 if ('M' == first) {
-                    MethodInfo owner = ownerNotInContext ? (MethodInfo) this.decodeInfoInContext(context, list.get(i))
+                    MethodInfo owner = ownerNotInContext ? (MethodInfo) decodeOwnerOfTypeParameter(context, list.get(i))
                             : context.currentMethod();
                     nt = owner.typeParameters().get(index);
                 } else if ('P' == first) {
-                    TypeInfo owner = ownerNotInContext ? (TypeInfo) this.decodeInfoInContext(context, list.get(i))
+                    TypeInfo owner = ownerNotInContext ? (TypeInfo) decodeOwnerOfTypeParameter(context, list.get(i))
                             : context.currentType().typeInfo();
                     nt = owner.typeParameters().get(index);
                 } else throw new UnsupportedOperationException();
@@ -773,13 +784,24 @@ public class CodecImpl implements Codec {
                     s = "T" + typeInfo.fullyQualifiedName();
                     prev = Stream.of();
                 } else {
-                    assert !typeInfo.isAnonymous();
                     // the sub-type's index must be looked up among the ENCLOSING type's sub-types, not in the
                     // sub-type's own TypeAndSorted (which never contains itself); recurse with the enclosing TAS
                     TypeInfo enclosingType = typeInfo.compilationUnitOrEnclosingType().getRight();
                     TypeAndSorted enclosingTas = new TypeAndSorted(enclosingType);
-                    int index = enclosingTas.subTypeIndex(typeInfo);
-                    s = "S" + typeInfo.simpleName() + "(" + index + ")";
+                    if (enclosingTas.sortedSubTypes().contains(typeInfo)) {
+                        int index = enclosingTas.subTypeIndex(typeInfo);
+                        s = "S" + typeInfo.simpleName() + "(" + index + ")";
+                    } else {
+                        // an anonymous, local or lambda type: not a member, so by its place among the enclosing
+                        // type's local types (localTypes); a link or an implementation names one often enough that
+                        // leaving it out cost a stored analysis 23 values on fernflower (2026-11-12)
+                        int index = localTypes(enclosingTas).indexOf(typeInfo);
+                        if (index < 0) {
+                            throw new UnsupportedOperationException("Cannot locate the local type " + typeInfo
+                                                                    + " in " + enclosingType);
+                        }
+                        s = "A" + typeInfo.simpleName() + "(" + index + ")";
+                    }
                     prev = encodeInfoOutOfContextStream(context, enclosingTas, enclosingType);
                 }
             }
@@ -810,6 +832,73 @@ public class CodecImpl implements Codec {
             case null, default -> throw new UnsupportedOperationException();
         }
         return Stream.concat(prev, Stream.of(encodeString(context, s)));
+    }
+
+    /**
+     * The anonymous, local and lambda types declared in the bodies of a type's members, in a fixed order: the
+     * constructors, the methods, then the field initializers, each as {@link TypeAndSorted} sorts them, each body in
+     * visit order, the bodies of the types found included. Encoder and decoder build it from the same sources, so a
+     * position in it names one type.
+     */
+    protected static List<TypeInfo> localTypes(TypeAndSorted tas) {
+        List<TypeInfo> list = new ArrayList<>();
+        java.util.function.Predicate<io.codelaser.maddi.cst.api.element.Element> collect = e -> {
+            switch (e) {
+                case io.codelaser.maddi.cst.api.expression.ConstructorCall cc when cc.anonymousClass() != null ->
+                        list.add(cc.anonymousClass());
+                case io.codelaser.maddi.cst.api.expression.Lambda lambda -> list.add(lambda.methodInfo().typeInfo());
+                case io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration ltd -> list.add(ltd.typeInfo());
+                default -> {
+                }
+            }
+            return true;
+        };
+        for (MethodInfo mi : tas.sortedConstructors()) localTypes(mi, collect);
+        for (MethodInfo mi : tas.sortedMethods()) localTypes(mi, collect);
+        for (FieldInfo fi : tas.sortedFields()) {
+            if (fi.initializer() != null && !fi.initializer().isEmpty()) fi.initializer().visit(collect);
+        }
+        // the bodies of the types found: a lambda in an anonymous class, an anonymous class in a lambda
+        for (int i = 0; i < list.size(); i++) {
+            TypeInfo local = list.get(i);
+            local.constructorAndMethodStream().forEach(mi -> localTypes(mi, collect));
+            for (FieldInfo fi : local.fields()) {
+                if (fi.initializer() != null && !fi.initializer().isEmpty()) fi.initializer().visit(collect);
+            }
+        }
+        return list.stream().distinct().toList();
+    }
+
+    /*
+     A type by its fully qualified name; a local or anonymous one (Outer.2$method$Local) is not known by name to the
+     type provider, so it is looked for among the local types of the primary type the name starts with.
+     */
+    protected TypeInfo findTypeOrLocalType(Context context, String fqn) {
+        TypeInfo type;
+        try {
+            type = context.findType(typeProvider, fqn);
+        } catch (RuntimeException e) {
+            type = null;
+        }
+        if (type != null) return type;
+        String[] parts = fqn.split("\\.");
+        for (int n = parts.length - 1; n >= 1; n--) {
+            TypeInfo primary;
+            try {
+                primary = typeProvider.get(String.join(".", Arrays.copyOf(parts, n)));
+            } catch (RuntimeException e) {
+                primary = null;
+            }
+            if (primary == null) continue;
+            return primary.recursiveSubTypeStreamIncludingLocal()
+                    .filter(t -> fqn.equals(t.fullyQualifiedName())).findFirst().orElse(null);
+        }
+        return null;
+    }
+
+    private static void localTypes(MethodInfo mi,
+                                   java.util.function.Predicate<io.codelaser.maddi.cst.api.element.Element> collect) {
+        if (mi.methodBody() != null) mi.methodBody().visit(collect);
     }
 
     @Override
@@ -847,16 +936,25 @@ public class CodecImpl implements Codec {
         return encodeList(context, list);
     }
 
+    /*
+     The owner of a type parameter that is not the element being written, out of context: written in context, a
+     nested type came out as "S<name>(null)" and a method of another type with that type's index, neither of which
+     reads back (fernflower checkpoint, 2026-11-12). The reader takes both forms.
+     */
     private EncodedValue encodeOwnerOfTypeParameter(Context context, TypeParameter typeParameter) {
         if (typeParameter.isMethodTypeParameter()) {
             MethodInfo methodInfo = typeParameter.getOwner().getRight();
             if (methodInfo.equals(context.currentMethod())) return null;
-            TypeAndSorted tas = new TypeAndSorted(methodInfo.typeInfo());
-            return encodeInfoInContext(context, methodInfo, "" + tas.methodIndex(methodInfo));
+            return encodeInfoOutOfContext(context, methodInfo);
         }
         TypeInfo typeInfo = typeParameter.getOwner().getLeft();
         if (typeInfo.equals(context.currentType().typeInfo())) return null;
-        return encodeInfoInContext(context, typeInfo, null);
+        return encodeInfoOutOfContext(context, typeInfo);
+    }
+
+    private Info decodeOwnerOfTypeParameter(Context context, EncodedValue encodedValue) {
+        if (encodedValue instanceof D(Node s) && s instanceof Array) return decodeInfoOutOfContext(context, encodedValue);
+        return decodeInfoInContext(context, encodedValue);
     }
 
     @Override
@@ -925,7 +1023,8 @@ public class CodecImpl implements Codec {
                             encodeType(context, lv.parameterizedType())));
             case DependentVariable dv -> encodeList(context, List.of(encodeString(context, "D"),
                     encodeExpression(context, dv.arrayExpression()), encodeExpression(context, dv.indexExpression())));
-            default -> throw new UnsupportedOperationException();
+            default -> throw new UnsupportedOperationException("No codec for the variable "
+                                                               + variable.getClass().getSimpleName() + " " + variable);
         };
     }
 
