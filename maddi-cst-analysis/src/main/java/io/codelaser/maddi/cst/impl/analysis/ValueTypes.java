@@ -115,7 +115,8 @@ public final class ValueTypes {
      * @param fields    its instance fields, in declaration order
      * @param immutable the analysis's verdict: true when deeply immutable (with or without hidden content), false
      *                  when not, null when no analysis ran
-     * @param ownEquals it declares {@code equals}: its values compare by content already
+     * @param ownEquals it declares {@code equals}, not the one the front end synthesizes for a record: its values
+     *                  compare by content already
      */
     public record Verdict(TypeInfo type, Set<Obstacle> obstacles, List<Site> sites, List<FieldInfo> fields,
                           Boolean immutable, boolean ownEquals) {
@@ -355,7 +356,8 @@ public final class ValueTypes {
         Verdict build() {
             Value.Immutable immutable = type.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
             Boolean deep = immutable == null ? null : immutable.isAtLeastImmutableHC();
-            boolean ownEquals = type.methods().stream().anyMatch(m -> "equals".equals(m.name())
+            // declared: a record's equals that the front end synthesizes is not its own
+            boolean ownEquals = type.methods().stream().anyMatch(m -> "equals".equals(m.name()) && !m.isSynthetic()
                                                                       && m.parameters().size() == 1 && !m.isStatic());
             return new Verdict(type, Collections.unmodifiableSet(EnumSet.copyOf(obstacles.isEmpty()
                     ? EnumSet.noneOf(Obstacle.class) : obstacles)), List.copyOf(sites), fields(), deep, ownEquals);

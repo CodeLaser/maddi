@@ -131,6 +131,7 @@ public class TestValueTypes extends CommonTest {
         assertFalse(values.verdict(shapes.findSubType("Token")).identityFree());
         assertEquals(1, values.verdict(shapes.findSubType("Token")).sites(Obstacle.IDENTITY_COMPARISON).size());
         assertTrue(values.verdict(shapes.findSubType("Range")).identityFree());
+        assertFalse(values.verdict(shapes.findSubType("Range")).ownEquals(), "the synthesized equals is not its own");
         assertEquals("USES_ENCLOSING_INSTANCE", obstacles(values, shapes.findSubType("Inner")));
         assertEquals("none", obstacles(values, shapes.findSubType("Shape")));
         assertEquals("none", obstacles(values, shapes.findSubType("Color")));

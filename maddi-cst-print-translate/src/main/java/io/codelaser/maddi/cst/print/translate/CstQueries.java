@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.BinaryOperator;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.EnclosedExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.UnaryOperator;
@@ -33,6 +34,7 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.SwitchStatementOldStyle;
@@ -115,6 +117,29 @@ public final class CstQueries {
         List<Element> code = new ArrayList<>();
         addCode(typeInfo, code);
         return code;
+    }
+
+    /**
+     * {@code typeInfo} and the types declared inside it, at any depth: its member types, and the local and anonymous
+     * types in its code and theirs. Of a primary type, the types of its file: what a whole-file analysis such as
+     * {@code ValueTypes} is given.
+     */
+    public static List<TypeInfo> allTypes(TypeInfo typeInfo) {
+        List<TypeInfo> all = new ArrayList<>();
+        collectTypes(typeInfo, all);
+        return all;
+    }
+
+    private static void collectTypes(TypeInfo t, List<TypeInfo> all) {
+        all.add(t);
+        t.subTypes().forEach(st -> collectTypes(st, all));
+        for (Element element : code(t)) {
+            element.visit((Element e) -> {
+                if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) collectTypes(cc.anonymousClass(), all);
+                if (e instanceof LocalTypeDeclaration ltd) collectTypes(ltd.typeInfo(), all);
+                return true;
+            });
+        }
     }
 
     /** As {@link #code}, with that of the member types, at any depth. */
