@@ -499,6 +499,9 @@ final class RustJdk {
                     value("(" + printer.ownedText(args.get(0)) + ", " + printer.ownedText(args.get(1)) + ")");
             case "java.lang.System.exit/1" -> value("std::process::exit(" + printer.text(args.getFirst()) + ")");
             case "java.lang.System.lineSeparator/0" -> value("String::from(\"\\n\")");
+            // a system property: jrt.rs's, from the environment (fernflower's tests: "idea.home.path", unset)
+            case "java.lang.System.getProperty/1" -> RustBodyPrinter.printed("crate::jrt::system_property(&("
+                    + printer.text(args.getFirst()) + ")[..])", Held.VALUE, true); // null when unset
             case "java.lang.System.arraycopy/5" -> value(arraycopy(args, printer));
             case "java.util.Collections.sort/1" -> value(printer.receiver(args.getFirst(), true) + ".sort()");
             case "java.util.Collections.singleton/1" -> {
@@ -597,6 +600,8 @@ final class RustJdk {
             case "startsWith/1" -> value(o + ".starts_with(" + printer.reference(args.getFirst()) + ")");
             case "endsWith/1" -> value(o + ".ends_with(" + printer.reference(args.getFirst()) + ")");
             case "trim/0", "strip/0" -> value(o + ".trim().to_string()");
+            case "stripTrailing/0" -> value(o + ".trim_end().to_string()");
+            case "stripLeading/0" -> value(o + ".trim_start().to_string()");
             case "toCharArray/0" -> value(o + ".chars().collect::<Vec<char>>()");
             // with a Locale (Locale.ENGLISH, ROOT): Rust's case mapping is the locale-independent one
             case "toUpperCase/0", "toUpperCase/1" -> value(o + ".to_uppercase()");

@@ -635,6 +635,8 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                 public void tearDown() throws IOException {
                     if (tempDir != null) deleteRecursively(tempDir);
                 }
+                public static String home() { return System.getProperty("idea.home.path"); }
+                public static String normalize(String s) { return s.stripTrailing(); }
                 private static void deleteRecursively(Path file) throws IOException {
                     Files.walkFileTree(file, new SimpleFileVisitor<>() {
                         @Override
@@ -666,12 +668,16 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         nonModifying(fixture, "read");
         borrowed(method(fixture, "read").parameters().getFirst());
         borrowed(method(fixture, "deleteRecursively").parameters().getFirst());
-        RustTranslator.Result result = translate(types, nullable(Set.of("tempDir", "targetDir", "read()")));
+        nonModifying(fixture, "home", "normalize");
+        borrowed(method(fixture, "normalize").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("tempDir", "targetDir", "read()", "home()")));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "crate::jrt::Files::create_temp_directory(\"fixture_\")");
         contains(rust, "crate::jrt::File::child(");
         contains(rust, "crate::jrt::Files::delete_recursively(");
+        contains(rust, "crate::jrt::system_property(");
+        contains(rust, ".trim_end().to_string()");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

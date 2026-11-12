@@ -488,6 +488,18 @@ public final class RustTranslator {
                 panic!("a Java Object that is not an immutable value cannot be copied")
             }
 
+            /// `System.getProperty(key)`: the JVM's own ones this process has a counterpart for, any other from the
+            /// environment variable of that name; null when unset.
+            pub fn system_property(key: &str) -> Option<String> {
+                match key {
+                    "user.dir" => std::env::current_dir().ok().map(|d| d.to_string_lossy().into_owned()),
+                    "java.io.tmpdir" => Some(std::env::temp_dir().to_string_lossy().into_owned()),
+                    "line.separator" => Some("\\n".to_string()),
+                    "file.separator" => Some(std::path::MAIN_SEPARATOR.to_string()),
+                    _ => std::env::var(key).ok(),
+                }
+            }
+
             /// `java.io.PrintStream`: `System.out` or `System.err`, held or passed on.
             #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
             pub struct PrintStream {
