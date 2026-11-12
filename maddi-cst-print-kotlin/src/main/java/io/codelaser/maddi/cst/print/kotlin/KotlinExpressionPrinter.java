@@ -4370,11 +4370,6 @@ public class KotlinExpressionPrinter {
                .add(bitOperand(bo.rhs(), shift ? Primitive.INT : result, q));
     }
 
-    private static OutputBuilder infix(Expression lhs, String function, Expression rhs, Qualification q) {
-        return new OutputBuilderImpl().add(valueOperand(lhs, q)).add(KotlinSymbols.binary(function))
-               .add(valueOperand(rhs, q));
-    }
-
     /** {@code e} as Java's int promotion has it: a byte or short {@code .toInt()}, a char {@code .code}. */
     private static OutputBuilder intOperand(Expression e, Qualification q) {
         Primitive p = primitive(e.parameterizedType());
