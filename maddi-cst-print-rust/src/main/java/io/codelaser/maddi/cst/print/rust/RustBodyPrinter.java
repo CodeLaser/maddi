@@ -2566,11 +2566,6 @@ final class RustBodyPrinter {
         return text;
     }
 
-    String borrowed(Expression e) {
-        Printed p = expression(e);
-        return RustTypes.isCopy(e.parameterizedType()) ? p.text : adapt(p, Held.SHARED);
-    }
-
     /** Always a borrow, {@code &5} included: what {@code contains} and {@code get} take. */
     String reference(Expression e) {
         return adapt(expression(e), Held.SHARED);
