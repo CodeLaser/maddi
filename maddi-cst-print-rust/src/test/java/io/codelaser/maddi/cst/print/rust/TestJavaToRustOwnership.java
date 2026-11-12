@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -391,6 +392,45 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
         translate(types);
         String rust = module("a.b");
         contains(rust, "engine: &mut NodeEngine");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String STATIC_WITH_LIFETIME = """
+            package a.b;
+            import java.util.List;
+            public class Attr {
+                public static final Key<Attr> CODE = new Key<>("Code");
+                public static class Key<T extends Attr> {
+                    public final String name;
+                    public Key(String name) { this.name = name; }
+                }
+                private final List<String> list;
+                public Attr(List<String> list) { this.list = list; }
+                public int size() { return list.size(); }
+                public static boolean isCode(String name) { return CODE.name.equals(name); }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#202 (fernflower's StructGeneralAttribute.ATTRIBUTE_* keys): a static's type mentioned its owner's
+     * lifetime, which is not in scope at module level (E0261). The item, and every function reading it, was lost.
+     */
+    @DisplayName("a static whose type has a lifetime holds it for 'static")
+    @Test
+    public void staticWithLifetime() throws Exception {
+        List<TypeInfo> types = parse(STATIC_WITH_LIFETIME);
+        TypeInfo attr = types.getFirst();
+        nonModifying(attr, "size", "isCode");
+        unmodifiedField(attr, "list");
+        unmodifiedField(attr, "CODE");
+        kept(attr.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        borrowed(method(attr, "isCode").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub struct Attr<'a> {");
+        contains(rust, "static ATTR_CODE: ");
+        assertFalse(rust.matches("(?s).*static [A-Z_]+: [^=\\n]*'a.*"), rust);
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

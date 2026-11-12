@@ -1318,11 +1318,20 @@ final class RustTypePrinter {
                && (f.type().isPrimitiveExcludingVoid() || RustTypes.isString(f.type()));
     }
 
+    /*
+     A static is not inside its owner's impl: the struct's lifetime is not in scope there (E0261), and the item, and every
+     function that reads it, was lost (fernflower's StructGeneralAttribute.ATTRIBUTE_* keys, Key<StructCodeAttribute>
+     with the bound's lifetime, 47 statics). What a static holds lives for the program: 'static.
+     */
+    static String staticType(String type) {
+        return type.replaceAll("'(?!static\\b)[a-z_][a-z0-9_]*\\b", "'static");
+    }
+
     private String staticField(FieldInfo f) {
         Expression init = f.initializer();
         boolean constant = constant(f);
         if (!constant && lazyStatic(f, context)) {
-            String type = RustTypes.owned(f.type(), context, f);
+            String type = staticType(RustTypes.owned(f.type(), context, f));
             // module level: no Self, the owner by its name
             String value = new RustBodyPrinter(context).ownedAs(init, f.type())
                     .replaceAll("\\bSelf::", java.util.regex.Matcher.quoteReplacement(RustNames.type(f.owner()) + "::"));
@@ -1345,7 +1354,7 @@ final class RustTypePrinter {
         if (mutable != null) {
             statics.append("\n/// Translated from the static field `").append(f.owner().fullyQualifiedName()).append(".")
                     .append(f.name()).append("`: Java's static state, `unsafe` to touch.\n")
-                    .append(visibility(f.access().isPrivate())).append("static mut ").append(staticName(f)).append(": ").append(RustTypes.owned(f.type(), context, f))
+                    .append(visibility(f.access().isPrivate())).append("static mut ").append(staticName(f)).append(": ").append(staticType(RustTypes.owned(f.type(), context, f)))
                     .append(" = ").append(mutable).append(";\n");
             return "";
         }
