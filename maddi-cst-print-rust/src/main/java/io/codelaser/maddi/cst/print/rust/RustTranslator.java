@@ -478,6 +478,30 @@ public final class RustTranslator {
                 fn into_bytes(self) -> Vec<i8> { self.expect("NullPointerException").into_bytes() }
             }
 
+            /// A copy of a Java `Object` held as `Box<dyn Any>`. Java shares the reference; for an immutable value (a
+            /// string, a boxed number) a copy cannot be told from it. Anything else is not copied: a panic.
+            pub fn clone_any(v: &Box<dyn std::any::Any>) -> Box<dyn std::any::Any> {
+                macro_rules! copy {
+                    ($($t:ty),*) => { $( if let Some(x) = v.downcast_ref::<$t>() { return Box::new(x.clone()); } )* };
+                }
+                copy!(String, i32, i64, i16, i8, f64, f32, bool, char);
+                panic!("a Java Object that is not an immutable value cannot be copied")
+            }
+
+            /// `java.io.PrintStream`: `System.out` or `System.err`, held or passed on.
+            #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+            pub struct PrintStream {
+                err: bool,
+            }
+
+            impl PrintStream {
+                pub fn stdout() -> PrintStream { PrintStream { err: false } }
+                pub fn stderr() -> PrintStream { PrintStream { err: true } }
+                pub fn println(&self, s: &str) { if self.err { eprintln!("{}", s) } else { println!("{}", s) } }
+                pub fn print(&self, s: &str) { if self.err { eprint!("{}", s) } else { print!("{}", s) } }
+                pub fn flush(&self) {}
+            }
+
             /// What Java passes as a file name or a path: a string, a `Path` or a `File`, owned, borrowed or nullable (a null
             /// one is Java's NullPointerException, a panic).
             pub trait JPath {

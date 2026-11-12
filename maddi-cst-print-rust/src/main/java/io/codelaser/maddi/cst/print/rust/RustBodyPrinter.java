@@ -2047,6 +2047,7 @@ final class RustBodyPrinter {
             // through a Shared handle's DerefMut only: a plain &mut receiver has Rust's two-phase borrow
             String hoisted = exclusive && !own && RustShared.current().isShared(mc.object().parameterizedType())
                     ? hoistReceiverReads(object, exclusiveArgs, callee) : null;
+            if (hoisted == null && exclusive && !own) hoisted = hoistSelfCalls(object, exclusiveArgs);
             if (hoisted != null) {
                 int bar = hoisted.indexOf('\u0000');
                 call = "{ " + hoisted.substring(0, bar) + object + path + "." + name + "(" + hoisted.substring(bar + 1) + ") }";
@@ -2197,6 +2198,35 @@ final class RustBodyPrinter {
             } else {
                 out.add(text);
             }
+        }
+        return any ? lets + "\u0000" + String.join(", ", out) : null;
+    }
+
+    /*
+     'fixture.setUp(getDecompilerOptions())' (fernflower's SingleClassesTestBase): the receiver is a chain off self held
+     exclusively ('self.fixture.as_mut().unwrap()') while an argument calls a method on self (E0502). Java evaluates
+     the argument first anyway: '{ let __a0 = self.get_decompiler_options(); self.fixture…set_up(&__a0) }', a borrowed
+     argument borrowed again. Answers as hoistReceiverReads.
+     */
+    private static final java.util.regex.Pattern SELF_CALL = java.util.regex.Pattern.compile("\\bself\\.[a-z_][a-z0-9_]*\\(");
+
+    private static String hoistSelfCalls(String object, List<String> printed) {
+        if (!object.startsWith("self.")) return null;
+        StringBuilder lets = new StringBuilder();
+        List<String> out = new ArrayList<>();
+        boolean any = false;
+        for (int i = 0; i < printed.size(); i++) {
+            String text = printed.get(i);
+            if (!SELF_CALL.matcher(text).find()) {
+                out.add(text);
+                continue;
+            }
+            String prefix = text.startsWith("&mut ") ? "&mut " : text.startsWith("&") ? "&" : "";
+            String value = text.substring(prefix.length());
+            lets.append("let ").append(prefix.equals("&mut ") ? "mut " : "").append("__a").append(i).append(" = ")
+                    .append(value).append("; ");
+            out.add(prefix + "__a" + i);
+            any = true;
         }
         return any ? lets + "\u0000" + String.join(", ", out) : null;
     }

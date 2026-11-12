@@ -65,6 +65,7 @@ final class RustTypes {
             Map.entry("java.nio.file.Path", new Mapped("crate::jrt::Path", null)),
             Map.entry("java.nio.file.Paths", new Mapped("crate::jrt::Path", null)),
             Map.entry("java.nio.file.Files", new Mapped("crate::jrt::Files", null)),
+            Map.entry("java.io.PrintStream", new Mapped("crate::jrt::PrintStream", null)),
             Map.entry("java.util.Collection", new Mapped("Vec", null)),
             Map.entry("java.lang.Iterable", new Mapped("Vec", null)),
             Map.entry("java.util.List", new Mapped("Vec", null)),

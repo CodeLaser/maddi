@@ -674,4 +674,65 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "crate::jrt::Files::delete_recursively(");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String SET_UP_CHAIN = """
+            package a.b;
+            import java.io.PrintStream;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Base {
+                public static class Logger {
+                    private final PrintStream stream;
+                    public Logger(PrintStream stream) { this.stream = stream; }
+                    public void write(String message) { stream.println("[x] " + message); }
+                }
+                public static class Fixture {
+                    private Map<String, Object> options;
+                    private Logger logger;
+                    public void setUp(Map<String, Object> customOptions) {
+                        Map<String, Object> o = new HashMap<>();
+                        o.put("log", "warn");
+                        o.putAll(customOptions);
+                        options = o;
+                        logger = new Logger(System.out);
+                        logger.write("set up");
+                    }
+                }
+                private Fixture fixture;
+                protected Map<String, Object> getOptions() { return new HashMap<>(); }
+                public void setUp() {
+                    fixture = new Fixture();
+                    fixture.setUp(getOptions());
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#203, behind the file system: what stood between fernflower's tests and their fixture. A held
+     * System.out (PrintStreamLogger), putAll on a map of Object values (Box&lt;dyn Any&gt;, copied by clone_any), and
+     * 'fixture.setUp(getDecompilerOptions())', whose argument reads self while the receiver holds it (E0502).
+     */
+    @DisplayName("a held System.out, putAll of Object values, and an argument calling self while the receiver holds it")
+    @Test
+    public void setUpChain() throws Exception {
+        List<TypeInfo> types = parse(SET_UP_CHAIN);
+        TypeInfo base = types.getFirst();
+        TypeInfo fixture = base.findSubType("Fixture");
+        TypeInfo logger = base.findSubType("Logger");
+        modifying(base, "setUp");
+        nonModifying(base, "getOptions");
+        modifying(fixture, "setUp");
+        borrowed(method(fixture, "setUp").parameters().getFirst());
+        nonModifying(logger, "write");
+        borrowed(method(logger, "write").parameters().getFirst());
+        kept(logger.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        RustTranslator.Result result = translate(types, nullable(Set.of("fixture", "options", "logger")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "crate::jrt::PrintStream::stdout()");
+        contains(rust, "crate::jrt::clone_any(v)");
+        contains(rust, "let __a0 = self.get_options();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

@@ -254,6 +254,19 @@ final class RustJdk {
         }
         if ("java.util.BitSet".equals(fqn)) return bitSet(mc, printer);
         if ("java.io.File".equals(fqn) || "java.nio.file.Path".equals(fqn)) return fileCall(mc, printer);
+        if ("java.io.PrintStream".equals(fqn)) {
+            // a held stream: print and println format their argument as Java's string conversion does
+            String n = mc.methodInfo().name();
+            String o = printer.receiver(mc.object(), false);
+            List<Expression> a = mc.parameterExpressions();
+            if (("println".equals(n) || "print".equals(n)) && a.size() == 1) {
+                String[] d = printer.display(a.getFirst());
+                return value(o + "." + n + "(&format!(\"" + d[0] + "\", " + d[1] + "))");
+            }
+            if ("println".equals(n) && a.isEmpty()) return value(o + ".println(\"\")");
+            if ("flush".equals(n) && a.isEmpty()) return value(o + ".flush()");
+            return null;
+        }
         String o = "Option".equals(RustTypes.mapped(owner)) || fqn.startsWith("java.util.stream.")
                 ? printer.text(mc.object()) : printer.receiver(mc.object(), modifies(mc) || mutating);
         if ("java.lang.Enum".equals(fqn)) {
@@ -1199,8 +1212,12 @@ final class RustJdk {
     private static Printed map(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         int n = args.size();
         return switch (name + "/" + n) {
+            // a map of Object (Box<dyn Any>): Java shares the values, immutable ones in practice (fernflower's option
+            // strings), and a copy of an immutable value cannot be told from it (jrt.rs's clone_any)
             case "putAll/1" -> value(o + ".extend(" + printer.text(args.getFirst())
-                                     + ".iter().map(|(k, v)| (k.clone(), v.clone())))");
+                                     + ".iter().map(|(k, v)| (k.clone(), "
+                                     + (typeArgument(mc, 1) != null && isObject(typeArgument(mc, 1))
+                                        ? "crate::jrt::clone_any(v)" : "v.clone()") + ")))");
             case "put/2" -> {
                 String key = printer.ownedAs(args.get(0), typeArgument(mc, 0));
                 String v = printer.ownedAs(args.get(1), typeArgument(mc, 1));
@@ -1338,6 +1355,9 @@ final class RustJdk {
     /** The JDK's constants: {@code Math.PI}, {@code Integer.MAX_VALUE}, … {@code null} for another field. */
     static String constant(FieldInfo f) {
         return switch (f.owner().fullyQualifiedName() + "." + f.name()) {
+            // a PrintStream held in a field or passed on (fernflower's PrintStreamLogger): jrt.rs's
+            case "java.lang.System.out" -> "crate::jrt::PrintStream::stdout()";
+            case "java.lang.System.err" -> "crate::jrt::PrintStream::stderr()";
             case "java.lang.Math.PI" -> "std::f64::consts::PI";
             case "java.lang.Boolean.TRUE" -> "true";
             case "java.lang.Boolean.FALSE" -> "false";
