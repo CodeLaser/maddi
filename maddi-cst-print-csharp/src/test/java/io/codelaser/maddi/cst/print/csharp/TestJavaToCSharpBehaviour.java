@@ -1280,6 +1280,11 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                         @Override public int hashCode() { return n; }
                     }
                     static boolean same(Ticket a, Ticket b) { return a == b; }
+                    record Version(int major) implements Comparable<Version> {
+                        public int compareTo(Version o) { return Integer.compare(major, o.major); }
+                    }
+                    // new Key() would be a struct's default, no empty array: a class
+                    record Key(Object... parts) { }
                     public static void main(String[] args) {
                         Point a = new Point(1, 2);
                         Point b = a.plus(new Point(3, 4));
@@ -1292,12 +1297,18 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                         System.out.println(spans.size() + " " + spans.iterator().next().to());
                         Ticket t = new Ticket(1);
                         System.out.println(same(t, t) + " " + same(t, new Ticket(1)));
+                        java.util.List<Version> versions = new java.util.ArrayList<>(
+                                java.util.List.of(new Version(3), new Version(1), new Version(2)));
+                        java.util.Collections.sort(versions);
+                        System.out.println(versions.get(0).major() + " " + new Key().parts().length);
                     }
                 }
                 """);
         contains(cs, "readonly struct Point");
         contains(cs, "readonly record struct Span");
         contains(cs, "class Ticket");
+        contains(cs, "readonly record struct Version(int Major) : IComparable<Version>");
+        contains(cs, "sealed record Key(");
     }
 
     /**

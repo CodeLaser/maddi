@@ -49,8 +49,8 @@ import io.codelaser.maddi.cst.impl.analysis.ValueTypes;
  *   <li>its own {@code equals}, or a record's: a struct's default {@code Equals} compares the fields, where Java's
  *       {@code Object.equals} compares the references;</li>
  *   <li>at most {@link #MAX_FIELDS} instance fields: a value is copied wherever it goes;</li>
- *   <li>a constructor with parameters, and none without: C#'s struct always has the default value, and its field
- *       initializers need a declared constructor (CS8983);</li>
+ *   <li>a constructor with parameters, and none without nor with varargs: C#'s struct always has the default value,
+ *       which {@code new S()} gives, and its field initializers need a declared constructor (CS8983);</li>
  *   <li>no lambda, method reference, anonymous or local class in its instance members: they cannot use a struct's
  *       {@code this} (CS1673);</li>
  *   <li>not open to extension under the policy, no type parameter's bound, no delegate, no self-bounded type, no
@@ -139,6 +139,8 @@ final class CSharpStructs {
         List<MethodInfo> constructors = t.constructors().stream().filter(c -> !c.isSynthetic()
                 && !CSharpTypePrinter.isImplicitDefaultConstructor(c)).toList();
         if (constructors.stream().anyMatch(c -> c.parameters().isEmpty())) return false;
+        // new R() of a varargs constructor would be the struct's default, not an empty array
+        if (t.constructors().stream().anyMatch(MethodInfo::isVarargs)) return false;
         if (!record && constructors.isEmpty()) return false;
         return !capturesThis(t);
     }

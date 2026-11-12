@@ -83,11 +83,12 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   refactorings can use too) finds the classes with no identity: final, no superclass, fields assigned in the
   constructors only, never compared with `==` (`this == o` in its own `equals` excepted), locked, identity-hashed, or
   given or compared with `null`. C# asks more: its own `equals` (a struct's default compares the fields, Java's
-  `Object.equals` the references), at most four fields, a constructor with parameters and none without, no lambda,
+  `Object.equals` the references), at most four fields, a constructor with parameters and none without nor with varargs (`new S()` is the default), no lambda,
   method reference, anonymous or local class in its instance members (CS1673), not open, no bound, no delegate,
   not self-bounded, no annotations, a member type, never an `Optional`'s value (whose `T?` would be `Nullable<T>`),
   and no cycle through its fields (CS0523). A struct is never `X?`: nothing gives it null. Its fields are `readonly`,
-  its `protected` members `internal` (CS0666), and the `this == o` of its `equals` is `object.ReferenceEquals`,
+  its `protected` members `internal` (CS0666), a record struct's `Equals(R o)` without `?` (`R?` would be
+  `Nullable<R>`'s, another method), no `IComparable` bridge, and the `this == o` of its `equals` is `object.ReferenceEquals`,
   false for a struct, which skips the shortcut. Where Java's empty value is null that the code does not see, an
   array's element or an absent map value, C# has `default`.
 - In a pattern, a type has no `?`: `o instanceof Integer` becomes `o is int`.

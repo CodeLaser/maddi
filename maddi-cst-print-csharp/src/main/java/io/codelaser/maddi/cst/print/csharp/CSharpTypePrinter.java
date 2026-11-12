@@ -173,8 +173,16 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     .add(new TextImpl(CSharpNames.type(typeInfo) + typeParameters));
             if (record && canonical == null) {
                 FieldPrinterFactory componentPrinter = CSharpFieldPrinter::new;
+                // record Key(Object... parts): its constructor's params, new Key() as Java's
+                boolean varargs = typeInfo.constructors().stream().anyMatch(c -> c.isVarargs()
+                        && c.parameters().size() == components.size());
+                FieldInfo last = components.isEmpty() ? null : components.getLast();
                 out.add(CSharpTypeName.inHeader(typeInfo, () -> components.stream()
-                        .map(f -> componentPrinter.create(f, formatter2).print(q, true))
+                        .map(f -> {
+                            OutputBuilder component = componentPrinter.create(f, formatter2).print(q, true);
+                            return varargs && f == last
+                                    ? new OutputBuilderImpl().add(new TextImpl("params ")).add(component) : component;
+                        })
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()))));
             }
@@ -699,6 +707,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         ParameterizedType compared = comparable.parameters().getFirst();
         if (compared.typeInfo() == null || compared.isTypeParameter() || compared.arrays() != 0
             || CSharpTypeName.valueReference(compared)) return List.of();
+        // a struct's CompareTo(T) is the interface's, which has no T? (CSharpStructs)
+        if (CSharpContext.program().struct(compared.typeInfo())) return List.of();
         return typeInfo.methods().stream()
                 .filter(m -> "compareTo".equals(m.name()) && m.parameters().size() == 1 && !m.isStatic()
                              && m.parameters().getFirst().parameterizedType().equals(compared)
