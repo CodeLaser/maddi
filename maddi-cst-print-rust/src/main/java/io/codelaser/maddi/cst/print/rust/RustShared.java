@@ -212,7 +212,7 @@ final class RustShared {
                         ParameterizedType pt = p.parameterizedType();
                         TypeInfo iface = pt.arrays() == 0 && !pt.isTypeParameter() ? pt.typeInfo() : null;
                         if (iface != null && iface.isInterface() && !iface.compilationUnit().externalLibrary()
-                            && keptVerdict(p)) {
+                            && (keptVerdict(p) || stored(p, 4))) {
                             handedOut.computeIfAbsent(iface, k -> new HashSet<>()).add(type);
                         }
                     }
@@ -307,6 +307,46 @@ final class RustShared {
             }
         }
         return backLink && children;
+    }
+
+    /*
+     Whether Java keeps the parameter's object: its method assigns it to a field, or passes it on to a constructor
+     (also this(...) or super(...)) that does, up to 'depth' calls deep. The independence verdict does not say so for
+     an object without state the analysis sees: Fernflower's 'provider', an IBytecodeProvider that LazyLoader stores,
+     is independent.
+     */
+    static boolean stored(ParameterInfo p, int depth) {
+        MethodInfo m = p.methodInfo();
+        if (depth == 0 || m == null || m.methodBody() == null) return false;
+        boolean[] found = {false};
+        m.methodBody().visit(e -> {
+            if (found[0]) return false;
+            if (e instanceof io.codelaser.maddi.cst.api.expression.Assignment a
+                && a.target().variable() instanceof io.codelaser.maddi.cst.api.variable.FieldReference
+                && a.value() instanceof VariableExpression ve && p.equals(ve.variable())) {
+                found[0] = true;
+            }
+            List<Expression> arguments = null;
+            MethodInfo callee = null;
+            if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+                arguments = cc.parameterExpressions();
+                callee = cc.constructor();
+            } else if (e instanceof io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci
+                       && eci.methodInfo() != null) {
+                arguments = eci.parameterExpressions();
+                callee = eci.methodInfo();
+            }
+            if (callee != null && !callee.typeInfo().compilationUnit().externalLibrary()) {
+                for (int i = 0; i < arguments.size() && i < callee.parameters().size(); i++) {
+                    if (arguments.get(i) instanceof VariableExpression ve && p.equals(ve.variable())
+                        && stored(callee.parameters().get(i), depth - 1)) {
+                        found[0] = true;
+                    }
+                }
+            }
+            return !found[0];
+        });
+        return found[0];
     }
 
     private static boolean keptVerdict(ParameterInfo p) {

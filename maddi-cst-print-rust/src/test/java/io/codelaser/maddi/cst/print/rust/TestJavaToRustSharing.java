@@ -653,7 +653,8 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         modifying(console, "save", "run");
         nonModifying(testConsole, "bytes");
         nonModifying(tests.findSubType("User"), "go");
-        engine.constructors().getFirst().parameters().forEach(p -> kept(p, ValueImpl.IndependentImpl.DEPENDENT));
+        // independent, as fernflower's 'provider' is (no state the analysis sees): stored all the same
+        engine.constructors().getFirst().parameters().forEach(p -> kept(p, ValueImpl.IndependentImpl.INDEPENDENT));
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         return types;
