@@ -351,15 +351,6 @@ public class KotlinStatementPrinter {
         return result;
     }
 
-    static OutputBuilder block(List<Statement> statements, Qualification q) {
-        KotlinSmartCasts.enterBlock(statements);
-        try {
-            return braces(blockLines(statements, q));
-        } finally {
-            KotlinSmartCasts.exitBlock();
-        }
-    }
-
     /** A block that starts with some lines of its own, the {@code var p = p} of {@link #reassignedParameters}. */
     static OutputBuilder block(List<OutputBuilder> prefix, List<Statement> statements, Qualification q) {
         return block(prefix, null, statements, q);
