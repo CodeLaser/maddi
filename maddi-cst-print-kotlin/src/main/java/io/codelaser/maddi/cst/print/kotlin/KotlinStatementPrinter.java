@@ -351,13 +351,8 @@ public class KotlinStatementPrinter {
         return result;
     }
 
-    /** A block that starts with some lines of its own, the {@code var p = p} of {@link #reassignedParameters}. */
-    static OutputBuilder block(List<OutputBuilder> prefix, List<Statement> statements, Qualification q) {
-        return block(prefix, null, statements, q);
-    }
-
     /**
-     * {@link #block(List, List, Qualification)} for {@code statements} of {@code block} (all, or what is left of them
+     * {@code block(List, List, Qualification)} for {@code statements} of {@code block} (all, or what is left of them
      * when some went into a header): the comments after its last statement close it.
      */
     static OutputBuilder block(List<OutputBuilder> prefix, Block block, List<Statement> statements, Qualification q) {
