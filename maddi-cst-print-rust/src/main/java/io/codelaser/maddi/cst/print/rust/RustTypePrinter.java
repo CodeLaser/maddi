@@ -156,7 +156,11 @@ final class RustTypePrinter {
         }
         String create = RustNames.type(typeInfo) + "::" + (constructor == null ? "new" : RustNames.method(constructor)) + "()";
         boolean shared = RustShared.current().isShared(typeInfo);
-        if (shared) create = "crate::jrt::Shared::new(" + create + ")";
+        if (RustShared.current().isCyclic(typeInfo)) {
+            create = "crate::jrt::Shared::new_cyclic(|__w| " + create.replaceFirst("\\(\\)$", "(__w)") + ")";
+        } else if (shared) {
+            create = "crate::jrt::Shared::new(" + create + ")";
+        }
         String prefix = RustNames.snake(typeInfo.simpleName());
         StringBuilder sb = new StringBuilder();
         for (MethodInfo test : tests) {
@@ -238,6 +242,9 @@ final class RustTypePrinter {
 
     // ---- items
 
+    // an interface's type as its trait: Box<dyn I>, or a back-link's WeakShared<dyn I + 'a> (RustShared)
+    private static final String TRAIT_OBJECT = "^(?:Box|crate::jrt::WeakShared)<dyn (.*?)(?: \\+ '[a-z_]+)?>$";
+
     private String trait(TypeInfo typeInfo) {
         StringBuilder sb = new StringBuilder(doc(typeInfo));
         sb.append(visibility(typeInfo.isPrivate())).append("trait ").append(RustNames.type(typeInfo))
@@ -308,7 +315,7 @@ final class RustTypePrinter {
     private String supertraits(TypeInfo typeInfo) {
         List<String> supers = typeInfo.interfacesImplemented().stream()
                 .filter(i -> !i.typeInfo().compilationUnit().externalLibrary())
-                .map(i -> RustTypes.owned(i, context, typeInfo).replaceFirst("^Box<dyn (.*)>$", "$1"))
+                .map(i -> RustTypes.owned(i, context, typeInfo).replaceFirst(TRAIT_OBJECT, "$1"))
                 .toList();
         return supers.isEmpty() ? "" : ": " + String.join(" + ", supers);
     }
@@ -514,7 +521,7 @@ final class RustTypePrinter {
         for (Map.Entry<TypeInfo, List<MethodInfo>> e : byTrait.entrySet()) {
             ParameterizedType traitType = typeInfo.interfacesImplemented().stream()
                     .filter(i -> i.typeInfo() == e.getKey()).findFirst().orElse(e.getKey().asSimpleParameterizedType());
-            String trait = RustTypes.owned(traitType, context, typeInfo).replaceFirst("^Box<dyn (.*)>$", "$1");
+            String trait = RustTypes.owned(traitType, context, typeInfo).replaceFirst(TRAIT_OBJECT, "$1");
             sb.append("\nimpl").append(implGenerics).append(" ").append(trait).append(" for ").append(name)
                     .append(generics).append(" {\n");
             for (MethodInfo m : e.getValue()) {
@@ -1024,7 +1031,7 @@ final class RustTypePrinter {
         for (TypeInfo i : interfaces) {
             if (i.compilationUnit().externalLibrary()) continue;
             String trait = RustTypes.owned(i.asSimpleParameterizedType(), context, h.root())
-                    .replaceFirst("^Box<dyn (.*)>$", "$1");
+                    .replaceFirst(TRAIT_OBJECT, "$1");
             sb.append("\nimpl").append(generics).append(" ").append(trait).append(" for ").append(name).append(generics)
                     .append(" {\n");
             for (MethodInfo d : i.methods()) {
@@ -1521,7 +1528,7 @@ final class RustTypePrinter {
                 // this(...): the other constructor builds it
                 RustBodyPrinter printer = new RustBodyPrinter(context);
                 return sb.append(pad).append("Self::").append(RustNames.method(eci.methodInfo())).append("(")
-                        .append(printer.arguments(eci.parameterExpressions(), eci.methodInfo())).append(")\n")
+                        .append(chainedArguments(printer, eci)).append(")\n")
                         .append(INDENT).append("}\n").toString();
             }
             Map<FieldInfo, Expression> assigned = simpleAssignments(statements, fields);
@@ -1723,7 +1730,9 @@ final class RustTypePrinter {
 
     private static boolean readsThis(Element element) {
         boolean[] found = {false};
+        Set<Expression> handedOut = handedOutThis(element);
         element.visit(e -> {
+            if (e instanceof VariableExpression ve && handedOut.stream().anyMatch(h -> h == ve)) return true;
             if (e instanceof VariableExpression ve && (ve.variable() instanceof This
                 || ve.variable() instanceof FieldReference fr && !fr.fieldInfo().isStatic() && fr.scopeIsThis())) {
                 found[0] = true;
@@ -1736,6 +1745,39 @@ final class RustTypePrinter {
             return !found[0];
         });
         return found[0];
+    }
+
+    /*
+     The bare 'this' arguments a cyclic class hands out as a back-link (RustShared): printed as the weak handle the
+     constructor is given, they do not read the object under construction.
+     */
+    private static Set<Expression> handedOutThis(Element element) {
+        Set<Expression> out = new HashSet<>();
+        RustShared shared = RustShared.current();
+        element.visit(e -> {
+            List<Expression> arguments;
+            MethodInfo callee;
+            if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+                arguments = cc.parameterExpressions();
+                callee = cc.constructor();
+            } else if (e instanceof MethodCall mc) {
+                arguments = mc.parameterExpressions();
+                callee = mc.methodInfo();
+            } else {
+                return true;
+            }
+            for (int i = 0; i < arguments.size() && !callee.parameters().isEmpty(); i++) {
+                ParameterizedType pt = callee.parameters().get(Math.min(i, callee.parameters().size() - 1))
+                        .parameterizedType();
+                if (arguments.get(i) instanceof VariableExpression ve && ve.variable() instanceof This th
+                    && th.explicitlyWriteType() == null && !th.writeSuper() && shared.isCyclic(th.typeInfo())
+                    && pt.arrays() == 0 && !pt.isTypeParameter() && shared.isBackLink(pt.typeInfo())) {
+                    out.add(ve);
+                }
+            }
+            return true;
+        });
+        return out;
     }
 
     // ---- methods
@@ -1894,7 +1936,18 @@ final class RustTypePrinter {
     private String parameters(MethodInfo m) {
         List<String> out = new ArrayList<>();
         for (ParameterInfo p : m.parameters()) out.add(parameter(m, p));
+        // a constructor handing out 'this' (RustShared.isCyclic): the weak handle Shared::new_cyclic gives it
+        if (m.isConstructor() && RustShared.current().isCyclic(m.typeInfo())) {
+            out.add("__this: &crate::jrt::WeakShared<Self>");
+        }
         return String.join(", ", out);
+    }
+
+    /** The arguments of {@code this(...)}: a cyclic class's constructor passes its weak handle on. */
+    private String chainedArguments(RustBodyPrinter printer, ExplicitConstructorInvocation eci) {
+        String args = printer.arguments(eci.parameterExpressions(), eci.methodInfo());
+        if (!RustShared.current().isCyclic(eci.methodInfo().typeInfo())) return args;
+        return args.isEmpty() ? "__this" : args + ", __this";
     }
 
     private String parameter(MethodInfo m, ParameterInfo p) {

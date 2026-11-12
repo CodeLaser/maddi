@@ -414,6 +414,14 @@ public final class RustTranslator {
                         Shared(std::rc::Rc::from_raw(ptr))
                     }
                 }
+                /// Java's constructor that hands out `this` (rust-printing.md, "Back-links"): the object is built
+                /// in its handle, given a weak handle of itself to hand out.
+                pub fn new_cyclic(f: impl FnOnce(&WeakShared<T>) -> T) -> Self {
+                    Shared(std::rc::Rc::new_cyclic(|w| std::cell::UnsafeCell::new(f(&WeakShared(w.clone())))))
+                }
+                /// A weak handle of the object, as a back-link holds it: `WeakShared(s.weak())` coerces to the
+                /// back-link's trait object.
+                pub fn weak(&self) -> std::rc::Weak<std::cell::UnsafeCell<T>> { std::rc::Rc::downgrade(&self.0) }
                 /// Java's `==`: the same object.
                 pub fn is(a: &Shared<T>, b: &Shared<T>) -> bool { std::rc::Rc::ptr_eq(&a.0, &b.0) }
                 /// Java's `a.equals(b)`: the objects' own equality.
@@ -446,6 +454,40 @@ public final class RustTranslator {
             impl<T> std::fmt::Debug for Shared<T> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     write!(f, "Shared@{:p}", std::rc::Rc::as_ptr(&self.0))
+                }
+            }
+
+            /// A back-link: Java's reference to an object handed out by its own constructor (`this`), held
+            /// without keeping the object alive, as the object holds its holder. It dereferences to the object
+            /// while that lives, and panics as Java's NullPointerException would once it is gone.
+            pub struct WeakShared<T: ?Sized>(pub std::rc::Weak<std::cell::UnsafeCell<T>>);
+
+            impl<T: ?Sized> Clone for WeakShared<T> {
+                fn clone(&self) -> Self { WeakShared(self.0.clone()) }
+            }
+
+            impl<T: ?Sized> std::ops::Deref for WeakShared<T> {
+                type Target = T;
+                fn deref(&self) -> &T {
+                    assert!(self.0.strong_count() > 0, "NullPointerException: a back-link to an object that is gone");
+                    unsafe { &*(*self.0.as_ptr()).get() }
+                }
+            }
+
+            impl<T: ?Sized> std::ops::DerefMut for WeakShared<T> {
+                fn deref_mut(&mut self) -> &mut T {
+                    assert!(self.0.strong_count() > 0, "NullPointerException: a back-link to an object that is gone");
+                    unsafe { &mut *(*self.0.as_ptr()).get() }
+                }
+            }
+
+            impl<T: ?Sized> PartialEq for WeakShared<T> {
+                fn eq(&self, other: &Self) -> bool { std::rc::Weak::ptr_eq(&self.0, &other.0) }
+            }
+
+            impl<T: ?Sized> std::fmt::Debug for WeakShared<T> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, "WeakShared@{:p}", self.0.as_ptr() as *const u8)
                 }
             }
 

@@ -2143,6 +2143,12 @@ final class RustBodyPrinter {
             context.use("std::rc::Rc");
             return value("Rc::new(" + call + ")");
         }
+        // a constructor handing out 'this' (RustShared.isCyclic): built in its handle, given a weak one of itself
+        if (RustShared.current().isCyclic(ti)) {
+            String arguments = arguments(cc.parameterExpressions(), constructor);
+            return value("crate::jrt::Shared::new_cyclic(|__w| " + owner + "::" + name + "(" + arguments
+                         + (arguments.isEmpty() ? "" : ", ") + "__w))");
+        }
         // Java's shared object: the new object in its handle (RustShared)
         if (RustShared.current().isShared(ti)) return value("crate::jrt::Shared::new(" + call + ")");
         return value(call);
@@ -2320,6 +2326,11 @@ final class RustBodyPrinter {
         }
         p = widen(p, argument, type);
         boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
+        if (RustShared.current().isBackLink(backLinkType(type))) {
+            // a back-link (RustShared): 'this' as a weak handle of the object, another one cloned
+            String weak = backLinkThis(argument);
+            return weak == null ? owned(p, type) : nullable ? "Some(" + weak + ")" : weak;
+        }
         String handle = sharedThis(p, type);
         if (handle != null && !RustTypes.isCopy(type)) {
             // 'this' passed where a Shared is expected, borrowed or kept: its own handle
@@ -2512,6 +2523,27 @@ final class RustBodyPrinter {
             return p.text + (p.nullable && p.held == Held.SHARED ? ".cloned()" : ".clone()");
         }
         return p.text;
+    }
+
+    private static TypeInfo backLinkType(ParameterizedType type) {
+        return type == null || type.arrays() > 0 || type.isTypeParameter() ? null : type.typeInfo();
+    }
+
+    /**
+     * A bare {@code this} handed out as a back-link (RustShared): inside the constructor of a cyclic class the weak
+     * handle {@code Shared::new_cyclic} gives it, elsewhere a weak handle of the object {@code self} is; null for
+     * another argument. The handle's type is the interface's: {@code WeakShared(...)} coerces it.
+     */
+    private String backLinkThis(Expression argument) {
+        if (!(CstQueries.unwrap(argument) instanceof VariableExpression ve && ve.variable() instanceof This th)
+            || th.explicitlyWriteType() != null || th.writeSuper() || context.type == null) {
+            return null;
+        }
+        if (context.method != null && context.method.isConstructor() && RustShared.current().isCyclic(context.type)) {
+            return "crate::jrt::WeakShared(__this.0.clone())";
+        }
+        String receiver = "this".equals(context.receiver) ? "&this" : context.receiver;
+        return "crate::jrt::WeakShared(crate::jrt::Shared::of(" + receiver + ").weak())";
     }
 
     /**

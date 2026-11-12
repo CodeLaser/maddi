@@ -19,6 +19,7 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -472,6 +473,80 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         contains(rust, "impl Ord for crate::jrt::Shared<TreeNode> {");
         // 'Node node = this;' walks on to other nodes: the handle of self (ClassNode.getWrapper)
         contains(rust, "crate::jrt::Shared::of(self)");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String ENGINES = """
+            package a.b;
+            public class Engines {
+                public interface IData {
+                    String name();
+                    int bump();
+                }
+                public static class Unit {
+                    private final IData data;
+                    public Unit(IData data) { this.data = data; }
+                    public String describe() { return data.name(); }
+                }
+                public static class Context {
+                    private final IData data;
+                    private final Unit unit;
+                    public Context(IData data) {
+                        this.data = data;
+                        this.unit = new Unit(data);
+                    }
+                    public String run() { data.bump(); return unit.describe(); }
+                }
+                // fernflower's Fernflower: 'new StructContext(saver, this, ...)', itself the decompiled data
+                public static class Engine implements IData {
+                    private final Context context;
+                    private int count;
+                    public Engine(int start) {
+                        this.count = start;
+                        this.context = new Context(this);
+                    }
+                    public Engine() { this(0); }
+                    public String name() { return "engine" + count; }
+                    public int bump() { return ++count; }
+                    public String run() { return context.run(); }
+                }
+                public static class User {
+                    public String go() { return new Engine(5).run(); }
+                }
+            }
+            """;
+
+    @DisplayName("a constructor handing out 'this' to an object it holds: built with new_cyclic, a weak back-link")
+    @Test
+    public void selfReferentialConstruction() throws Exception {
+        List<TypeInfo> types = parse(ENGINES);
+        TypeInfo engines = types.getFirst();
+        TypeInfo unit = engines.findSubType("Unit");
+        TypeInfo context = engines.findSubType("Context");
+        TypeInfo engine = engines.findSubType("Engine");
+        nonModifying(unit, "describe");
+        modifying(context, "run");
+        modifying(engine, "bump", "run");
+        nonModifying(engine, "name");
+        nonModifying(engines.findSubType("User"), "go");
+        modifying(engines.findSubType("IData"), "bump");
+        nonModifying(engines.findSubType("IData"), "name");
+        kept(unit.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        kept(context.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'data: &'a mut dyn EnginesIData' and 'Context::new(&mut this)' in the half-built Engine: E0499, E0277
+        contains(rust, "data: crate::jrt::WeakShared<dyn EnginesIData>,");
+        contains(rust, "pub fn new(start: i32, __this: &crate::jrt::WeakShared<Self>) -> Self {");
+        contains(rust, "context: EnginesContext::new(crate::jrt::WeakShared(__this.0.clone())),");
+        // this(0) passes the handle on; a caller builds the object in its handle
+        contains(rust, "Self::new(0, __this)");
+        contains(rust, "crate::jrt::Shared::new_cyclic(|__w| EnginesEngine::new(5, __w))");
+        // the back-link passed on is a clone of the weak handle
+        contains(rust, "EnginesUnit::new(data.clone())");
+        assertFalse(rust.contains("Default::default()"), rust);
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

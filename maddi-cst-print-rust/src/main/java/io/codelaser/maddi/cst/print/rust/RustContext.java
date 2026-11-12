@@ -76,7 +76,7 @@ final class RustContext {
     }
 
     private static final Set<String> RESERVED_IN_JRT = Set.of("Before", "After", "Null", "Any", "Box", "Option",
-            "Result", "String", "Vec", "Path", "File", "Files", "JPath", "Shared", "BitSet", "DataInputStream",
+            "Result", "String", "Vec", "Path", "File", "Files", "JPath", "Shared", "WeakShared", "BitSet", "DataInputStream",
             "PrintStream");
     /** The module being printed: a type in it needs no {@code use}. */
     final String module;

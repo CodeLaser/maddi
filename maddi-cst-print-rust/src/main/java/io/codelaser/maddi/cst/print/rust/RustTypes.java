@@ -131,8 +131,9 @@ final class RustTypes {
         if (isOpaque(ti)) return true;
         // java.io.File and java.nio.file.Path are immutable: jrt.rs's derive Clone (CodeLaser/maddi#203)
         if (ti != null && ("crate::jrt::File".equals(mapped(ti)) || "crate::jrt::Path".equals(mapped(ti)))) return true;
-        // a Shared handle: its clone is the shared object, as Java's reference is
+        // a Shared handle: its clone is the shared object, as Java's reference is; so is a back-link's weak one
         if (RustShared.current().isShared(type)) return true;
+        if (ti != null && RustShared.current().isBackLink(ti)) return true;
         return ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()
                && !ti.typeNature().isEnum() && (facts.immutable(ti) || facts.immutableHc(ti));
     }
@@ -178,6 +179,8 @@ final class RustTypes {
             String element = owned(type.copyWithArrays(type.arrays() - 1), context, where);
             return (form == Form.SHARED ? "&[" : "&mut [") + element + "]";
         }
+        // a back-link (RustShared): a handle in every form, cloned where it is passed on
+        if (ti != null && type.arrays() == 0 && RustShared.current().isBackLink(ti)) return backLink(type, context, where);
         if (form != Form.OWNED && ti != null && type.arrays() == 0 && isInterface(ti)) {
             // a borrowed closure is passed as '&|| …' or '&mut || …' (RustBodyPrinter.argument), never a borrowed Box
             String trait = isFunctional(ti) ? function(type, context, where) : "dyn " + named(type, context, where);
@@ -218,8 +221,18 @@ final class RustTypes {
             context.use("std::any::Any");
             return "(Box<dyn Any>, Box<dyn Any>)";
         }
+        if (RustShared.current().isBackLink(ti)) return backLink(type, context, where);
         if (isInterface(ti)) return "Box<dyn " + named(type, context, where) + ">";
         return named(type, context, where);
+    }
+
+    /*
+     A back-link interface's value, a weak handle of the one object implementing it (RustShared.isBackLink). In a
+     struct with a lifetime, the object may carry it too: the trait object is bounded by it.
+     */
+    private static String backLink(ParameterizedType type, RustContext context, Element where) {
+        String bound = context.type != null && context.borrows.hasLifetime(context.type) ? " + " + RustBorrows.LIFETIME : "";
+        return "crate::jrt::WeakShared<dyn " + named(type, context, where) + bound + ">";
     }
 
     /**

@@ -18,16 +18,23 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
@@ -47,13 +54,34 @@ final class RustShared {
 
     static final boolean OFF = System.getenv("NORUSTSHARED") != null;
 
-    private static final RustShared NONE = new RustShared(Set.of());
+    private static final RustShared NONE = new RustShared(Set.of(), Set.of(), Set.of());
     private static final ThreadLocal<RustShared> CURRENT = ThreadLocal.withInitial(() -> NONE);
 
     private final Set<TypeInfo> shared;
+    private final Set<TypeInfo> cyclic;
+    private final Set<TypeInfo> backLinks;
 
-    private RustShared(Set<TypeInfo> shared) {
+    private RustShared(Set<TypeInfo> shared, Set<TypeInfo> cyclic, Set<TypeInfo> backLinks) {
         this.shared = shared;
+        this.cyclic = cyclic;
+        this.backLinks = backLinks;
+    }
+
+    /**
+     * Whether a constructor of {@code ti} hands its {@code this} to an object that keeps it, as a back-link interface
+     * (isBackLink): the object is built with {@code Shared::new_cyclic}, its constructors given a weak handle of it.
+     */
+    boolean isCyclic(TypeInfo ti) {
+        return ti != null && cyclic.contains(ti);
+    }
+
+    /**
+     * Whether {@code ti} is an interface held as a {@code crate::jrt::WeakShared<dyn I>}: a back-link to an object
+     * that is not yet built when it is handed out (fernflower's Fernflower, which gives StructContext itself as its
+     * IDecompiledData), and that its holder does not keep alive.
+     */
+    boolean isBackLink(TypeInfo ti) {
+        return ti != null && backLinks.contains(ti);
     }
 
     static RustShared current() {
@@ -93,7 +121,69 @@ final class RustShared {
             if (held.contains(t) && !view(t, facts)) shared.add(t);
         }
         shared.addAll(linkedGraph);
-        return shared.isEmpty() ? NONE : new RustShared(Set.copyOf(shared));
+        Set<TypeInfo> cyclic = new HashSet<>();
+        Set<TypeInfo> backLinks = new HashSet<>();
+        Map<TypeInfo, Set<TypeInfo>> handedOut = new HashMap<>();
+        Map<TypeInfo, Set<TypeInfo>> implementations = new HashMap<>();
+        for (TypeInfo t : types) selfHandOuts(t, facts, handedOut, implementations);
+        handedOut.forEach((iface, classes) -> {
+            // the interface's only implementation in the sources, so that every value of it is that object's handle
+            if (classes.size() == 1 && implementations.getOrDefault(iface, Set.of()).equals(classes)) {
+                backLinks.add(iface);
+                cyclic.addAll(classes);
+                shared.addAll(classes);
+            }
+        });
+        return shared.isEmpty() ? NONE : new RustShared(Set.copyOf(shared), Set.copyOf(cyclic), Set.copyOf(backLinks));
+    }
+
+    /*
+     Java's 'new StructContext(saver, this, loader)' in Fernflower's constructor: a bare 'this' handed, as a source
+     interface, to a parameter that keeps it. Collects, per such interface, the classes doing that, and per source
+     interface its implementations.
+     */
+    private static void selfHandOuts(TypeInfo type, RustFacts facts, Map<TypeInfo, Set<TypeInfo>> handedOut,
+                                     Map<TypeInfo, Set<TypeInfo>> implementations) {
+        if (!type.isInterface()) {
+            for (TypeInfo st : type.superTypesExcludingJavaLangObject()) {
+                if (st.isInterface() && !st.compilationUnit().externalLibrary()) {
+                    implementations.computeIfAbsent(st, k -> new HashSet<>()).add(type);
+                }
+            }
+        }
+        if (candidate(type, facts) == type && RustHierarchies.current().root(type) == null) {
+            for (MethodInfo c : type.constructors()) {
+                if (c.methodBody() == null) continue;
+                c.methodBody().visit(e -> {
+                    List<Expression> arguments;
+                    MethodInfo callee;
+                    if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+                        arguments = cc.parameterExpressions();
+                        callee = cc.constructor();
+                    } else if (e instanceof MethodCall mc) {
+                        arguments = mc.parameterExpressions();
+                        callee = mc.methodInfo();
+                    } else {
+                        return true;
+                    }
+                    for (int i = 0; i < arguments.size() && !callee.parameters().isEmpty(); i++) {
+                        if (!(arguments.get(i) instanceof VariableExpression ve && ve.variable() instanceof This th
+                              && th.explicitlyWriteType() == null && !th.writeSuper())) {
+                            continue;
+                        }
+                        ParameterInfo p = callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
+                        ParameterizedType pt = p.parameterizedType();
+                        TypeInfo iface = pt.arrays() == 0 && !pt.isTypeParameter() ? pt.typeInfo() : null;
+                        if (iface != null && iface.isInterface() && !iface.compilationUnit().externalLibrary()
+                            && !RustTypes.isFunctional(pt) && keptVerdict(p)) {
+                            handedOut.computeIfAbsent(iface, k -> new HashSet<>()).add(type);
+                        }
+                    }
+                    return true;
+                });
+            }
+        }
+        type.subTypes().forEach(sub -> selfHandOuts(sub, facts, handedOut, implementations));
     }
 
     private static void visit(TypeInfo type, RustFacts facts, Set<TypeInfo> kept, Set<TypeInfo> held,
