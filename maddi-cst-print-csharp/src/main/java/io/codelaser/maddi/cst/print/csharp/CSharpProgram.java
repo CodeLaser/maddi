@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -42,7 +41,6 @@ import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeModifier;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
-import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
@@ -161,6 +159,7 @@ public final class CSharpProgram {
     private final List<TypeInfo> types;
     private final Set<TypeParameter> notNullKeys;
     private final CSharpWildcardInterfaces.Uses wildcardUses;
+    private final Set<TypeInfo> structs;
     private final Memo memo = new Memo();
 
     /** The decisions as the analyses make them, one after the other; what none has made yet is the NONE program's. */
@@ -186,6 +185,7 @@ public final class CSharpProgram {
         List<TypeInfo> types = List.of();
         Set<TypeParameter> notNullKeys = Set.of();
         CSharpWildcardInterfaces.Uses wildcardUses = CSharpWildcardInterfaces.Uses.NONE;
+        Set<TypeInfo> structs = Set.of();
 
         CSharpProgram build() {
             return new CSharpProgram(this);
@@ -221,6 +221,7 @@ public final class CSharpProgram {
         types = b.types;
         notNullKeys = b.notNullKeys;
         wildcardUses = b.wildcardUses;
+        structs = b.structs;
     }
 
     @SuppressWarnings("unused") // kept: the analysis under the default policy, for callers outside --translate
@@ -251,7 +252,7 @@ public final class CSharpProgram {
     private static CSharpProgram analyzeTranslated(Collection<TypeInfo> primaryTypes, Policy policy, Builder b) {
         CSharpContext.program(b.build());
         List<TypeInfo> all = new ArrayList<>();
-        primaryTypes.forEach(t -> collect(t, all));
+        primaryTypes.forEach(t -> all.addAll(CstQueries.allTypes(t)));
         // a method's result is nullable where an override's is (FamilyFacts)
         b.facts = FamilyFacts.of(b.facts, all);
         CSharpProgramIndex index = CSharpProgramIndex.of(all);
@@ -311,6 +312,9 @@ public final class CSharpProgram {
         CSharpContext.program(b.build());
         Set<MethodInfo> erased = b.erasedGenerics;
         b.wildcardUses = CSharpWildcardInterfaces.wildcarded(all, erased::contains);
+        // which classes are structs: what is open, a bound, a delegate or self-bounded is known now
+        CSharpContext.program(b.build());
+        b.structs = CSharpStructs.analyze(primaryTypes, all);
         return b.build();
     }
 
@@ -739,6 +743,11 @@ public final class CSharpProgram {
         return delegates.contains(typeInfo);
     }
 
+    /** A class or record of the program that C# declares as a {@code readonly struct} ({@link CSharpStructs}). */
+    public boolean struct(TypeInfo typeInfo) {
+        return typeInfo != null && structs.contains(typeInfo);
+    }
+
     /** A class that may have subclasses: one of the program extends it, or the policy keeps it open. */
     /**
      * The class bounds a type parameter somewhere in the program ({@code R extends Defaults<R>}): C# allows no
@@ -813,15 +822,4 @@ public final class CSharpProgram {
     }
 
     /** The type, its nested types, and the local and anonymous types its code declares, at any depth. */
-    private static void collect(TypeInfo t, List<TypeInfo> all) {
-        all.add(t);
-        t.subTypes().forEach(st -> collect(st, all));
-        for (Element element : CstQueries.code(t)) {
-            element.visit((Element e) -> {
-                if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) collect(cc.anonymousClass(), all);
-                if (e instanceof LocalTypeDeclaration ltd) collect(ltd.typeInfo(), all);
-                return true;
-            });
-        }
-    }
 }

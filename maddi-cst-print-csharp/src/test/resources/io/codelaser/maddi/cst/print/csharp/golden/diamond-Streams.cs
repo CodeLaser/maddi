@@ -49,7 +49,7 @@ public static class Streams {
 internal sealed class Bridge<A> : IStream<A> { internal Bridge(IStreams parent) { } }
 internal sealed class Bridge2<A, B> : IStream<B> { internal Bridge2(IStreams parent) { } }
 internal abstract class Builder { internal abstract S Build<S>(S s) where S : IStream; }
-internal sealed record Duo<K, V>(K Key, V Value) {
+internal readonly record struct Duo<K, V>(K Key, V Value) {
     public override string ToString() => "Duo[key=" + JavaString.ValueOf(Key) + ", value=" + JavaString.ValueOf(Value) + "]";
 }
 internal interface IFolding<A, C, out R> : IFolding<A, R> {
@@ -69,7 +69,7 @@ internal sealed class Joined<A, B> : IStream<B> { internal void SetBridge(Bridge
 internal sealed class MapStream<A, NewA> : IStream<NewA> {
     internal MapStream(Streams<A> parent, Func<A, NewA> mapping) { }
 }
-internal sealed record Pair<L, R>(L Left, R Right) {
+internal readonly record struct Pair<L, R>(L Left, R Right) {
     public override string ToString() => "Pair[left=" + JavaString.ValueOf(Left) + ", right=" + JavaString.ValueOf(Right) + "]";
 }
 internal sealed class SimpleBuilder : Builder { internal override S Build<S>(S s) => s; }

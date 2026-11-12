@@ -138,7 +138,9 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     /** Final as Java has it: an interface's field is implicitly static and final. */
     static boolean isFinal(FieldInfo fieldInfo) {
-        return fieldInfo.isFinal() || fieldInfo.owner().isInterface();
+        // a readonly struct's fields are readonly: the struct's are assigned in its constructors only (CSharpStructs)
+        return fieldInfo.isFinal() || fieldInfo.owner().isInterface()
+               || !fieldInfo.isStatic() && CSharpContext.program().struct(fieldInfo.owner());
     }
 
     /** A static final primitive or String with a constant initializer. */

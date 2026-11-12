@@ -14,10 +14,11 @@ analyses drive what makes the output idiomatic:
 - **Modification** decides whether a collection parameter, a private collection field or a method's result can be
   `IReadOnlyList<T>` (`CSharpReadOnly`, on `ModificationFacts`).
 - **The whole program** (`CSharpProgram`) decides what is open for extension, which functional interfaces are
-  delegates, which getters and setters are properties (`CSharpProperties`), and which type tokens are type arguments.
+  delegates, which getters and setters are properties (`CSharpProperties`), which type tokens are type arguments,
+  and which classes and records are structs (`CSharpStructs`, below).
 
 All of these are wired in; without facts from an analysis, the output follows from the Java and the whole program
-alone. Not yet: immutability making a class a `record` or a `readonly struct`, or a field `init`-only.
+alone. Not yet: immutability making a class a `record`, or a field `init`-only.
 
 ## The pluggable-printer seam
 
@@ -77,6 +78,19 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   `long Next()` for `Iterator<Long>`'s `IJavaIterator<long>`, its boxed value cast: `(int) current!`), a lambda's
   result; a method reference's typed parameters
   are the delegate's type arguments (`(decimal p0, decimal p1) => p0 + p1`).
+- A small value class of the program is a `readonly struct`, a record a `readonly record struct` (`CSharpStructs`).
+  maddi's shared detection (`ValueTypes`, in maddi-cst-analysis, which the Kotlin and Rust printers and the
+  refactorings can use too) finds the classes with no identity: final, no superclass, fields assigned in the
+  constructors only, never compared with `==` (`this == o` in its own `equals` excepted), locked, identity-hashed, or
+  given or compared with `null`. C# asks more: its own `equals` (a struct's default compares the fields, Java's
+  `Object.equals` the references), at most four fields, a constructor with parameters and none without nor with varargs (`new S()` is the default), no lambda,
+  method reference, anonymous or local class in its instance members (CS1673), not open, no bound, no delegate,
+  not self-bounded, no annotations, a member type, never an `Optional`'s value (whose `T?` would be `Nullable<T>`),
+  and no cycle through its fields (CS0523). A struct is never `X?`: nothing gives it null. Its fields are `readonly`,
+  its `protected` members `internal` (CS0666), a record struct's `Equals(R o)` without `?` (`R?` would be
+  `Nullable<R>`'s, another method), no `IComparable` bridge, and the `this == o` of its `equals` is `object.ReferenceEquals`,
+  false for a struct, which skips the shortcut. Where Java's empty value is null that the code does not see, an
+  array's element or an absent map value, C# has `default`.
 - In a pattern, a type has no `?`: `o instanceof Integer` becomes `o is int`.
 - C# has no wildcards. A collection of `? extends T` is C#'s covariant read-only interface, a collection of `?` its
   non-generic one, a parameter of a program type with wildcards is captured as Java does, and any other wildcard is

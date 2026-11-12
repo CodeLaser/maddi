@@ -36,6 +36,7 @@ dependencies {
     implementation(project(":maddi-inspection-resource"))
 
     testImplementation(project(":maddi-cst-impl"))
+    testImplementation(project(":maddi-cst-analysis"))
 
     testImplementation("org.projectlombok:lombok:1.18.48")
     testAnnotationProcessor("org.projectlombok:lombok:1.18.48")

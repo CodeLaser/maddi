@@ -270,12 +270,16 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                && m.parameters().size() == 1 && m.parameters().getFirst().parameterizedType().isJavaLangObject();
     }
 
-    /** {@code (R? o)}, the record's own type: {@code ?} in a nullable context. */
+    /**
+     * {@code (R? o)}, the record's own type: {@code ?} in a nullable context. A record struct's is {@code (R o)}, the
+     * {@code Equals} its synthesized equality calls ({@code R?} would be another method, of {@code Nullable<R>}).
+     */
     private static OutputBuilder recordEqualsParameter(MethodInfo m, Qualification q) {
         TypeInfo record = m.typeInfo();
         String type = CSharpNames.type(record) + (record.typeParameters().isEmpty() ? "" : "<" + String.join(", ",
                 record.typeParameters().stream().map(CSharpNames::typeParameter).toList()) + ">");
-        String nullable = CSharpContext.program().facts().nullabilityAnalysed() ? "?" : "";
+        String nullable = CSharpContext.program().facts().nullabilityAnalysed()
+                          && !CSharpContext.program().struct(record) ? "?" : "";
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(new TextImpl(type + nullable + " " + CSharpContext.declare(m.parameters().getFirst().name())))
                 .add(SymbolEnum.RIGHT_PARENTHESIS);

@@ -3797,4 +3797,58 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertTrue(kotlin.contains("this.from.length"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * A record of one value that no code outside the file sees, and no code locks, compares with {@code ==} or
+     * identity-hashes: a {@code @JvmInline value class} (KotlinValueClasses). One with two values, one Java may call
+     * (not private), one compared by reference, and one of a vararg stay data classes.
+     */
+    @Test
+    public void valueClasses() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.ArrayList;
+                import java.util.List;
+                public class Orders {
+                    private record OrderId(long value) {
+                        OrderId {
+                            if (value < 0) throw new IllegalArgumentException();
+                        }
+                        static OrderId of(String s) { return new OrderId(Long.parseLong(s)); }
+                        OrderId next() { return new OrderId(value + 1); }
+                    }
+                    private record Name(String text) implements Comparable<Name> {
+                        public int compareTo(Name o) { return text.compareTo(o.text); }
+                    }
+                    private record Pair(int a, int b) { }
+                    record Visible(int v) { }
+                    private record Token(int t) { }
+                    private record Part(int p) { }
+                    private final List<OrderId> ids = new ArrayList<>();
+                    private Name first = new Name("");
+                    // a field without a value that is not final: lateinit, which a value class cannot be
+                    private Late late;
+                    private record Late(int l) { }
+                    void add(String s) {
+                        OrderId id = OrderId.of(s);
+                        ids.add(id.next());
+                        Name n = new Name(s);
+                        if (n.compareTo(first) < 0) first = n;
+                        if (late == null) late = new Late(1);
+                    }
+                    boolean same(Token a, Token b) { return a == b; }
+                    int parts(Part... parts) { return parts.length; }
+                    int pair() { return new Pair(1, 2).a(); }
+                    int visible() { return new Visible(3).v(); }
+                }
+                """);
+        contains(kotlin, "@JvmInline internal value class OrderId(val value: Long)");
+        contains(kotlin, "@JvmInline internal value class Name(val text: String) : Comparable<Name>");
+        contains(kotlin, "data class Pair(");
+        contains(kotlin, "data class Visible(");
+        contains(kotlin, "data class Token(");
+        contains(kotlin, "data class Part(");
+        contains(kotlin, "data class Late(");
+        compiles(kotlin);
+    }
 }

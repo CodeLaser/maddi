@@ -1245,4 +1245,107 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 }
                 """);
     }
+
+    /**
+     * A small immutable class with its own equals, and a record, that nothing compares by reference or with null: C#'s
+     * readonly struct and readonly record struct (CSharpStructs). A class compared with {@code ==} stays a class.
+     */
+    @Test
+    public void valueClassesAsStructs() {
+        String cs = behaves("Points", """
+                package a;
+                import java.util.HashMap;
+                import java.util.HashSet;
+                import java.util.Map;
+                import java.util.Set;
+                class Points {
+                    static final class Point {
+                        private final int x;
+                        private final int y;
+                        Point(int x, int y) { this.x = x; this.y = y; }
+                        Point plus(Point o) { return new Point(x + o.x, y + o.y); }
+                        protected int sum() { return x + y; }
+                        @Override public boolean equals(Object o) {
+                            if (this == o) return true;
+                            return o instanceof Point p && p.x == x && p.y == y;
+                        }
+                        @Override public int hashCode() { return 31 * x + y; }
+                        @Override public String toString() { return "(" + x + "," + y + ")"; }
+                    }
+                    record Span(Point from, Point to) { }
+                    static final class Ticket {
+                        private final int n;
+                        Ticket(int n) { this.n = n; }
+                        @Override public boolean equals(Object o) { return o instanceof Ticket t && t.n == n; }
+                        @Override public int hashCode() { return n; }
+                    }
+                    static boolean same(Ticket a, Ticket b) { return a == b; }
+                    record Version(int major) implements Comparable<Version> {
+                        public int compareTo(Version o) { return Integer.compare(major, o.major); }
+                    }
+                    // new Key() would be a struct's default, no empty array: a class
+                    record Key(Object... parts) { }
+                    public static void main(String[] args) {
+                        Point a = new Point(1, 2);
+                        Point b = a.plus(new Point(3, 4));
+                        Map<Point, String> names = new HashMap<>();
+                        names.put(new Point(4, 6), "b");
+                        System.out.println(b + " " + names.get(b) + " " + b.sum() + " " + a.equals(a));
+                        Set<Span> spans = new HashSet<>();
+                        spans.add(new Span(a, b));
+                        spans.add(new Span(new Point(1, 2), new Point(4, 6)));
+                        System.out.println(spans.size() + " " + spans.iterator().next().to());
+                        Ticket t = new Ticket(1);
+                        System.out.println(same(t, t) + " " + same(t, new Ticket(1)));
+                        java.util.List<Version> versions = new java.util.ArrayList<>(
+                                java.util.List.of(new Version(3), new Version(1), new Version(2)));
+                        java.util.Collections.sort(versions);
+                        System.out.println(versions.get(0).major() + " " + new Key().parts().length);
+                    }
+                }
+                """);
+        contains(cs, "readonly struct Point");
+        contains(cs, "readonly record struct Span");
+        contains(cs, "class Ticket");
+        contains(cs, "readonly record struct Version(int Major) : IComparable<Version>");
+        contains(cs, "sealed record Key(");
+    }
+
+    /**
+     * Where Java's empty value is null: an Optional's value stays a class (C#'s {@code T?} of a struct is
+     * {@code Nullable<T>}, CSharpStructs); a map's value and an array's element may be a struct.
+     */
+    @Test
+    public void structsWhereJavaHasNull() {
+        String cs = behaves("Cells", """
+                package a;
+                import java.util.HashMap;
+                import java.util.List;
+                import java.util.Map;
+                import java.util.Optional;
+                class Cells {
+                    record Cell(int row, int col) { }
+                    static Optional<Cell> first(List<Cell> cells) { return cells.stream().findFirst(); }
+                    static Optional<Cell> none() { return Optional.empty(); }
+                    public static void main(String[] args) {
+                        Optional<Cell> c = first(List.of(new Cell(1, 2)));
+                        System.out.println(c.isPresent() + " " + c.get().row() + " " + none().isPresent());
+                        Map<String, Cell> byName = new HashMap<>();
+                        byName.put("a", new Cell(3, 4));
+                        System.out.println(byName.get("a").col() + " " + byName.containsKey("b"));
+                        Cell[] grid = new Cell[2];
+                        grid[0] = new Cell(5, 6);
+                        System.out.println(grid[0].row() + " " + grid.length);
+                        Spot s = new Spot(7);
+                        Map<String, Spot> spots = new HashMap<>();
+                        spots.put("s", s);
+                        Spot[] row = { s, new Spot(8) };
+                        System.out.println(spots.get("s").at() + " " + row[1].at());
+                    }
+                    record Spot(int at) { }
+                }
+                """);
+        contains(cs, "internal sealed record Cell(");
+        contains(cs, "readonly record struct Spot(");
+    }
 }

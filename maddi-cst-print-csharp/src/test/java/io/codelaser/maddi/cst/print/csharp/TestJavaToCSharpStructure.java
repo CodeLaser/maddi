@@ -915,7 +915,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void staticScopes() {
         String cs = translate("Move", STATIC_SCOPES);
         contains(cs, "public static class Move { internal static int Size(object o) => 1; }");
-        contains(cs, "public sealed record Id(long Key, Id.Kind? kind) {");
+        contains(cs, "public readonly record struct Id(long Key, Id.Kind? kind) {");
     }
 
     @Language("java")
@@ -1051,7 +1051,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     @Test
     public void record() {
         String cs = translate("Point", RECORD);
-        contains(cs, "internal sealed record Point(int X, int Y) {");
+        contains(cs, "internal readonly record struct Point(int X, int Y) {");
         contains(cs, "internal Point Scale(int f) => new Point(X * f, Y * f);");
         contains(cs, "public bool Equals(Point o) => o is Point { X: var px, Y: var py } && px == X && py == Y;");
         contains(cs, "public override int GetHashCode()");
@@ -1568,7 +1568,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     @Test
     public void records() {
         String cs = translate("Result", RECORDS);
-        contains(cs, "internal sealed record Success<T> : IResult<T> {");
+        contains(cs, "internal readonly record struct Success<T> : IResult<T> {");
         contains(cs, "public T Response { get; }");
         contains(cs, "note = note == null ? \"\" : note.Trim();\nResponse = response;\nNote = note;");
         contains(cs, "T IResult<T>.Response() => Response;");

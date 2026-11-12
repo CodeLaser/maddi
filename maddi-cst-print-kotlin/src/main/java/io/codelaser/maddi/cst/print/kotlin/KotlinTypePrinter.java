@@ -151,6 +151,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 : primary == null ? Set.of() : primary.parameters().stream().map(ParameterInfo::name).collect(Collectors.toSet());
         MethodInfo primaryFinal = primary;
         if (components.isEmpty() && typeInfo.typeNature().isRecord()) dataClass = false; // a data class needs a property
+        // a record of one value, seen in this file only: a value class (KotlinValueClasses)
+        boolean valueClass = dataClass && !components.isEmpty() && !accessorsAsFunctions(typeInfo, components)
+                             && KotlinValueClasses.valueClass(typeInfo);
 
         // Java's @interface: Kotlin's annotation class, its elements the constructor's properties
         boolean annotationType = companion && typeInfo.typeNature().isAnnotation();
@@ -160,7 +163,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             // outside the class's scope, as its header: nacos's AbstractHealthChecker is annotated
             // @JsonTypeInfo(defaultImpl = None.class), None one of its nested classes
             out.add(KotlinAnnotations.print(typeInfo.annotations(), new KotlinHeaderQualification(insideType, typeInfo)));
-            if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()
+            if (valueClass) {
+                out.add(new TextImpl("@JvmInline")).add(SpaceEnum.ONE);
+            } else if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()
                 && !accessorsAsFunctions(typeInfo, components)) {
                 // a JVM record, as Java's: Java code calls item.varExprent(), not item.getVarExprent()
                 out.add(new TextImpl("@JvmRecord")).add(SpaceEnum.ONE);
@@ -203,6 +208,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     out.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
                 }
                 out.add(KeywordImpl.INTERFACE);
+            } else if (valueClass) {
+                out.add(new TextImpl("value")).add(SpaceEnum.ONE).add(KeywordImpl.CLASS);
             } else if (dataClass) {
                 out.add(KotlinKeyword.DATA).add(SpaceEnum.ONE).add(KeywordImpl.CLASS); // record / Kotlin data class
             } else {
