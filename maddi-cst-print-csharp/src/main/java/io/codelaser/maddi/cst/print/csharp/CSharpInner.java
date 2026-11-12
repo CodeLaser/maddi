@@ -25,8 +25,10 @@ import java.util.Set;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstantExpression;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.EnclosingInstance;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -104,10 +106,10 @@ final class CSharpInner {
                             uses[0] = true;
                         }
                     }
+                    // Outer.this as a value, Outer.this.m(), a member Outer inherits: maddi's rule (EnclosingInstance).
+                    // The written form was tested the wrong way round here, so a written Outer.this was never one.
                     case VariableExpression ve when ve.variable() instanceof This th -> {
-                        if (th.explicitlyWriteType() != null && !CstQueries.within(t, th.explicitlyWriteType())) {
-                            uses[0] = true;
-                        }
+                        if (!th.writeSuper() && EnclosingInstance.captures(th, t)) uses[0] = true;
                     }
                     case MethodCall mc -> {
                         if (!mc.methodInfo().isStatic() && mc.objectIsImplicit()
@@ -115,16 +117,10 @@ final class CSharpInner {
                             uses[0] = true;
                         }
                     }
-                    case ConstructorCall cc -> {
-                        // a sibling inner class, created with this one's enclosing instance
-                        if (cc.object() == null && cc.anonymousClass() == null && cc.constructor() != null) {
-                            TypeInfo created = cc.constructor().typeInfo();
-                            TypeInfo needed = CstQueries.enclosing(created);
-                            if (withOuter(created) && needed != null && !needed.equals(t) && !CSharpNames.inherits(t, needed)) {
-                                uses[0] = true;
-                            }
-                        }
-                    }
+                    // a sibling inner class with an outer, created with this one's enclosing instance: new Sibling(),
+                    // new Sibling() {…}, Sibling::new (EnclosingInstance.createdInnerClass)
+                    case ConstructorCall cc when createsSiblingWithOuter(cc, t) -> uses[0] = true;
+                    case MethodReference mr when createsSiblingWithOuter(mr, t) -> uses[0] = true;
                     default -> {
                     }
                 }
@@ -135,6 +131,13 @@ final class CSharpInner {
         return false;
     }
 
+
+    private static boolean createsSiblingWithOuter(Element creation, TypeInfo t) {
+        TypeInfo created = EnclosingInstance.createdInnerClass(creation);
+        if (created == null || !withOuter(created)) return false;
+        TypeInfo needed = CstQueries.enclosing(created);
+        return needed != null && !needed.equals(t) && !CSharpNames.inherits(t, needed);
+    }
 
     /**
      * A class whose instance fields are initialized in its constructors, as Java does after {@code super(…)}: an inner

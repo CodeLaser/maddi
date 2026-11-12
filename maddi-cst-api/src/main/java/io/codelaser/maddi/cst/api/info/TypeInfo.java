@@ -91,6 +91,15 @@ public interface TypeInfo extends NamedType, Info {
      * The type this type is declared in: a member type's, and a local or an anonymous class's. Null for a primary
      * type. The other side of {@link #compilationUnitOrEnclosingType()}.
      */
+    /**
+     * The code of this class, or of a type declared in it, uses an instance of a type around it: a {@code This} that
+     * denotes one, or the unqualified creation of another inner class. False for a static or top-level type. See
+     * {@link EnclosingInstance}.
+     */
+    default boolean usesEnclosingInstance() {
+        return isInnerClass() && !EnclosingInstance.uses(this).isEmpty();
+    }
+
     /** Its own access, narrowed by each enclosing type's ({@link Info#effectiveAccess()}). */
     @Override
     default Access effectiveAccess() {

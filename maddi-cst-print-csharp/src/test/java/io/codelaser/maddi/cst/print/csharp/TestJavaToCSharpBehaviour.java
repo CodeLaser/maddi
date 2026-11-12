@@ -1213,4 +1213,36 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
         // a template's argument as a receiver is enclosed: Long.toString(weight + 1)
         contains(cs, "(weight + 1).ToString()");
     }
+
+    /**
+     * An inner class that uses its enclosing instance only through a written {@code Outer.this}, or only by creating a
+     * sibling inner class with {@code Sibling::new}, takes an outer like any other (maddi's EnclosingInstance): the
+     * written form was tested the wrong way round, and the reference form not at all.
+     */
+    @Test
+    public void enclosingInstanceWrittenOrPassedOn() {
+        behaves("Registry", """
+                package a;
+                import java.util.function.Supplier;
+                class Registry {
+                    private final String name;
+                    Registry(String name) { this.name = name; }
+                    String label() { return name; }
+                    class Counter {
+                        String describe() { return "counter of " + label(); }
+                    }
+                    class Self {
+                        Registry owner() { return Registry.this; }
+                    }
+                    class Factory {
+                        Supplier<Counter> counters() { return Counter::new; }
+                    }
+                    public static void main(String[] args) {
+                        Registry r = new Registry("main");
+                        System.out.println(r.new Self().owner().label());
+                        System.out.println(r.new Factory().counters().get().describe());
+                    }
+                }
+                """);
+    }
 }
