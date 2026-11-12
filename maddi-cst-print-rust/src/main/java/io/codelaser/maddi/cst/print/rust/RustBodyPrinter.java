@@ -272,7 +272,13 @@ final class RustBodyPrinter {
         nullableLocals.put(lv, nullable);
         String text = value.text;
         Held held = value.held;
-        if (reassigned && (held == Held.SHARED || held == Held.STR) && RustTypes.isString(lv.parameterizedType())
+        String thisHandle = sharedThis(value, lv.parameterizedType());
+        if (thisHandle != null) {
+            // 'ClassNode node = this;' of a Shared class (fernflower's ClassNode.getWrapper): the handle of the object
+            // self is, as the local walks on to other nodes ('node = node.parent')
+            text = thisHandle;
+            held = Held.VALUE;
+        } else if (reassigned && (held == Held.SHARED || held == Held.STR) && RustTypes.isString(lv.parameterizedType())
             && !(init instanceof NullConstant)) {
             // 'String x = s; … x = "default";': an assignment gives the local an owned string, so it owns its first
             text = value.nullable ? text + ".map(|v| v.to_string())" : text + ".to_string()";

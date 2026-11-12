@@ -417,15 +417,22 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
     private static final String LINKED_TREE = """
             package a.b;
             import java.util.ArrayList;
+            import java.util.Collections;
             import java.util.HashMap;
             import java.util.List;
             import java.util.Map;
             public class Tree {
-                public static class Node {
+                public static class Node implements Comparable<Node> {
                     public final String name;
                     public final List<Node> nested = new ArrayList<>();
                     public Node parent;
                     public Node(String name) { this.name = name; }
+                    public int compareTo(Node o) { return name.compareTo(o.name); }
+                    public String rootName() {
+                        Node node = this;
+                        while (node.parent != null) node = node.parent;
+                        return node.name;
+                    }
                 }
                 private final Map<String, Node> roots = new HashMap<>();
                 public void add(String name) { roots.put(name, new Node(name)); }
@@ -434,6 +441,7 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
                     Node childNode = roots.get(childName);
                     parentNode.nested.add(childNode);
                     childNode.parent = parentNode;
+                    Collections.sort(parentNode.nested);
                 }
             }
             """;
@@ -448,7 +456,10 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
     public void linkedTree() throws Exception {
         List<TypeInfo> types = parse(LINKED_TREE);
         TypeInfo tree = types.getFirst();
+        TypeInfo node = tree.findSubType("Node");
         modifying(tree, "add", "attach");
+        nonModifying(node, "compareTo", "rootName");
+        borrowed(method(node, "compareTo").parameters().getFirst());
         for (String m : List.of("add", "attach")) {
             method(tree, m).parameters().forEach(CommonJavaToRust::borrowed);
         }
@@ -457,6 +468,10 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         String rust = module("a.b");
         contains(rust, "pub nested: Vec<crate::jrt::Shared<TreeNode>>,");
         contains(rust, "pub parent: Option<crate::jrt::Shared<TreeNode>>,");
+        // Comparable: sorted as the handle (ClassNode in its parent's 'nested')
+        contains(rust, "impl Ord for crate::jrt::Shared<TreeNode> {");
+        // 'Node node = this;' walks on to other nodes: the handle of self (ClassNode.getWrapper)
+        contains(rust, "crate::jrt::Shared::of(self)");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

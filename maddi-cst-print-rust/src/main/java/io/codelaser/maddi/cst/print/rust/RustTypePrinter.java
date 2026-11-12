@@ -545,7 +545,34 @@ final class RustTypePrinter {
                     .append(INDENT)
                     .append("}\n}\n");
         }
+        sb.append(ord(typeInfo, name, generics, implGenerics, equals != null && hashCode));
         return sb.toString();
+    }
+
+    /*
+     Java's Comparable<C>: what Collections.sort and a sorted collection order by, Rust's Ord. A Shared class is ordered
+     as its handle (Shared<C>, whose Eq is Java's identity, as Java's compareTo need not agree with ==; fernflower's
+     ClassNode, sorted in its parent's 'nested'); any other class only when it has Eq already (equals and hashCode),
+     which Ord requires. Through compareTo, which must take &self.
+     */
+    private String ord(TypeInfo typeInfo, String name, String generics, String implGenerics, boolean hasEq) {
+        boolean comparable = typeInfo.interfacesImplemented().stream().anyMatch(i -> i.typeInfo() != null
+                && "java.lang.Comparable".equals(i.typeInfo().fullyQualifiedName()) && i.parameters().size() == 1
+                && i.parameters().getFirst().typeInfo() == typeInfo);
+        if (!comparable) return "";
+        List<MethodInfo> compareTo = typeInfo.methods().stream()
+                .filter(m -> "compareTo".equals(m.name()) && !m.isStatic() && m.parameters().size() == 1
+                             && m.parameters().getFirst().parameterizedType().typeInfo() == typeInfo).toList();
+        if (compareTo.size() != 1 || context.facts.receiver(compareTo.getFirst()) == Receiver.EXCLUSIVE) return "";
+        boolean shared = RustShared.current().isShared(typeInfo);
+        if (!shared && !hasEq) return "";
+        String target = shared ? "crate::jrt::Shared<" + name + generics + ">" : name + generics;
+        return "\nimpl" + implGenerics + " PartialOrd for " + target + " {\n" + INDENT
+               + "fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {\n" + INDENT + INDENT
+               + "Some(std::cmp::Ord::cmp(self, other))\n" + INDENT + "}\n}\n"
+               + "\nimpl" + implGenerics + " Ord for " + target + " {\n" + INDENT
+               + "fn cmp(&self, other: &Self) -> std::cmp::Ordering {\n" + INDENT + INDENT
+               + "self.compare_to(other).cmp(&0)\n" + INDENT + "}\n}\n";
     }
 
     /**
