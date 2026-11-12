@@ -515,25 +515,63 @@ public class CompileListToSourceSets {
                                              Map<String, SourceSet> classPath,
                                              String destination,
                                              Set<String> moduleJarNames) {
+        if (sourceSetsByPath.containsKey(part)) return;
         String lastPart = lastPart(part);
         SourceSet inMap = classPath.get(lastPart);
         URI uri = URI.create("file:" + part);
-        if (inMap == null) {
-            SourceSet sourceSet = new SourceSetImpl.Builder()
-                    .setName(lastPart)
-                    .setSourceDirectories(List.of())
-                    .setUri(uri)
-                    .setLibrary(true)
-                    .setExternalLibrary(true)
-                    .setModule(moduleJarNames.contains(lastPart))
-                    .build();
-            classPath.put(lastPart, sourceSet);
-            sourceSetsByPath.put(part, sourceSet);
-            LOGGER.info("Create jar: {} -> {}", lastPart, destination);
-        } else if (!uri.equals(inMap.uri())) {
-            LOGGER.info("Name clash: {} vs {}", uri, inMap.uri());
-            sourceSetsByPath.put(part, inMap);
+        String name = lastPart;
+        if (inMap != null) {
+            if (uri.equals(inMap.uri())) return;
+            /*
+             ⛔ TWO JARS UNDER ONE FILE NAME ARE TWO LIBRARIES. Two builds of one tree against different versions of the
+             same distribution: maddi-intellij compiles against IntelliJ 2025.3, maddi-intellij-j2k against 2026.2.3,
+             both through '.../idea-<version>/plugins/Kotlin/lib/kotlin-plugin.jar'. Mapped onto the first jar of
+             that name, the second set was parsed against the other version: 'JavaToKotlinActionHandler', absent
+             from 2025.3, did not resolve, and J2kStarter was dropped on every load. The first jar keeps the plain
+             name (names are identities); a later one is named by the shortest path tail that tells it apart.
+             */
+            name = distinguishingName(part, classPath);
+            LOGGER.info("Name clash: {} vs {}; the second is library '{}'", uri, inMap.uri(), name);
         }
+        SourceSet sourceSet = new SourceSetImpl.Builder()
+                .setName(name)
+                .setSourceDirectories(List.of())
+                .setUri(uri)
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .setModule(moduleJarNames.contains(lastPart))
+                .build();
+        classPath.put(name, sourceSet);
+        sourceSetsByPath.put(part, sourceSet);
+        LOGGER.info("Create jar: {} -> {}", name, destination);
+    }
+
+    /*
+     The shortest tail of 'part' that differs from the same tail of every library jar of that file name, so it names
+     what tells them apart: 'idea-2026.2.3/plugins/Kotlin/lib/kotlin-plugin.jar'. No machine-specific prefix, as long
+     as the jars differ below it.
+     */
+    private static String distinguishingName(String part, Map<String, SourceSet> classPath) {
+        String quoted = Pattern.quote(SEPARATOR);
+        String[] components = part.split(quoted);
+        String leaf = components[components.length - 1];
+        List<String[]> others = classPath.values().stream()
+                .map(s -> s.uri().getPath())
+                .filter(p -> p != null && p.endsWith(SEPARATOR + leaf) && !p.equals(part))
+                .map(p -> p.split(quoted)).toList();
+        for (int k = 2; k <= components.length; k++) {
+            String tail = tail(components, k);
+            int kk = k;
+            if (!tail.isEmpty() && !classPath.containsKey(tail)
+                && others.stream().noneMatch(o -> o.length >= kk && tail.equals(tail(o, kk)))) {
+                return tail;
+            }
+        }
+        return part;
+    }
+
+    private static String tail(String[] components, int k) {
+        return String.join("/", Arrays.copyOfRange(components, components.length - k, components.length));
     }
 
     private static final Set<String> TEST_NAMES = Set.of("test", "test-classes", "testFixtures", "test-annotations",
