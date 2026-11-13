@@ -47,7 +47,7 @@ public class TestExpressionComparatorScope {
         Expression e1 = rt.newVariableExpression(rt.newLocalVariable("p", rt.intParameterizedType()));
         Expression e2 = rt.newVariableExpression(rt.newLocalVariable("q", rt.intParameterizedType()));
         int outside = ExpressionComparator.SINGLETON.compare(e1, e2);
-        assertFalse(ExpressionComparator.hasThreadMemo(), "no memo outside an operation");
+        assertFalse(ExpressionComparator.hasThreadMemo(), "no scoped memo outside an operation");
         EvalBudget.enter();
         try {
             assertEquals(Integer.signum(outside), Integer.signum(ExpressionComparator.SINGLETON.compare(e1, e2)));
@@ -61,7 +61,25 @@ public class TestExpressionComparatorScope {
     @DisplayName("after the operation, nothing of the compared model is reachable from the thread")
     @Test
     public void noLeak() throws InterruptedException {
-        WeakReference<Expression> operand = compareInFreshModel();
+        assertCollected(compareInFreshModel());
+    }
+
+    @DisplayName("a comparison outside any operation, through the weakly held memo, does not keep its model either")
+    @Test
+    public void noLeakOutside() throws InterruptedException {
+        assertCollected(compareOutsideInFreshModel());
+    }
+
+    private static WeakReference<Expression> compareOutsideInFreshModel() {
+        Runtime rt = new RuntimeImpl();
+        Expression p = rt.newVariableExpression(rt.newLocalVariable("p", rt.intParameterizedType()));
+        Expression q = rt.newVariableExpression(rt.newLocalVariable("q", rt.intParameterizedType()));
+        ExpressionComparator.SINGLETON.compare(p, q);
+        ExpressionComparator.SINGLETON.compare(q, p);
+        return new WeakReference<>(p);
+    }
+
+    private static void assertCollected(WeakReference<Expression> operand) throws InterruptedException {
         for (int attempt = 0; attempt < 50 && operand.get() != null; attempt++) {
             System.gc();
             Thread.sleep(20);
