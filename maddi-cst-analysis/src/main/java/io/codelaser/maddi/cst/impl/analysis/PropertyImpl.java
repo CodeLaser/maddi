@@ -151,6 +151,13 @@ public class PropertyImpl implements Property {
     public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
     /**
+     * {@code @Fresh}: every object the method returns was created during the call (or is {@code null}), and nothing
+     * outside the call holds it when the method returns. A call through the method may dispatch to an override, so
+     * the verdict holds for every implementation. Written by the ownership pass (maddi-mod
+     * {@code OwnershipPass}, docs/roadmap/ownership.md), only when it runs; absent means not computed.
+     */
+    public static final Property FRESH_METHOD = new PropertyImpl("freshMethod");
+    /**
      * The nullability of the return value, and of each type argument (maddi-mod docs/design/nullability.md B2):
      * from a null annotation (a contract: maddi's {@code @NotNull}/{@code @Nullable}, Lombok's {@code @NonNull}),
      * a shallow default (primitive, fluent, inherited from an overridden method), or the nullability pass.
@@ -213,6 +220,14 @@ public class PropertyImpl implements Property {
 
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
+    /**
+     * {@code @Borrowed}: nothing that outlives the call holds the argument's object afterwards; the method may read and
+     * modify it, and keep its contents ({@code list.addAll(p)} borrows {@code p}). Unlike independence, sharing an
+     * immutable object counts: a stored {@code String} is not borrowed. A call through the method may dispatch to an
+     * override, so the verdict holds for every implementation. Written by the ownership pass (maddi-mod
+     * {@code OwnershipPass}, docs/roadmap/ownership.md), only when it runs; absent means not computed.
+     */
+    public static final Property BORROWED_PARAMETER = new PropertyImpl("borrowedParameter");
     /**
      * The structural twin of {@link #UNMODIFIED_PARAMETER}, see {@link #STRUCTURALLY_NON_MODIFYING_METHOD}: the
      * argument's object is not modified by the method, its elements may be. {@code Collection<Query> queries}, read
@@ -279,6 +294,19 @@ public class PropertyImpl implements Property {
     public static final Property IMMUTABLE_FIELD = new PropertyImpl("immutableField"
             , ValueImpl.ImmutableImpl.MUTABLE);
     public static final Property CONTAINER_FIELD = new PropertyImpl("containerField");
+    /**
+     * {@code @Owned}: the object the field holds can only be reached through the object holding the field, so it dies
+     * with it. Every value assigned to the field is created for it (or null), nothing outside the owner holds it, and
+     * the field is private. Written by the ownership pass (maddi-mod {@code OwnershipPass},
+     * docs/roadmap/ownership.md), only when it runs; absent means not computed. See {@link #SHARED_IMMUTABLE_FIELD}.
+     */
+    public static final Property OWNED_FIELD = new PropertyImpl("ownedField");
+    /**
+     * Not {@link #OWNED_FIELD} only because its object, which is immutable, is also held elsewhere: several holders,
+     * nobody modifies it, and no cycle is possible (Rust's {@code Rc}). Written by the ownership pass, only when it
+     * runs.
+     */
+    public static final Property SHARED_IMMUTABLE_FIELD = new PropertyImpl("sharedImmutableField");
     public static final Property INDEPENDENT_FIELD = new PropertyImpl("independentField",
             ValueImpl.IndependentImpl.DEPENDENT);
     //public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);

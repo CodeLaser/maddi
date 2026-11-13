@@ -40,6 +40,7 @@ import java.util.stream.Stream;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Fresh;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
@@ -2056,7 +2057,7 @@ public class JavaLang {
         IntStream codePoints() { return null; }
 
         //@Independent[O] @NotModified[T]
-        char [] toCharArray() { return null; }
+        @Fresh char [] toCharArray() { return null; }
 
         //@NotModified[T]
         static String format(@NotNull String format, @NotNull(nullableArguments = 0) @NotModified /*@Independent[T]*/ Object ... args) { return null; }

@@ -365,11 +365,11 @@ public class JavaUtil {
 
         //override from java.lang.Object
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
-        protected Object clone() { return null; }
+        @Fresh protected Object clone() { return null; }
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
+        @Fresh @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
@@ -937,73 +937,73 @@ public class JavaUtil {
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @Nullable Object val) { }
 
         //@Independent[O] @NotModified[T]
-        @NotNull(nullableArguments = 0) static <T> T [] copyOf(@NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified T [] original, int newLength) {
+        @Fresh @NotNull(nullableArguments = 0) static <T> T [] copyOf(@NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified T [] original, int newLength) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        @NotNull(nullableArguments = 0) static <T, U> T [] copyOf(
+        @Fresh @NotNull(nullableArguments = 0) static <T, U> T [] copyOf(
             @NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified U [] original,
             int newLength,
             @NotNull Class<? extends T []> newType) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static byte [] copyOf(/*@Independent[M]*/ @NotNull @NotModified byte [] original, int newLength) { return null; }
+        @Fresh static byte [] copyOf(/*@Independent[M]*/ @NotNull @NotModified byte [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static short [] copyOf(/*@Independent[M]*/ @NotNull @NotModified short [] original, int newLength) { return null; }
+        @Fresh static short [] copyOf(/*@Independent[M]*/ @NotNull @NotModified short [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static int [] copyOf(/*@Independent[M]*/ @NotNull @NotModified int [] original, int newLength) { return null; }
+        @Fresh static int [] copyOf(/*@Independent[M]*/ @NotNull @NotModified int [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static long [] copyOf(/*@Independent[M]*/ @NotNull @NotModified long [] original, int newLength) { return null; }
+        @Fresh static long [] copyOf(/*@Independent[M]*/ @NotNull @NotModified long [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static char [] copyOf(/*@Independent[M]*/ @NotNull @NotModified char [] original, int newLength) { return null; }
+        @Fresh static char [] copyOf(/*@Independent[M]*/ @NotNull @NotModified char [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static float [] copyOf(/*@Independent[M]*/ @NotNull @NotModified float [] original, int newLength) { return null; }
+        @Fresh static float [] copyOf(/*@Independent[M]*/ @NotNull @NotModified float [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static double [] copyOf(/*@Independent[M]*/ @NotNull @NotModified double [] original, int newLength) { return null; }
+        @Fresh static double [] copyOf(/*@Independent[M]*/ @NotNull @NotModified double [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static boolean [] copyOf(/*@Independent[M]*/ @NotNull @NotModified boolean [] original, int newLength) { return null; }
+        @Fresh static boolean [] copyOf(/*@Independent[M]*/ @NotNull @NotModified boolean [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        @NotNull(nullableArguments = 0) static <T> T [] copyOfRange(/*@Independent[M]*/ @NotNull(nullableArguments = 0) @NotModified T [] original, int from, int to) { return null; }
+        @Fresh @NotNull(nullableArguments = 0) static <T> T [] copyOfRange(/*@Independent[M]*/ @NotNull(nullableArguments = 0) @NotModified T [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        @NotNull(nullableArguments = 0) static <T, U> T [] copyOfRange(
+        @Fresh @NotNull(nullableArguments = 0) static <T, U> T [] copyOfRange(
             @NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified U [] original,
             int from,
             int to,
             @NotNull Class<? extends T []> newType) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static byte [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified byte [] original, int from, int to) { return null; }
+        @Fresh static byte [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified byte [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static short [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified short [] original, int from, int to) { return null; }
+        @Fresh static short [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified short [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static int [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified int [] original, int from, int to) { return null; }
+        @Fresh static int [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified int [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static long [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified long [] original, int from, int to) { return null; }
+        @Fresh static long [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified long [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static char [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified char [] original, int from, int to) { return null; }
+        @Fresh static char [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified char [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static float [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified float [] original, int from, int to) { return null; }
+        @Fresh static float [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified float [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static double [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified double [] original, int from, int to) { return null; }
+        @Fresh static double [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified double [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static boolean [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified boolean [] original, int from, int to) {
+        @Fresh static boolean [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified boolean [] original, int from, int to) {
             return null;
         }
 
@@ -1616,7 +1616,7 @@ public class JavaUtil {
         //override has frequency 3
         @NotNull(nullableArguments = 0) @Independent(hcReturnValue = true)
         @NotModified
-        Object [] toArray() { return null; }
+        @Fresh Object [] toArray() { return null; }
 
         //override has frequency 3
         @Independent(hcReturnValue = true)
@@ -3369,7 +3369,7 @@ public class JavaUtil {
         }
 
         @NotNull @NotModified @Independent
-        static <K, V> Map.Entry<K, V> entry(
+        @Fresh static <K, V> Map.Entry<K, V> entry(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K k,
             /*@Independent(hc=true)[T] @NotModified[O]*/ V v) { return null; }
 
