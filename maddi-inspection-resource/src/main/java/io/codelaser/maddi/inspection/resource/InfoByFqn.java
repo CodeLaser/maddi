@@ -80,7 +80,8 @@ public class InfoByFqn {
 
     public synchronized void removeAllSources() {
         singleTypeByFqn.values().removeIf(InfoByFqn::isSourceType);
-        multiTypeByFqn.values().forEach(list -> list.removeIf(InfoByFqn::isSourceType));
+        // rebuild: the lists in this map are immutable (List.of/Stream.toList), so removeIf would throw
+        multiTypeByFqn.replaceAll((fqn, list) -> list.stream().filter(ti -> !isSourceType(ti)).toList());
         multiTypeByFqn.values().removeIf(List::isEmpty);
         classScannerSetupDone.removeIf(InfoByFqn::isSourceType);
     }
