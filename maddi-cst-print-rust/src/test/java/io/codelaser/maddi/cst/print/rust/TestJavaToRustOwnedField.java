@@ -200,6 +200,7 @@ public class TestJavaToRustOwnedField extends CommonJavaToRust {
                         return b.add("[").add(s).add("]");
                     }
                     public Buf quote(String s) { return new Buf().add("'").add(s).add("'"); }
+                    public Buf paren(String s) { return quote(s).add(")"); }
                 }
             }
             """;
@@ -214,17 +215,20 @@ public class TestJavaToRustOwnedField extends CommonJavaToRust {
         modifying(buf, "add");
         fluent(buf, "add");
         nonModifying(buf, "length");
-        nonModifying(printer, "print", "quote");
+        nonModifying(printer, "print", "quote", "paren");
         independentResult(printer, "print");
         independentResult(printer, "quote");
         method(printer, "print").analysis().set(PropertyImpl.FRESH_METHOD, ValueImpl.BoolImpl.TRUE);
         method(printer, "quote").analysis().set(PropertyImpl.FRESH_METHOD, ValueImpl.BoolImpl.TRUE);
+        independentResult(printer, "paren");
+        method(printer, "paren").analysis().set(PropertyImpl.FRESH_METHOD, ValueImpl.BoolImpl.TRUE);
         RustTranslator.Result result = translate(types);
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         String rust = module("a.b");
         contains(rust, "return { b.add(\"[\".to_string()).add(s).add(\"]\".to_string()); b };");
         contains(rust,
                 "return { let mut __r = BufsBuf::new(); __r.add(\"'\".to_string()).add(s).add(\"'\".to_string()); __r };");
+        contains(rust, "return { let mut __r = self.quote(s); __r.add(\")\".to_string()); __r };");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

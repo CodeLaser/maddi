@@ -247,8 +247,8 @@ final class RustBodyPrinter {
     /**
      * {@code return res.append('[').append(index).append(']');} in a method whose result is owned (a FRESH_METHOD, or
      * built with 'new'): a fluent call hands back a borrow of its receiver, not the object. The calls run, then the
-     * object is the result: {@code { res.append_2('[')...; res }}; on a new object, bound first as in
-     * {@link #fluentOnNew}. {@code null} for any other expression.
+     * object is the result: {@code { res.append_2('[')...; res }}; on a new object or another call's owned result,
+     * bound first as in {@link #fluentOnNew}. {@code null} for any other expression.
      */
     private String fluentChainResult(Expression result) {
         Expression e = CstQueries.unwrap(result);
@@ -262,7 +262,9 @@ final class RustBodyPrinter {
             && locals.get(lv) == Held.VALUE && !Boolean.TRUE.equals(nullableLocals.get(lv))) {
             return "{ " + expression(result).text + "; " + RustNames.snake(lv.simpleName()) + " }";
         }
-        if (e instanceof ConstructorCall) {
+        // a new object, or the owned result of another call ('operand.toJava(..).enclose("(", ")")')
+        if (e instanceof ConstructorCall
+            || e instanceof MethodCall mc && mc.methodInfo() != null && RustFacts.ownedResult(mc.methodInfo())) {
             String root = expression(e).text;
             String all = expression(result).text;
             if (!all.startsWith(root)) return null;
