@@ -47,6 +47,9 @@ import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
  * objects can be wired to each other between locals, where no verdict sees it. A closed hierarchy
  * (RustHierarchies) is shared as a whole, through its root, as its members print as the root.
  * <p>
+ * A field the ownership pass calls owned is not a holder: a class held only in owned fields is not shared, its
+ * objects moved into the one field that holds each.
+ * <p>
  * Kept is read from the stored verdict itself, not from {@link RustFacts#passing}: a parameter without a verdict is
  * owned there too, and that is not evidence of sharing. Gate {@code NORUSTSHARED} switches the representation off.
  */
@@ -226,7 +229,14 @@ final class RustShared {
     private static void visit(TypeInfo type, RustFacts facts, Set<TypeInfo> kept, Set<TypeInfo> held,
                               Set<TypeInfo> linkedGraph) {
         for (FieldInfo f : type.fields()) {
-            if (!f.isStatic()) heldIn(f.type(), facts, held);
+            if (f.isStatic()) continue;
+            // an owned field (maddi-mod docs/roadmap/ownership.md) holds the only reference to its object: it is not
+            // a second holder; a collection's elements are not judged, so they are still held
+            if (owned(f)) {
+                heldInElements(f.type(), facts, held);
+            } else {
+                heldIn(f.type(), facts, held);
+            }
         }
         if (linkedGraph(type, facts)) linkedGraph.add(candidate(type, facts));
         for (MethodInfo m : type.constructorsAndMethods()) {
@@ -247,6 +257,23 @@ final class RustShared {
             for (ParameterizedType p : type.parameters()) heldIn(p, facts, held);
         }
     }
+
+    private static void heldInElements(ParameterizedType type, RustFacts facts, Set<TypeInfo> held) {
+        if (type.typeInfo() != null && (type.typeInfo().compilationUnit().externalLibrary() || collection(type.typeInfo()))) {
+            for (ParameterizedType p : type.parameters()) heldIn(p, facts, held);
+        }
+    }
+
+    /**
+     * The ownership pass's {@code OWNED_FIELD} (maddi-mod docs/roadmap/ownership.md, run with {@code OWNERSHIP}): the
+     * field's object is reachable only through the object holding the field, so the field holds it as a plain value,
+     * moved in. Gate {@code NORUSTOWNED} ignores the verdict.
+     */
+    static boolean owned(FieldInfo f) {
+        return !OWNED_OFF && f.analysis().getOrDefault(PropertyImpl.OWNED_FIELD, ValueImpl.BoolImpl.FALSE).isTrue();
+    }
+
+    static final boolean OWNED_OFF = System.getenv("NORUSTOWNED") != null;
 
     // a source class extending a JDK collection
     private static boolean collection(TypeInfo ti) {
@@ -270,7 +297,7 @@ final class RustShared {
         for (FieldInfo f : t.fields()) {
             if (f.isStatic() || f.isSynthetic() || !f.isFinal() || f.initializer() != null && !f.initializer().isEmpty()
                 || RustTypes.isCopy(f.type()) || RustTypes.isString(f.type()) || f.type().isTypeParameter()
-                || RustTypes.isFunctional(f.type()) || candidate(f.type(), facts) != null) {
+                || RustTypes.isFunctional(f.type()) || candidate(f.type(), facts) != null || owned(f)) {
                 continue;
             }
             if (constructors.stream().allMatch(c -> {
