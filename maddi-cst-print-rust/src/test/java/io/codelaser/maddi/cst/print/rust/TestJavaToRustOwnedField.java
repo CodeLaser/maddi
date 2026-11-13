@@ -231,4 +231,59 @@ public class TestJavaToRustOwnedField extends CommonJavaToRust {
         contains(rust, "return { let mut __r = self.quote(s); __r.add(\")\".to_string()); __r };");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String TREE = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Tree {
+                public static class Leaf {
+                    private int n;
+                    public void inc() { n++; }
+                }
+                // a list of leaves, each created for it, none leaving
+                public static class Branch {
+                    private final List<Leaf> leaves = new ArrayList<>();
+                    private void add(Leaf leaf) { leaves.add(leaf); }
+                    public void grow() { add(new Leaf()); }
+                    public void touch() { for (Leaf l : leaves) l.inc(); }
+                    public int size() { return leaves.size(); }
+                }
+            }
+            """;
+
+    private List<TypeInfo> treeTypes(boolean elementsOwned) {
+        List<TypeInfo> types = parse(TREE);
+        TypeInfo tree = types.getFirst();
+        TypeInfo leaf = tree.findSubType("Leaf");
+        TypeInfo branch = tree.findSubType("Branch");
+        modifying(leaf, "inc");
+        modifying(branch, "add", "grow", "touch");
+        nonModifying(branch, "size");
+        kept(method(branch, "add").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        var leaves = branch.getFieldByName("leaves", true).analysis();
+        leaves.set(PropertyImpl.OWNED_FIELD, ValueImpl.BoolImpl.TRUE);
+        if (elementsOwned) leaves.set(PropertyImpl.OWNED_ELEMENTS_FIELD, ValueImpl.BoolImpl.TRUE);
+        return types;
+    }
+
+    @DisplayName("an owned list whose elements are not owned: the elements are Shared handles")
+    @Test
+    public void elementsNotOwned() throws Exception {
+        translate(treeTypes(false));
+        contains(module("a.b"), "leaves: Vec<crate::jrt::Shared<TreeLeaf>>,");
+    }
+
+    @DisplayName("OWNED_ELEMENTS_FIELD: a Vec of plain values, each moved in")
+    @Test
+    public void elementsOwned() throws Exception {
+        RustTranslator.Result result = translate(treeTypes(true));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "leaves: Vec<TreeLeaf>,");
+        contains(rust, "fn add(&mut self, leaf: TreeLeaf) {");
+        assertFalse(rust.contains("Shared"), rust);
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

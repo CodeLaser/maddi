@@ -307,6 +307,14 @@ public class PropertyImpl implements Property {
      * runs.
      */
     public static final Property SHARED_IMMUTABLE_FIELD = new PropertyImpl("sharedImmutableField");
+    /**
+     * The elements of an {@link #OWNED_FIELD} collection or map are owned too: each element's object is reachable only
+     * through the collection, so only through the object holding the field. Every element arrives created for it (or
+     * handed over by every caller), and none leaves: not returned, not shared with another collection, not kept by a
+     * callee. Immutable elements (a map's {@code String} keys) are not judged. Written by the ownership pass (maddi-mod
+     * {@code OwnershipPass}, docs/roadmap/ownership.md), only when it runs; absent means not computed.
+     */
+    public static final Property OWNED_ELEMENTS_FIELD = new PropertyImpl("ownedElementsField");
     public static final Property INDEPENDENT_FIELD = new PropertyImpl("independentField",
             ValueImpl.IndependentImpl.DEPENDENT);
     //public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);
