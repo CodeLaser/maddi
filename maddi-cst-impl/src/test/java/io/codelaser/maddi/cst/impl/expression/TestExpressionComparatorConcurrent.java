@@ -31,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalBudget;
 import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
 
 /**
@@ -41,7 +42,7 @@ import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
  * <p>
  * The test hammers the singleton from 16 threads over more distinct expressions than the cache holds (so it
  * clears while others read), bounded by a preemptive timeout: the corrupted map hangs, a correct one returns
- * the single-threaded answers.
+ * the single-threaded answers. The memo is scoped to an evaluation operation, so each thread works inside operations.
  */
 public class TestExpressionComparatorConcurrent extends CommonTest {
 
@@ -69,6 +70,12 @@ public class TestExpressionComparatorConcurrent extends CommonTest {
                         int p = seed;
                         int q = (seed * 31) % n;
                         for (int round = 0; round < 200_000; round++) {
+                            // the memo lives inside an operation only: open one per 5,000 rounds, so that it fills,
+                            // clears at 1,000 and is dropped at the operation's end while the other threads read
+                            if (round % 5_000 == 0) {
+                                if (round > 0) EvalBudget.exit();
+                                EvalBudget.enter();
+                            }
                             p = (p * 1103515245 + 12345) & 0x7fffffff;
                             q = (q * 214013 + 2531011) & 0x7fffffff;
                             int pi = p % n;
@@ -76,6 +83,7 @@ public class TestExpressionComparatorConcurrent extends CommonTest {
                             int c = Integer.signum(ExpressionComparator.SINGLETON.compare(expressions.get(pi), expressions.get(qi)));
                             if (c != expected[pi][qi]) disagreements++;
                         }
+                        EvalBudget.exit();
                         return disagreements;
                     }));
                 }

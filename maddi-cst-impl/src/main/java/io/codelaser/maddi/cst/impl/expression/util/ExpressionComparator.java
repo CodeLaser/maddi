@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.impl.expression.util;
 
 import java.util.Comparator;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalBudget;
 import java.util.IdentityHashMap;
 
 import org.slf4j.Logger;
@@ -116,14 +117,42 @@ public class ExpressionComparator implements Comparator<Expression> {
      concurrent computeIfAbsent: a corrupted table makes get() loop forever, and 113 duplication-detection
      workers were found spinning in it (all in IdentityHashMap.get, one in put) after an hour. The cache is
      therefore per thread; it is a memoization, so nothing is lost by not sharing it.
+
+     It is also scoped to one top-level evaluation (EvalBudget's operation), as EvalNegation's memo is, and removed
+     from the thread when that operation ends. Unscoped, it was cleared only when full, so every thread that had
+     compared expressions kept up to 1,000 of them, and through them the model they belong to, alive after the
+     model was dropped: 150 MB (3,394 types) on retrofit after an idioms run, on each of a server's long-lived
+     threads. Outside an operation there is no memo: the comparison is computed directly.
      */
+    private static final class Scoped {
+        @IgnoreModifications
+        int operationId = -1;
+        final IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>> map = new IdentityHashMap<>();
+    }
+
     @IgnoreModifications
-    private static final ThreadLocal<IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>>> CACHE
-            = ThreadLocal.withInitial(IdentityHashMap::new);
+    private static final ThreadLocal<Scoped> CACHE = new ThreadLocal<>();
+
+    static {
+        EvalBudget.onEndOfOperation(CACHE::remove);
+    }
+
+    /** For tests: does this thread hold a memo now? */
+    public static boolean hasThreadMemo() {
+        return CACHE.get() != null;
+    }
 
     @Override
     public int compare(Expression v1, Expression v2) {
-        IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>> cache = CACHE.get();
+        int operationId = EvalBudget.operationId();
+        if (operationId < 0) return compareNotCached(v1, v2);
+        Scoped scoped = CACHE.get();
+        if (scoped == null || scoped.operationId != operationId) {
+            scoped = new Scoped();
+            scoped.operationId = operationId;
+            CACHE.set(scoped);
+        }
+        IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>> cache = scoped.map;
         if (cache.size() > 1_000) cache.clear();
         IdentityHashMap<Expression, Integer> map = cache.computeIfAbsent(v1, e -> new IdentityHashMap<>());
         return map.computeIfAbsent(v2, e -> compareNotCached(v1, v2));
