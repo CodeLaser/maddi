@@ -122,7 +122,12 @@ public class ExpressionComparator implements Comparator<Expression> {
      from the thread when that operation ends. Unscoped, it was cleared only when full, so every thread that had
      compared expressions kept up to 1,000 of them, and through them the model they belong to, alive after the
      model was dropped: 150 MB (3,394 types) on retrofit after an idioms run, on each of a server's long-lived
-     threads. Outside an operation there is no memo: the comparison is computed directly.
+     threads.
+
+     Outside an operation the analyzer compares a great deal too (without any memo there, fernflower and timefold
+     took 40% longer). There the memo is held through a WeakReference: it serves the thread while it works, and
+     the next GC drops it, so it cannot keep a dropped model alive either. Gate NOSCOPEDCMPMEMO restores the old,
+     unscoped memo, for a timing A/B.
      */
     private static final class Scoped {
         @IgnoreModifications
@@ -132,6 +137,17 @@ public class ExpressionComparator implements Comparator<Expression> {
 
     @IgnoreModifications
     private static final ThreadLocal<Scoped> CACHE = new ThreadLocal<>();
+
+    @IgnoreModifications
+    private static final ThreadLocal<java.lang.ref.WeakReference<IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>>>>
+            OUTSIDE = new ThreadLocal<>();
+
+    @IgnoreModifications
+    private static final ThreadLocal<IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>>> UNSCOPED
+            = ThreadLocal.withInitial(IdentityHashMap::new);
+
+    private static final io.codelaser.maddi.cst.impl.expression.eval.EvalSwitches.Gate SCOPED_OFF =
+            io.codelaser.maddi.cst.impl.expression.eval.EvalSwitches.gate("NOSCOPEDCMPMEMO");
 
     static {
         EvalBudget.onEndOfOperation(CACHE::remove);
@@ -144,15 +160,26 @@ public class ExpressionComparator implements Comparator<Expression> {
 
     @Override
     public int compare(Expression v1, Expression v2) {
+        IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>> cache;
         int operationId = EvalBudget.operationId();
-        if (operationId < 0) return compareNotCached(v1, v2);
-        Scoped scoped = CACHE.get();
-        if (scoped == null || scoped.operationId != operationId) {
-            scoped = new Scoped();
-            scoped.operationId = operationId;
-            CACHE.set(scoped);
+        if (SCOPED_OFF.get()) {
+            cache = UNSCOPED.get();
+        } else if (operationId < 0) {
+            var ref = OUTSIDE.get();
+            cache = ref == null ? null : ref.get();
+            if (cache == null) {
+                cache = new IdentityHashMap<>();
+                OUTSIDE.set(new java.lang.ref.WeakReference<>(cache));
+            }
+        } else {
+            Scoped scoped = CACHE.get();
+            if (scoped == null || scoped.operationId != operationId) {
+                scoped = new Scoped();
+                scoped.operationId = operationId;
+                CACHE.set(scoped);
+            }
+            cache = scoped.map;
         }
-        IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>> cache = scoped.map;
         if (cache.size() > 1_000) cache.clear();
         IdentityHashMap<Expression, Integer> map = cache.computeIfAbsent(v1, e -> new IdentityHashMap<>());
         return map.computeIfAbsent(v2, e -> compareNotCached(v1, v2));
