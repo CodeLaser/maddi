@@ -2710,10 +2710,11 @@ public class JavaLang {
         @IgnoreModifications
         static long currentTimeMillis() { return 0L; }
         static long nanoTime() { return 0L; }
+        // dest (object1) is written into: @Modified, as Array.set's array (CodeLaser/maddi#205)
         static void arraycopy(
             /*@Immutable(hc=true)[T] @Independent[T]*/ @Independent(hcParameters = { 2 }) @NotModified @NotNull Object object,
             int i,
-            /*@Immutable(hc=true)[T] @NotModified[T]*/ @NotNull Object object1,
+            /*@Immutable(hc=true)[T] @NotModified[T]*/ @NotNull @Modified Object object1,
             int i1,
             int i2) { }
 
