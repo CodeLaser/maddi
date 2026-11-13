@@ -409,6 +409,13 @@ public class JavaNioFile {
         @Modified WatchKey register(WatchService watchService, WatchEvent.Kind<?> ... kind) { return null; }
     }
 
+    //public interface PathMatcher
+    class PathMatcher$ {
+        // a query: the JDK's glob and regex matchers only read their pattern. A contract on every implementation,
+        // so that 'includes.stream().anyMatch(m -> m.matches(path))' leaves 'includes' unmodified (maddi-mod#115)
+        @NotModified boolean matches(@NotNull Path path) { return false; }
+    }
+
     //public java.nio.file.DirectoryIteratorException (shadow created for its nullability, generated)
     class DirectoryIteratorException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
