@@ -19,7 +19,7 @@ The documents are grouped by what they are for:
 | [`defects/`](#defects) | Analyses of defects that are reproduced but not fixed. | When fixed — a regression test then carries the record. |
 | [`status/`](#status) | State-of-the-union documents, updated as work progresses. | When superseded. |
 | [`project/`](#project) | Repository, release and process notes. | Rarely. |
-| [`related-work/`](#related-work) | How other languages and tools handle what maddi analyses, and what (if anything) to borrow. | When the comparison is superseded. |
+| [`related-work/`](#related-work) (in maddi-mod) | How other languages and tools handle what maddi analyses, and what (if anything) to borrow. | When the comparison is superseded. |
 
 Each entry below is labeled:
 
@@ -134,7 +134,7 @@ The state of the Eclipse plugin is in [`maddi-eclipse/README.md`](../maddi-eclip
 
 | Document | Status | What it covers |
 |---|---|---|
-| [jule-memory-model.md](related-work/jule-memory-model.md) | note | Jule's memory model (reference counting, atomic only if `co` is used, shallow immutability by default) and its `mut` rules in the compiler's `sema`. No algorithms like ours: it checks declared mutability, by type and inside one function. The rules map onto ours — the copy rule is independence decided by type, interior mutability is `@IgnoreModifications`, a trait implementation may drop `mut` — and its optimiser takes "is this parameter modified" from the declaration. |
+| [jule-memory-model.md](https://github.com/CodeLaser/maddi-mod/blob/main/docs/related-work/jule-memory-model.md) | note | Jule's memory model (reference counting, atomic only if `co` is used, shallow immutability by default) and its `mut` rules in the compiler's `sema`. No algorithms like ours: it checks declared mutability, by type and inside one function. The rules map onto ours — the copy rule is independence decided by type, interior mutability is `@IgnoreModifications`, a trait implementation may drop `mut` — and its optimiser takes "is this parameter modified" from the declaration. |
 
 ## Removed
 
