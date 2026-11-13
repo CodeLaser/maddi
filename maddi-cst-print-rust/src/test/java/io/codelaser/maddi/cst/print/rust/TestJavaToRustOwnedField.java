@@ -123,4 +123,64 @@ public class TestJavaToRustOwnedField extends CommonJavaToRust {
         assertFalse(rust.contains("'a"), rust);
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String BAG = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Bags {
+                public static class Item {
+                    private int n;
+                    public void inc() { n++; }
+                }
+                public static class Bag {
+                    private final List<Item> items = new ArrayList<>();
+                    public void add(Item i) { items.add(i); }
+                    public int size() { return items.size(); }
+                }
+                public static class Shelf {
+                    private final List<Item> all = new ArrayList<>();
+                    // a new bag, through a local, holding the shelf's items: a dependent result, yet fresh
+                    public Bag collect() {
+                        Bag b = new Bag();
+                        for (Item i : all) b.add(i);
+                        return b;
+                    }
+                }
+            }
+            """;
+
+    private List<TypeInfo> bagTypes(boolean fresh) {
+        List<TypeInfo> types = parse(BAG);
+        TypeInfo bags = types.getFirst();
+        TypeInfo item = bags.findSubType("Item");
+        TypeInfo bag = bags.findSubType("Bag");
+        TypeInfo shelf = bags.findSubType("Shelf");
+        modifying(item, "inc");
+        modifying(bag, "add");
+        nonModifying(bag, "size");
+        nonModifying(shelf, "collect");
+        kept(method(bag, "add").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        dependentResult(shelf, "collect");
+        if (fresh) method(shelf, "collect").analysis().set(PropertyImpl.FRESH_METHOD, ValueImpl.BoolImpl.TRUE);
+        return types;
+    }
+
+    @DisplayName("without FRESH_METHOD: a dependent result through a local is a borrow")
+    @Test
+    public void notFresh() throws Exception {
+        translate(bagTypes(false));
+        contains(module("a.b"), "pub fn collect(&self) -> &BagsBag {");
+    }
+
+    @DisplayName("FRESH_METHOD: the new object is returned by value")
+    @Test
+    public void fresh() throws Exception {
+        RustTranslator.Result result = translate(bagTypes(true));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "pub fn collect(&self) -> BagsBag {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
