@@ -125,6 +125,11 @@ public class EvalNegation {
     @IgnoreModifications
     private static final ThreadLocal<ScopedMemo> SCOPED = ThreadLocal.withInitial(ScopedMemo::new);
 
+    static {
+        // gone when the operation ends, not when the next one starts: the memo must not outlive its model
+        EvalBudget.onEndOfOperation(SCOPED::remove);
+    }
+
     /** The memoized negation of {@code v}, from either memo, or null: a lookup, never a computation. */
     public Expression memoized(Expression v) {
         if (v.complexity() < CACHE_MIN_COMPLEXITY) return null;
