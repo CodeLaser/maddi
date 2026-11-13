@@ -183,4 +183,48 @@ public class TestJavaToRustOwnedField extends CommonJavaToRust {
         contains(rust, "pub fn collect(&self) -> BagsBag {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String BUF = """
+            package a.b;
+            public class Bufs {
+                public static class Buf {
+                    private final StringBuilder sb = new StringBuilder();
+                    public Buf add(String s) { sb.append(s); return this; }
+                    public int length() { return sb.length(); }
+                }
+                public static class Printer {
+                    // fernflower's TextBuffer: a fluent chain on a fresh local is the result
+                    public Buf print(String s) {
+                        Buf b = new Buf();
+                        return b.add("[").add(s).add("]");
+                    }
+                    public Buf quote(String s) { return new Buf().add("'").add(s).add("'"); }
+                }
+            }
+            """;
+
+    @DisplayName("an owned result made by a fluent chain: the calls, then the object")
+    @Test
+    public void fluentChainResult() throws Exception {
+        List<TypeInfo> types = parse(BUF);
+        TypeInfo bufs = types.getFirst();
+        TypeInfo buf = bufs.findSubType("Buf");
+        TypeInfo printer = bufs.findSubType("Printer");
+        modifying(buf, "add");
+        fluent(buf, "add");
+        nonModifying(buf, "length");
+        nonModifying(printer, "print", "quote");
+        independentResult(printer, "print");
+        independentResult(printer, "quote");
+        method(printer, "print").analysis().set(PropertyImpl.FRESH_METHOD, ValueImpl.BoolImpl.TRUE);
+        method(printer, "quote").analysis().set(PropertyImpl.FRESH_METHOD, ValueImpl.BoolImpl.TRUE);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "return { b.add(\"[\".to_string()).add(s).add(\"]\".to_string()); b };");
+        contains(rust,
+                "return { let mut __r = BufsBuf::new(); __r.add(\"'\".to_string()).add(s).add(\"'\".to_string()); __r };");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
