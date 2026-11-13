@@ -294,6 +294,19 @@ public class PropertyImpl implements Property {
     public static final Property IMMUTABLE_FIELD = new PropertyImpl("immutableField"
             , ValueImpl.ImmutableImpl.MUTABLE);
     public static final Property CONTAINER_FIELD = new PropertyImpl("containerField");
+    /**
+     * {@code @Owned}: the object the field holds can only be reached through the object holding the field, so it dies
+     * with it. Every value assigned to the field is created for it (or null), nothing outside the owner holds it, and
+     * the field is private. Written by the ownership pass (maddi-mod {@code OwnershipPass},
+     * docs/roadmap/ownership.md), only when it runs; absent means not computed. See {@link #SHARED_IMMUTABLE_FIELD}.
+     */
+    public static final Property OWNED_FIELD = new PropertyImpl("ownedField");
+    /**
+     * Not {@link #OWNED_FIELD} only because its object, which is immutable, is also held elsewhere: several holders,
+     * nobody modifies it, and no cycle is possible (Rust's {@code Rc}). Written by the ownership pass, only when it
+     * runs.
+     */
+    public static final Property SHARED_IMMUTABLE_FIELD = new PropertyImpl("sharedImmutableField");
     public static final Property INDEPENDENT_FIELD = new PropertyImpl("independentField",
             ValueImpl.IndependentImpl.DEPENDENT);
     //public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);
