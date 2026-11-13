@@ -522,7 +522,17 @@ public interface RustFacts extends NullabilityFacts {
     }
 
     private static boolean ownedByConstruction(MethodInfo method) {
-        return returnsNew(method) || newOrExisting(method) || returnedParameter(method) != null;
+        return returnsNew(method) || newOrExisting(method) || returnedParameter(method) != null || freshVerdict(method);
+    }
+
+    /*
+     The ownership pass's FRESH_METHOD (maddi-mod docs/roadmap/ownership.md, gate OWNERSHIP): every object the method
+     returns was created during the call and is held nowhere else, also through locals ('PatternContainer container =
+     new PatternContainer(); ...; return container;'), which returnsNew does not follow. Gate NORUSTOWNED ignores it.
+     */
+    private static boolean freshVerdict(MethodInfo method) {
+        return !RustShared.OWNED_OFF && method.methodBody() != null
+               && method.analysis().getOrDefault(PropertyImpl.FRESH_METHOD, ValueImpl.BoolImpl.FALSE).isTrue();
     }
 
     /** The parameter every return statement of the method returns as it is; {@code null} for any other method. */

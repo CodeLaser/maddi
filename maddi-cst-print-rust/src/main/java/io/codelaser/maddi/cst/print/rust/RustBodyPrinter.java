@@ -244,6 +244,35 @@ final class RustBodyPrinter {
         return pad + "let mut " + name + " = " + root + ";\n" + pad + name + all.substring(root.length()) + ";\n";
     }
 
+    /**
+     * {@code return res.append('[').append(index).append(']');} in a method whose result is owned (a FRESH_METHOD, or
+     * built with 'new'): a fluent call hands back a borrow of its receiver, not the object. The calls run, then the
+     * object is the result: {@code { res.append_2('[')...; res }}; on a new object or another call's owned result,
+     * bound first as in {@link #fluentOnNew}. {@code null} for any other expression.
+     */
+    private String fluentChainResult(Expression result) {
+        Expression e = CstQueries.unwrap(result);
+        boolean fluent = false;
+        while (e instanceof MethodCall mc && mc.object() != null && context.facts.fluent(mc.methodInfo())) {
+            fluent = true;
+            e = CstQueries.unwrap(mc.object());
+        }
+        if (!fluent) return null;
+        if (e instanceof VariableExpression ve && ve.variable() instanceof LocalVariable lv
+            && locals.get(lv) == Held.VALUE && !Boolean.TRUE.equals(nullableLocals.get(lv))) {
+            return "{ " + expression(result).text + "; " + RustNames.snake(lv.simpleName()) + " }";
+        }
+        // a new object, or the owned result of another call ('operand.toJava(..).enclose("(", ")")')
+        if (e instanceof ConstructorCall
+            || e instanceof MethodCall mc && mc.methodInfo() != null && RustFacts.ownedResult(mc.methodInfo())) {
+            String root = expression(e).text;
+            String all = expression(result).text;
+            if (!all.startsWith(root)) return null;
+            return "{ let mut __r = " + root + "; __r" + all.substring(root.length()) + "; __r }";
+        }
+        return null;
+    }
+
     private String local(LocalVariableCreation lvc, LocalVariable lv) {
         String name = RustNames.snake(lv.simpleName());
         boolean nullable = context.method != null
@@ -371,6 +400,10 @@ final class RustBodyPrinter {
         }
         boolean borrows = context.facts.resultBorrowsReceiver(method) && context.facts.receiver(method) != Receiver.NONE
                           || context.facts.resultBorrows(method) != null;
+        if (!borrows && !nullable && !RustTypes.isCopy(method.returnType())) {
+            String chained = fluentChainResult(e);
+            if (chained != null) return chained;
+        }
         Printed value = widen(expression(e), e, method.returnType());
         // what is not translated diverges: '!' is any result type, a borrow too
         if (value.text.startsWith("todo!(") || value.text.startsWith("panic!(")) return value.text;

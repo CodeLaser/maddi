@@ -46,8 +46,8 @@ import io.codelaser.maddi.cst.print.rust.RustTypes.Form;
  * the view does not outlive what it was given, nor sees it modified while it lives (E0502, E0505, E0597).
  * <p>
  * A field is borrowed when it is final, has no initializer, is of a type that is moved rather than copied or cloned,
- * and every constructor assigns it, once, a parameter the analysis calls dependent. Records keep their owned
- * components. Every other dependent parameter is moved in, and the caller's later use is rustc's E0382.
+ * and every constructor assigns it, once, a parameter the analysis calls dependent, unless the ownership pass calls
+ * the field owned (its callers hand the object over: moved in). Records keep their owned components. Every other dependent parameter is moved in, and the caller's later use is rustc's E0382.
  */
 final class RustBorrows {
     static final String LIFETIME = "'a";
@@ -149,7 +149,9 @@ final class RustBorrows {
         for (FieldInfo f : typeInfo.fields()) {
             if (f.isStatic() || f.isSynthetic() || !f.isFinal() || f.initializer() != null && !f.initializer().isEmpty()
                 || RustTypes.isCopy(f.type()) || RustTypes.isString(f.type()) || f.type().isTypeParameter()
-                || RustTypes.isImmutableValue(f.type(), facts) || RustTypes.isFunctional(f.type())) {
+                || RustTypes.isImmutableValue(f.type(), facts) || RustTypes.isFunctional(f.type())
+                // owned: every caller hands its object over, so it is moved in, not borrowed
+                || RustShared.owned(f)) {
                 continue;
             }
             boolean all = true;
