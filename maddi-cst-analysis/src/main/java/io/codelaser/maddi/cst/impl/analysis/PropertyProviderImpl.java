@@ -55,6 +55,7 @@ public class PropertyProviderImpl {
                 FINAL_TYPE,
                 FINALIZER_METHOD,
                 FLUENT_METHOD,
+                FRESH_METHOD,
                 GET_SET_EQUIVALENT,
                 GET_SET_FIELD,
                 IDENTITY_METHOD,

@@ -151,6 +151,13 @@ public class PropertyImpl implements Property {
     public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
     /**
+     * {@code @Fresh}: every object the method returns was created during the call (or is {@code null}), and nothing
+     * outside the call holds it when the method returns. A call through the method may dispatch to an override, so
+     * the verdict holds for every implementation. Written by the ownership pass (maddi-mod
+     * {@code OwnershipPass}, docs/roadmap/ownership.md), only when it runs; absent means not computed.
+     */
+    public static final Property FRESH_METHOD = new PropertyImpl("freshMethod");
+    /**
      * The nullability of the return value, and of each type argument (maddi-mod docs/design/nullability.md B2):
      * from a null annotation (a contract: maddi's {@code @NotNull}/{@code @Nullable}, Lombok's {@code @NonNull}),
      * a shallow default (primitive, fluent, inherited from an overridden method), or the nullability pass.
