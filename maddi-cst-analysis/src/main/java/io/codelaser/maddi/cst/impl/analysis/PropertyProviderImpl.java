@@ -35,6 +35,7 @@ public class PropertyProviderImpl {
                 ALWAYS_ESCAPES,
                 ANALYZER_ERROR,
                 ANNOTATED_API,
+                BORROWED_PARAMETER,
                 ASSUMED_DEFAULTS,
                 COMMUTABLE_METHODS,
                 CONTAINER_FIELD,

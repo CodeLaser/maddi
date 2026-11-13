@@ -221,6 +221,14 @@ public class PropertyImpl implements Property {
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
     /**
+     * {@code @Borrowed}: nothing that outlives the call holds the argument's object afterwards; the method may read and
+     * modify it, and keep its contents ({@code list.addAll(p)} borrows {@code p}). Unlike independence, sharing an
+     * immutable object counts: a stored {@code String} is not borrowed. A call through the method may dispatch to an
+     * override, so the verdict holds for every implementation. Written by the ownership pass (maddi-mod
+     * {@code OwnershipPass}, docs/roadmap/ownership.md), only when it runs; absent means not computed.
+     */
+    public static final Property BORROWED_PARAMETER = new PropertyImpl("borrowedParameter");
+    /**
      * The structural twin of {@link #UNMODIFIED_PARAMETER}, see {@link #STRUCTURALLY_NON_MODIFYING_METHOD}: the
      * argument's object is not modified by the method, its elements may be. {@code Collection<Query> queries}, read
      * with {@code queries.iterator().next()} and handed element by element to a method that modifies them, is
