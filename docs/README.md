@@ -19,6 +19,7 @@ The documents are grouped by what they are for:
 | [`defects/`](#defects) | Analyses of defects that are reproduced but not fixed. | When fixed — a regression test then carries the record. |
 | [`status/`](#status) | State-of-the-union documents, updated as work progresses. | When superseded. |
 | [`project/`](#project) | Repository, release and process notes. | Rarely. |
+| [`related-work/`](#related-work) | How other languages and tools handle what maddi analyses, and what (if anything) to borrow. | When the comparison is superseded. |
 
 Each entry below is labeled:
 
@@ -128,6 +129,12 @@ The state of the Eclipse plugin is in [`maddi-eclipse/README.md`](../maddi-eclip
 | [release-notes-0.9.5.md](project/release-notes-0.9.5.md) | release | 0.9.5: Java → Kotlin and Java → C# translation, the nullability analysis, Kotlin close to parity, JDK 27. |
 | [release-notes-0.9.1.md](project/release-notes-0.9.1.md) | release | 0.9.1: every package renamed `org.e2immu.*` → `io.codelaser.maddi.*`; first release with the build plugins and CLI. |
 | [history-rewrite-2026-08-04.md](project/history-rewrite-2026-08-04.md) | note | Every commit SHA in the repository changed on 2026-08-04: `git filter-repo` removed the customer names from all 2,187 commits and 25 branches, blob contents and messages alike, verified by pickaxe, by decompressing all 13,512 blobs, and over every commit message. Records what it cost — **126 cited SHAs**, all 177 citation sites rewritten in the same change — what to do with a stale clone, and why the commit hook exists so this is never needed twice. The old→new map is held by the maintainer, not committed: it is an index of pre-rewrite hashes, which a forge may still serve. |
+
+## related-work
+
+| Document | Status | What it covers |
+|---|---|---|
+| [jule-memory-model.md](related-work/jule-memory-model.md) | note | Jule's memory model (reference counting, atomic only if `co` is used, shallow immutability by default) and its `mut` rules in the compiler's `sema`. No algorithms like ours: it checks declared mutability, by type and inside one function. The rules map onto ours — the copy rule is independence decided by type, interior mutability is `@IgnoreModifications`, a trait implementation may drop `mut` — and its optimiser takes "is this parameter modified" from the declaration. |
 
 ## Removed
 
