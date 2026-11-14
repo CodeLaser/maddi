@@ -338,6 +338,13 @@ public class ScanCompilationUnits {
                     preloads.addAll(preloadJdk(module, packageName));
                 }
             }
+            // ⛔ AND WHAT THE PRELOAD ONLY TOUCHED, as in preloadOnly (maddi#119), which this path lacked: loading
+            // java.lang's interfaces registers java.util.function.Supplier (and more) lazily, the clear below dropped
+            // it from the accounting, and nothing committed it. A lambda typed Supplier then had a target without
+            // singleAbstractMethod() (CodeLaser/maddi#193). The caller commits the preloads as it commits a scan's.
+            for (TypeInfo touched : classSymbolScanner.typesLoaded()) {
+                if (!touched.hasBeenInspected() && !preloads.contains(touched)) preloads.add(touched);
+            }
         } else {
             preloads = List.of();
         }
