@@ -349,6 +349,26 @@ public class JavaLangReflect {
         @NotModified java.lang.reflect.Type getRawType() { return null; }
     }
 
+    // the other java.lang.reflect.Type subinterfaces: queries only, as ParameterizedType (CodeLaser/maddi#207)
+    //public java.lang.reflect.GenericArrayType
+    class GenericArrayType$ {
+        @NotModified java.lang.reflect.Type getGenericComponentType() { return null; }
+    }
+
+    //public java.lang.reflect.WildcardType
+    class WildcardType$ {
+        @NotModified java.lang.reflect.Type[] getUpperBounds() { return null; }
+        @NotModified java.lang.reflect.Type[] getLowerBounds() { return null; }
+    }
+
+    //public java.lang.reflect.TypeVariable<D extends GenericDeclaration>
+    class TypeVariable$<D extends java.lang.reflect.GenericDeclaration> {
+        @NotModified java.lang.reflect.Type[] getBounds() { return null; }
+        @NotModified D getGenericDeclaration() { return null; }
+        @NotModified java.lang.String getName() { return null; }
+        @NotModified java.lang.reflect.AnnotatedType[] getAnnotatedBounds() { return null; }
+    }
+
     //public java.lang.reflect.Proxy (shadow created for its nullability, generated)
     class Proxy$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
