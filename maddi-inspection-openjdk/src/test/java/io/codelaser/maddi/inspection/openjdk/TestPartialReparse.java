@@ -538,6 +538,50 @@ public class TestPartialReparse {
         assertTrue(differences.isEmpty(), String.join("\n", differences));
     }
 
+    // ---- a module next to a plain set
+
+    @DisplayName("the module descriptor of a kept (or rewired) source set survives a re-parse of another set")
+    @Test
+    public void testModuleInfoOfKeptSet() throws IOException {
+        for (boolean ignoreModule : new boolean[]{true, false}) {
+            Path modSrc = root.resolve("mod" + ignoreModule);
+            write(modSrc, "module-info.java", "module m { exports a; }\n");
+            write(modSrc, "a/Base.java", BASE);
+            write(modSrc, "a/Helper.java", HELPER);
+            SourceSet mod = new SourceSetImpl.Builder().setName("mod").setSourceDirectories(List.of(modSrc))
+                    .setUri(modSrc.toUri()).build();
+            Path appSrc = root.resolve("app" + ignoreModule);
+            write(appSrc, "c/App.java", "package c;\npublic class App { int n() { return 1; } }\n");
+            SourceSet app = new SourceSetImpl.Builder().setName("app").setSourceDirectories(List.of(appSrc))
+                    .setUri(appSrc.toUri()).setDependencies(List.of(mod)).build();
+            JavaInspector inspector = inspector(mod, app);
+            JavaInspector.ParseOptions cold = new JavaInspector.ParseOptions.Builder().setDetailedSources(true)
+                    .setIgnoreModule(ignoreModule).build();
+            ParseResult pr1 = inspector.parse(Map.of(), cold).parseResult();
+            assertNotNull(pr1.sourceSetToModuleInfoMap().get(mod), "cold parse, ignoreModule " + ignoreModule);
+
+            write(appSrc, "c/App.java", "package c;\npublic class App { int n() { return 2; } }\n");
+            JavaInspector.ParseOptions warm = new JavaInspector.ParseOptions.Builder().setDetailedSources(true)
+                    .setIgnoreModule(ignoreModule).setFailFast(true)
+                    .setInvalidated(ti -> "c.App".equals(ti.fullyQualifiedName()) ? INVALID : UNCHANGED).build();
+            ParseResult pr2 = inspector.parse(Map.of(), warm).parseResult();
+            assertNotNull(pr2.sourceSetToModuleInfoMap().get(mod), "mod KEEP, ignoreModule " + ignoreModule);
+
+            JavaInspector.ParseOptions rewire = new JavaInspector.ParseOptions.Builder().setDetailedSources(true)
+                    .setIgnoreModule(ignoreModule).setFailFast(true)
+                    .setInvalidated(ti -> "a.Helper".equals(ti.fullyQualifiedName()) ? REWIRE : UNCHANGED).build();
+            ParseResult pr3 = inspector.parse(Map.of(), rewire).parseResult();
+            assertNotNull(pr3.sourceSetToModuleInfoMap().get(mod), "mod REWIRE, ignoreModule " + ignoreModule);
+
+            write(modSrc, "a/Helper.java", HELPER.replace("42", "43"));
+            JavaInspector.ParseOptions partial = new JavaInspector.ParseOptions.Builder().setDetailedSources(true)
+                    .setIgnoreModule(ignoreModule).setFailFast(true)
+                    .setInvalidated(ti -> "a.Helper".equals(ti.fullyQualifiedName()) ? INVALID : UNCHANGED).build();
+            ParseResult pr4 = inspector.parse(Map.of(), partial).parseResult();
+            assertNotNull(pr4.sourceSetToModuleInfoMap().get(mod), "mod re-scanned, ignoreModule " + ignoreModule);
+        }
+    }
+
     // ---- set-up
 
     private static JavaInspector inspector(SourceSet... sourceSets) {

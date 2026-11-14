@@ -857,12 +857,14 @@ public class JavaInspectorImpl implements JavaInspector {
                 case REWIRE -> {
                     summary.ensureSourceSet(sourceSet); // not scanned, but it is part of the result
                     validateClassOutput(summary, sourceSet);
+                    keptModuleInfo(summary, sourceSet, sourcesByFqn);
                     toRewire.addAll(types);
                     holdingRewire.add(sourceSet);
                 }
                 case KEEP -> {
                     summary.ensureSourceSet(sourceSet);
                     validateClassOutput(summary, sourceSet);
+                    keptModuleInfo(summary, sourceSet, sourcesByFqn);
                     types.forEach(summary::addType);
                 }
             }
@@ -2228,6 +2230,20 @@ public class JavaInspectorImpl implements JavaInspector {
                         inMemory.stream())
                 .filter(jfo -> accept(sourceSet, workingDirectory, jfo))
                 .toList();
+    }
+
+    /*
+     The descriptor of a set the re-parse does not scan (KEEP, REWIRE). Each re-parse returns a new Summary, and only
+     a scan puts a descriptor in it: without this, every module that was not re-scanned lost its ModuleInfo after
+     the first re-parse, and refactor's module-info export reconciliation silently did nothing (an export of a package
+     dead-code removal had emptied stayed, and the module no longer compiled). The previous generation's ModuleInfo
+     is not reused: ResolveModuleDirectives commits its resolved service types once, and a rewire may have replaced
+     them. Read from disk, it also picks up an edit to module-info.java, which no type's invalidation reports.
+     */
+    private void keptModuleInfo(Summary summary, SourceSet sourceSet, Map<String, String> sourcesByFqn) {
+        ModuleInfo moduleInfo = parseModuleInfoDescriptor(summary, sourceSet,
+                sourcesByFqn == null ? Map.of() : sourcesByFqn);
+        if (moduleInfo != null) summary.putSourceSetToModuleInfo(sourceSet, moduleInfo);
     }
 
     /**
