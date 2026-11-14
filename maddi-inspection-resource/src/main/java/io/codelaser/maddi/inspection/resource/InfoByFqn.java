@@ -80,9 +80,24 @@ public class InfoByFqn {
 
     public synchronized void removeAllSources() {
         singleTypeByFqn.values().removeIf(InfoByFqn::isSourceType);
-        multiTypeByFqn.values().forEach(list -> list.removeIf(InfoByFqn::isSourceType));
-        multiTypeByFqn.values().removeIf(List::isEmpty);
+        /*
+         Rebuilt, as in removeType: the lists in this map are immutable (List.of, Stream.toList), and removeIf threw
+         UnsupportedOperationException, which stopped JavaInspectorImpl.invalidateAllSources at its first line (the
+         refactor server dropping hibernate-orm, CodeLaser/maddi#210). A name left with one type (a library copy of a
+         source type) goes back to singleTypeByFqn: getType asserts that a multi entry holds two or more.
+         */
+        for (String fqn : List.copyOf(multiTypeByFqn.keySet())) {
+            List<TypeInfo> remaining = multiTypeByFqn.get(fqn).stream().filter(ti -> !isSourceType(ti)).toList();
+            if (remaining.size() >= 2) {
+                multiTypeByFqn.put(fqn, remaining);
+            } else {
+                multiTypeByFqn.remove(fqn);
+                if (remaining.size() == 1) singleTypeByFqn.put(fqn, remaining.getFirst());
+            }
+        }
         classScannerSetupDone.removeIf(InfoByFqn::isSourceType);
+        // nor does the set of the source set being loaded keep the dropped source types reachable
+        loadedForThisSourceSet.removeIf(InfoByFqn::isSourceType);
     }
 
     /**
