@@ -32,9 +32,27 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
  */
 public interface ConstructorCall extends Expression {
     /**
-     * @return the invoked constructor, or {@code null} for an array creation.
+     * @return the invoked constructor, or {@code null} for an array initializer and for an anonymous class creation.
+     * Test {@link #callsConstructorOfCreatedType()} or {@link #isAnonymousCreation()} rather than comparing this with
+     * {@code null}: what an anonymous creation returns here is due to change (CodeLaser/maddi#194).
      */
     MethodInfo constructor();
+
+    /**
+     * @return true when a constructor of the created type itself runs: {@code new X(...)}, {@code outer.new X(...)},
+     * and the synthetic constructor of {@code new X[n]}. False for an anonymous class creation, whose created type is
+     * the anonymous class, and for an array initializer {@code { a, b }}.
+     */
+    default boolean callsConstructorOfCreatedType() {
+        return constructor() != null && anonymousClass() == null;
+    }
+
+    /**
+     * @return true for {@code new X(...) { ... }}; {@link #anonymousClass()} is then the class body.
+     */
+    default boolean isAnonymousCreation() {
+        return anonymousClass() != null;
+    }
 
     /**
      * @return the qualifying instance for an inner-class creation ({@code outer.new Inner()}), otherwise

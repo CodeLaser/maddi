@@ -198,7 +198,7 @@ final class RustShared {
                 c.methodBody().visit(e -> {
                     List<Expression> arguments;
                     MethodInfo callee;
-                    if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+                    if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                         arguments = cc.parameterExpressions();
                         callee = cc.constructor();
                     } else if (e instanceof MethodCall mc) {
@@ -363,7 +363,7 @@ final class RustShared {
             }
             List<Expression> arguments = null;
             MethodInfo callee = null;
-            if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+            if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                 arguments = cc.parameterExpressions();
                 callee = cc.constructor();
             } else if (e instanceof io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci

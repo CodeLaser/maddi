@@ -147,7 +147,7 @@ public final class KotlinTranslator {
             switch (e) {
                 case MethodCall mc -> called.add(mc.methodInfo());
                 case ConstructorCall cc -> {
-                    if (cc.constructor() != null) called.add(cc.constructor());
+                    if (cc.callsConstructorOfCreatedType()) called.add(cc.constructor());
                     if (cc.anonymousClass() != null) nested(cc.anonymousClass(), called, read, seen);
                 }
                 case MethodReference mr -> called.add(mr.methodInfo());

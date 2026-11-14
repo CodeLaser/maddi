@@ -860,7 +860,7 @@ final class RustBodyPrinter {
 
     private String throwStatement(ThrowStatement ts) {
         context.message(RustPrintCode.THROW_AS_PANIC, ts, null);
-        if (ts.expression() instanceof ConstructorCall cc && cc.constructor() != null) {
+        if (ts.expression() instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
             String exception = cc.constructor().typeInfo().simpleName();
             if (cc.parameterExpressions().isEmpty()) return "panic!(\"" + exception + "\")";
             return "panic!(\"" + exception + ": {}\", " + expression(cc.parameterExpressions().getFirst()).text + ")";
@@ -2636,7 +2636,7 @@ final class RustBodyPrinter {
     private static boolean emptyCollection(Expression init) {
         return CstQueries.unwrap(init) instanceof ConstructorCall cc && cc.parameterExpressions().isEmpty()
                && cc.anonymousClass() == null && !cc.parameterizedType().parameters().isEmpty()
-               && cc.constructor() != null && cc.constructor().typeInfo().compilationUnit().externalLibrary()
+               && cc.callsConstructorOfCreatedType() && cc.constructor().typeInfo().compilationUnit().externalLibrary()
                && RustTypes.mapped(cc.constructor().typeInfo()) != null;
     }
 

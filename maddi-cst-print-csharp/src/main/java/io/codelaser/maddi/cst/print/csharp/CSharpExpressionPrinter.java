@@ -1075,7 +1075,7 @@ public final class CSharpExpressionPrinter {
         // new AndThen<>(delegate, f) of a Collector<A, ?, I>: delegate.Open_(new …Opener_<A, I, X>(f))
         CSharpOpeners.Site site = CSharpOpeners.site(cc);
         if (site != null) return CSharpOpeners.call(site, q, (i, a) -> argument(a, cc.constructor(), i, q));
-        TypeInfo created = cc.constructor() == null ? null : cc.constructor().typeInfo();
+        TypeInfo created = !cc.callsConstructorOfCreatedType() ? null : cc.constructor().typeInfo();
         if (CSharpInner.withOuter(created)) {
             // an inner class's enclosing instance comes first: range.new Iterator() is new Iterator(range)
             String enclosing = cc.object() != null ? null : CSharpInner.enclosingInstance(created);
@@ -1088,7 +1088,7 @@ public final class CSharpExpressionPrinter {
         } else if (cc.object() != null) {
             CSharpContext.message(CSharpPrintCode.OUTER_THIS, cc, CSharpContext.describe(cc));
         }
-        LibraryMapping.Rule rule = cc.constructor() == null || CSharpNames.translated(cc.constructor().typeInfo()) ? null
+        LibraryMapping.Rule rule = !cc.callsConstructorOfCreatedType() || CSharpNames.translated(cc.constructor().typeInfo()) ? null
                 : CSharpContext.libraries().constructor(cc.constructor());
         if (rule != null) {
             rule.namespaces().forEach(CSharpContext::using);
@@ -1242,7 +1242,7 @@ public final class CSharpExpressionPrinter {
      */
     private static ParameterizedType diamond(ConstructorCall cc, ParameterizedType type) {
         TypeInfo created = type.typeInfo();
-        if (created == null || type.arrays() != 0 || cc.constructor() == null || type.parameters().isEmpty()) return type;
+        if (created == null || type.arrays() != 0 || !cc.callsConstructorOfCreatedType() || type.parameters().isEmpty()) return type;
         List<TypeParameter> own = created.typeParameters();
         if (type.parameters().stream().noneMatch(a -> a.isTypeParameter() && own.contains(a.typeParameter()))) {
             return fromCaptured(cc, type);
@@ -1343,7 +1343,7 @@ public final class CSharpExpressionPrinter {
             method = mc.methodInfo();
             args = mc.parameterExpressions();
             match(method.returnType(), mc.concreteReturnType(), method.typeParameters(), bound);
-        } else if (enclosing instanceof ConstructorCall outer && outer.constructor() != null
+        } else if (enclosing instanceof ConstructorCall outer && outer.callsConstructorOfCreatedType()
                    && CSharpContext.created(outer) instanceof ParameterizedType created && created.typeInfo() != null
                    && created.parameters().size() == created.typeInfo().typeParameters().size()) {
             // new State<>(true, new TreeMap<>(), …): the outer creation's type arguments, as printed
@@ -1976,7 +1976,7 @@ public final class CSharpExpressionPrinter {
         // the Comparator<T> of a raw Comparator with T object, not the Function<A, ?>[] of a raw Function[]
         Map<TypeParameter, ParameterizedType> bound = new HashMap<>();
         for (int i = 0; i < own.size(); i++) bound.put(own.get(i), arguments.get(i));
-        List<ParameterInfo> parameters = cc.constructor() == null ? List.of() : cc.constructor().parameters();
+        List<ParameterInfo> parameters = !cc.callsConstructorOfCreatedType() ? List.of() : cc.constructor().parameters();
         for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
             ParameterizedType argument = printedType(cc.parameterExpressions().get(i));
             if (!raw(argument)) continue;

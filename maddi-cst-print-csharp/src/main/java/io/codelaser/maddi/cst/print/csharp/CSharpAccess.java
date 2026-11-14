@@ -86,7 +86,7 @@ final class CSharpAccess {
             switch (e) {
                 case MethodCall mc -> member(mc.methodInfo(), mc.methodInfo().typeInfo(), x, reached, fromCompanion);
                 case MethodReference mr -> member(mr.methodInfo(), mr.methodInfo().typeInfo(), x, reached, fromCompanion);
-                case ConstructorCall cc when cc.constructor() != null ->
+                case ConstructorCall cc when cc.callsConstructorOfCreatedType() ->
                         member(cc.constructor(), cc.constructor().typeInfo(), x, reached, fromCompanion);
                 case VariableExpression ve when ve.variable() instanceof FieldReference fr ->
                         member(fr.fieldInfo(), fr.fieldInfo().owner(), x, reached, fromCompanion);

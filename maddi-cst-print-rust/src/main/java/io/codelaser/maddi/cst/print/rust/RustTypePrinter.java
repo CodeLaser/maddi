@@ -1099,7 +1099,7 @@ final class RustTypePrinter {
                     // super(new ByteArrayInputStream(bytes)): the stream over those bytes; nothing else is in memory
                     if (eci.parameterExpressions().size() == 1
                         && eci.parameterExpressions().getFirst() instanceof ConstructorCall cc
-                        && cc.constructor() != null
+                        && cc.callsConstructorOfCreatedType()
                         && "java.io.ByteArrayInputStream".equals(cc.constructor().typeInfo().fullyQualifiedName())
                         && cc.parameterExpressions().size() == 1) {
                         return owner + "::from_bytes(" + printer.arguments(cc.parameterExpressions(), cc.constructor())
@@ -1777,7 +1777,7 @@ final class RustTypePrinter {
         element.visit(e -> {
             List<Expression> arguments;
             MethodInfo callee;
-            if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+            if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                 arguments = cc.parameterExpressions();
                 callee = cc.constructor();
             } else if (e instanceof MethodCall mc) {

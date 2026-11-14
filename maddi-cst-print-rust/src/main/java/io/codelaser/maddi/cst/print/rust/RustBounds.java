@@ -115,7 +115,7 @@ final class RustBounds {
                 }
             }
             case MethodCall mc -> call(mc, tp, found);
-            case ConstructorCall cc when cc.constructor() != null && cc.parameterExpressions().size() == 1
+            case ConstructorCall cc when cc.callsConstructorOfCreatedType() && cc.parameterExpressions().size() == 1
                                          && cc.constructor().typeInfo().compilationUnit().externalLibrary()
                                          && elementIs(cc.parameterExpressions().getFirst().parameterizedType(), tp) ->
                     found.add("Clone"); // new ArrayList<>(c): a copy

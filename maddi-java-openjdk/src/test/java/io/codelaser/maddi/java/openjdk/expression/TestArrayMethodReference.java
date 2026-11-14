@@ -136,7 +136,7 @@ public class TestArrayMethodReference extends CommonTest {
         List<MethodInfo> arrayConstructors = new ArrayList<>();
         hit.methodStream().forEach(m -> m.methodBody().visit(e -> {
             if (e instanceof MethodReference mr) arrayConstructors.add(mr.methodInfo());
-            if (e instanceof ConstructorCall cc && cc.constructor() != null) arrayConstructors.add(cc.constructor());
+            if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) arrayConstructors.add(cc.constructor());
             return true;
         }));
         assertEquals("[a.b.Hit[].<init>(int), a.b.Hit[][].<init>(int,int), a.b.Hit.<init>(int)]",

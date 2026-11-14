@@ -280,7 +280,7 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
             dsb.put(DetailedSources.END_OF_ARGUMENT_LIST, source(last));
         }
         if (constructorCall instanceof ConstructorCall cc) {
-            assert cc.constructor() != null;
+            assert cc.callsConstructorOfCreatedType();
             return runtime.newExplicitConstructorInvocationBuilder()
                     .addComments(comments)
                     .setSource(dsb == null ? eciSource : eciSource.withDetailedSources(dsb.build()))

@@ -156,7 +156,7 @@ final class KotlinReadOnly {
                             addValue(bound, a.value());
                     case ReturnStatement rs when readOnlyResult && rs.expression() != null -> addValue(bound, rs.expression());
                     case MethodCall mc when mc.methodInfo() != null -> arguments(bound, mc.parameterExpressions(), mc.methodInfo());
-                    case ConstructorCall cc when cc.constructor() != null ->
+                    case ConstructorCall cc when cc.callsConstructorOfCreatedType() ->
                             arguments(bound, cc.parameterExpressions(), cc.constructor());
                     default -> {
                     }
@@ -360,7 +360,7 @@ final class KotlinReadOnly {
                             passedOn(carriers, mc.parameterExpressions(), mc.methodInfo(), accepted);
                         }
                     }
-                    case ConstructorCall cc when cc.constructor() != null ->
+                    case ConstructorCall cc when cc.callsConstructorOfCreatedType() ->
                             passedOn(carriers, cc.parameterExpressions(), cc.constructor(), accepted);
                     case ForEachStatement fe -> {
                         if (fe.expression() != null) accept(carriers, fe.expression(), accepted);

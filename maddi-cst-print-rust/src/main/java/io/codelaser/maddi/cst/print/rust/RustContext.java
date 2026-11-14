@@ -205,7 +205,7 @@ final class RustContext {
                     case Assignment a when is(a.value(), parameter) -> keeps[0] = true;
                     case MethodCall mc ->
                             keeps[0] |= handedOn(mc.methodInfo(), mc.parameterExpressions(), parameter);
-                    case ConstructorCall cc when cc.constructor() != null ->
+                    case ConstructorCall cc when cc.callsConstructorOfCreatedType() ->
                             keeps[0] |= handedOn(cc.constructor(), cc.parameterExpressions(), parameter);
                     default -> { }
                 }

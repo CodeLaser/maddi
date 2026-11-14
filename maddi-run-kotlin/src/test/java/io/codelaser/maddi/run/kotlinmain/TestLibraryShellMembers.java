@@ -159,7 +159,7 @@ public class TestLibraryShellMembers {
         List<String> found = new ArrayList<>();
         m.methodBody().visit(e -> {
             if (e instanceof MethodCall mc && !"map".equals(mc.methodInfo().name())) found.add(mc.methodInfo().fullyQualifiedName());
-            if (e instanceof ConstructorCall cc && cc.constructor() != null) found.add(cc.constructor().fullyQualifiedName());
+            if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) found.add(cc.constructor().fullyQualifiedName());
             if (e instanceof MethodReference mr) found.add(mr.methodInfo().fullyQualifiedName());
             return true;
         });

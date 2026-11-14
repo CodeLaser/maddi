@@ -138,7 +138,7 @@ public final class MethodUses {
                 case MethodCall mc -> add(Kind.CALL, mc.methodInfo(), in, mc, mc.parameterExpressions(), byMethod, byKind);
                 case ConstructorCall cc -> {
                     add(Kind.CREATION, cc.constructor(), in, cc, cc.parameterExpressions(), byMethod, byKind);
-                    if (cc.constructor() == null) {
+                    if (!cc.callsConstructorOfCreatedType()) {
                         for (MethodInfo candidate : superConstructors(cc)) {
                             add(Kind.ANONYMOUS_CREATION, candidate, in, cc, cc.parameterExpressions(), byMethod, byKind);
                         }

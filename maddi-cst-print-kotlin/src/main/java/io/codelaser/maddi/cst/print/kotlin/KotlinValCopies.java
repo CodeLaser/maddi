@@ -209,7 +209,7 @@ final class KotlinValCopies {
                         || method.typeInfo().packageName().startsWith("java.") && (method.isStatic()
                             || call.object() != null && !related(on, receiver)));
                 unchanged[0] = harmless && arguments(method, call.parameterExpressions(), receiver, facts);
-            } else if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+            } else if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                 unchanged[0] = arguments(cc.constructor(), cc.parameterExpressions(), receiver, facts);
             }
             return unchanged[0];

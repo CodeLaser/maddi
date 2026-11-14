@@ -235,7 +235,7 @@ public final class ValueTypes {
                     if (callee != null) nullArguments(callee, mc.parameterExpressions(), in, mc, builders);
                 }
                 case ConstructorCall cc -> {
-                    if (cc.constructor() != null) nullArguments(cc.constructor(), cc.parameterExpressions(), in, cc, builders);
+                    if (cc.callsConstructorOfCreatedType()) nullArguments(cc.constructor(), cc.parameterExpressions(), in, cc, builders);
                     identityKeyed(cc.parameterizedType(), in, cc, builders);
                 }
                 default -> {

@@ -577,7 +577,7 @@ final class CSharpWildcardInterfaces {
                 }
                 passed(mc.methodInfo(), mc.parameterExpressions(), caller, through);
             }
-            if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+            if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                 // new AndThen<>(delegate, f) of a Collector<A, ?, I>: the wildcard interface's Open_ (CSharpOpeners)
                 int opened = CSharpOpeners.openedArgument(cc);
                 if (opened >= 0) {

@@ -404,7 +404,7 @@ final class CSharpReadOnly {
                     }
                     arguments(mc.methodInfo(), mc.parameterExpressions(), candidates, always, whenCandidate);
                 }
-                if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+                if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                     arguments(cc.constructor(), cc.parameterExpressions(), candidates, always, whenCandidate);
                 }
                 if (e instanceof ForEachStatement fe && fe.expression() != null) {

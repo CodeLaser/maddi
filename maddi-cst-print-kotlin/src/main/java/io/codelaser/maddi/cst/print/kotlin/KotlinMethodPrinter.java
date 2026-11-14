@@ -603,8 +603,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     }
                 }
                 case ConstructorCall cc -> {
-                    if (cc.constructor() == null && cc.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
-                        || cc.constructor() != null && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {
+                    if (!cc.callsConstructorOfCreatedType() && cc.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
+                        || cc.callsConstructorOfCreatedType() && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {
                         escapes[0] = true;
                     }
                     // guava's fromHashers(hashers): new Hasher() { … makeHash(hashers) … }
@@ -866,7 +866,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 && pi.equals(ve.variable())) {
                 reads.add(ve);
             }
-            if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+            if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                 passedOn(pi, cc.parameterExpressions(), cc.constructor(), reads);
             }
             if (e instanceof VariableExpression ve && pi.equals(ve.variable())) {

@@ -226,7 +226,7 @@ public class TestSharedSourceFileInTwoSourceSets {
                     .orElseThrow();
             List<String> created = new ArrayList<>();
             checkStatus.methodBody().visit(e -> {
-                if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+                if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                     created.add(sourceSet(cc.constructor().typeInfo()));
                 }
                 return true;

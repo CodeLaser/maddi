@@ -116,7 +116,7 @@ public final class EnclosingInstance {
             if (cc.anonymousClass() != null) {
                 ParameterizedType parent = cc.anonymousClass().parentClass();
                 created = parent == null ? null : parent.typeInfo();
-            } else if (cc.constructor() != null) {
+            } else if (cc.callsConstructorOfCreatedType()) {
                 created = cc.constructor().typeInfo();
             }
         } else if (element instanceof MethodReference mr && mr.methodInfo() != null

@@ -89,7 +89,7 @@ final class KotlinApply {
             return null;
         }
         LocalVariable local = lvc.localVariable();
-        if (!(local.assignmentExpression() instanceof ConstructorCall cc) || cc.constructor() == null
+        if (!(local.assignmentExpression() instanceof ConstructorCall cc) || !cc.callsConstructorOfCreatedType()
             || cc.anonymousClass() != null || cc.arrayInitializer() != null || cc.object() != null) {
             return null;
         }
@@ -144,7 +144,7 @@ final class KotlinApply {
         argument.visit((Element e) -> {
             if (e instanceof Lambda || e instanceof MethodReference
                 || e instanceof ConstructorCall c && (c.anonymousClass() != null
-                                                      || c.constructor() != null && c.constructor().typeInfo().isInnerClass())
+                                                      || c.callsConstructorOfCreatedType() && c.constructor().typeInfo().isInnerClass())
                 || e instanceof VariableExpression v && (v.variable() instanceof This || local.equals(v.variable())
                                                          || v.variable() instanceof FieldReference fr && bare(fr)
                                                             && hasMember(type, fr.fieldInfo().name()))

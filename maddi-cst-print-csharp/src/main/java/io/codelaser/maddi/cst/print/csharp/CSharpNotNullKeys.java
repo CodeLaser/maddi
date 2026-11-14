@@ -108,7 +108,7 @@ final class CSharpNotNullKeys {
                     typeArguments(mc);
                     dictionaryFactory(mc);
                 }
-                else if (ex instanceof ConstructorCall cc && cc.constructor() != null) {
+                else if (ex instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                     call(cc.constructor(), cc.parameterExpressions());
                     opened(cc);
                 } else if (ex instanceof InstanceOf io) {

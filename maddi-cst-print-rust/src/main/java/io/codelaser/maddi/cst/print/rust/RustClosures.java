@@ -61,7 +61,7 @@ final class RustClosures {
         type.constructorAndMethodStream().filter(m -> m.methodBody() != null).forEach(m -> m.methodBody().visit(e -> {
             switch (e) {
                 case MethodCall mc -> arguments(mc.methodInfo(), mc.parameterExpressions(), facts, out);
-                case ConstructorCall cc when cc.constructor() != null ->
+                case ConstructorCall cc when cc.callsConstructorOfCreatedType() ->
                         arguments(cc.constructor(), cc.parameterExpressions(), facts, out);
                 default -> { }
             }

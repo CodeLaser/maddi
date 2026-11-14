@@ -127,7 +127,7 @@ public final class DeclarationDependencies {
                 case VariableExpression ve when ve.variable() instanceof FieldReference fr ->
                         add(fr.fieldInfo().owner());
                 case ConstructorCall cc -> {
-                    if (cc.constructor() != null) add(cc.constructor().typeInfo());
+                    if (cc.callsConstructorOfCreatedType()) add(cc.constructor().typeInfo());
                     cc.typeArguments().forEach(this::add);
                     if (cc.anonymousClass() != null) {
                         // the visit does not descend into an anonymous body; its arguments are not part of it

@@ -785,7 +785,7 @@ public class ComputeCallGraph {
                 // ⇒ leave it out, exactly as IsolationCore already does for the same object. Nothing is lost:
                 // the dependency on X is the addType(cc.parameterizedType()) five lines up, which is what the
                 // array creation actually means.
-                if (cc.constructor() != null && !cc.constructor().isSyntheticArrayConstructor()) {
+                if (cc.callsConstructorOfCreatedType() && !cc.constructor().isSyntheticArrayConstructor()) {
                     handleMethodCall(info, cc.constructor());
                     // a corpus's own container is often a CONSTRUCTOR taking the name (Cassandra's
                     // ParameterizedClass), so a sink may name one; the declaring type and arity match as they do

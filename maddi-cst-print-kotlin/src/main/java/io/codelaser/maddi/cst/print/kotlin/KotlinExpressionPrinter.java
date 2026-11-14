@@ -1151,7 +1151,7 @@ public class KotlinExpressionPrinter {
             if (outer.object() != null && unwrap(outer.object()) == mc) return true;
             args = outer.parameterExpressions();
             params = outer.methodInfo().parameters();
-        } else if (KotlinContext.enclosingCall() instanceof ConstructorCall outer && outer.constructor() != null) {
+        } else if (KotlinContext.enclosingCall() instanceof ConstructorCall outer && outer.callsConstructorOfCreatedType()) {
             // guava's AbstractScheduledService: new FutureAsCancellable(Futures.immediateCancelledFuture())
             args = outer.parameterExpressions();
             params = outer.constructor().parameters();
@@ -3647,7 +3647,7 @@ public class KotlinExpressionPrinter {
 
     /** The superclass constructor an anonymous class's arguments go to: the only one taking that many, else none. */
     private static MethodInfo superConstructor(ConstructorCall cc, ParameterizedType parent) {
-        if (cc.constructor() != null || parent.typeInfo() == null) return cc.constructor();
+        if (cc.callsConstructorOfCreatedType() || parent.typeInfo() == null) return cc.constructor();
         int n = cc.parameterExpressions().size();
         List<MethodInfo> candidates = parent.typeInfo().constructors().stream()
                 .filter(c -> c.parameters().size() == n && c.parameters().stream().noneMatch(p -> p.isVarArgs()))

@@ -292,7 +292,7 @@ public final class ReparseOracle {
     private static boolean reached(Element element, Consumer<TypeInfo> check) {
         switch (element) {
             case MethodCall mc -> check.accept(mc.methodInfo().typeInfo());
-            case ConstructorCall cc when cc.constructor() != null -> check.accept(cc.constructor().typeInfo());
+            case ConstructorCall cc when cc.callsConstructorOfCreatedType() -> check.accept(cc.constructor().typeInfo());
             case VariableExpression ve when ve.variable() instanceof FieldReference fr ->
                     check.accept(fr.fieldInfo().owner());
             default -> {
