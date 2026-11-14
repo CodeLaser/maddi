@@ -48,7 +48,8 @@ import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
  * (RustHierarchies) is shared as a whole, through its root, as its members print as the root.
  * <p>
  * A field the ownership pass calls owned is not a holder: a class held only in owned fields is not shared, its
- * objects moved into the one field that holds each.
+ * objects moved into the one field that holds each. Nor are its elements held when they are owned too
+ * ({@code OWNED_ELEMENTS_FIELD}): a {@code Vec<T>} of plain values.
  * <p>
  * Kept is read from the stored verdict itself, not from {@link RustFacts#passing}: a parameter without a verdict is
  * owned there too, and that is not evidence of sharing. Gate {@code NORUSTSHARED} switches the representation off.
@@ -233,7 +234,8 @@ final class RustShared {
             // an owned field (maddi-mod docs/roadmap/ownership.md) holds the only reference to its object: it is not
             // a second holder; a collection's elements are not judged, so they are still held
             if (owned(f)) {
-                heldInElements(f.type(), facts, held);
+                // owned elements (OWNED_ELEMENTS_FIELD): each element's only holder is the collection
+                if (!ownedElements(f)) heldInElements(f.type(), facts, held);
             } else {
                 heldIn(f.type(), facts, held);
             }
@@ -274,6 +276,12 @@ final class RustShared {
     }
 
     static final boolean OWNED_OFF = System.getenv("NORUSTOWNED") != null;
+
+    /** {@code OWNED_ELEMENTS_FIELD}: the owned collection's elements are reachable only through it. */
+    static boolean ownedElements(FieldInfo f) {
+        return !OWNED_OFF && f.analysis().getOrDefault(PropertyImpl.OWNED_ELEMENTS_FIELD, ValueImpl.BoolImpl.FALSE)
+                .isTrue();
+    }
 
     // a source class extending a JDK collection
     private static boolean collection(TypeInfo ti) {

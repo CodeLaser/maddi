@@ -90,6 +90,7 @@ public class PropertyProviderImpl {
                 NULLABILITY_METHOD,
                 NULLABILITY_PARAMETER,
                 OWNED_FIELD,
+                OWNED_ELEMENTS_FIELD,
                 SHARED_IMMUTABLE_FIELD,
                 OWN_FIELDS_READ_MODIFIED_IN_METHOD,
                 PARALLEL_PARAMETER_GROUPS,
