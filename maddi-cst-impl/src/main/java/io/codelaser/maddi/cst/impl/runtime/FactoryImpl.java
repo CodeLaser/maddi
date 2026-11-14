@@ -437,7 +437,10 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     @Override
     public MethodInfo newArrayCreationConstructor(ParameterizedType type) {
         MethodInfo mi = newMethod(type.typeInfo(), MethodInfoImpl.CONSTRUCTOR_NAME, methodTypeSyntheticArrayConstructor());
+        // synthetic, and named after the array type (MethodInspectionImpl.computeFQN): T[]::new is not T's own
+        // constructor of one int (CodeLaser/maddi#195)
         mi.builder()
+                .setSynthetic(true)
                 .setReturnType(type)
                 .addMethodModifier(methodModifierPublic())
                 .setMethodBody(emptyBlock())

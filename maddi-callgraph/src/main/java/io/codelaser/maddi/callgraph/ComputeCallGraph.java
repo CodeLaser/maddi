@@ -775,8 +775,9 @@ public class ComputeCallGraph {
                 // ⛔⛔ AN ARRAY CREATION IS NOT A CALL TO A CONSTRUCTOR OF THE ELEMENT TYPE. 'new X[n]' carries
                 // the constructor Factory.newArrayCreationConstructor invents for it -- owned by X, one int
                 // parameter per dimension -- which X does not declare and X.constructors() does not contain.
-                // Its fully qualified name is computed from owner + <init> + erased parameters, so it is the
-                // SAME STRING as a declared X(int), while being a different object with the same hashCode.
+                // Its fully qualified name used to be computed from owner + <init> + erased parameters, so it was
+                // the SAME STRING as a declared X(int), while being a different object with the same hashCode
+                // (since CodeLaser/maddi#195 it is X[].<init>(int), and synthetic; the exclusion stays).
                 // A consumer keying the graph on that name then holds two entries it cannot tell apart:
                 // GraphService.classLevelDepths died on closed-core with "Duplicate key
                 // com.example.parameter.util.LinkMap.<init>(int)", one entry standing for

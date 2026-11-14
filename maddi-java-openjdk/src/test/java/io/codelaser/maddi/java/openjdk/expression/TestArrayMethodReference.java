@@ -17,12 +17,21 @@
 
 package io.codelaser.maddi.java.openjdk.expression;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.java.openjdk.CommonTest;
@@ -102,5 +111,40 @@ public class TestArrayMethodReference extends CommonTest {
         assertNotNull(E);
         MethodInfo method = E.findUniqueMethod("maker", 0);
         assertNotNull(method.methodBody());
+    }
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.function.IntFunction;
+            class Hit {
+                Hit(int docId) { }
+                IntFunction<Hit[]> maker() { return Hit[]::new; }
+                Hit[][] grid(int n) { return new Hit[n][2]; }
+                Hit one() { return new Hit(3); }
+            }
+            """;
+
+    @DisplayName("T[]::new and new T[n] are not T's own constructor T(int) (CodeLaser/maddi#195)")
+    @Test
+    public void test4() {
+        TypeInfo hit = scan("a.b.Hit", INPUT4);
+        MethodInfo declared = hit.findConstructor(1);
+        assertEquals("a.b.Hit.<init>(int)", declared.fullyQualifiedName());
+        assertFalse(declared.isSynthetic());
+
+        List<MethodInfo> arrayConstructors = new ArrayList<>();
+        hit.methodStream().forEach(m -> m.methodBody().visit(e -> {
+            if (e instanceof MethodReference mr) arrayConstructors.add(mr.methodInfo());
+            if (e instanceof ConstructorCall cc && cc.constructor() != null) arrayConstructors.add(cc.constructor());
+            return true;
+        }));
+        assertEquals("[a.b.Hit[].<init>(int), a.b.Hit[][].<init>(int,int), a.b.Hit.<init>(int)]",
+                arrayConstructors.stream().map(MethodInfo::fullyQualifiedName).toList().toString());
+        MethodInfo reference = arrayConstructors.getFirst();
+        assertTrue(reference.isSyntheticArrayConstructor());
+        assertTrue(reference.isSynthetic());
+        assertNotEquals(declared.fullyQualifiedName(), reference.fullyQualifiedName());
+        assertTrue(arrayConstructors.getLast() == declared);
     }
 }

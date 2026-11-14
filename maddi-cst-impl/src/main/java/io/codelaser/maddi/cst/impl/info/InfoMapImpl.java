@@ -264,6 +264,7 @@ public class InfoMapImpl implements InfoMap {
         MethodInfo mi = new MethodInfoImpl(MethodInfoImpl.MethodTypeEnum.SYNTHETIC_ARRAY_CONSTRUCTOR,
                 MethodInfoImpl.CONSTRUCTOR_NAME, typeInfo(methodInfo.typeInfo()));
         mi.builder()
+                .setSynthetic(true)
                 .addAnnotations(methodInfo.annotations().stream()
                         .map(a -> (AnnotationExpression) a.rewire(this)).toList())
                 .addComments(methodInfo.comments().stream().map(c -> c.rewire(this)).toList())

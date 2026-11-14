@@ -302,6 +302,11 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
 
         private String computeFQN() {
             String owner = methodInfo.typeInfo().fullyQualifiedName();
+            if (methodInfo.isSyntheticArrayConstructor()) {
+                // T[]::new: the array type's constructor, T[].<init>(int), so that it does not share its name with a
+                // constructor T(int) that T declares (CodeLaser/maddi#195). One int per dimension.
+                owner += "[]".repeat(returnType != null ? returnType.arrays() : parameters.size());
+            }
             try {
                 return owner + "." + methodInfo.name() + "(" + parameterTypesForFQN() + ")";
             } catch (RuntimeException re) {
