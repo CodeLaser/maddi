@@ -583,7 +583,7 @@ public class OrgEclipseCollectionsApiSet {
 
         //override from java.util.Collection, java.util.Set, org.eclipse.collections.api.RichIterable, org.eclipse.collections.api.collection.MutableCollection
         @Independent @NotModified
-        <T1> T1 [] toArray(@Independent @NotModified T1 [] a) { return null; }
+        <T1> T1 [] toArray(@Independent(dependentReturnValue = true) @Modified T1 [] a) { return null; }
 
         //override from org.eclipse.collections.api.collection.MutableCollection
         @Fluent @Independent @Modified

@@ -217,7 +217,7 @@
  {"name": "Msize(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MtoArray(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N(Q)"}},
  {"name": "MtoArray(19,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parray(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}}]},
+  {"name": "Parray(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":0}}}]},
 
 {"name": "Tcom.google.common.collect.ContiguousSet", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mbuilder(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
@@ -474,7 +474,7 @@
  {"name": "Msize(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MtoArray(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N(Q)"}},
  {"name": "MtoArray(24,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parray(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}}]},
+  {"name": "Parray(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":0}}}]},
 
 {"name": "Tcom.google.common.collect.ForwardingConcurrentMap", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
  {"name": "MputIfAbsent(1,K,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
@@ -1112,7 +1112,7 @@
  {"name": "Mspliterator(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MtoArray(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N(Q)"}},
  {"name": "MtoArray(18,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pother(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}}]},
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":0}}}]},
 
 {"name": "Tcom.google.common.collect.ImmutableList", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
  {"name": "SBuilder(0)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[

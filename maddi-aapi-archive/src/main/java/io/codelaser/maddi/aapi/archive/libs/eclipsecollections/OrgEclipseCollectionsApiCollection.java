@@ -566,7 +566,7 @@ public class OrgEclipseCollectionsApiCollection {
 
         //override from java.util.Collection, org.eclipse.collections.api.RichIterable
         @Independent @NotModified
-        <T1> T1 [] toArray(@Independent @NotModified T1 [] a) { return null; }
+        <T1> T1 [] toArray(@Independent(dependentReturnValue = true) @Modified T1 [] a) { return null; }
         @Independent @Modified ImmutableCollection<T> toImmutable() { return null; }
         @Independent(hc = true) @Modified
         MutableCollection<T> with(@Independent(hc = true) @NotModified T arg0) { return null; }

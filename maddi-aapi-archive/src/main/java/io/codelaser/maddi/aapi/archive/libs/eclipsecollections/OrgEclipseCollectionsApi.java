@@ -179,7 +179,7 @@ public class OrgEclipseCollectionsApi {
         @Fluent @Independent @Modified
         BooleanIterable tap(@Independent @Modified BooleanProcedure procedure) { return null; }
         @Independent @NotModified boolean [] toArray() { return null; }
-        @Independent @NotModified boolean [] toArray(@Independent @NotModified boolean [] target) { return null; }
+        @Independent @NotModified boolean [] toArray(@Independent(dependentReturnValue = true) @Modified boolean [] target) { return null; }
         @Independent @NotModified MutableBooleanBag toBag() { return null; }
         @Independent @NotModified MutableBooleanList toList() { return null; }
         @Independent @NotModified MutableBooleanSet toSet() { return null; }
@@ -317,7 +317,7 @@ public class OrgEclipseCollectionsApi {
         @Fluent @Independent @Modified
         ByteIterable tap(@Independent @Modified ByteProcedure procedure) { return null; }
         @Independent @NotModified byte [] toArray() { return null; }
-        @Independent @NotModified byte [] toArray(@Independent @NotModified byte [] target) { return null; }
+        @Independent @NotModified byte [] toArray(@Independent(dependentReturnValue = true) @Modified byte [] target) { return null; }
         @Independent @NotModified MutableByteBag toBag() { return null; }
         @Independent @NotModified MutableByteList toList() { return null; }
         @Independent @NotModified MutableByteSet toSet() { return null; }
@@ -467,7 +467,7 @@ public class OrgEclipseCollectionsApi {
         @Fluent @Independent @Modified
         CharIterable tap(@Independent @Modified CharProcedure procedure) { return null; }
         @Independent @NotModified char [] toArray() { return null; }
-        @Independent @NotModified char [] toArray(@Independent @NotModified char [] target) { return null; }
+        @Independent @NotModified char [] toArray(@Independent(dependentReturnValue = true) @Modified char [] target) { return null; }
         @Independent @NotModified MutableCharBag toBag() { return null; }
         @Independent @NotModified MutableCharList toList() { return null; }
         @Independent @NotModified MutableCharSet toSet() { return null; }
@@ -621,7 +621,7 @@ public class OrgEclipseCollectionsApi {
         @Fluent @Independent @Modified
         DoubleIterable tap(@Independent @Modified DoubleProcedure procedure) { return null; }
         @Independent @NotModified double [] toArray() { return null; }
-        @Independent @NotModified double [] toArray(@Independent @NotModified double [] target) { return null; }
+        @Independent @NotModified double [] toArray(@Independent(dependentReturnValue = true) @Modified double [] target) { return null; }
         @Independent @NotModified MutableDoubleBag toBag() { return null; }
         @Independent @NotModified MutableDoubleList toList() { return null; }
         @Independent @NotModified MutableDoubleSet toSet() { return null; }
@@ -773,7 +773,7 @@ public class OrgEclipseCollectionsApi {
         @Fluent @Independent @Modified
         FloatIterable tap(@Independent @Modified FloatProcedure procedure) { return null; }
         @Independent @NotModified float [] toArray() { return null; }
-        @Independent @NotModified float [] toArray(@Independent @NotModified float [] target) { return null; }
+        @Independent @NotModified float [] toArray(@Independent(dependentReturnValue = true) @Modified float [] target) { return null; }
         @Independent @NotModified MutableFloatBag toBag() { return null; }
         @Independent @NotModified MutableFloatList toList() { return null; }
         @Independent @NotModified MutableFloatSet toSet() { return null; }
@@ -922,7 +922,7 @@ public class OrgEclipseCollectionsApi {
         @Independent @Modified IntSummaryStatistics summaryStatistics() { return null; }
         @Fluent @Independent @Modified IntIterable tap(@Independent @Modified IntProcedure procedure) { return null; }
         @Independent @NotModified int [] toArray() { return null; }
-        @Independent @NotModified int [] toArray(@Independent @NotModified int [] target) { return null; }
+        @Independent @NotModified int [] toArray(@Independent(dependentReturnValue = true) @Modified int [] target) { return null; }
         @Independent @NotModified MutableIntBag toBag() { return null; }
         @Independent @NotModified MutableIntList toList() { return null; }
         @Independent @NotModified MutableIntSet toSet() { return null; }
@@ -1379,7 +1379,7 @@ public class OrgEclipseCollectionsApi {
 
         //override from org.eclipse.collections.api.RichIterable
         @Independent @NotModified
-        <E> E [] toArray(@Independent @Modified E [] array) { return null; }
+        <E> E [] toArray(@Independent(dependentReturnValue = true) @Modified E [] array) { return null; }
 
         //override from org.eclipse.collections.api.RichIterable
         @Independent @Modified
@@ -1634,7 +1634,7 @@ public class OrgEclipseCollectionsApi {
         @Fluent @Independent @Modified
         LongIterable tap(@Independent @Modified LongProcedure procedure) { return null; }
         @Independent @NotModified long [] toArray() { return null; }
-        @Independent @NotModified long [] toArray(@Independent @NotModified long [] target) { return null; }
+        @Independent @NotModified long [] toArray(@Independent(dependentReturnValue = true) @Modified long [] target) { return null; }
         @Independent @NotModified MutableLongBag toBag() { return null; }
         @Independent @NotModified MutableLongList toList() { return null; }
         @Independent @NotModified MutableLongSet toSet() { return null; }
@@ -1793,7 +1793,7 @@ public class OrgEclipseCollectionsApi {
         @NotModified long sumOfLong(@Independent @Modified LongFunction<? super T> arg0) { return 0L; }
         @Independent @NotModified Object [] toArray() { return null; }
         @Independent(hc = true) @NotModified
-        <T1> T1 [] toArray(@Independent(hc = true) @Modified T1 [] arg0) { return null; }
+        <T1> T1 [] toArray(@Independent(dependentReturnValue = true) @Modified T1 [] arg0) { return null; }
         @Independent @NotModified MutableBag<T> toBag() { return null; }
         @Independent @NotModified MutableList<T> toList() { return null; }
         @Independent @NotModified
@@ -2353,7 +2353,7 @@ public class OrgEclipseCollectionsApi {
         LongSummaryStatistics summarizeLong(@Independent @Modified LongFunction<? super T> function) { return null; }
         @Independent @Modified RichIterable<T> tap(@Independent @Modified Procedure<? super T> arg0) { return null; }
         @Independent @NotModified Object [] toArray() { return null; }
-        @Independent @NotModified <E> E [] toArray(@Independent @Modified E [] array) { return null; }
+        @Independent @NotModified <E> E [] toArray(@Independent(dependentReturnValue = true) @Modified E [] array) { return null; }
         @Independent @NotModified MutableBag<T> toBag() { return null; }
         @Independent @Modified
         <NK, NV> MutableBiMap<NK, NV> toBiMap(
@@ -2596,7 +2596,7 @@ public class OrgEclipseCollectionsApi {
         @Fluent @Independent @Modified
         ShortIterable tap(@Independent @Modified ShortProcedure procedure) { return null; }
         @Independent @NotModified short [] toArray() { return null; }
-        @Independent @NotModified short [] toArray(@Independent @NotModified short [] target) { return null; }
+        @Independent @NotModified short [] toArray(@Independent(dependentReturnValue = true) @Modified short [] target) { return null; }
         @Independent @NotModified MutableShortBag toBag() { return null; }
         @Independent @NotModified MutableShortList toList() { return null; }
         @Independent @NotModified MutableShortSet toSet() { return null; }

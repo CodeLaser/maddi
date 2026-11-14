@@ -1136,7 +1136,7 @@ public class JavaUtilConcurrent {
         @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -1174,7 +1174,7 @@ public class JavaUtilConcurrent {
         @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -1219,7 +1219,7 @@ public class JavaUtilConcurrent {
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean removeLastOccurrence(@NotNull java.lang.Object p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -1243,7 +1243,7 @@ public class JavaUtilConcurrent {
         @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -1324,7 +1324,7 @@ public class JavaUtilConcurrent {
         @Modified void replaceAll(@NotNull java.util.function.UnaryOperator<E> p0) { }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified void sort(@Nullable java.util.Comparator<? super E> p0) { }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @NotNull(nullableArguments = 0) java.lang.Object[] toArray() { return null; }
@@ -1349,7 +1349,7 @@ public class JavaUtilConcurrent {
         @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @NotNull(nullableArguments = 0) java.lang.Object[] toArray() { return null; }
@@ -1386,7 +1386,7 @@ public class JavaUtilConcurrent {
         @Modified @Nullable E poll() { return null; }
         @Modified @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
         @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -1501,7 +1501,7 @@ public class JavaUtilConcurrent {
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean removeLastOccurrence(@Nullable java.lang.Object p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -1534,7 +1534,7 @@ public class JavaUtilConcurrent {
         @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -1558,7 +1558,7 @@ public class JavaUtilConcurrent {
         @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
         boolean tryTransfer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
@@ -1631,7 +1631,7 @@ public class JavaUtilConcurrent {
         @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
         @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }

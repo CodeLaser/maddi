@@ -55,7 +55,7 @@ public class JavaUtil {
 
         //override from java.util.Collection
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
 
         //override from java.util.Collection
         //override has frequency 16
@@ -328,7 +328,7 @@ public class JavaUtil {
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean removeLastOccurrence(@Nullable java.lang.Object p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -373,7 +373,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
 
         //override from java.util.AbstractList, java.util.List
         //@Independent(hc=true)[H] @NotModified[H] @GetSet("_synthetic_list")[H]
@@ -1621,7 +1621,7 @@ public class JavaUtil {
         //override has frequency 3
         @Independent(hcReturnValue = true)
         @NotModified
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] t) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] t) { return null; }
 
         @Independent(hcReturnValue = true)
         @NotModified
@@ -2379,7 +2379,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.Set
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
         static <T> HashSet<T> newHashSet(int numElements) { return null; }
     }
 
@@ -2606,7 +2606,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[H]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[H]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
 
         //override from java.lang.Iterable, java.util.Collection, java.util.List
         //@Independent(hc=true)[H] @NotModified[H] @NotNull[H]
@@ -2645,7 +2645,7 @@ public class JavaUtil {
         //override from java.util.Collection
         //frequency 3
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] t) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] t) { return null; }
 
         //override from java.util.Collection
         //frequency 52
@@ -3820,7 +3820,7 @@ public class JavaUtil {
         @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -4031,7 +4031,7 @@ public class JavaUtil {
 
         //override from java.util.Collection
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] t) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] t) { return null; }
 
         //override from java.util.Collection
         //frequency 27
@@ -4703,7 +4703,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[H]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[H]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
 
         //override from java.util.AbstractList, java.util.List
         //@Independent(hc=true)[H] @NotModified[H] @GetSet("_synthetic_list")[H]
