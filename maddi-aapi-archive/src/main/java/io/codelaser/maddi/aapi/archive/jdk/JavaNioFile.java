@@ -332,6 +332,14 @@ public class JavaNioFile {
     }
 
     //public final class Paths
+    //public interface DirectoryStream<T> extends Closeable, Iterable<T>
+    class DirectoryStream$<T> {
+        // one shot, unlike Iterable's: a second iteration throws IllegalStateException (maddi#215)
+        // forEach cannot be hinted here: it is declared on Iterable only, and a hint for a method the type does not
+        // declare is dropped, so 'stream.forEach(..)' still reads Iterable's @NotModified
+        @Modified @NotNull Iterator<T> iterator() { return null; }
+    }
+
     class Paths$ {
         static Path get(String first, @NotModified String ... more) { return null; }
         static Path get(URI uri) { return null; }

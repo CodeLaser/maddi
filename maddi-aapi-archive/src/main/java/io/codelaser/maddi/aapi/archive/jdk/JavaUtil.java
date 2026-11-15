@@ -5116,8 +5116,9 @@ public class JavaUtil {
         @Nullable java.lang.String findInLine(@NotNull java.lang.String p0) { return null; }
         @Nullable java.lang.String findWithinHorizon(@NotNull java.util.regex.Pattern p0, int p1) { return null; }
         @Nullable java.lang.String findWithinHorizon(@NotNull java.lang.String p0, int p1) { return null; }
-        @NotModified boolean hasNext(@NotNull java.util.regex.Pattern p0) { return false; }
-        @NotModified boolean hasNext(@NotNull java.lang.String p0) { return false; }
+        // hasNext..: reads ahead from the source into the buffer, so the input is consumed (maddi#215)
+        @Modified boolean hasNext(@NotNull java.util.regex.Pattern p0) { return false; }
+        @Modified boolean hasNext(@NotNull java.lang.String p0) { return false; }
         @Nullable java.io.IOException ioException() { return null; }
         @Modified java.lang.String next(@NotNull java.util.regex.Pattern p0) { return null; }
         @Modified java.lang.String next(@NotNull java.lang.String p0) { return null; }
@@ -5146,22 +5147,22 @@ public class JavaUtil {
         @Modified java.util.Scanner reset() { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified boolean hasNext() { return false; }
-        @NotModified boolean hasNextBigDecimal() { return false; }
-        @NotModified boolean hasNextBigInteger() { return false; }
-        @NotModified boolean hasNextBigInteger(int p0) { return false; }
-        @NotModified boolean hasNextBoolean() { return false; }
-        @NotModified boolean hasNextByte() { return false; }
-        @NotModified boolean hasNextByte(int p0) { return false; }
-        @NotModified boolean hasNextDouble() { return false; }
-        @NotModified boolean hasNextFloat() { return false; }
-        @NotModified boolean hasNextInt() { return false; }
-        @NotModified boolean hasNextInt(int p0) { return false; }
-        @NotModified boolean hasNextLine() { return false; }
-        @NotModified boolean hasNextLong() { return false; }
-        @NotModified boolean hasNextLong(int p0) { return false; }
-        @NotModified boolean hasNextShort() { return false; }
-        @NotModified boolean hasNextShort(int p0) { return false; }
+        @Modified boolean hasNext() { return false; }
+        @Modified boolean hasNextBigDecimal() { return false; }
+        @Modified boolean hasNextBigInteger() { return false; }
+        @Modified boolean hasNextBigInteger(int p0) { return false; }
+        @Modified boolean hasNextBoolean() { return false; }
+        @Modified boolean hasNextByte() { return false; }
+        @Modified boolean hasNextByte(int p0) { return false; }
+        @Modified boolean hasNextDouble() { return false; }
+        @Modified boolean hasNextFloat() { return false; }
+        @Modified boolean hasNextInt() { return false; }
+        @Modified boolean hasNextInt(int p0) { return false; }
+        @Modified boolean hasNextLine() { return false; }
+        @Modified boolean hasNextLong() { return false; }
+        @Modified boolean hasNextLong(int p0) { return false; }
+        @Modified boolean hasNextShort() { return false; }
+        @Modified boolean hasNextShort(int p0) { return false; }
     }
 
     //public java.util.ServiceLoader (shadow created for its nullability, generated)

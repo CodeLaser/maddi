@@ -16,6 +16,7 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import java.io.OutputStream;
@@ -253,7 +254,8 @@ public class JavaUtilZip {
         ZipFile$(@NotNull java.lang.String p0, @NotNull java.nio.charset.Charset p1) { }
         @NotModified @Nullable java.lang.String getComment() { return null; }
         @NotModified @Nullable java.util.zip.ZipEntry getEntry(@NotNull java.lang.String p0) { return null; }
-        @NotModified @Nullable java.io.InputStream getInputStream(@NotNull java.util.zip.ZipEntry p0) { return null; }
+        // registers the stream among the file's open streams, which close() closes (maddi#215)
+        @Modified @Nullable java.io.InputStream getInputStream(@Independent @NotNull java.util.zip.ZipEntry p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified String getName() { return null; }

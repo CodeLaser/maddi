@@ -18,6 +18,7 @@
 package io.codelaser.maddi.aapi.archive.jdk;
 
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Nullable;
 
@@ -31,6 +32,8 @@ public class JavaUtilJar {
     //public class JarFile extends ZipFile
     class JarFile$ {
         // null when the jar has no manifest (fernflower StructContext.addSpace passed it on to ContextUnit.setManifest)
+        // stays a query (maddi#215): what it writes is a lazily filled cache (manRef, a SoftReference; the verifier jv
+        // on first use), and a memo is not a modification (maddi#208)
         @NotModified @Nullable Manifest getManifest() { return null; }
 
         @NotModified @Nullable JarEntry getJarEntry(@NotNull String name) { return null; }
@@ -43,7 +46,8 @@ public class JavaUtilJar {
         JarFile$(@NotNull java.lang.String p0) { }
         JarFile$(@NotNull java.lang.String p0, boolean p1) { }
         @NotModified @Nullable java.util.zip.ZipEntry getEntry(@NotNull java.lang.String p0) { return null; }
-        @NotModified @Nullable java.io.InputStream getInputStream(@NotNull java.util.zip.ZipEntry p0) { return null; }
+        // registers the stream among the file's open streams, which close() closes (maddi#215)
+        @Modified @Nullable java.io.InputStream getInputStream(@Independent @NotNull java.util.zip.ZipEntry p0) { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified java.lang.Runtime.Version getVersion() { return null; }
