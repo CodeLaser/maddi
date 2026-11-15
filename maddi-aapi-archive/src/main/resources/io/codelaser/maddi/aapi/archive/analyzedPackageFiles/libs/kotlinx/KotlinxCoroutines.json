@@ -1,0 +1,47 @@
+[
+{"format": "maddi-analysis-results", "version": 1},
+
+{"name": "Tkotlinx.coroutines.BuildersKt__Builders_commonKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Masync(0,kotlinx.coroutines.CoroutineScope,kotlin.coroutines.CoroutineContext,kotlinx.coroutines.CoroutineStart,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$async(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pcontext(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pstart(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pblock(3)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Minvoke(1,kotlinx.coroutines.CoroutineDispatcher,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$invoke(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pblock(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "Mlaunch(2,kotlinx.coroutines.CoroutineScope,kotlin.coroutines.CoroutineContext,kotlinx.coroutines.CoroutineStart,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$launch(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pcontext(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pstart(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pblock(3)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MwithContext(3,kotlin.coroutines.CoroutineContext,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pcontext(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Pblock(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]}]},
+
+{"name": "Tkotlinx.coroutines.CoroutineScopeKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MCoroutineScope(0,kotlin.coroutines.CoroutineContext)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcontext(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+ {"name": "MMainScope(1)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "Mcancel(2,kotlinx.coroutines.CoroutineScope,java.lang.String,java.lang.Throwable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$cancel(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pmessage(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcause(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "Mcancel(3,kotlinx.coroutines.CoroutineScope,java.util.concurrent.CancellationException)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$cancel(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pcause(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "McoroutineScope(4,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pblock(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "McurrentCoroutineContext(5,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "P$completion(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "MensureActive(6,kotlinx.coroutines.CoroutineScope)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "P$this$ensureActive(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "MisActive(7,kotlinx.coroutines.CoroutineScope)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$isActive(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "Mplus(8,kotlinx.coroutines.CoroutineScope,kotlin.coroutines.CoroutineContext)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pcontext(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]}]}
+]

@@ -44,6 +44,13 @@ dependencies {
     compileOnly("org.mockito:mockito-core:5.23.0") // libs/mockito
     compileOnly("commons-io:commons-io:2.20.0") // libs/commonsio
     compileOnly("com.fasterxml.jackson.core:jackson-databind:2.20.2") // libs/jackson
+    // and for the kotlinx hints (libs/kotlinx, in libs.jar): the versions the Exposed corpus resolves (2026-11-15)
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.11.0")
+    compileOnly("org.reactivestreams:reactive-streams:1.0.4")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.11.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-datetime-jvm:0.7.1-0.6.x-compat")
     implementation("org.junit.jupiter:junit-jupiter-api")
     implementation("ch.qos.logback:logback-classic")
 }

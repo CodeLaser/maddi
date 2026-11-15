@@ -1,0 +1,34 @@
+[
+{"format": "maddi-analysis-results", "version": 1},
+
+{"name": "Tkotlinx.coroutines.reactive.AwaitKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MawaitFirst(0,org.reactivestreams.Publisher,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$awaitFirst(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MawaitFirstOrDefault(1,org.reactivestreams.Publisher,T,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$awaitFirstOrDefault(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pdefault(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MawaitFirstOrElse(2,org.reactivestreams.Publisher,kotlin.jvm.functions.Function0,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$awaitFirstOrElse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "PdefaultValue(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MawaitFirstOrNull(3,org.reactivestreams.Publisher,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$awaitFirstOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MawaitLast(4,org.reactivestreams.Publisher,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$awaitLast(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MawaitSingle(5,org.reactivestreams.Publisher,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$awaitSingle(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]}]},
+
+{"name": "Tkotlinx.coroutines.reactive.ChannelKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mcollect(0,org.reactivestreams.Publisher,kotlin.jvm.functions.Function1,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$collect(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MtoChannel(1,org.reactivestreams.Publisher,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$toChannel(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Prequest(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}]}
+]

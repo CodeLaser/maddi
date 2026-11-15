@@ -338,6 +338,13 @@ public class JavaNioFile {
         // forEach cannot be hinted here: it is declared on Iterable only, and a hint for a method the type does not
         // declare is dropped, so 'stream.forEach(..)' still reads Iterable's @NotModified
         @Modified @NotNull Iterator<T> iterator() { return null; }
+
+        // "Decides if the given directory entry should be accepted or filtered": a query. Said here because shadowing
+        // DirectoryStream brought the nested interface under the compiler's defaults, which assume it modifies
+        interface Filter<T> {
+            @NotModified
+            boolean accept(T entry);
+        }
     }
 
     class Paths$ {

@@ -28,6 +28,13 @@ module io.codelaser.maddi.aapi.archive {
     requires static com.fasterxml.jackson.databind; // libs/jackson
     requires static com.fasterxml.jackson.core;
     requires static com.fasterxml.jackson.annotation;
+    // the kotlinx hints (libs/kotlinx, in libs.jar) name kotlinx and Reactive Streams types in their signatures
+    requires static kotlinx.coroutines.core;
+    requires static kotlinx.coroutines.reactive;
+    requires static org.reactivestreams;
+    requires static kotlinx.serialization.core;
+    requires static kotlinx.serialization.json;
+    requires static kotlinx.datetime;
 
     exports io.codelaser.maddi.aapi.archive.jdk;
     exports io.codelaser.maddi.aapi.archive.libs.log;
