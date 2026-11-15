@@ -68,7 +68,9 @@ public class TestAnonymousClassSupertypeDetailedSources extends CommonTest {
         TypeInfo X = scan("a.b.X", input);
         ConstructorCall cc = returnedConstructorCall(X, "make");
         assertNotNull(cc.anonymousClass(), "expected an anonymous class");
-        assertNull(cc.constructor(), "an interface anonymous class has no constructor");
+        // the superclass constructor that runs (maddi#194): an interface has none, so Object's
+        assertFalse(cc.callsConstructorOfCreatedType());
+        assertEquals("java.lang.Object.<init>()", cc.constructor().fullyQualifiedName());
         TypeInfo supertype = cc.parameterizedType().typeInfo();
         assertEquals("java.lang.Runnable", supertype.fullyQualifiedName());
         List<Source> tokens = cc.source().detailedSources().details(supertype);
