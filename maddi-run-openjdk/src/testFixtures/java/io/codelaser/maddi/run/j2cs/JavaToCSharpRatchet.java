@@ -181,7 +181,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         Path buildLog = out.resolve("csharp-check-build.log");
         int built = new ProcessBuilder("dotnet", "build", toolDir.toString(), "-c", "Release", "-nologo", "-v", "q")
                 .redirectErrorStream(true).redirectOutput(buildLog.toFile()).start().waitFor();
-        if (built != 0) fail("building " + toolDir + " failed (is a .NET 10 SDK on the PATH?); see " + buildLog);
+        if (built != 0) fail("building " + toolDir + " failed (is a .NET 10+ SDK on the PATH?); see " + buildLog);
 
         Path argFile = out.resolve("csharp-check.args");
         List<String> arguments = new ArrayList<>(files.stream().map(Path::toString).toList());

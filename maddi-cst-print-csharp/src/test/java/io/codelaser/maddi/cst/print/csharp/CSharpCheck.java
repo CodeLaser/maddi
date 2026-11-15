@@ -89,7 +89,7 @@ final class CSharpCheck {
                 throw new IllegalStateException(e);
             }
             if (build.waitFor() != 0) {
-                throw new AssertionError("building " + toolDir + " failed (a .NET 10 SDK on the PATH?); see "
+                throw new AssertionError("building " + toolDir + " failed (a .NET 10+ SDK on the PATH?); see "
                                          + buildLog.toAbsolutePath());
             }
             Path dll = toolDir.resolve("build/bin/Release/net10.0/csharp-check.dll");

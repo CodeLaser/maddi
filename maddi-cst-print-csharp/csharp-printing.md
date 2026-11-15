@@ -1209,7 +1209,7 @@ measures the wildcard interface and not declaration-site variance; nacos is appl
 concrete types, and whose errors are mostly types no mapping covers (guava, grpc, and the api module's own types
 when common is translated: a sibling module has no C# while one module is translated). Each judges its
 translation with `tools/csharp-check`, a small .NET tool on Roslyn that `JavaToCSharpRatchet` builds with
-`dotnet build`, so a .NET 10 SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors,
+`dotnet build`, so a .NET 10+ SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors,
 then compiles the syntax-clean files together against the BCL and the mappings' packages. The numbers are held in
 `src/test/resources/j2cs/<corpus>.ratchet`: printer crashes, syntax errors, syntax-clean files, compiling files
 (files without an error in that compilation), and `unmappedJdkUses`. maddi-mod's `TestJavaToCSharp*Facts` translate

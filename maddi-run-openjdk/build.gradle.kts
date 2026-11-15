@@ -123,7 +123,7 @@ tasks.withType<Test>().configureEach {
 }
 
 // TestJavaToCSharpFernflower: the judge of the C# printer's output is tools/csharp-check, a .NET tool on Roslyn that
-// JavaToCSharpRatchet builds with `dotnet build` (a .NET 10 SDK on the PATH). Its directory, as a system property.
+// JavaToCSharpRatchet builds with `dotnet build` (a .NET 10+ SDK on the PATH). Its directory, as a system property.
 val csharpCheck = rootProject.file("tools/csharp-check")
 tasks.withType<Test>().configureEach {
     inputs.dir(csharpCheck).withPropertyName("csharpCheck").optional()
