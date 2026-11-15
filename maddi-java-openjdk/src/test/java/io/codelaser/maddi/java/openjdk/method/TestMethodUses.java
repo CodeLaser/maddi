@@ -18,6 +18,7 @@
 package io.codelaser.maddi.java.openjdk.method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
@@ -68,6 +69,40 @@ public class TestMethodUses extends CommonTest {
                 Point anonymousSubclass() { return new Point(6) { }; }
             }
             """;
+
+    @Language("java")
+    private static final String OVERLOADS = """
+            package a.b;
+            class Y {
+                static class Point {
+                    Point(int x) { }
+                    Point(long l) { }
+                }
+                Point ofInt() { return new Point(6) { }; }
+                Point ofLong() { return new Point(6L) { }; }
+            }
+            """;
+
+    /** Two constructors of one argument: the use is of the one javac resolved, not of both (CodeLaser/maddi#194). */
+    @Test
+    public void anonymousCreationOfOverloads() {
+        TypeInfo Y = scan("a.b.Y", OVERLOADS);
+        MethodUses uses = MethodUses.of(MethodFamilies.allTypes(Set.of(Y)));
+        TypeInfo point = Y.findSubType("Point");
+        MethodInfo ofInt = point.constructors().stream()
+                .filter(c -> c.parameters().getFirst().parameterizedType().isInt()).findFirst().orElseThrow();
+        MethodInfo ofLong = point.constructors().stream()
+                .filter(c -> c.parameters().getFirst().parameterizedType().isLong()).findFirst().orElseThrow();
+        assertEquals("ANONYMOUS_CREATION in Y.ofInt", describeNoArguments(uses.uses(ofInt)));
+        assertEquals("ANONYMOUS_CREATION in Y.ofLong", describeNoArguments(uses.uses(ofLong)));
+        assertEquals(Set.of(ofInt, ofLong), Set.copyOf(uses.methods(Kind.ANONYMOUS_CREATION)));
+        assertTrue(uses.methods(Kind.CREATION).isEmpty());
+    }
+
+    private static String describeNoArguments(List<MethodUses.Use> uses) {
+        return uses.stream().map(u -> u.kind() + " in " + u.in().typeInfo().simpleName() + "." + u.in().simpleName())
+                .collect(Collectors.joining("; "));
+    }
 
     private static String describe(List<MethodUses.Use> uses) {
         return uses.stream().map(u -> u.kind() + " in " + u.in().typeInfo().simpleName() + "." + u.in().simpleName()

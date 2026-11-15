@@ -1883,6 +1883,34 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String HOISTED_SUPER_OVERLOADS = """
+            package org.example.overloads;
+            import java.util.List;
+            public class Holders {
+                abstract static class Holder<T> {
+                    final T value;
+                    Holder(T value, List<? extends T> more) { this.value = value; }
+                    Holder(int count, List<? extends T> more) { this.value = more.get(count); }
+                    abstract T describe();
+                }
+                static Holder<String> empty(List<String> names) {
+                    return new Holder<>(null, names) { String describe() { return "none"; } };
+                }
+            }
+            """;
+
+    /**
+     * Two superclass constructors of the same arity: the one javac resolved is on the creation (CodeLaser/maddi#194),
+     * so the hoisted class's constructor still has its parameters, and the null argument is converted to the first.
+     */
+    @Test
+    public void hoistedSuperArgumentsOfOverloads() {
+        String cs = translate("Holders", HOISTED_SUPER_OVERLOADS);
+        contains(cs, "=> new HolderImpl(default, names);");
+        contains(cs, "internal HolderImpl(string p0, List<string> p1) : base(p0, p1) { }");
+    }
+
+    @Language("java")
     private static final String MUTUAL_INNER = """
             package org.example.mutual;
             public class Tree {

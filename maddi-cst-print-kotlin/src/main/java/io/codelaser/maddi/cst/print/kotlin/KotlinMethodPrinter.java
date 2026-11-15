@@ -566,7 +566,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             if (e instanceof MethodCall call) {
                 spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.methodInfo()));
             } else if (e instanceof ConstructorCall call) {
-                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.constructor()));
+                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(),
+                        call.callsConstructorOfCreatedType() ? call.constructor() : null));
             }
             switch (e) {
                 case Assignment a -> {

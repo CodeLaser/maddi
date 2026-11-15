@@ -32,9 +32,12 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
  */
 public interface ConstructorCall extends Expression {
     /**
-     * @return the invoked constructor, or {@code null} for an array initializer and for an anonymous class creation.
-     * Test {@link #callsConstructorOfCreatedType()} or {@link #isAnonymousCreation()} rather than comparing this with
-     * {@code null}: what an anonymous creation returns here is due to change (CodeLaser/maddi#194).
+     * @return the constructor that runs. For {@code new X(...)} a constructor of the created type; for an anonymous
+     * class creation {@code new X(...) { }} the constructor of the <em>superclass</em> that the arguments go to
+     * ({@code Object}'s when {@code X} is an interface), so its {@code typeInfo()} is not the created type; {@code null}
+     * for an array initializer, and for an anonymous creation of which the front end does not know the superclass
+     * constructor. Test {@link #callsConstructorOfCreatedType()} or {@link #isAnonymousCreation()} rather than
+     * comparing this with {@code null} (CodeLaser/maddi#194).
      */
     MethodInfo constructor();
 

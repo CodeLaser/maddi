@@ -130,10 +130,14 @@ final class CSharpAnonymous {
     }
 
     /**
-     * The superclass constructor an anonymous class's creation calls (the CST has none for it): the only one of its
-     * arity, not of variable arity; null when there is none such, or several.
+     * The superclass constructor an anonymous class's creation calls, when it is not of variable arity: the one the
+     * front end resolved (maddi#194); from a front end that does not say, the only one of its arity, null when there is
+     * none such, or several.
      */
     static MethodInfo superConstructor(ConstructorCall cc) {
+        if (cc.isAnonymousCreation() && cc.constructor() != null) {
+            return cc.constructor().isVarargs() ? null : cc.constructor();
+        }
         ParameterizedType parent = cc.anonymousClass() == null ? null : cc.anonymousClass().parentClass();
         if (parent == null || parent.typeInfo() == null) return null;
         List<MethodInfo> candidates = parent.typeInfo().constructors().stream()

@@ -361,7 +361,9 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
         if (reject(predicate)) return Stream.of();
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<Element.TypeReference> typeStream;
-        if (constructor == null) {
+        if (constructor == null || anonymousClass != null) {
+            // an anonymous creation's constructor is the superclass's (maddi#194): the supertype is referenced by the
+            // anonymous class itself, below
             typeStream = Stream.of();
         } else {
             TypeInfo qualifier = detailedSources == null ? constructor.typeInfo()

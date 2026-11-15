@@ -3492,6 +3492,27 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return null;
     }
 
+    /*
+     The superclass constructor an anonymous class's creation runs. javac resolves 'new Point(6) { }' to the constructor
+     it generates for the anonymous class; that one's body is the call 'super(6)', whose symbol is the answer. Null when
+     the generated constructor is not there to read.
+     */
+    private MethodInfo anonymousSuperConstructor(JCTree.JCClassDecl anonBody) {
+        for (JCTree member : anonBody.defs) {
+            if (member instanceof JCTree.JCMethodDecl md && "<init>".equals(md.name.toString()) && md.body != null) {
+                for (JCTree.JCStatement statement : md.body.stats) {
+                    if (statement instanceof JCTree.JCExpressionStatement es
+                        && es.expr instanceof JCTree.JCMethodInvocation call
+                        && com.sun.tools.javac.tree.TreeInfo.symbol(call.meth) instanceof Symbol.MethodSymbol ms
+                        && ms.isConstructor()) {
+                        return typeData.getOrLoadMethod(ms);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     @Override
     public Void visitNewClass(NewClassTree node, Void unused) {
         JCTree.JCNewClass newClass = (JCTree.JCNewClass) node;
@@ -3538,7 +3559,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 ParameterizedType written = convertType.convertTree(newTypeExpression, dsb);
                 concreteReturnType = diamond == runtime.diamondYes()
                         ? convertType.convert(newTypeExpression.type) : written;
-                constructor = null;
+                // the superclass constructor that runs (maddi#194), Object's for an interface
+                constructor = anonymousSuperConstructor(anonBody);
                 TypeInfo enclosingType = typeStack.getLast();
                 anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes());
                 TypeInfo.Builder builder = anonymousType.builder()

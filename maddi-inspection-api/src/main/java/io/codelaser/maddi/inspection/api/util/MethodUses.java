@@ -137,8 +137,13 @@ public final class MethodUses {
             switch (e) {
                 case MethodCall mc -> add(Kind.CALL, mc.methodInfo(), in, mc, mc.parameterExpressions(), byMethod, byKind);
                 case ConstructorCall cc -> {
-                    add(Kind.CREATION, cc.constructor(), in, cc, cc.parameterExpressions(), byMethod, byKind);
-                    if (!cc.callsConstructorOfCreatedType()) {
+                    if (cc.callsConstructorOfCreatedType()) {
+                        add(Kind.CREATION, cc.constructor(), in, cc, cc.parameterExpressions(), byMethod, byKind);
+                    } else if (cc.isAnonymousCreation() && cc.constructor() != null) {
+                        // the superclass constructor that runs, as the front end resolved it (maddi#194)
+                        add(Kind.ANONYMOUS_CREATION, cc.constructor(), in, cc, cc.parameterExpressions(), byMethod, byKind);
+                    } else {
+                        // a front end that does not say which: every constructor the arguments can be for
                         for (MethodInfo candidate : superConstructors(cc)) {
                             add(Kind.ANONYMOUS_CREATION, candidate, in, cc, cc.parameterExpressions(), byMethod, byKind);
                         }

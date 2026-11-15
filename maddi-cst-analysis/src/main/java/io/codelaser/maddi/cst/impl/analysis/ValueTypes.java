@@ -235,7 +235,10 @@ public final class ValueTypes {
                     if (callee != null) nullArguments(callee, mc.parameterExpressions(), in, mc, builders);
                 }
                 case ConstructorCall cc -> {
-                    if (cc.callsConstructorOfCreatedType()) nullArguments(cc.constructor(), cc.parameterExpressions(), in, cc, builders);
+                    // an anonymous creation's arguments go to the superclass constructor (maddi#194)
+                    if (cc.callsConstructorOfCreatedType() || cc.isAnonymousCreation() && cc.constructor() != null) {
+                        nullArguments(cc.constructor(), cc.parameterExpressions(), in, cc, builders);
+                    }
                     identityKeyed(cc.parameterizedType(), in, cc, builders);
                 }
                 default -> {

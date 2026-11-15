@@ -1855,7 +1855,8 @@ public final class CSharpExpressionPrinter {
      */
     private static ParameterizedType createdTypeArguments(ParameterizedType target, MethodInfo method) {
         if (target == null || method == null || !method.isConstructor()) return target;
-        if (!(CSharpContext.currentCall() instanceof ConstructorCall cc) || cc.constructor() != method) return target;
+        if (!(CSharpContext.currentCall() instanceof ConstructorCall cc) || !cc.callsConstructorOfCreatedType()
+            || cc.constructor() != method) return target;
         ParameterizedType created = CSharpContext.created(cc);
         // created raw, new DefaultBiJoiner(new Function[0], …) in a static member: C#'s of object, whose parameter
         // is no conversion's target; the raw array is its own Func<object, object>[]
