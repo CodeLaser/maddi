@@ -2100,6 +2100,15 @@ internal class KotlinBodyConverter(
                     .setConstructor(arrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
                     .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(runtime.newInt(0))).build())
             }
+            // a COLLECTION's toTypedArray is REIFIED, so ACC_SYNTHETIC: `c.toArray(new T[0])`, which is what kotlinc
+            // inlines; the jdk archive contracts Collection.toArray(T[]) (#15)
+            id == "kotlin.collections.toTypedArray" && on == "kotlin.collections.Collection" && receiver != null && n == 0 -> {
+                val arrayType = call?.expressionType?.let { mapType(it, method.typeInfo(), method) }
+                    ?.takeIf { it.arrays() == 1 && !it.copyWithOneFewerArrays().isPrimitiveExcludingVoid } ?: return null
+                instanceCall(receiver, "toArray", listOf(runtime.newConstructorCallBuilder().setSource(runtime.noSource())
+                    .setConstructor(arrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+                    .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(runtime.newInt(0))).build()))
+            }
             // THE @InlineOnly LOOPS: each becomes the chain of public calls computing the same value, which reads the
             // receiver as the loop does -- eagerly where the loop may stop early, which changes no modification (#15)
             id == "kotlin.collections.firstNotNullOfOrNull" && receiver != null && n == 1

@@ -60,6 +60,28 @@ public class KotlinCollections {
     caller's business, and its own contract's -- not this one's.
     */
     class CollectionsKt___CollectionsKt$ {
+        /* census 2026-11-15 (maddi-mod#15): read-only, the receiver is read and never written */
+        /* the destination is written (the defaults say so); the receiver only read. Returns the destination. */
+        static <T, R, C extends Collection<? super R>> C flatMapTo(@NotModified Iterable<? extends T> receiver,
+                C destination, Function1<? super T, ? extends Iterable<? extends R>> transform) {
+            return null;
+        }
+
+        /* a lazy indexing VIEW of the receiver: dependent, so no @Independent */
+        @NotNull
+        static <T> Iterable<kotlin.collections.IndexedValue<T>> withIndex(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        /* as joinToString, into a buffer, which is written; returns the buffer */
+        static <T, A extends Appendable> A joinTo(@NotModified Iterable<? extends T> receiver, A buffer,
+                                                  @NotModified CharSequence separator, @NotModified CharSequence prefix,
+                                                  @NotModified CharSequence postfix, int limit,
+                                                  @NotModified CharSequence truncated,
+                                                  Function1<? super T, ? extends CharSequence> transform) {
+            return null;
+        }
+
         @Independent(hc = true)
         @NotNull
         static <T, R> List<R> map(@NotModified Iterable<? extends T> receiver,
@@ -716,6 +738,27 @@ public class KotlinCollections {
     Builds a map holding the pairs' contents as hidden content; it modifies none of them.
     */
     class MapsKt__MapsKt$ {
+        /* census 2026-11-15 (maddi-mod#15): read-only, the receiver is read and never written */
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> plus(@NotModified Map<? extends K, ? extends V> receiver,
+                                     @NotModified Map<? extends K, ? extends V> map) {
+            return null;
+        }
+
+        /* the value for the key, or NoSuchElementException */
+        @Independent(hc = true)
+        static <K, V> V getValue(@NotModified Map<K, ? extends V> receiver, K key) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        @SafeVarargs
+        static <K, V> Map<K, V> mutableMapOf(@Independent(hc = true) @NotModified Pair<? extends K, ? extends V>... pairs) {
+            return null;
+        }
+
         @Independent(hc = true)
         @NotNull
         @SafeVarargs
@@ -853,6 +896,19 @@ public class KotlinCollections {
     The read-only extensions on a Map: the receiver is read, never written.
     */
     class MapsKt___MapsKt$ {
+        /* census 2026-11-15 (maddi-mod#15): read-only, the receiver is read and never written */
+        @Independent(hc = true)
+        @NotNull
+        static <K, V, R> List<R> mapNotNull(@NotModified Map<? extends K, ? extends V> receiver,
+                Function1<? super Map.Entry<? extends K, ? extends V>, ? extends R> transform) {
+            return null;
+        }
+
+        static <K, V> boolean all(@NotModified Map<? extends K, ? extends V> receiver,
+                                  Function1<? super Map.Entry<? extends K, ? extends V>, Boolean> predicate) {
+            return false;
+        }
+
         static <K, V> void forEach(@NotModified Map<? extends K, ? extends V> receiver,
                                    Function1<? super Map.Entry<? extends K, ? extends V>, Unit> action) {
         }
@@ -926,6 +982,25 @@ public class KotlinCollections {
     file, so javac does not see it and the contract is dropped ("Ignoring method … not found in target type").
     */
     class ArraysKt___ArraysKt$ {
+        /* census 2026-11-15 (maddi-mod#15): read-only, the receiver is read and never written */
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> distinct(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> associateWith(@NotModified K[] receiver, Function1<? super K, ? extends V> valueSelector) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Pair<List<T>, List<T>> partition(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
         @Independent(hc = true)
         static <T> T firstOrNull(@NotModified T[] receiver) {
             return null;
@@ -1154,7 +1229,24 @@ public class KotlinCollections {
     }
 
     /* public fun <T> Iterable<Iterable<T>>.flatten(): List<T> -- a fresh list of the inner elements */
+    /* public actual inline fun <reified T> Collection<T>.toTypedArray(): Array<T> -- a fresh array of the elements */
+    class ArraysKt__ArraysJVMKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <T> T[] toTypedArray(@NotModified Collection<? extends T> receiver) {
+            return null;
+        }
+    }
+
     class CollectionsKt__IterablesKt$ {
+        /* census 2026-11-15 (maddi-mod#15): read-only, the receiver is read and never written */
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> Pair<List<T>, List<R>> unzip(
+                @NotModified Iterable<? extends Pair<? extends T, ? extends R>> receiver) {
+            return null;
+        }
+
         @Independent(hc = true)
         @NotNull
         static <T> List<T> flatten(@NotModified Iterable<? extends Iterable<? extends T>> receiver) {
@@ -1206,6 +1298,13 @@ public class KotlinCollections {
 
     /* public operator fun <T> Set<T>.plus(element: T): Set<T> -- a fresh LinkedHashSet */
     class SetsKt___SetsKt$ {
+        /* census 2026-11-15 (maddi-mod#15): read-only, the receiver is read and never written */
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> minus(@NotModified Set<? extends T> receiver, T element) {
+            return null;
+        }
+
         @Independent(hc = true)
         @NotNull
         static <T> Set<T> plus(@NotModified Set<? extends T> receiver, T element) {

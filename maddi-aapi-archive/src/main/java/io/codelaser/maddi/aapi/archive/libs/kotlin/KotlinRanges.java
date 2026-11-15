@@ -39,6 +39,15 @@ public class KotlinRanges {
         Integer getEndInclusive() { return null; }
     }
 
+    /* 'c in 'a'..'z'': first and last are final chars, read */
+    class CharRange$ {
+        @NotModified
+        boolean contains(char value) { return false; }
+
+        @NotModified
+        boolean isEmpty() { return false; }
+    }
+
     /* IntRange's parent: first, last and step are final ints, read */
     class IntProgression$ {
         @NotModified
