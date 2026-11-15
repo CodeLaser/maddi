@@ -6,8 +6,19 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>CSharpCheck</RootNamespace>
+    <!-- runs on .NET 10 where it is installed, else on the next major one (a Mac with only .NET 11) -->
+    <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
   </ItemGroup>
+  <!-- the reference assemblies of the target framework, which the translated code is judged against whatever runtime
+       runs the tool: the same verdicts on .NET 10 and on .NET 11 -->
+  <Target Name="WriteFrameworkReferences" AfterTargets="ResolveTargetingPackAssets">
+    <ItemGroup>
+      <_FrameworkReference Include="@(Reference)" Condition="'%(Reference.FrameworkReferenceName)' == 'Microsoft.NETCore.App'" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(OutDir)framework-references.txt" Lines="@(_FrameworkReference->'%(FullPath)')"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
 </Project>
