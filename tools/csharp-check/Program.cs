@@ -18,8 +18,9 @@
 // The line -run:<type> runs the static Main of the type of that simple name once the compilation has no error: the
 // behavioural check of the unit tests (CommonJavaToCSharp.behaves), which compare it with the Java's run.
 //
-// Lines and columns are 1-based. The compilation references the assemblies of the running .NET, so the translated
-// code is judged against the BCL as it is.
+// Lines and columns are 1-based. The compilation references the target framework's reference assemblies, which the
+// build lists in framework-references.txt beside the tool: the BCL the translation targets (net10.0), the same whether
+// .NET 10 or a later one runs the tool. Without that file, the assemblies of the running .NET.
 
 using System.Reflection;
 using System.Runtime.Loader;
@@ -160,11 +161,20 @@ static class Checker
         return reference;
     }
 
-    /// <summary>The assemblies of the running .NET, by path: the BCL the translated code is judged against.</summary>
-    static readonly Dictionary<string, MetadataReference> Platform = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-        .Split(Path.PathSeparator)
+    /// <summary>
+    /// The BCL the translated code is judged against, by path: the target framework's reference assemblies, else those
+    /// of the running .NET.
+    /// </summary>
+    static readonly Dictionary<string, MetadataReference> Platform = PlatformPaths()
         .Where(p => Path.GetFileName(p).StartsWith("System.") || Path.GetFileName(p) is "mscorlib.dll" or "netstandard.dll")
         .Distinct().ToDictionary(p => p, Reference);
+
+    static IEnumerable<string> PlatformPaths()
+    {
+        var listed = Path.Combine(AppContext.BaseDirectory, "framework-references.txt");
+        if (File.Exists(listed)) return File.ReadAllLines(listed).Select(l => l.Trim()).Where(l => l.Length > 0);
+        return ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator);
+    }
 
     // the nullable warnings: CS8597-CS8670, CS8714, CS8762-CS8777, CS8819-CS8855, ... all in these hundreds
     static bool IsNullable(string id) => id.StartsWith("CS86") || id.StartsWith("CS87") || id.StartsWith("CS88")

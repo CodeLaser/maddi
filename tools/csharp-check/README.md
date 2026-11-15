@@ -2,14 +2,16 @@
 
 The judge of maddi's Java → C# translation (`maddi-cst-print-csharp`, #115). `JavaToCSharpRatchet` in
 `maddi-run-openjdk` builds it with `dotnet build` and runs it on the translated files. The tool parses each file on
-its own for syntax errors, then compiles the syntax-clean files together against the BCL of the running .NET with
-Roslyn (the `Microsoft.CodeAnalysis.CSharp` package). It also compiles against the assemblies the argument file names
+its own for syntax errors, then compiles the syntax-clean files together against the BCL of the target framework
+(`net10.0`'s reference assemblies, which the build lists in `framework-references.txt` beside the tool) with Roslyn (the `Microsoft.CodeAnalysis.CSharp` package). It also compiles against the assemblies the argument file names
 with `-r:`: the NuGet packages of the translation's library mappings, which the ratchet restores. With the line
 `-nullable` it enables C#'s nullable reference types and also reports the nullable warnings. It writes one
 tab-separated line per error or warning; `Program.cs` describes the format.
 
 It is a .NET project, so it is not part of the Gradle build: it needs a .NET SDK (10 or later) on the `PATH`, and
-NuGet access the first time it is built. Its build output goes to `build/`, beside the sources.
+NuGet access the first time it is built (an SDK 11 restores `net10.0`'s reference pack from NuGet). It runs on .NET 10
+where it is installed and on the next major .NET otherwise (`RollForward=Major`); the verdicts do not depend on which,
+as it judges against `net10.0`'s reference assemblies, not the running .NET's. Its build output goes to `build/`, beside the sources.
 
 ```
 dotnet build tools/csharp-check -c Release
