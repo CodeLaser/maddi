@@ -128,6 +128,11 @@ to certify a type without a real transition behind it (2026-09-25, after vavr sh
 Closing G3 needs marks (hand-written hints on vavr's `Lazy`/`Future` internals) or a notion of benign
 memoization. The 8 `API.For*Future` comprehension carriers follow `Future`.
 
+Benign memoization is settled for the methods (maddi#208, maddi#212): a memo is not a modification. `Lazy.get()` and
+the `Lazy` methods that modify it only by evaluating it are hinted `@NotModified` by hand, against the computed
+verdict; `Stream`'s methods that force the tail already were. The type-level verdicts of `Lazy` and `Stream` are
+still the computed ones.
+
 ### G4: types holding a Throwable (5 types, 8 downstream; computed is right)
 
 `Try.Failure`, `Either.Failure`, `MatchError`, `NotImplementedError` hold a `Throwable`, whose stack trace is
