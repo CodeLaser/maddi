@@ -22,10 +22,13 @@ import io.codelaser.maddi.annotation.NotModified;
 /**
  * The annotated API for {@code kotlinx.serialization.json}. A {@code Json} instance is its configuration and
  * serializers module, both fixed at construction; its descriptor-schema cache is an idempotent memo, invisible from
- * outside. {@code Json.Default} is the default instance, and every call through it (the common
- * {@code Json.encodeToString(x)}) resolves on the {@code Default} object, whose class file declares none of the
- * methods: hence the type-level contract on both, which reaches the inherited members too (see maddi#216 for why a
- * member contract on {@code Json} alone does not).
+ * outside. {@code Json.Default} is the default instance; its class file declares none of the methods, so a Java
+ * caller's {@code Json.Default.encodeToString(..)} binds to {@code Json}'s and reads the contracts below.
+ * <p>
+ * ⚠ A KOTLIN caller does not, yet: the K2 front end builds {@code Json.Default} from its member scope, inherited
+ * functions included, and binds {@code Json.encodeToString(x)} to a copy owned by {@code Default} that neither these
+ * member contracts nor {@code Default}'s type-level one reach (the census of 2026-11-15 still reads it as modifying;
+ * CodeLaser/maddi#218).
  */
 public class KotlinxSerializationJson {
     public static final String PACKAGE_NAME = "kotlinx.serialization.json";
