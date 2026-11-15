@@ -286,7 +286,7 @@ public class IoVavrCollection {
         static Array<Integer> ofAll(@Independent @NotModified int ... elements) { return null; }
 
         @Independent @NotModified
-        static <T> Array<T> ofAll(@Independent @NotModified Stream<? extends T> javaStream) { return null; }
+        static <T> Array<T> ofAll(@Independent @Modified Stream<? extends T> javaStream) { return null; }
 
         @Independent @NotModified
         static Array<Long> ofAll(@Independent @NotModified long ... elements) { return null; }
@@ -813,7 +813,7 @@ public class IoVavrCollection {
         static BitSet<Integer> ofAll(@Independent @NotModified int ... elements) { return null; }
 
         @Independent @NotModified
-        static BitSet<Integer> ofAll(@Independent @NotModified Stream<Integer> javaStream) { return null; }
+        static BitSet<Integer> ofAll(@Independent @Modified Stream<Integer> javaStream) { return null; }
 
         @Independent @NotModified
         static BitSet<Long> ofAll(@Independent @NotModified long ... elements) { return null; }
@@ -1182,7 +1182,8 @@ public class IoVavrCollection {
         @Independent @NotModified byte [] getBytes(@Independent @NotModified Charset charset) { return null; }
         //override from java.lang.CharSequence
         @NotModified
-        void getChars(int srcBegin, int srcEnd, @Independent @NotModified char [] dst, int dstBegin) { }
+        // dst is written, as String.getChars's and System.arraycopy's dest (maddi#212)
+        void getChars(int srcBegin, int srcEnd, @Independent @Modified char [] dst, int dstBegin) { }
 
         //override from io.vavr.collection.IndexedSeq, io.vavr.collection.Seq, io.vavr.collection.Traversable
         @Independent @NotModified
@@ -2829,7 +2830,7 @@ public class IoVavrCollection {
         static io.vavr.collection.HashSet<Integer> ofAll(@Independent @NotModified int ... elements) { return null; }
 
         @Independent @NotModified
-        static <T> io.vavr.collection.HashSet<T> ofAll(@Independent @NotModified Stream<? extends T> javaStream) {
+        static <T> io.vavr.collection.HashSet<T> ofAll(@Independent @Modified Stream<? extends T> javaStream) {
             return null;
         }
 
@@ -5510,7 +5511,7 @@ public class IoVavrCollection {
         static LinkedHashSet<Integer> ofAll(@Independent @NotModified int ... elements) { return null; }
 
         @Independent @NotModified
-        static <T> LinkedHashSet<T> ofAll(@Independent @NotModified Stream<? extends T> javaStream) { return null; }
+        static <T> LinkedHashSet<T> ofAll(@Independent @Modified Stream<? extends T> javaStream) { return null; }
 
         @Independent @NotModified
         static LinkedHashSet<Long> ofAll(@Independent @NotModified long ... elements) { return null; }
@@ -6020,7 +6021,7 @@ public class IoVavrCollection {
         static List<Integer> ofAll(@Independent @NotModified int ... elements) { return null; }
 
         @Independent @NotModified
-        static <T> List<T> ofAll(@Independent @NotModified Stream<? extends T> javaStream) { return null; }
+        static <T> List<T> ofAll(@Independent @Modified Stream<? extends T> javaStream) { return null; }
         @Independent @NotModified static List<Long> ofAll(@Independent @NotModified long ... elements) { return null; }
         @Independent @NotModified
         static List<Short> ofAll(@Independent @NotModified short ... elements) { return null; }
@@ -7521,11 +7522,11 @@ public class IoVavrCollection {
         @Independent @NotModified
         static <T> PriorityQueue<T> ofAll(
             @Independent @NotModified Comparator<? super T> comparator,
-            @Independent @NotModified Stream<? extends T> javaStream) { return null; }
+            @Independent @Modified Stream<? extends T> javaStream) { return null; }
 
         @Independent @NotModified
         static <T extends Comparable<? super T>> PriorityQueue<T> ofAll(
-            @Independent @NotModified Stream<? extends T> javaStream) { return null; }
+            @Independent @Modified Stream<? extends T> javaStream) { return null; }
 
         //override from io.vavr.collection.Traversable
         @Fluent @Independent @NotModified
@@ -7909,7 +7910,7 @@ public class IoVavrCollection {
         static Queue<Integer> ofAll(@Independent @NotModified int ... elements) { return null; }
 
         @Independent @NotModified
-        static <T> Queue<T> ofAll(@Independent @NotModified Stream<? extends T> javaStream) { return null; }
+        static <T> Queue<T> ofAll(@Independent @Modified Stream<? extends T> javaStream) { return null; }
 
         @Independent @NotModified
         static Queue<Long> ofAll(@Independent @NotModified long ... elements) { return null; }
@@ -10450,7 +10451,7 @@ public class IoVavrCollection {
         static io.vavr.collection.Stream<Integer> ofAll(@Independent @NotModified int ... elements) { return null; }
 
         @Independent @NotModified
-        static <T> io.vavr.collection.Stream<T> ofAll(@Independent @NotModified Stream<? extends T> javaStream) {
+        static <T> io.vavr.collection.Stream<T> ofAll(@Independent @Modified Stream<? extends T> javaStream) {
             return null;
         }
 
@@ -11379,7 +11380,7 @@ public class IoVavrCollection {
         static <T> Tree<T> ofAll(@Independent @NotModified Iterable<? extends T> iterable) { return null; }
 
         @Independent @NotModified
-        static <T> Tree<T> ofAll(@Independent @NotModified Stream<? extends T> javaStream) { return null; }
+        static <T> Tree<T> ofAll(@Independent @Modified Stream<? extends T> javaStream) { return null; }
 
         //override from io.vavr.collection.Traversable
         @Fluent @Independent @NotModified
@@ -13082,11 +13083,11 @@ public class IoVavrCollection {
         @Independent @NotModified
         static <T> TreeSet<T> ofAll(
             @Independent @NotModified Comparator<? super T> comparator,
-            @Independent @NotModified Stream<? extends T> javaStream) { return null; }
+            @Independent @Modified Stream<? extends T> javaStream) { return null; }
 
         @Independent @NotModified
         static <T extends Comparable<? super T>> TreeSet<T> ofAll(
-            @Independent @NotModified Stream<? extends T> javaStream) { return null; }
+            @Independent @Modified Stream<? extends T> javaStream) { return null; }
 
         @Independent @NotModified
         static TreeSet<Long> ofAll(@Independent @NotModified long ... elements) { return null; }
@@ -13540,7 +13541,7 @@ public class IoVavrCollection {
         static Vector<Integer> ofAll(@Independent @NotModified int ... elements) { return null; }
 
         @Independent @NotModified
-        static <T> Vector<T> ofAll(@Independent @NotModified Stream<? extends T> javaStream) { return null; }
+        static <T> Vector<T> ofAll(@Independent @Modified Stream<? extends T> javaStream) { return null; }
 
         @Independent @NotModified
         static Vector<Long> ofAll(@Independent @NotModified long ... elements) { return null; }

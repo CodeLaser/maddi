@@ -5200,21 +5200,24 @@ public class IoVavr {
 
     //public final class Lazy implements Value<T>, Supplier<T>, Serializable
     //EXPECTED eventually @Immutable(hc = true), after evaluation -- computed mutable @Independent(hc = true), annotated -- G3: memoizes its supplier once (VAVR.md)
+    // By hand (maddi#212, after maddi#208: a memo is not a modification): get() and the methods that modify the Lazy
+    // only by evaluating it are @NotModified, where the computed verdict is modifying. It makes them agree with the
+    // Stream methods that force a memoized tail. The type-level verdict is left as computed.
     @Independent(hc = true)
     class Lazy$<T> {
         //override from io.vavr.Value, java.lang.Object
-        @Modified
+        @NotModified
         public boolean equals(@Independent @NotModified Object o) { return false; }
 
-        @Independent(hc = true) @Modified
+        @Independent(hc = true) @NotModified
         Option<T> filter(@Independent @Modified Predicate<? super T> predicate) { return null; }
 
         //override from io.vavr.Value, java.util.function.Supplier
-        @Independent(hc = true) @Modified
+        @Independent(hc = true) @NotModified
         T get() { return null; }
 
         //override from io.vavr.Value, java.lang.Object
-        @Modified
+        @NotModified
         public int hashCode() { return 0; }
 
         //override from io.vavr.Value
@@ -5234,19 +5237,19 @@ public class IoVavr {
         boolean isSingleValued() { return false; }
 
         //override from io.vavr.Value, java.lang.Iterable
-        @Independent @Modified
+        @Independent @NotModified
         Iterator<T> iterator() { return null; }
 
         //override from io.vavr.Value
-        @Independent @Modified
+        @Independent @NotModified
         <U> Lazy<U> map(@Independent @Modified Function<? super T, ? extends U> mapper) { return null; }
 
         //override from io.vavr.Value
-        @Independent @Modified
+        @Independent @NotModified
         <U> Lazy<U> mapTo(@Independent @NotModified U value) { return null; }
 
         //override from io.vavr.Value
-        @Independent @Modified
+        @Independent @NotModified
         Lazy<Void> mapToVoid() { return null; }
 
         @Identity @Independent @NotModified
@@ -5256,7 +5259,7 @@ public class IoVavr {
         static <T> Lazy<T> of(@Independent @Modified Supplier<? extends T> supplier) { return null; }
 
         //override from io.vavr.Value
-        @Fluent @Independent @Modified
+        @Fluent @Independent @NotModified
         Lazy<T> peek(@Independent @Modified Consumer<? super T> action) { return null; }
 
         @Independent @NotModified
@@ -5272,7 +5275,7 @@ public class IoVavr {
         @NotModified
         public String toString() { return null; }
 
-        @Independent @Modified
+        @Independent @NotModified
         <U> U transform(@Independent @Modified Function<? super Lazy<T>, ? extends U> f) { return null; }
 
         @Independent @NotModified

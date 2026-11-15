@@ -337,7 +337,7 @@
  {"name": "MgetComment(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
  {"name": "MgetEntry(3,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetInputStream(4,java.util.zip.ZipEntry)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MgetInputStream(4,java.util.zip.ZipEntry)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MgetName(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Msize(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
