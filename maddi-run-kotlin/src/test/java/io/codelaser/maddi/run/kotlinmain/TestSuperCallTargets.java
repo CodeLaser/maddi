@@ -93,8 +93,9 @@ public class TestSuperCallTargets {
         }
         MethodInfo visitCall = superCall(type(parsed, "a.Library").findUniqueMethod("visitCallExpression", 1)).methodInfo();
         assertEquals("visitCallExpression", visitCall.name());
-        assertEquals("org.jetbrains.kotlin.psi.KtTreeVisitorVoid", visitCall.typeInfo().fullyQualifiedName(),
-                "the library parent's method, not the override");
+        // KtTreeVisitorVoid only inherits it: the class file declaring it is KtVisitorVoid's (CodeLaser/maddi#218)
+        assertEquals("org.jetbrains.kotlin.psi.KtVisitorVoid", visitCall.typeInfo().fullyQualifiedName(),
+                "the library ancestor's method, not the override");
 
         ExplicitConstructorInvocation eci = (ExplicitConstructorInvocation) type(parsed, "a.D").findConstructor(0)
                 .methodBody().statements().getFirst();
