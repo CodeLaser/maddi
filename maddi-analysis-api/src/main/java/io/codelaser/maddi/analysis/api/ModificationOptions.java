@@ -37,6 +37,11 @@ package io.codelaser.maddi.analysis.api;
  * @param culprits          store, beside a verdict, the first statement responsible for it (so far
  *                          {@code @StaticSideEffects}), for a developer asking "why?"; null: off. It costs a walk of
  *                          each such method's body, and the IDE daemon is the one to ask for it
+ * @param ownership         the ownership pass after the analysis (maddi-mod docs/roadmap/ownership.md): {@code @Fresh},
+ *                          {@code @Borrowed}, {@code @Owned}, and the feed back into the fixpoint; null: off (the CLI
+ *                          switches it on with its environment gate {@code OWNERSHIP})
+ * @param ownershipClosedWorld the analysed code is an application: no code outside it calls its public methods, so a
+ *                          parameter every caller hands over may be owned; null: an open world, as a library is
  */
 public record ModificationOptions(Integer maxIterations,
                                   Boolean stopWhenCycleDetectedAndNoImprovements,
@@ -49,7 +54,20 @@ public record ModificationOptions(Integer maxIterations,
                                   Boolean staticSideEffects,
                                   Boolean eventualCluster,
                                   Boolean nullability,
-                                  Boolean culprits) {
+                                  Boolean culprits,
+                                  Boolean ownership,
+                                  Boolean ownershipClosedWorld) {
+
+    /** Without the ownership pass. */
+    public ModificationOptions(Integer maxIterations, Boolean stopWhenCycleDetectedAndNoImprovements,
+                               Boolean trackObjectCreations, Boolean modificationViaReachability,
+                               Boolean faultTolerant, Boolean warnNearMisses, boolean environmentGates,
+                               boolean storeFingerprints, Boolean staticSideEffects, Boolean eventualCluster,
+                               Boolean nullability, Boolean culprits) {
+        this(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
+                modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
+                staticSideEffects, eventualCluster, nullability, culprits, null, null);
+    }
 
     /** Without culprits. */
     public ModificationOptions(Integer maxIterations, Boolean stopWhenCycleDetectedAndNoImprovements,
@@ -85,12 +103,18 @@ public record ModificationOptions(Integer maxIterations,
     public ModificationOptions withNullability(boolean nullability) {
         return new ModificationOptions(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
                 modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
-                staticSideEffects, eventualCluster, nullability, culprits);
+                staticSideEffects, eventualCluster, nullability, culprits, ownership, ownershipClosedWorld);
     }
 
     public ModificationOptions withCulprits(boolean culprits) {
         return new ModificationOptions(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
                 modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
-                staticSideEffects, eventualCluster, nullability, culprits);
+                staticSideEffects, eventualCluster, nullability, culprits, ownership, ownershipClosedWorld);
+    }
+
+    public ModificationOptions withOwnership(boolean ownership, boolean closedWorld) {
+        return new ModificationOptions(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
+                modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
+                staticSideEffects, eventualCluster, nullability, culprits, ownership, closedWorld);
     }
 }
