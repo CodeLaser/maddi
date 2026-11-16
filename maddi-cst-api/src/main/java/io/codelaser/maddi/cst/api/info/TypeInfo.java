@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.Element;
@@ -463,6 +464,16 @@ public interface TypeInfo extends NamedType, Info {
     boolean isNonSealed();
 
     /** Builder for constructing a {@link TypeInfo} during the inspection phase. */
+    /*
+    @ImmutableContainer(after = "commit"): a contract, not computed. TypeInfo.builder() hands this builder out before the
+    commit, which is @Dependent (#107); the after-mark excuse (TypeIndependentAnalyzerImpl.excused) accepts that only
+    when the exposed type is itself eventual. Literally, nothing stops a setter call on an escaped builder after
+    commit(); what makes the excuse sound is that the commit detaches the builder: the product copies every
+    collection (InspectionImpl copies the annotations since maddi 1a8053014) and EventuallyFinal.setFinal drops the
+    builder, so a late mutation cannot reach the committed TypeInfo. Replace with Freezable builders, from which the
+    engine computes the mark itself (CodeLaser/maddi-mod#133).
+     */
+    @ImmutableContainer(after = "commit", hc = true)
     interface Builder extends Info.Builder<Builder> {
         /** Adds a type that is permitted to extend this sealed type. */
         Builder addPermittedType(TypeInfo typeInfo);
