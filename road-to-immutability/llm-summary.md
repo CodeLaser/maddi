@@ -284,7 +284,7 @@ immutability verdicts are derived.
   unsafe / 1,740 noise, OPEN 211 unsafe. Second oracle: kotlinc/Roslyn on the translated corpora (the J2K/C#
   ratchets: fernflower, langchain4j, guava, nacos, jenkins, timefold).
 
-## Ownership (chapter 087; maddi-mod `analyzer/ownership`, `docs/roadmap/ownership.md`)
+## Ownership (chapter 055, before eventual immutability; finalizers are its §Finalizers; maddi-mod `analyzer/ownership`, `docs/roadmap/ownership.md`)
 
 - **Who holds an object**, not who modifies it. A one-shot pass after convergence, gate `OWNERSHIP` (off by
   default; `OWNERSHIP=<file>` also writes a census TSV), `OWNERSHIP_WORLD=closed` for an application. It only adds
@@ -304,7 +304,10 @@ immutability verdicts are derived.
   checked (`finalizer-violation` warnings).
 - `@Fresh`/`@Borrowed` are contracts on bodiless and library methods (a few JDK ones: `Arrays.copyOf`,
   `toArray()`, `ArrayList.clone`, `Map.entry`); `@Owned` is never read as a contract. Absence of links must read
-  as shared, never owned. Book examples pinned by `TestBook087Ownership`.
+  as shared, never owned. Book examples pinned by `TestBook055Ownership`. Chapter 060
+  §"Ownership and eventual immutability" (not computed): a closed-world public constructor storing a handed-over
+  list gives an owned field, yet the type stays `@FinalFields`/dependent, as immutability does not read ownership;
+  with a private constructor maddi already proves the type immutable.
 
 ## Engine facts an LLM should not re-derive wrongly
 
@@ -390,9 +393,9 @@ immutability verdicts are derived.
 ## Document map (src/docs/asciidoc/sections/)
 
 Tutorial: 010 introduction · 020 final fields · 030 modification · 040 containers ·
-045 linking & dependence · 050 immutability (incl. §Unmodifiable views) · 060 eventual (computed; §Eventual) ·
-070 modification part 2 · 080 hidden content · **085 nullability** (computed; this file's §Nullability) ·
-**087 ownership** (computed behind `OWNERSHIP`; this file's §Ownership).
+045 linking & dependence · 050 immutability (incl. §Unmodifiable views) · **055 ownership** (computed behind
+`OWNERSHIP`, incl. §Finalizers; this file's §Ownership) · 060 eventual (computed; §Eventual) ·
+070 modification part 2 · 080 hidden content · **085 nullability** (computed; this file's §Nullability).
 Technical: **105 the link system** · **108 convergence (iterating analyzer)**.
 Practice: 110 support classes · 115 the analyzer's own code · 120 other annotations ·
 appendix A annotation overview. (090/100 exist on disk but are excluded: pre-sv terminology.)

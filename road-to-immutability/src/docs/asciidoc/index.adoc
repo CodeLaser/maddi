@@ -103,6 +103,10 @@ include::{includedir}/050-immutability.adoc[leveloffset=+1]
 
 <<<
 
+include::{includedir}/055-ownership.adoc[leveloffset=+1]
+
+<<<
+
 include::{includedir}/060-eventual.adoc[leveloffset=+1]
 
 <<<
@@ -116,10 +120,6 @@ include::{includedir}/080-hidden-content.adoc[leveloffset=+1]
 <<<
 
 include::{includedir}/085-nullability.adoc[leveloffset=+1]
-
-<<<
-
-include::{includedir}/087-ownership.adoc[leveloffset=+1]
 
 <<<
 

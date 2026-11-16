@@ -249,7 +249,259 @@ method is called on the parameter.
 
 Finally, a field can even be {beforeMark}, when it is created or arrives in the type as {beforeMark}, and stays in
 this state.
-This situation must occur in a type with a {finalizer}, as explained in <<finalizers>>.
+This situation must occur in a type with a {finalizer} (<<finalizers>>).
+
+[#finalizers-before-mark]
+=== Finalizers in the before state
+
+A finalizer lets a type hold an eventually immutable object in its _before_ state, and hand it over at the end of its
+own life-cycle.
+Let us start from the following example, using <<support-eventuallyfinal>>:
+
+.Example {counter:example}, a type with a {finalizer} method
+[source,java]
+----
+class ExampleWithFinalizer {
+    @BeforeMark
+    private final EventuallyFinal<String> data = new EventuallyFinal<>();
+
+    @Fluent
+    public ExampleWithFinalizer set(String string) {
+        data.setVariable(string);
+        return this;
+    }
+
+    @Fluent
+    public ExampleWithFinalizer doSomething() {
+        System.out.println(data.toString());
+        return this;
+    }
+
+    @Finalizer
+    @BeforeMark
+    public EventuallyFinal<String> getData() {
+        return data;
+    }
+}
+----
+
+Using {fluent} methods to go from construction to finalizer is definitely allowed according to the rules:
+
+.Example {counter:example}, calling the finalizer method
+[source,java]
+----
+@ImmutableContainer
+public static EventuallyFinal<String> fluent() {
+    EventuallyFinal<String> d = new ExampleWithFinalizer()
+        .set("a").doSomething().set("b").doSomething().getData();
+    d.setFinal("x");
+    return d;
+}
+----
+
+Passing on these objects as arguments is permitted, but the recipient should not call the finalizer.
+Actually, given our strong preference for containers, the recipient should not even modify the object!
+Consider:
+
+.Example {counter:example}, illegal call
+[source,java]
+----
+@ImmutableContainer
+public static EventuallyFinal<String> stepWise() {
+    ExampleWithFinalizer ex = new ExampleWithFinalizer();
+    ex.set("a");
+    ex.doSomething();
+    ex.set("b");
+    doSthElse(ex); // <1>
+    EventuallyFinal<String> d = ex.getData();
+    d.setFinal("x");
+    return d;
+}
+
+private static void doSthElse(@NotModified ExampleWithFinalizer ex) {
+    ex.doSomething(); // <2>
+}
+----
+
+<1> here we pass on the object
+<2> forbidden to call the finalizer; other methods allowed.
+
+Rules 1 and 2 of <<finalizer-rules>> allow you to store a finalizer type inside a field, but only when finalization is
+attached to the destruction of the holding type.
+
+==== Processors and finishers
+
+They allow us to introduce the concepts of _processors_ and _finishers_ for eventually immutable types in their _before_ state.
+
+The purpose of a _processor_ is to receive an object in the {beforeMark} state, hold it, use a lot of temporary data in the meantime, and then release it again, modified but still in the {beforeMark} state.
+
+.Example {counter:example}, conceptual example of a processor
+[source,java]
+----
+class Processor {
+    private int count; // <1>
+
+    @BeforeMark // <2>
+    private final EventuallyFinal<String> eventuallyFinal;
+
+    public Processor(@BeforeMark EventuallyFinal<String> eventuallyFinal) {
+        this.eventuallyFinal = eventuallyFinal;
+    }
+
+    public void set(String s) { // <3>
+        eventuallyFinal.setVariable(s);
+        count++;
+    }
+
+    @Finalizer
+    @BeforeMark // <4>
+    public EventuallyFinal<String> done(String last) {
+        eventuallyFinal.setVariable(last + "; tried " + count);
+        return eventuallyFinal;
+    }
+}
+----
+
+<1> symbolizes the temporary data to be destroyed after processing
+<2> the field is private, not passed on, no {mark} method is called on it, and it is exposed only in a {finalizer}
+<3> symbolizes the modifications that act as processing
+<4> the result of processing: an eventually immutable object in the same initial state.
+
+The purpose of a _finisher_ is to receive an object in the {beforeMark} state, and return it in the final state.
+In the meantime, it gets modified (finished), while there is other temporary data around.
+Once the final state is reached, the analyzer guarantees that the temporary data is destroyed by severely limiting the scope of the finisher object.
+
+.Example {counter:example}, conceptual example of finisher
+[source,java]
+----
+class Finisher {
+    private int count; //<1>
+
+    @BeforeMark // <2>
+    private final EventuallyFinal<String> eventuallyFinal;
+
+    public Finisher(@BeforeMark EventuallyFinal<String> eventuallyFinal) {
+        this.eventuallyFinal = eventuallyFinal;
+    }
+
+    @Modified
+    public void set(String s) { // <3>
+        eventuallyFinal.setVariable(s);
+        count++;
+    }
+
+    @Finalizer
+    @ImmutableContainer // <4>
+    public EventuallyFinal<String> done(String last) {
+        eventuallyFinal.setFinal(last + "; tried " + count);
+        return eventuallyFinal;
+    }
+}
+----
+
+<1> symbolizes the temporary data to be destroyed.
+<2> only possible because the transition occurs in a {finalizer} method
+<3> symbolizes the modifications that act as finishing
+<4> the result of finishing: an eventually immutable object in its end-state.
+
+[#ownership-and-eventual]
+== Ownership and eventual immutability
+
+[NOTE]
+====
+*Not computed.* This section describes how the verdicts of <<ownership>> could serve eventual immutability.
+The verdicts it quotes are computed, each on its own; the two do not meet: the ownership pass runs after the
+analysis has converged, and nothing in the immutability computation reads its verdicts.
+====
+
+Eventual immutability is a property of a _type_: every instance goes through the same transition, and the mark and
+the before-only methods are part of the type's API.
+Freshness and ownership are properties of a _reference_, at a point in the program: this object has exactly one
+holder.
+The two meet because a single holder is what makes modification safe, and the moment that holder stops being the
+only one is a natural mark.
+Pony's `iso` becoming `val`, Rust's `&mut` becoming `&`, and C#'s isolated objects becoming immutable all rely on
+this: what only you hold, you may modify; once you stop modifying it, it may be shared as immutable.
+
+*Handing over instead of copying.*
+A type that stores a mutable object it receives is immutable only if nobody else can modify that object.
+The builder of <<eventual-immutability>>'s first example guarantees it with a copy, `List.copyOf(points)`.
+Ownership guarantees it without one, when every caller hands the object over (<<ownership-transfer>>): what only the
+new object holds, only the new object can modify.
+
+.Example {counter:example}, a list handed over to the constructor
+[source,java]
+----
+public final class Palette {
+    private final List<String> colors;
+
+    private Palette(List<String> colors) {      // <1>
+        this.colors = colors;
+    }
+
+    public static Palette of(String... names) {
+        List<String> list = new ArrayList<>();
+        for (String name : names) list.add(name);
+        return new Palette(list);                // <2>
+    }
+
+    public String color(int i) {
+        return colors.get(i);
+    }
+}
+----
+
+<1> Private: `of` is the only caller.
+<2> The list is handed over: `colors` is {owned}.
+
+The analyzer gives these verdicts on variants of `Palette`:
+
+[cols="3,2,1"]
+|===
+|Constructor |Type |`colors` owned
+
+|private, stores the list (as above)
+|{immutableHC}
+|yes
+|private, stores `Collections.unmodifiableList(colors)`
+|{immutableHC}
+|no
+|private, stores `List.copyOf(colors)`
+|{immutableHC}
+|no
+|public, stores the list
+|{finalFields}, dependent
+|only in a closed world
+|public, stores `Collections.unmodifiableList(colors)`
+|{finalFields}, dependent
+|no
+|===
+
+With a private constructor, immutability needs no help: no code outside the type can pass the list, so the type is
+independent of it.
+The gap is the public constructor: in a closed world (an application, `OWNERSHIP_WORLD=closed`), the ownership pass
+sees that every caller hands its list over, and marks `colors` {owned}, but the type remains {finalFields} and
+dependent, because immutability does not read ownership.
+If it did, an owned field would count as independent, and such a type would be immutable after construction, with
+neither a copy nor a mark.
+The unmodifiable view gains nothing: the field holds the view, which shares the list, so the field is not owned.
+The test `TestBook055Ownership` in maddi-mod pins the table.
+
+*Checking the before state.*
+An eventually immutable object in its before state is safe only as long as its holders agree on the order of the
+calls.
+A fresh or owned object reaches its mark with a single holder, so the transition is safe by construction.
+A before-only method called on an object that is neither fresh nor owned is where the mark's precondition can be
+broken from elsewhere: a candidate for a warning.
+
+*Finalizers as the bridge.*
+A builder whose `build()` is a {finalizer} hands its owned fields over to the result (<<finalizer-transfer>>).
+Once the builder is gone, the result holds the only references, and if it never modifies them, it is immutable from
+birth.
+This reaches the outcome of eventual immutability, a mutable phase followed by an immutable result, through a
+transfer instead of a mark: two objects in sequence rather than one object changing state.
+It is also how a translation into Rust would express it.
+
 
 == Extensions of annotations
 

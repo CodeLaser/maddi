@@ -248,12 +248,114 @@ All call sites are known when the method is private or package-private, or when 
 (`OWNERSHIP_WORLD=closed`): the analysed code is an application, and no code outside it calls its public methods.
 The method must also not override anything, nothing may override it, and no method reference may name it.
 
-{finalizer} (<<finalizers>>) is a transfer of the receiver: after the call, nobody uses the object.
-A finalizer may therefore hand over an owned field of its own object (`return new Result(this.lines)` in a
-`build()` method), and the field remains owned.
-When the pass is on, the analyzer also computes {finalizer} on such a method, if every call site hands over its
-receiver, and checks the call sites of contracted finalizers: a use of the receiver after the call is reported as
-a warning.
+{finalizer}, the subject of the next section, is a transfer of the receiver.
+
+[#finalizers]
+== Finalizers
+
+[NOTE]
+====
+*Partially implemented.* {finalizer} is read as a contract, from source annotations and from the annotated APIs,
+and its modification semantics (<<finalizer-exemption>>) are implemented and load-bearing.
+When the ownership pass is switched on, it also checks the call sites of contracted finalizers for a use of the
+receiver after the call, and computes {finalizer} on some methods (<<finalizer-transfer>>).
+The three sequencing rules of <<finalizer-rules>> are not enforced as stated.
+====
+
+Up to now, we have focused on the distinction between the building phase of an object's life-cycle, and its
+subsequent immutable phase.
+We have ignored the destruction of objects: critically important for some applications, but often completely
+ignored by Java programmers because of the silent background presence of the garbage collector.
+The annotation {finalizer} marks that calling a certain method means that the object has reached the end of its
+life-cycle:
+
+****
+Once a method marked {finalizer} has been called, no other methods may be subsequently applied.
+****
+
+Why is this useful?
+The most obvious use-case for immutability is the meaning of the `build()` method in a builder: can you call it once,
+or is the builder somehow incremental?
+Secondly, consider "terminal" operations such as `findAny` or `collect` on a stream. They close the stream,
+after which you are not allowed to use it anymore.
+
+In the terms of this chapter, a finalizer is a _transfer of the receiver_: the caller hands the object over to the
+call, and does not use it afterwards.
+
+[#finalizer-exemption]
+=== Why the modification exemption matters
+
+A finalizer marks the end of an object's life-cycle: after the call, the object may not be used again.
+Whatever the finalizer does to the dying object is therefore invisible to the rest of the program — there
+is no "after" in which the change could be observed. The analyzer exploits this: *a call to a
+{finalizer} method never marks its receiver as modified*, whatever the method's own {nm}/{modified}
+status.
+
+This is not a corner case; it is what keeps stream-based code analyzable at all. The annotated APIs mark
+the stream operations — `filter`, `map`, `flatMap`, `collect`, and their relatives — as {finalizer}:
+each consumes the stream it is called on (using the receiver again afterwards is illegal), and none of
+them carries a {nm} contract. Without the exemption, every one of those calls would conservatively count
+as a modification of the receiver chain, and since a chain such as `this.elements.stream().map(...)`
+roots in a field, the false modification would climb to the field and to `this` — making essentially
+every method containing a stream pipeline {modified}, and sinking the immutability of its type. With the
+exemption, the pipeline is silent about its receivers, and only genuine evidence (the lambda's captures,
+the collector's target) determines the verdict.
+
+The same reasoning must be applied by *every* component that re-derives modification: when the
+modification-reachability pass (the post-convergence single writer) judges a call to a method outside
+the analysis scope, it mirrors the engine's guard exactly — a boundary callee that is a finalizer
+contributes no receiver-modification evidence, no matter that its conservative no-information default
+would otherwise read as "modifying". A mismatch here is not benign: it silently poisons whole call
+chains with false modification, in code as central as the printing of a parameterized type.
+
+[#finalizer-rules]
+=== Sequencing rules
+
+How can the analyzer enforce the sequence of method calling on an object?
+The simplest way is by some severe restrictions:
+
+****
+The following need to be true at all times when using types with finalizer methods:
+
+. Any field of a type with finalizers must be effectively final (marked with {final}).
+. A finalizer method can only be called on a field inside a method which is marked as a finalizer as well.
+. A finalizer method can never be called on a parameter or any variable linked to it, with linking as defined throughout this document (see <<linking-dependence>>).
+****
+
+These restrictions help you control the life-cycle of objects with a {finalizer}, by not letting them out of sight.
+Each of them is an ownership rule:
+
+[cols="1,1"]
+|===
+|Rule |In ownership terms
+
+|no method may be called after the finalizer
+|the receiver is not used after the call: a transfer (<<ownership-transfer>>), with the receiver as the argument
+|1. a type with finalizers has effectively final fields
+|the owner cannot be swapped out
+|2. a finalizer is called on a field only inside a finalizer
+|an owner consumes what it owns only while it is itself consumed (in Rust, moving out of a field needs `self` by value)
+|3. never on a parameter, or anything linked to it
+|a borrowed object cannot be consumed
+|===
+
+The eventually immutable types of the next chapter use finalizers to keep an object in its _before_ state while it
+is held by a field (<<finalizers-before-mark>>).
+
+[#finalizer-transfer]
+=== Computing and checking finalizers
+
+A finalizer may hand over an owned field of its own object (`return new Result(this.lines)` in a `build()`
+method), and the field remains owned: after the call, its owner is dead.
+When the ownership pass is on, the analyzer computes {finalizer} on a method that _needs_ to be one, because it
+hands over an owned field of its own type, when it is also _permitted_ to be one, because every call site hands over
+its receiver: a temporary (a construction, a fresh method's result, a chain of {fluent} calls on one), or a local that
+is not used after the call.
+Call-site evidence alone would be vacuous: any method called once, on a temporary, would qualify.
+
+For a contracted finalizer, the same test on every call site finds the uses of the receiver after the call, for
+example a stream used again after `map`.
+They are reported as warnings: the modification exemption above relies on them not happening.
 
 == Ownership and modification
 
@@ -262,7 +364,7 @@ since no other holder exists through which a modification could travel; and a bo
 since nothing retains it.
 The converse does not hold, because independence allows immutable sharing.
 
-The examples of this chapter are pinned by the test `TestBook087Ownership` in maddi-mod.
+The examples of this chapter are pinned by the test `TestBook055Ownership` in maddi-mod.
 The verdicts have also been checked against instrumented test runs, which record every place that holds a claimed owned
 object, and every holder of a borrowed argument after the call.
 The contradictions those runs found were holes in the pass, and are fixed.
