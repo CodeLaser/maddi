@@ -181,8 +181,13 @@ public class RunMixedPrepAnalyzer {
             engine.resultsLoader(runtime, sourceSetOfRequest).load(analysisResultsDirs);
         }
         // after the archive is loaded, before anything is concluded: which library members the source calls, and
-        // whether a contract reached each (absent -Dmaddi.libraryCallDump: no walk, no cost)
-        writeLibraryCallDump(engine, runtime, Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+        // whether a contract reached each (absent -Dmaddi.libraryCallDump: no walk, no cost). Not without an archive:
+        // every member is DEFAULT then, and a prep-only run of the same corpus test class (coil's) overwrote the
+        // census its archive-loading run had just written
+        if (!analysisResultsDirs.isEmpty()) {
+            writeLibraryCallDump(engine, runtime,
+                    Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+        }
 
         // Fault-tolerant, as in run-openjdk's RunAnalyzer: one failing method must not deny analysis to a whole
         // corpus. The Kotlin front end has more rough edges than the Java one, so this matters more here, not
