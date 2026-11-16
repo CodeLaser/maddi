@@ -388,7 +388,10 @@ public class RunAnalyzer implements Runnable {
                     true, // environment gates
                     true) // store the analysis fingerprints
                     // the facts the nullability pass reads, for a translation
-                    .withNullability(configuration.generalConfiguration().translate() != null);
+                    .withNullability(configuration.generalConfiguration().translate() != null)
+                    // @Fresh/@Borrowed/@Owned; the OWNERSHIP and OWNERSHIP_WORLD environment gates still apply too
+                    .withOwnership(configuration.generalConfiguration().ownership(),
+                            configuration.generalConfiguration().closedWorld());
             ModificationOutcome modificationOutcome;
             try {
                 modificationOutcome = engine().modification(new ModificationRequest(javaInspector, order,

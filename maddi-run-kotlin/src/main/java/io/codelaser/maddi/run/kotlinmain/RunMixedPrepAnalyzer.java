@@ -94,7 +94,8 @@ public class RunMixedPrepAnalyzer {
      * and an option it does NOT honour is refused there by name, never quietly dropped.
      */
     public record Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
-                          boolean warnNearMisses, String analysisResultsTargetDir) {
+                          boolean warnNearMisses, String analysisResultsTargetDir, boolean ownership,
+                          boolean closedWorld) {
         public Options(boolean modification, List<String> analysisResultsDirs) {
             this(modification, analysisResultsDirs, false, false, null);
         }
@@ -102,6 +103,11 @@ public class RunMixedPrepAnalyzer {
         public Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
                        boolean warnNearMisses) {
             this(modification, analysisResultsDirs, parallel, warnNearMisses, null);
+        }
+
+        public Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
+                       boolean warnNearMisses, String analysisResultsTargetDir) {
+            this(modification, analysisResultsDirs, parallel, warnNearMisses, analysisResultsTargetDir, false, false);
         }
     }
 
@@ -206,7 +212,8 @@ public class RunMixedPrepAnalyzer {
                     30, // safety net; the loop exits on convergence/certification/plateau
                     true, null, null,
                     true, // isolate a crash on one element rather than abort the run
-                    options.warnNearMisses(), false, false);
+                    options.warnNearMisses(), false, false)
+                    .withOwnership(options.ownership(), options.closedWorld());
             // the graph enables worklist narrowing
             engine.modification(new ModificationRequest(parsed.getJavaInspector(), order, callGraph, primaryTypes,
                     modificationOptions, null));

@@ -219,7 +219,9 @@ public class RunAnalyzer implements Runnable {
                     true, // isolate a crash on one element; report it, don't abort the whole run
                     configuration.generalConfiguration().warnNearMisses(),
                     false, // no environment gates
-                    true); // store the analysis fingerprints
+                    true) // store the analysis fingerprints
+                    .withOwnership(configuration.generalConfiguration().ownership(),
+                            configuration.generalConfiguration().closedWorld());
             ModificationOutcome modificationOutcome;
             try {
                 // no call graph: this driver has always analyzed the order without worklist narrowing
