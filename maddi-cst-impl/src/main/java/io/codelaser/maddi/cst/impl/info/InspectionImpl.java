@@ -100,7 +100,9 @@ public abstract class InspectionImpl implements Inspection {
         this.comments = comments == null ? List.of() : List.copyOf(comments);
         this.source = source;
         this.synthetic = synthetic;
-        this.annotations = annotations;
+        // copied, as comments is: the builder hands its own list in, and an escaped builder's addAnnotation after
+        // commit() would otherwise still change the committed product
+        this.annotations = annotations == null ? List.of() : List.copyOf(annotations);
         this.javaDoc = javaDoc;
     }
 
