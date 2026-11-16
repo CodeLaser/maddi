@@ -117,7 +117,18 @@ public interface Element {
      */
     void visit(@NotNull @IgnoreModifications Visitor visitor);
 
+    /**
+     * {@code @NotModified}: printing reads this element. Computed, it is the cycle of {@link #rewire}: an
+     * implementation prints its parts through this abstract method, whose verdict is the union of the implementations
+     * (#116). One implementation that modifies before its mark ({@code AnnotationExpressionImpl.print}, whose
+     * qualification check may load a type's inspection on demand) made the union modifying, every statement and
+     * expression printing its parts through a stream modifying with it (#112), and {@code Element}, {@code Statement},
+     * {@code Expression} and {@code Info} {@code @FinalFields} after the mark. The engine does not yet carry an
+     * after-mark label across a call on a part (CodeLaser/maddi-mod#133); until it does,
+     * the contract cuts the cycle and the guard checks the implementations against it.
+     */
     @NotNull
+    @NotModified
     OutputBuilder print(Qualification qualification);
 
     @SuppressWarnings("unchecked")
