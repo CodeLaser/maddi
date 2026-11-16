@@ -129,12 +129,18 @@ public class ParseCompilationUnit extends CommonParse {
         String suffix = compilationUnit.sourceSet().test() ? "-test" : "";
         TypeInfo typeInfo = runtime.newTypeInfo(compilationUnit, "package-info" + suffix);
         TypeInfo.Builder builder = typeInfo.builder();
-        parseAnnotations(context, builder, annotations);
+        boolean toBeResolved = parseAnnotations(context, builder, annotations);
         builder.setTypeNature(runtime.typeNaturePackageInfo())
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic())
-                .setSource(source(cu))
-                .commit();
+                .setSource(source(cu));
+        // an annotation with non-literal values is resolved later, into this builder: the resolver commits it then.
+        // Committing here relied on the product sharing the builder's annotation list (until maddi 1a8053014).
+        if (toBeResolved) {
+            context.resolver().add(builder);
+        } else {
+            builder.commit();
+        }
         return typeInfo;
     }
 
