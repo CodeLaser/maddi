@@ -70,6 +70,8 @@ public class Main {
     public static final String INCREMENTAL_ANALYSIS = "incremental-analysis";
     public static final String JDK_INTERNALS = "jdk-internals";
     public static final String WARN_NEAR_MISSES = "warn-near-misses";
+    public static final String OWNERSHIP = "ownership";
+    public static final String CLOSED_WORLD = "closed-world";
     public static final String SKIP_KOTLIN_SOURCES = "skip-kotlin-sources";
     public static final String ANALYSIS_STEPS = "analysis-steps";
 
@@ -294,6 +296,11 @@ public class Main {
                 + "(exit " + EXIT_KOTLIN_SOURCES + ") rather than skipping it silently.");
         options.addOption(null, WARN_NEAR_MISSES, false, "Emit advisory warnings for types/methods that narrowly "
                 + "miss a property (e.g. would be @Container but for a single modifying parameter). Off by default.");
+        options.addOption(null, OWNERSHIP, false, "Run the ownership pass: @Fresh methods, @Borrowed parameters, "
+                + "@Owned fields (road-to-immutability §055). Off by default.");
+        options.addOption(null, CLOSED_WORLD, false, "With --" + OWNERSHIP + ": the sources are an application, no code "
+                + "outside them calls their public methods, so a parameter every caller hands over may be @Owned. "
+                + "Off by default: a library's public methods have callers maddi cannot see.");
     }
 
     public static GeneralConfiguration generalConfiguration(Map<String, String> kvMap) {
@@ -303,6 +310,8 @@ public class Main {
         setBooleanProperty(kvMap, INCREMENTAL_ANALYSIS, builder::setIncrementalAnalysis);
         setBooleanProperty(kvMap, JDK_INTERNALS, builder::setJdkInternals);
         setBooleanProperty(kvMap, WARN_NEAR_MISSES, builder::setWarnNearMisses);
+        setBooleanProperty(kvMap, OWNERSHIP, builder::setOwnership);
+        setBooleanProperty(kvMap, CLOSED_WORLD, builder::setClosedWorld);
         setBooleanProperty(kvMap, SKIP_KOTLIN_SOURCES, builder::setSkipKotlinSources);
         setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
         setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
@@ -312,7 +321,7 @@ public class Main {
         return builder.build();
     }
 
-    private static GeneralConfiguration parseGeneralConfiguration(CommandLine cmd) {
+    static GeneralConfiguration parseGeneralConfiguration(CommandLine cmd) {
         GeneralConfiguration.Builder builder = new GeneralConfiguration.Builder();
 
         builder.setParallel(cmd.hasOption(PARALLEL));
@@ -320,6 +329,8 @@ public class Main {
         builder.setIncrementalAnalysis(cmd.hasOption(INCREMENTAL_ANALYSIS));
         builder.setJdkInternals(cmd.hasOption(JDK_INTERNALS));
         builder.setWarnNearMisses(cmd.hasOption(WARN_NEAR_MISSES));
+        builder.setOwnership(cmd.hasOption(OWNERSHIP));
+        builder.setClosedWorld(cmd.hasOption(CLOSED_WORLD));
         builder.setSkipKotlinSources(cmd.hasOption(SKIP_KOTLIN_SOURCES));
 
         String[] analysisSteps = cmd.getOptionValues(ANALYSIS_STEPS);

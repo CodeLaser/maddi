@@ -183,7 +183,9 @@ public class Main {
                         : configuration.analysisHintsConfiguration().preloadAnalysisResultsDirs(),
                 configuration.generalConfiguration().parallel(),
                 configuration.generalConfiguration().warnNearMisses(),
-                configuration.generalConfiguration().analysisResultsDir());
+                configuration.generalConfiguration().analysisResultsDir(),
+                configuration.generalConfiguration().ownership(),
+                configuration.generalConfiguration().closedWorld());
         RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer()
                 .go(configuration.inputConfiguration(), options);
         // the placeholder count belongs on the SAME line as the type counts: a run that reports what it
