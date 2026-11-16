@@ -50,8 +50,13 @@ chapter only when detail is missing here. Last checked against the code and the 
     Written and read as `@Modified(hc=true)` (modified in the hidden content only; a contract on a bodiless
     declaration, `AnnotationToProperty`/`DecoratorImpl`/`SourceContractMaterializer`). Consumer: the Java→Kotlin
     printer's `List`/`MutableList` choice. Immutability, independence and `@Container` keep the deep property.
-    The book's §"Propagating modifications" (080) describes it; the step back from a modified container to its
-    elements (`useAddNewLine`) is still not computed.
+    The book's §"Propagating modifications" (080) describes it. A modified element reached through `∈`/`∋` is
+    hidden for the structural verdict even when its type is concrete (`Leaf.children`), unless the owner's type has
+    another non-static field of a compatible type (assignable either way; `Object` counts, a type-parameter field
+    does not): then it is structural (maddi-mod#117, `Util.hiddenAliasOwner`; book example `Node.first`, test
+    `TestBook080Elements`). The step back from a modified container to its elements is computed within one method
+    (maddi-mod#113: a co-element of a modified element is modified, deep only), not through a call
+    (`useAddNewLine`).
 - **Unmodifiable views** (2026-10-15, CodeLaser/maddi-mod#52; book §050 "Unmodifiable views"): a fact beside
   immutability, never derived from it. `UNMODIFIABLE_TYPE`: rule 0 + the structural rule 1, decided BEFORE the rule-3
   (dependence) cap that stops `Collections.unmodifiableList`'s view type at FINAL_FIELDS (which cannot tell "rule 1
@@ -279,6 +284,34 @@ immutability verdicts are derived.
   unsafe / 1,740 noise, OPEN 211 unsafe. Second oracle: kotlinc/Roslyn on the translated corpora (the J2K/C#
   ratchets: fernflower, langchain4j, guava, nacos, jenkins, timefold).
 
+## Ownership (chapter 055, before eventual immutability; finalizers are its §Finalizers; maddi-mod `analyzer/ownership`, `docs/roadmap/ownership.md`)
+
+- **Who holds an object**, not who modifies it. A pass after convergence, gate `OWNERSHIP` (off by
+  default; `OWNERSHIP=<file>` also writes a census TSV), `OWNERSHIP_WORLD=closed` for an application. First consumer:
+  the Java→Rust printer. One fact feeds back into the fixpoint (an ownership round at the terminal point, gate
+  `NOOWNERSHIPFEED`): a parameter every caller hands over into an owned field is no dependence; the elements'
+  independence counts in its place (`java.util` containers and arrays only). Cold runs only, not persisted.
+- **`@Fresh`** (method, `FRESH_METHOD`): every returned object was created during the call (or is `null`) and
+  nothing else holds it. A lambda/method reference is never fresh. `List.copyOf`, `Collections.emptyList` are not.
+- **`@Borrowed`** (parameter, `BORROWED_PARAMETER`): nothing that outlives the call holds the argument's object;
+  keeping its hidden content is fine (`addAll(c)` borrows `c`), storing an immutable object is not (a `String`
+  stored is kept, though independent). Degraded method: nothing borrowed.
+- **`@Owned`** (field, `OWNED_FIELD`; `elements=true` = `OWNED_ELEMENTS_FIELD`): reachable only through its owner.
+  Rules: arrives fresh (creation, fresh call, `null`, or a *transferred* parameter), never leaves (borrowed callees
+  and *lent* results allowed), private or effectively private (closed world), no degraded referrer.
+  `SHARED_IMMUTABLE_FIELD` has no annotation.
+- **Transfer**: every call site (known: private/package-private or closed world, no override, no method
+  reference) hands over a fresh object or a local not used after. `@Finalizer` is transfer of the receiver; with
+  the gate on it is computed for methods moving an owned field out, and contracted finalizers' call sites are
+  checked (`finalizer-violation` warnings).
+- `@Fresh`/`@Borrowed` are contracts on bodiless and library methods (a few JDK ones: `Arrays.copyOf`,
+  `toArray()`, `ArrayList.clone`, `Map.entry`); `@Owned` is never read as a contract. Absence of links must read
+  as shared, never owned. Book examples pinned by `TestBook055Ownership`. Chapter 060
+  §"Ownership and eventual immutability" (not computed): a closed-world public constructor storing a handed-over
+  list gives an owned field, yet the type stays `@FinalFields`/dependent, as immutability does not read ownership;
+  with a private constructor maddi already proves the type immutable. With the feed, the closed-world public
+  constructor's type is `@Immutable(hc=true)` too.
+
 ## Engine facts an LLM should not re-derive wrongly
 
 - Compare `TypeInfo`/`MethodInfo`/`FieldInfo` with `==` (single instance per FQN + source set).
@@ -363,7 +396,8 @@ immutability verdicts are derived.
 ## Document map (src/docs/asciidoc/sections/)
 
 Tutorial: 010 introduction · 020 final fields · 030 modification · 040 containers ·
-045 linking & dependence · 050 immutability (incl. §Unmodifiable views) · 060 eventual (computed; §Eventual) ·
+045 linking & dependence · 050 immutability (incl. §Unmodifiable views) · **055 ownership** (computed behind
+`OWNERSHIP`, incl. §Finalizers; this file's §Ownership) · 060 eventual (computed; §Eventual) ·
 070 modification part 2 · 080 hidden content · **085 nullability** (computed; this file's §Nullability).
 Technical: **105 the link system** · **108 convergence (iterating analyzer)**.
 Practice: 110 support classes · 115 the analyzer's own code · 120 other annotations ·

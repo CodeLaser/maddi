@@ -24,6 +24,7 @@ Bart Naudts <bart.naudts@codelaser.io>
 
 :allowsInterrupt: pass:normal[ `@AllowsInterrupt` ]
 :beforeMark: pass:normal[ `@BeforeMark` ]
+:borrowed: pass:normal[ `@Borrowed` ]
 :container:  pass:normal[ `@Container` ]
 :extensionClass: pass:normal[ `@ExtensionClass` ]
 :final:  pass:normal[ `@Final` ]
@@ -32,6 +33,7 @@ Bart Naudts <bart.naudts@codelaser.io>
 :finalFieldsAbsent: pass:normal[ `@FinalFields(absent=true)` ]
 :finalizer:  pass:normal[ `@Finalizer` ]
 :fluent: pass:normal[ `@Fluent` ]
+:fresh: pass:normal[ `@Fresh` ]
 :identity:  pass:normal[ `@Identity` ]
 :ignoreModifications:  pass:normal[ `@IgnoreModifications` ]
 :immutable: pass:normal[ `@Immutable` ]
@@ -49,6 +51,7 @@ Bart Naudts <bart.naudts@codelaser.io>
 :nullable: pass:normal[ `@Nullable` ]
 :nullMarked: pass:normal[ `@NullMarked` ]
 :only:  pass:normal[ `@Only` ]
+:owned: pass:normal[ `@Owned` ]
 :singleton: pass:normal[ `@Singleton` ]
 :sse: pass:normal[ `@StaticSideEffects` ]
 :testMark: pass:normal[ `@TestMark` ]
@@ -97,6 +100,10 @@ include::{includedir}/045-linking-dependence.adoc[leveloffset=+1]
 <<<
 
 include::{includedir}/050-immutability.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/055-ownership.adoc[leveloffset=+1]
 
 <<<
 

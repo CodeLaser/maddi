@@ -208,7 +208,78 @@ its own state.
 The same annotation is read as a contract on a declaration without a body, so an annotated API can say that a
 method touches only the elements of its argument.
 
-What is not computed is the step back to the elements.
+[#structural-elements]
+=== Elements of a concrete type
+
+In `NonEmptyList<StringBuilder>`, the elements are hidden content because `T` is the list's own type parameter.
+Elements can also be of a concrete type that the owner names.
+By the definition of <<accessible-hidden-content>> (`Counters`), those are accessible content, not hidden content.
+The structural verdict does not follow that definition to the letter, as the next example shows.
+
+.Example {counter:example}, elements of a concrete type and of a type parameter
+[source,java]
+----
+class Node {
+    int mark;
+    final List<Node> children = new ArrayList<>();   // Node is a concrete type that Node names
+    Node first;                                       // may alias one of the children
+    void clear() { mark = 0; }
+}
+
+class Leaf {
+    int mark;
+    final List<Leaf> children = new ArrayList<>();   // as Node, without the field 'first'
+    void clear() { mark = 0; }
+}
+
+class Box<T> {
+    final List<T> items = new ArrayList<>();          // T is Box's own type parameter: hidden content
+    T first;
+}
+
+static void clearChildren(Node node) { for (Node c : node.children) c.clear(); }   // <1>
+static void clearFirst(Node node)    { node.first.clear(); }                        // <2>
+static void clearList(List<Node> nodes) { for (Node c : nodes) c.clear(); }         // <3>
+static void clearBox(Box<Node> box)  { for (Node c : box.items) c.clear(); }        // <4>
+static void addChild(Node node)      { node.children.add(new Node()); }             // <5>
+static void clearLeaves(Leaf leaf)   { for (Leaf c : leaf.children) c.clear(); }    // <6>
+----
+
+The analyzer gives these verdicts on the parameters:
+
+[cols="2,1,3"]
+|===
+|Parameter |Deep |Structural
+
+|(1) `node` in `clearChildren` |modified |modified: a child may be `node.first`
+|(2) `node` in `clearFirst` |modified |modified
+|(3) `nodes` in `clearList` |modified |not modified: the list itself only changes in its elements
+|(4) `box` in `clearBox` |modified |not modified: to `Box`, the elements of `items` are its type parameter `T`
+|(5) `node` in `addChild` |modified |modified
+|(6) `leaf` in `clearLeaves` |modified |not modified
+|===
+
+* *(1) and (2)* can write to the same object (`node.first == node.children.get(0)`), so one cannot be structural
+and the other not.
+The analyzer counts a modified element as a structural modification of its owner when the owner's type has
+another field whose type is compatible with the element's type (CodeLaser/maddi-mod#117).
+Compatible means assignable either way: a field of type `Object` counts, a field whose type is a type parameter
+does not.
+* *(6)*, the same code without the alias, is structurally unmodified.
+Whether a modification reaches the owner through an element, the `∈`/`∋` links of <<link-system>>, decides the
+structural verdict, and only a possible alias with an accessible field makes it count.
+This is narrower than <<accessible-hidden-content>>, where the children of `Leaf` are accessible content: the
+structural verdict treats every element reached through a container as hidden, except where it may be a field's
+object.
+* *(3) versus (4)*: the instantiation `Box<Node>` does not make `Node` accessible content of `Box`, and the field
+`first` of type `T` is no alias in the sense of (1).
+* *(3)* is the case the Java→Kotlin translation reads to choose `List` over `MutableList` for a parameter.
+
+The test `TestBook080Elements` in maddi-mod pins these verdicts.
+
+=== The step back to the elements
+
+What is computed only in part is the step back to the elements.
 Applying the two methods further on, we cannot compute
 
 .Example {counter:example}, using `print` and `addNewLine`
@@ -229,14 +300,33 @@ static String useReplace(@NotModified StringBuilder input) {
 }
 ----
 
-<1> Should be {modified}: the 3rd statement modifies the hidden content of `list`, as `@Modified(hc=true)` on `addNewLine` says, but that verdict is not carried back to `input`
+<1> Should be {modified}: the 3rd statement modifies the hidden content of `list`, as `@Modified(hc=true)` on `addNewLine` says, but that verdict is not carried back to `input` through the call
 <2> This action discards `input` from `list` without modifying it.
+
+When the element is modified in the same method, the step back is made: an object put into a local collection,
+and modified after it comes out again, is modified (CodeLaser/maddi-mod#113).
+
+.Example {counter:example}, the step back within one method
+[source,java]
+----
+static String useLocal(@Modified Node input) {
+    List<Node> list = new LinkedList<>();
+    list.add(input);
+    for (Node c : list) c.clear(); // <1>
+    return list.get(0).toString();
+}
+----
+
+<1> `c` may be `input`: a co-element of a modified element is modified.
+
+The analyzer counts this as a deep modification of `input` only; its structural verdict stays unmodified, although
+the write is to `input`'s own field (CodeLaser/maddi-mod#130).
 
 ****
 The example shows that the introduction of {independent} only gets us so far: from the concrete, modifying implementation, to the parameter (or field).
 The distinction between modification of hidden content and modification of modifiable content is recorded on the
-container, as `@Modified(hc=true)`; it is not yet carried back to the objects that make up that content, so `input`
-in `useAddNewLine` still reads {nm}.
+container, as `@Modified(hc=true)`; within one method it is carried back to the objects put into a local container,
+but not through a call, so `input` in `useAddNewLine` still reads {nm}.
 ****
 
 Finally, we mention again the modification to a field from a concrete lambda:
