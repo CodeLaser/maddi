@@ -129,12 +129,19 @@ public class ParseCompilationUnit extends CommonParse {
         String suffix = compilationUnit.sourceSet().test() ? "-test" : "";
         TypeInfo typeInfo = runtime.newTypeInfo(compilationUnit, "package-info" + suffix);
         TypeInfo.Builder builder = typeInfo.builder();
-        parseAnnotations(context, builder, annotations);
+        boolean annotationsToBeResolved = parseAnnotations(context, builder, annotations);
         builder.setTypeNature(runtime.typeNaturePackageInfo())
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic())
-                .setSource(source(cu))
-                .commit();
+                .setSource(source(cu));
+        // An annotation with arguments is resolved later, through the builder: committing now froze the
+        // unresolved list, and the committed type, which copies its annotations, never saw the resolved one.
+        // The resolver commits it after resolving, as it does every type declaration.
+        if (annotationsToBeResolved) {
+            context.resolver().add(builder);
+        } else {
+            builder.commit();
+        }
         return typeInfo;
     }
 
