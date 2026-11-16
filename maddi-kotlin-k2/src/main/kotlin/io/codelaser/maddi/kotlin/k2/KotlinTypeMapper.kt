@@ -43,6 +43,7 @@ import io.codelaser.maddi.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
+import org.jetbrains.kotlin.analysis.api.components.fakeOverrideOriginal
 import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
 import org.jetbrains.kotlin.analysis.api.components.packageScope
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
@@ -707,6 +708,8 @@ internal class KotlinTypeMapper(
     // Object carries no such instance methods, so they must sit on each type. Bounded by depth so the
     // cascade terminates: types referenced beyond maxMemberDepth wait in [shells]. Depth 2 lets
     // a single chained call resolve (e.g. list.iterator().next() -- Iterator gets members too).
+    // Not flattened: a function inherited unchanged from a supertype that has members of its own: the call binds
+    // there, as it does on a class-file type ([inheritedFromLoadedSupertype], CodeLaser/maddi#218).
     private fun KaSession.loadLibraryMembers(typeInfo: TypeInfo, symbol: KaNamedClassSymbol) {
         val builder = typeInfo.builder()
         memberDepth++
@@ -749,6 +752,7 @@ internal class KotlinTypeMapper(
             val seen = mutableSetOf<String>()
             symbol.memberScope.declarations
                 .filterIsInstance<KaNamedFunctionSymbol>()
+                .filterNot { inheritedFromLoadedSupertype(symbol, it) }
                 .map { convertLibraryMethod(typeInfo, it) }
                 .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
             // a Java class's STATIC methods live in the static member scope, not the member scope: without them a
@@ -790,6 +794,31 @@ internal class KotlinTypeMapper(
             memberDepth--
             loadingMembers.remove(typeInfo)
         }
+    }
+
+    /**
+     * Whether [function], in [symbol]'s member scope, is inherited unchanged from a supertype that carries its own
+     * members, so that a call through [symbol] must bind to that supertype's method, as it does when the type is read
+     * from its class file. A copy owned by [symbol] took the call and left the supertype's contracts behind:
+     * `Json.Default.encodeToString(..)` missed `Json.encodeToString`'s (CodeLaser/maddi#218).
+     *
+     * The copy stays (false) when no such supertype can be relied on:
+     * - an intersection override, which two supertypes declare: one callee would be a guess;
+     * - a member of a MAPPED type (`kotlin.Any`, the collections, `CharSequence`): its JVM type has other members
+     *   (`java.lang.Object` is predefined without `equals`, `CharSequence.get` is `charAt`), so the copy is the one
+     *   that resolves;
+     * - a supertype not registered yet, or a [shells] one, memberless until something deepens it.
+     */
+    private fun KaSession.inheritedFromLoadedSupertype(symbol: KaNamedClassSymbol, function: KaNamedFunctionSymbol): Boolean {
+        if (function.origin == KaSymbolOrigin.INTERSECTION_OVERRIDE) return false
+        val declaring = function.fakeOverrideOriginal.callableId?.classId ?: return false
+        if (declaring == symbol.classId) return false
+        val jvmFqn = mapToJvmFqn(declaring)
+        if (jvmFqn != declaring.asFqNameString()) return false
+        val declaringType = infoByFqn.getType(jvmFqn, librarySourceSet)
+            ?: compiledTypesManager?.typeIfLoaded(jvmFqn, librarySourceSet)
+            ?: return false
+        return declaringType !in shells
     }
 
     /**
