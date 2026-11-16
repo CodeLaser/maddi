@@ -133,6 +133,13 @@ public class PropertyImpl implements Property {
      * fixpoint, only when a run asks for culprits; absent otherwise.
      */
     public static final Property CONTAINER_CULPRIT = new PropertyImpl("containerCulprit", ValueImpl.CulpritImpl.EMPTY);
+    /**
+     * Why a method is not {@code @Fresh}, a parameter not {@code @Borrowed}, a field not {@code @Owned}
+     * (road-to-immutability §055): one step at the element, the first rule of the ownership pass it fails ("callee
+     * X is not fresh", "kept: ..."). Written by the ownership pass, only when a run asks for culprits; absent
+     * otherwise, and absent on a positive verdict.
+     */
+    public static final Property OWNERSHIP_CULPRIT = new PropertyImpl("ownershipCulprit", ValueImpl.CulpritImpl.EMPTY);
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
