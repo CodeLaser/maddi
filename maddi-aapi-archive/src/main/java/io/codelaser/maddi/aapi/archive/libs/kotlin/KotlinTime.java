@@ -41,6 +41,15 @@ public class KotlinTime {
 
             @NotModified
             kotlin.time.Instant fromEpochSeconds(long epochSeconds, long nanosecondAdjustment) { return null; }
+
+            @NotModified
+            kotlin.time.Instant fromEpochSeconds(long epochSeconds, int nanosecondAdjustment) { return null; }
         }
+    }
+
+    /* census 2026-11-16 (maddi-mod#15): reading a clock does not change it */
+    interface Clock$ {
+        @NotModified
+        kotlin.time.Instant now();
     }
 }

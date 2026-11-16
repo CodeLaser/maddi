@@ -3,8 +3,8 @@
 
 {"name": "Tkotlin.uuid.Uuid", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "SCompanion(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "MfromByteArray(0,byte[])", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-   {"name": "PbyteArray(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+  {"name": "MfromByteArray(0,byte[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+   {"name": "PbyteArray(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "MfromLongs(1,long,long)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
    {"name": "PmostSignificantBits(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "PleastSignificantBits(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
@@ -15,7 +15,7 @@
    {"name": "PleastSignificantBits(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
   {"name": "MgenerateV4(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
   {"name": "MgenerateV7$kotlin_stdlib(5,kotlin.time.Clock)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-   {"name": "Pclock(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+   {"name": "Pclock(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}}},
   {"name": "MgenerateV7(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
   {"name": "MgenerateV7NonMonotonicAt(7,kotlin.time.Instant)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Ptimestamp(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
@@ -25,15 +25,15 @@
    {"name": "PuuidString(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "MparseHex(11,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "PhexString(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "MparseHexDash(12,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-   {"name": "PhexDashString(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "MparseHexDash(12,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+   {"name": "PhexDashString(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "MparseHexDashOrNull(13,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "PhexDashString(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "MparseHexOrNull(14,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
    {"name": "PhexString(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "MparseOrNull(15,java.lang.String)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "PuuidString(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "Mrandom(16)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
+  {"name": "Mrandom(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}}]},
  {"name": "FCompanion(0)", "data":{"finalField":1}},
  {"name": "FSIZE_BITS(2)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
  {"name": "FSIZE_BYTES(3)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},

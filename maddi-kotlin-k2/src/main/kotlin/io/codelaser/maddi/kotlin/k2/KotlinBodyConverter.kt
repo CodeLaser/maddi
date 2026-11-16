@@ -2171,6 +2171,23 @@ internal class KotlinBodyConverter(
                 newInstance("java.lang.String", listOf(receiver, arguments[0]))
             id == "kotlin.collections.contains" && on == "kotlin.collections.Map" && receiver != null && n == 1 ->
                 instanceCall(receiver, "containsKey", arguments)
+            // census 2026-11-16 (#15): the Map/Collection members kotlinc inlines to the java.util call of the same meaning
+            id == "kotlin.collections.containsKey" && on == "kotlin.collections.Map" && receiver != null && n == 1 ->
+                instanceCall(receiver, "containsKey", arguments)
+            id == "kotlin.collections.remove" && on == "kotlin.collections.MutableMap" && receiver != null && n == 1 ->
+                instanceCall(receiver, "remove", arguments)
+            id == "kotlin.collections.count" && on == "kotlin.collections.Collection" && receiver != null && n == 0 ->
+                instanceCall(receiver, "size", listOf())
+            // an array's contentEquals/contentHashCode/contentToString: kotlinc inlines java.util.Arrays' equals/hashCode/
+            // toString, which the jdk archive contracts; as K2 names them, private facade methods read as modifying (#15)
+            (id == "kotlin.collections.contentEquals" && n == 1 || id == "kotlin.collections.contentHashCode" && n == 0
+                || id == "kotlin.collections.contentToString" && n == 0)
+                && receiver != null && receiver.parameterizedType().arrays() == 1 ->
+                staticCallOn("java.util.Arrays", when (id) {
+                    "kotlin.collections.contentEquals" -> "equals"
+                    "kotlin.collections.contentHashCode" -> "hashCode"
+                    else -> "toString"
+                }, listOf(receiver) + arguments)
             // `map[k]` on a read-only Map is the @InlineOnly `get` extension: kotlinc inlines `map.get(k)` (#15)
             id == "kotlin.collections.get" && on == "kotlin.collections.Map" && receiver != null && n == 1 ->
                 instanceCall(receiver, "get", arguments)
@@ -2235,8 +2252,13 @@ internal class KotlinBodyConverter(
                 "exists", "isRegularFile", "isDirectory", "notExists", "isReadable", "isWritable" ->
                     staticCallOn("java.nio.file.Files", id.removePrefix("kotlin.io.path."), listOf(receiver) + arguments)
                 "absolute" -> if (n == 0) instanceCall(receiver, "toAbsolutePath", listOf()) else null
+                // the options, a vararg written out, pass on as they are (#15)
+                "inputStream" -> staticCallOn("java.nio.file.Files", "newInputStream", listOf(receiver) + arguments)
                 else -> null
             }
+            // `Path(base, *more)` is `Paths.get(base, *more)` (#15)
+            id == "kotlin.io.path.Path" && receiver == null && n >= 1 ->
+                staticCallOn("java.nio.file.Paths", "get", arguments)
             // preconditions in expression position
             (id == "kotlin.requireNotNull" || id == "kotlin.checkNotNull") && n in 1..2 -> {
                 val message = if (n == 2) lazyMessage(call?.valueArguments?.get(1)?.getArgumentExpression(), method, locals)
@@ -5854,6 +5876,13 @@ internal class KotlinBodyConverter(
             else -> null
         } ?: return placeholder("k2-unsupported-operator:${expression.operationToken}", expression)
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
+        // an infix @InlineOnly extension (`a contentEquals b`): the call kotlinc inlines, as for a written call
+        if (expression.operationToken == KtTokens.IDENTIFIER) {
+            (expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaNamedFunctionSymbol)
+                ?.takeIf { it.receiverParameter != null }
+                ?.let { inlineOnlyCall(it, left, listOf(right), null, method, mapOf()) }
+                ?.let { return it }
+        }
         // `a xor b`, `x shl 2`: an infix MEMBER of a primitive class is the Java operator, which the Java front end
         // maps to the `…OperatorInt` operator whatever the operands' type (`^` on booleans included)
         val owner = expression.operationReference.resolveToCall()?.singleFunctionCallOrNull()?.symbol?.callableId?.classId
