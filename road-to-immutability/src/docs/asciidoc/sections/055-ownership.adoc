@@ -154,6 +154,8 @@ The analyzer marks a field owned when four rules hold.
 . *Arrives fresh.* Every value assigned to the field, in constructors, initializers and methods, is an object
 created for it, the result of a fresh method, or `null`. A parameter qualifies only when it is transferred
 (<<ownership-transfer>>).
+An unmodifiable view (`Collections.unmodifiableList(x)` and the rest of that family) arrives fresh when the object it
+wraps does: the view holds that object and nothing else.
 . *Never leaves.* No link takes the field's object to a return value, a parameter, a static, a field of another
 object, or an escaping lambda.
 Passing it to a borrowed parameter is allowed, and so is returning it from a method whose result every caller only
