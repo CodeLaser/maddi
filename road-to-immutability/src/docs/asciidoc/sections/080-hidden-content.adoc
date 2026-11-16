@@ -319,7 +319,8 @@ static String useLocal(@Modified Node input) {
 
 <1> `c` may be `input`: a co-element of a modified element is modified.
 
-The analyzer counts this as a deep modification of `input` only; its structural verdict stays unmodified.
+The analyzer counts this as a deep modification of `input` only; its structural verdict stays unmodified, although
+the write is to `input`'s own field (CodeLaser/maddi-mod#130).
 
 ****
 The example shows that the introduction of {independent} only gets us so far: from the concrete, modifying implementation, to the parameter (or field).
