@@ -344,7 +344,10 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
                     List.copyOf(constructors), List.copyOf(fields), parentClass, typeNature, singleAbstractMethod,
                     List.copyOf(interfacesImplemented), List.copyOf(typeParameters), sortedSubTypes,
                     enclosingMethod, List.copyOf(permittedWhenSealed),
-                    superTypesExcludingJavaLangObject(), anonymousTypes, List.copyOf(trailingComments), methodMap);
+                    // unmodifiable: the product's getter hands the set out, and a caller could otherwise change a
+                    // committed type's supertypes. A view rather than Set.copyOf, which would salt the iteration order
+                    Collections.unmodifiableSet(superTypesExcludingJavaLangObject()), anonymousTypes,
+                    List.copyOf(trailingComments), methodMap);
             if (ti.parentClass() == null
                 && !typeInfo.isJavaLangObject()
                 && typeNature != TypeNatureEnum.PRIMITIVE) {
