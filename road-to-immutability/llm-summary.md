@@ -290,7 +290,8 @@ immutability verdicts are derived.
   default; `OWNERSHIP=<file>` also writes a census TSV), `OWNERSHIP_WORLD=closed` for an application. First consumer:
   the Java→Rust printer. One fact feeds back into the fixpoint (an ownership round at the terminal point, gate
   `NOOWNERSHIPFEED`): a parameter every caller hands over into an owned field is no dependence; the elements'
-  independence counts in its place (`java.util` containers and arrays only). Cold runs only, not persisted.
+  independence counts in its place (`java.util` containers and arrays only). Stored as
+  `HANDED_OVER_PARAMETER`; an incremental run starts from it and falls back to cold when the recomputed feed differs.
 - **`@Fresh`** (method, `FRESH_METHOD`): every returned object was created during the call (or is `null`) and
   nothing else holds it. A lambda/method reference is never fresh. `List.copyOf`, `Collections.emptyList` are not.
 - **`@Borrowed`** (parameter, `BORROWED_PARAMETER`): nothing that outlives the call holds the argument's object;

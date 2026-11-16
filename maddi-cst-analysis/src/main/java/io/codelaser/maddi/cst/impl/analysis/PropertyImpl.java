@@ -229,6 +229,14 @@ public class PropertyImpl implements Property {
      */
     public static final Property BORROWED_PARAMETER = new PropertyImpl("borrowedParameter");
     /**
+     * The owned field a parameter is handed over into: every caller hands its argument over and the method keeps it
+     * only in that field, so the parameter is no dependence (the ownership round's feed, maddi-mod
+     * {@code OwnershipFeed}, docs/roadmap/ownership.md "Fed into the fixpoint"). Written once the analysis is done, and
+     * read back by an incremental run, which starts its feed from it. Empty: not handed over, or not computed.
+     */
+    public static final Property HANDED_OVER_PARAMETER = new PropertyImpl("handedOverParameter",
+            ValueImpl.AssignedToFieldImpl.EMPTY);
+    /**
      * The structural twin of {@link #UNMODIFIED_PARAMETER}, see {@link #STRUCTURALLY_NON_MODIFYING_METHOD}: the
      * argument's object is not modified by the method, its elements may be. {@code Collection<Query> queries}, read
      * with {@code queries.iterator().next()} and handed element by element to a method that modifies them, is

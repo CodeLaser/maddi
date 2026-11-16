@@ -36,6 +36,7 @@ public class PropertyProviderImpl {
                 ANALYZER_ERROR,
                 ANNOTATED_API,
                 BORROWED_PARAMETER,
+                HANDED_OVER_PARAMETER,
                 ASSUMED_DEFAULTS,
                 COMMUTABLE_METHODS,
                 CONTAINER_FIELD,
