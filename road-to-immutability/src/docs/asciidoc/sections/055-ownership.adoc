@@ -3,10 +3,11 @@
 
 [IMPORTANT]
 ====
-*Computed, behind a gate.* The verdicts of this chapter are computed by a separate pass that runs after the
-analysis has converged.
-It only adds verdicts: it never changes the modification, independence or immutability verdicts of the earlier
-chapters, and nothing in the analysis reads its results back.
+*Computed, behind a gate.* The verdicts of this chapter are computed by a separate pass that runs once the
+analysis has converged, at the point where the analyzer certifies its result.
+One fact flows back into the analysis: a parameter that every caller hands over into an owned field is no
+dependence (<<ownership-and-eventual>>), after which the analysis converges again.
+Otherwise the pass only adds verdicts.
 The pass is off by default; the environment variable `OWNERSHIP` switches it on, and `OWNERSHIP_WORLD=closed`
 tells it that the analysed code is an application rather than a library (see <<ownership-transfer>>).
 The design notes are in maddi-mod, `docs/roadmap/ownership.md`.

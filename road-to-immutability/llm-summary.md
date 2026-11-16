@@ -286,9 +286,11 @@ immutability verdicts are derived.
 
 ## Ownership (chapter 055, before eventual immutability; finalizers are its §Finalizers; maddi-mod `analyzer/ownership`, `docs/roadmap/ownership.md`)
 
-- **Who holds an object**, not who modifies it. A one-shot pass after convergence, gate `OWNERSHIP` (off by
-  default; `OWNERSHIP=<file>` also writes a census TSV), `OWNERSHIP_WORLD=closed` for an application. It only adds
-  properties; nothing in the fixpoint reads them. First consumer: the Java→Rust printer.
+- **Who holds an object**, not who modifies it. A pass after convergence, gate `OWNERSHIP` (off by
+  default; `OWNERSHIP=<file>` also writes a census TSV), `OWNERSHIP_WORLD=closed` for an application. First consumer:
+  the Java→Rust printer. One fact feeds back into the fixpoint (an ownership round at the terminal point, gate
+  `NOOWNERSHIPFEED`): a parameter every caller hands over into an owned field is no dependence; the elements'
+  independence counts in its place (`java.util` containers and arrays only). Cold runs only, not persisted.
 - **`@Fresh`** (method, `FRESH_METHOD`): every returned object was created during the call (or is `null`) and
   nothing else holds it. A lambda/method reference is never fresh. `List.copyOf`, `Collections.emptyList` are not.
 - **`@Borrowed`** (parameter, `BORROWED_PARAMETER`): nothing that outlives the call holds the argument's object;
@@ -307,7 +309,8 @@ immutability verdicts are derived.
   as shared, never owned. Book examples pinned by `TestBook055Ownership`. Chapter 060
   §"Ownership and eventual immutability" (not computed): a closed-world public constructor storing a handed-over
   list gives an owned field, yet the type stays `@FinalFields`/dependent, as immutability does not read ownership;
-  with a private constructor maddi already proves the type immutable.
+  with a private constructor maddi already proves the type immutable. With the feed, the closed-world public
+  constructor's type is `@Immutable(hc=true)` too.
 
 ## Engine facts an LLM should not re-derive wrongly
 
