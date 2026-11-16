@@ -286,8 +286,11 @@ immutability verdicts are derived.
 
 ## Ownership (chapter 055, before eventual immutability; finalizers are its §Finalizers; maddi-mod `analyzer/ownership`, `docs/roadmap/ownership.md`)
 
-- **Who holds an object**, not who modifies it. A pass after convergence, gate `OWNERSHIP` (off by
-  default; `OWNERSHIP=<file>` also writes a census TSV), `OWNERSHIP_WORLD=closed` for an application. First consumer:
+- **Who holds an object**, not who modifies it. A pass after convergence: always on in the IDE daemon (closed world
+  a per-project setting) and the MCP server (`configure_project closedWorld`); CLI `--ownership` / `--closed-world`
+  (and the build plugins' `ownership` / `closedWorld`), or the gates `OWNERSHIP` (`OWNERSHIP=<file>` also writes a
+  census TSV) and `OWNERSHIP_WORLD=closed`. A negative verdict's reason is `OWNERSHIP_CULPRIT` (with culprits on); a
+  hand-written annotation the verdict does not uphold is a `contract-violation`. First consumer:
   the Java→Rust printer. One fact feeds back into the fixpoint (an ownership round at the terminal point, gate
   `NOOWNERSHIPFEED`): a parameter every caller hands over into an owned field is no dependence; the elements'
   independence counts in its place (`java.util` containers and arrays only). Stored as

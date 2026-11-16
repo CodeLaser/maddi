@@ -8,8 +8,12 @@ analysis has converged, at the point where the analyzer certifies its result.
 One fact flows back into the analysis: a parameter that every caller hands over into an owned field is no
 dependence (<<ownership-and-eventual>>), after which the analysis converges again.
 Otherwise the pass only adds verdicts.
-The pass is off by default; the environment variable `OWNERSHIP` switches it on, and `OWNERSHIP_WORLD=closed`
-tells it that the analysed code is an application rather than a library (see <<ownership-transfer>>).
+The IDE plugins and the MCP server always run the pass; on the command line and in the build plugins it is off by
+default, and `--ownership` switches it on (the environment variable `OWNERSHIP` too).
+A closed-world setting (`--closed-world`, a plugin setting, `OWNERSHIP_WORLD=closed`) tells it that the analysed code
+is an application rather than a library (see <<ownership-transfer>>).
+A hand-written `@Fresh`, `@Borrowed` or `@Owned` on code with a body is checked: a negative verdict is a contract
+violation. In the IDE, a negative verdict carries its reason ("not @Fresh: ...").
 The design notes are in maddi-mod, `docs/roadmap/ownership.md`.
 ====
 
