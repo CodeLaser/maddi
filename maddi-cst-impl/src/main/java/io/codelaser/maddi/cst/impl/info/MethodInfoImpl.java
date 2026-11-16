@@ -702,6 +702,10 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
                 })
                 .forEach(builder::addTypeParameter);
         methodModifiers().forEach(builder::addMethodModifier);
+        // the copy overrides what the original does: without them, an implementation drops out of its interface
+        // method's implementations once its body is rewritten (withMethodBody), as rewirePhase3 already knows
+        builder.addOverrides(translationMap == null ? overrides()
+                : overrides().stream().map(translationMap::translateMethodInfo).toList());
         return methodInfo;
     }
 
