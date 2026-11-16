@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -69,6 +70,16 @@ public interface ParameterInfo extends Variable, Info {
     boolean isUnnamed();
 
     /** Builder for constructing a {@link ParameterInfo} during the inspection phase. */
+    /*
+    @ImmutableContainer(after = "commit"): a contract, not computed. ParameterInfo.builder() hands this builder out before the
+    commit, which is @Dependent (#107); the after-mark excuse (TypeIndependentAnalyzerImpl.excused) accepts that only
+    when the exposed type is itself eventual. Literally, nothing stops a setter call on an escaped builder after
+    commit(); what makes the excuse sound is that the commit detaches the builder: the product copies every
+    collection (InspectionImpl copies the annotations since maddi 1a8053014) and EventuallyFinal.setFinal drops the
+    builder, so a late mutation cannot reach the committed ParameterInfo. Replace with Freezable builders, from which the
+    engine computes the mark itself (CodeLaser/maddi-mod#133).
+     */
+    @ImmutableContainer(after = "commit", hc = true)
     interface Builder extends Info.Builder<Builder> {
 
         /** Sets whether this parameter is declared {@code final}. */
