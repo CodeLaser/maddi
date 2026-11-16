@@ -2915,8 +2915,9 @@ public class JavaLang {
         @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintStream s) { }
         @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintWriter s) { }
         @Modified Throwable fillInStackTrace() { return null; }
-        @NotModified StackTraceElement [] getStackTrace() { return null; }
-        @Modified void setStackTrace(@NotModified @NotNull StackTraceElement [] stackTrace) { }
+        // CodeLaser/maddi-mod#129: both copy the array (getOurStackTrace().clone(), stackTrace.clone())
+        @NotModified @Independent StackTraceElement [] getStackTrace() { return null; }
+        @Modified void setStackTrace(@NotModified @Independent @NotNull StackTraceElement [] stackTrace) { }
         @Modified void addSuppressed(@NotNull @NotModified Throwable exception) { }
         @NotModified Throwable [] getSuppressed() { return null; }
     
