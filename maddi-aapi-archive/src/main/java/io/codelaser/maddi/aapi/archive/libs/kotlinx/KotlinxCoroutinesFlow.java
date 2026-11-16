@@ -95,4 +95,19 @@ public class KotlinxCoroutinesFlow {
             return null;
         }
     }
+
+    /* census 2026-11-16 (maddi-mod#15): collecting a cold flow to count it, as reduce */
+    class FlowKt__CountKt$ {
+        static <T> Object count(@NotModified kotlinx.coroutines.flow.Flow<? extends T> flow,
+                                kotlin.coroutines.Continuation<? super Integer> continuation) {
+            return null;
+        }
+    }
+
+    /* an operator wraps the flow in a new one: dependent, the upstream unchanged */
+    class FlowKt__TransformKt$ {
+        static <T> kotlinx.coroutines.flow.Flow<T> filterNotNull(@NotModified kotlinx.coroutines.flow.Flow<? extends T> flow) {
+            return null;
+        }
+    }
 }

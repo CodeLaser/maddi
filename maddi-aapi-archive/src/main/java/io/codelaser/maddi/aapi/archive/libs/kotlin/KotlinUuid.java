@@ -36,6 +36,16 @@ public class KotlinUuid {
 
             @NotModified
             kotlin.uuid.Uuid generateV7() { return null; }
+
+            /* census 2026-11-16 (maddi-mod#15); fromByteArray copies the bytes into two longs */
+            @NotModified
+            kotlin.uuid.Uuid random() { return null; }
+
+            @NotModified
+            kotlin.uuid.Uuid parseHexDash(String hexDashString) { return null; }
+
+            @NotModified
+            kotlin.uuid.Uuid fromByteArray(@NotModified byte[] byteArray) { return null; }
         }
     }
 

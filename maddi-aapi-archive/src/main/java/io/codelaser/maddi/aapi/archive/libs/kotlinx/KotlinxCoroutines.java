@@ -39,4 +39,40 @@ public class KotlinxCoroutines {
             return null;
         }
     }
+
+    /* census 2026-11-16 (maddi-mod#15): the state queries. A Job's cancel/complete do change it, and keep their defaults */
+    interface Job$ {
+        @NotModified
+        boolean isActive();
+    }
+
+    interface Deferred$<T> {
+        @NotModified
+        T getCompleted();
+    }
+
+    class JobKt__JobKt$ {
+        static kotlinx.coroutines.Job getJob(@NotModified kotlin.coroutines.CoroutineContext context) {
+            return null;
+        }
+
+        /* throws when the context's job is cancelled; reads it, changes nothing */
+        static void ensureActive(@NotModified kotlin.coroutines.CoroutineContext context) {
+        }
+    }
+
+    class CoroutineDispatcher$ {
+        /* a view sharing this dispatcher's threads, with its own limit: this one is not changed */
+        @NotModified
+        kotlinx.coroutines.CoroutineDispatcher limitedParallelism(int parallelism, String name) {
+            return null;
+        }
+    }
+
+    class MainCoroutineDispatcher$ {
+        @NotModified
+        kotlinx.coroutines.MainCoroutineDispatcher getImmediate() {
+            return null;
+        }
+    }
 }

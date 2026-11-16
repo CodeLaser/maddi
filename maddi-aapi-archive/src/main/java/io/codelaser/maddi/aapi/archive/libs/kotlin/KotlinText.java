@@ -128,6 +128,12 @@ public class KotlinText {
             return null;
         }
 
+        /* census 2026-11-16 (maddi-mod#15): the CharSequence overload, as the String one */
+        @NotNull
+        static CharSequence trim(CharSequence receiver, @NotModified char... chars) {
+            return null;
+        }
+
         @NotNull
         static String trimStart(String receiver, @NotModified char... chars) {
             return null;
@@ -143,6 +149,12 @@ public class KotlinText {
     class StringsKt__StringsJVMKt$ {
         @NotNull
         static String decodeToString(@NotModified byte[] receiver) {
+            return null;
+        }
+
+        @NotNull
+        static String decodeToString(@NotModified byte[] receiver, int startIndex, int endIndex,
+                                     boolean throwOnInvalidSequence) {
             return null;
         }
     }

@@ -219,4 +219,21 @@ public class KotlinxDatetime {
         @NotModified
         static int getNumber(@NotModified kotlinx.datetime.Month month) { return 0; }
     }
+
+    /* census 2026-11-16 (maddi-mod#15): formatting and converting immutable values */
+    class InstantKt__InstantKt$ {
+        @NotModified
+        static String format(@NotModified kotlin.time.Instant instant,
+                             @NotModified kotlinx.datetime.format.DateTimeFormat<kotlinx.datetime.format.DateTimeComponents> format,
+                             @NotModified kotlinx.datetime.UtcOffset offset) {
+            return null;
+        }
+    }
+
+    class InstantKt__DeprecatedInstantKt$ {
+        @NotModified
+        static kotlinx.datetime.Instant toDeprecatedInstant(@NotModified kotlin.time.Instant instant) {
+            return null;
+        }
+    }
 }
