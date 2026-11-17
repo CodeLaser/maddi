@@ -57,4 +57,45 @@ class TryAsValueTest : KotlinScanTestBase() {
         assertEquals("{if(this.cached==null){try{this.cached=StringsKt.trim(this.s);}catch(Exception e){this.cached=\"\";}}return this.cached;}",
             body("getCached"))
     }
+    /** `a + (x ?: throw E())`: the elvis is on the statement's spine when the left operand is stable (Exposed). */
+    @Test
+    fun aJumpElvisAsARightOperandIsHoisted() {
+        val types = parse("""
+            package a
+            class P(private val base: Set<String>) {
+                fun all(x: Set<String>?): Set<String> = base + (x ?: throw IllegalStateException("none"))
+            }
+        """.trimIndent())
+        val p = types.first { it.simpleName() == "P" }
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        assertEquals("{Set<String> \$elvis0;if(x!=null){\$elvis0=x;}else{throw new IllegalStateException(\"none\");}return SetsKt.plus(this.base,\$elvis0);}",
+            p.findUniqueMethod("all", 1).methodBody().toString())
+    }
+    /**
+     * A `try` as an elvis's left operand (`get() = try { c.catalog } catch … ?: ""`, Exposed's JdbcConnectionImpl), and
+     * an expression-body `if` with a `throw` branch (Exposed's MysqlDataTypeProvider).
+     */
+    @Test
+    fun aTryOnTheSpineAndAThrowingBranchAreLowered() {
+        val types = parse("""
+            package a
+            class P(private val s: String) {
+                val catalog: String
+                    get() = try { s.trim() } catch (e: Exception) { null } ?: ""
+                fun type(c: Boolean): String = if (c) { "X" } else { throw IllegalStateException("no") }
+                fun all(xs: List<String>): List<String> = xs.map { x ->
+                    try { x.trim() } catch (e: Exception) { try { x.lowercase() } catch (e: Exception) { null } ?: "?" }
+                }
+            }
+        """.trimIndent())
+        val p = types.first { it.simpleName() == "P" }
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        val body = { name: String -> p.methods().first { it.name() == name }.methodBody().toString() }
+        assertEquals("{String \$try0;try{\$try0=StringsKt.trim(this.s);}catch(Exception e){\$try0=null;}return \$try0==null?\"\":\$try0;}",
+            body("getCatalog"))
+        assertEquals("{if(c){return \"X\";}else{throw new IllegalStateException(\"no\");}}", body("type"))
+        assertEquals("{return CollectionsKt.map(xs,x->{try{return StringsKt.trim(x);}catch(Exception e){String \$nullSafe0;" +
+            "try{\$nullSafe0=x.toLowerCase(Locale.ROOT);}catch(Exception e){\$nullSafe0=null;}return \$nullSafe0==null?\"?\":\$nullSafe0;}});}",
+            body("all"))
+    }
 }

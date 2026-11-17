@@ -340,13 +340,15 @@ internal class KotlinBodyConverter(
             }
             // `fun f() = (x ?: throw E()) as T`
             if (returning) (spineElvisLowering(body, method, locals, "0", expressionBody = true)
+                ?: spineTryLowering(body, method, locals, "0", expressionBody = true)
                 ?: spineArrayInitLowering(body, method, locals, "0", expressionBody = true))?.let { lowered ->
                 lowered.forEach { block.addStatement(it) }
                 return block.build()
             }
             val statement = when {
                 body is KtTryExpression -> convertTry(body, method, locals, "0", returning = returning)
-                body is KtIfExpression && body.hasAMultiStatementBranch() ->
+                // ...or a branch with no expression form, `else { throw E() }` (needsStatementForm)
+                body is KtIfExpression && (body.hasAMultiStatementBranch() || returning && body.needsStatementForm()) ->
                     convertValueIf(body, method, locals, "0", returning, assignTo = null)
                 else -> null
             }
@@ -633,6 +635,17 @@ internal class KotlinBodyConverter(
         val type = tested.expressionType?.let { mapType(it, method.typeInfo()) }
             ?: runtime.objectParameterizedType()
         val name = "\$nullSafe${nullSafeTemporaries++}"
+        // a `try` as the tested value (`try { … } catch … ?: x`, Exposed's causedByQueries): it has no expression form,
+        // so the temporary is declared empty and assigned in each branch of the try statement (maddi#220)
+        val unwrapped = KtPsiUtil.safeDeparenthesize(tested)
+        if (unwrapped is KtTryExpression) {
+            val temporary = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+            locals[name] = temporary
+            declarations.add(runtime.newLocalVariableCreation(temporary))
+            declarations.add(convertTry(unwrapped, method, locals, index, assignTo = temporary))
+            hoistedReads[tested] = temporary
+            return
+        }
         val temporary = runtime.newLocalVariable(name, type, convertExpression(tested, method, locals))
         declarations.add(runtime.newLocalVariableCreation(temporary))
         hoistedReads[tested] = temporary
@@ -1150,6 +1163,7 @@ internal class KotlinBodyConverter(
         return (controlFlowElvisLowering(s, method, locals, index)
             ?: argumentElvisLowering(s, method, locals, index)
             ?: spineElvisLowering(s, method, locals, index)
+            ?: spineTryLowering(s, method, locals, index)
             ?: arrayInitLowering(s, method, locals, index)
             ?: spineArrayInitLowering(s, method, locals, index)
             ?: destructuringLowering(s, method, locals, index)
@@ -1385,6 +1399,9 @@ internal class KotlinBodyConverter(
     private fun KtIfExpression.needsStatementForm(): Boolean = hasAMultiStatementBranch() || listOf(then, `else`).any { branch ->
         val single = (branch as? KtBlockExpression)?.statements?.singleOrNull() as? KtExpression ?: branch
         isControlFlowElvis(single) || single is KtTryExpression || (single is KtIfExpression && single.needsStatementForm())
+            // a branch that LEAVES, `else { throw E() }` (Exposed's MysqlDataTypeProvider): no expression form
+            || single is KtThrowExpression || single is KtReturnExpression || single is KtBreakExpression
+            || single is KtContinueExpression
     }
 
     /** A branch that is a block of anything but one expression — what §7.12's expression arm cannot take. */
@@ -1519,6 +1536,60 @@ internal class KotlinBodyConverter(
         return out
     }
 
+    /**
+     * <b>`try { … } catch … ?: x`, `(try { … } catch …).f()`</b> -- a `try` used as a value INSIDE a statement, on its
+     * spine (evaluated first, unconditionally): its value goes to a temporary, assigned in each branch, which the
+     * statement then reads through [hoistedReads] (Exposed's `get() = try { connection.catalog } catch … ?: …`,
+     * maddi#220). A `try` that IS the statement's value is [convertTry]'s own.
+     */
+    private fun KaSession.spineTryLowering(statement: KtExpression, method: MethodInfo,
+                                           locals: MutableMap<String, Variable>, index: String,
+                                           expressionBody: Boolean = false): List<Statement>? {
+        val root = when {
+            expressionBody -> statement
+            statement is KtProperty -> if (statement.isLocal) statement.initializer else null
+            statement is KtReturnExpression -> statement.returnedExpression
+            statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ ->
+                statement.right?.takeIf { isStableReference(statement.left) }
+            else -> statement
+        } ?: return null
+        val tryExpression = spineTry(root) ?: return null
+        val type = tryExpression.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
+        val name = "\$try${elvisTemporaries++}"
+        val value = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+        locals[name] = value
+        val out = ArrayList<Statement>()
+        out.add(indexed(runtime.newLocalVariableCreation(value), "$index.0"))
+        out.add(convertTry(tryExpression, method, locals, "$index.1", assignTo = value).withSource(source(tryExpression, "$index.1")))
+        hoistedReads[tryExpression] = value
+        try {
+            out.add(if (expressionBody) indexed(runtime.newReturnStatement(convertExpression(statement, method, locals)), "$index.2")
+            else convertStatement(statement, method, locals, "$index.2"))
+        } finally {
+            hoistedReads.remove(tryExpression)
+        }
+        return out
+    }
+
+    /** The `try` [spineTryLowering] lowers: on [root]'s spine, strictly inside it. */
+    private fun spineTry(root: KtExpression): KtTryExpression? {
+        var e: KtExpression = root
+        var inside = false
+        while (true) {
+            e = when (e) {
+                is KtTryExpression -> return e.takeIf { inside }
+                is KtAnnotatedExpression -> e.baseExpression ?: return null
+                is KtParenthesizedExpression -> e.expression ?: return null
+                is KtBinaryExpressionWithTypeRHS -> e.left
+                is KtDotQualifiedExpression -> e.receiverExpression
+                // the LEFT operand runs first: of an elvis, and of any operator but an assignment
+                is KtBinaryExpression -> if (e.operationToken in KtTokens.ALL_ASSIGNMENTS) return null else e.left ?: return null
+                else -> return null
+            }
+            inside = true
+        }
+    }
+
     /** The elvis [spineElvisLowering] lowers: first on [root]'s spine, with a right operand that has no expression form. */
     private fun spineElvis(root: KtExpression): KtBinaryExpression? {
         var e: KtExpression = root
@@ -1527,7 +1598,17 @@ internal class KotlinBodyConverter(
             is KtParenthesizedExpression -> e.expression ?: return null
             is KtBinaryExpressionWithTypeRHS -> e.left
             is KtDotQualifiedExpression -> e.receiverExpression
-            is KtBinaryExpression -> return e.takeIf { it.operationToken == KtTokens.ELVIS && hasNoExpressionForm(it.right) }
+            is KtBinaryExpression -> {
+                if (e.operationToken == KtTokens.ELVIS) return e.takeIf { hasNoExpressionForm(it.right) }
+                // `a + (x ?: throw E())`: the left operand runs first, so the right is on the spine when the left is
+                // free to read at any moment (Exposed's `allColumnsInDataSet + (… ?: throw …)`, maddi#220). Not past
+                // `&&`/`||`, whose right operand runs only sometimes, nor an assignment.
+                if (e.operationToken == KtTokens.ANDAND || e.operationToken == KtTokens.OROR
+                    || e.operationToken in KtTokens.ALL_ASSIGNMENTS) return null
+                spineElvis(e.left ?: return null)?.let { return it }
+                if (!isStableReference(e.left)) return null
+                e.right ?: return null
+            }
             else -> return null
         }
     }
