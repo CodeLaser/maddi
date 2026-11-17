@@ -125,7 +125,8 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                     }
                     String fqn = sourceFile.fullyQualifiedNameFromPath();
                     String[] newParts = fqn.split("\\.");
-                    typeTrie.add(newParts, typeData);
+                    List<TypeData> withIt = typeTrie.add(newParts, typeData);
+                    if (withIt != null && withIt.size() > 1) mapSingleTypeForFQN.remove(fqn);
                     // remove all compiled types if we add a source type here
                     // not that this has an effect on missing dependencies, see correction in 'bestCandidate()'
                     if (!compiled) {
@@ -162,25 +163,32 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         if (!typeInfo.isPrimaryType() && !typeInfo.compilationUnit().externalLibrary()) {
             // we cannot know beforehand the subtypes of a source type. those we should add now
             List<TypeData> subTypes = typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
-            if (subTypes.size() == 1) {
-                mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
-            } else if (subTypes.size() == 2) {
-                mapSingleTypeForFQN.remove(fullyQualifiedName); // multiple
-            }
+            updateSingle(fullyQualifiedName, subTypes, typeInfo);
             return;
         }
         List<TypeData> types = typeTrie.get(parts);
         TypeData typeData = types == null ? null
                 : types.stream().filter(c -> c.sourceFile().equals(sourceFile)).findFirst().orElse(null);
         if (typeData == null) {
-            typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
-            mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+            updateSingle(fullyQualifiedName, typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo)), typeInfo);
             return;
         }
-        if (types.size() == 1) {
-            mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
-        }
+        updateSingle(fullyQualifiedName, types, typeInfo);
         ((TypeDataImpl) typeData).setTypeInfo(typeInfo);
+    }
+
+    /*
+     The fast path of type() and typeIfLoaded() answers from mapSingleTypeForFQN without asking which source set
+     requests the type, so it may only hold a name the trie knows ONCE. Two types of one name (nacos: protobuf's
+     compiled com.google.protobuf.Any, and the copy istio vendors as source) must be told apart by the requester's
+     source set (bestCandidate); an unconditional put made the copy added last answer for everyone.
+     */
+    private void updateSingle(String fullyQualifiedName, List<TypeData> entries, TypeInfo typeInfo) {
+        if (entries != null && entries.size() == 1) {
+            mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+        } else {
+            mapSingleTypeForFQN.remove(fullyQualifiedName);
+        }
     }
 
     /**
@@ -200,8 +208,14 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 .findFirst().orElse(null);
         if (typeData != null) {
             ((TypeDataImpl) typeData).typeInfo = typeInfo;
-            if (mapSingleTypeForFQN.containsKey(fullyQualifiedName)) {
+            // only the entry this source set's type held: another source set's type of the same name is not the one
+            // rewired (and with two of them there is no single entry at all, see updateSingle)
+            TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
+            if (typeDataList.size() == 1 && single != null
+                && sourceSet.equals(single.compilationUnit().sourceSet())) {
                 mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+            } else if (typeDataList.size() > 1) {
+                mapSingleTypeForFQN.remove(fullyQualifiedName);
             }
         }
         // else: the trie never held it. Rewiring copies types that exist, it does not declare new ones, so this is
