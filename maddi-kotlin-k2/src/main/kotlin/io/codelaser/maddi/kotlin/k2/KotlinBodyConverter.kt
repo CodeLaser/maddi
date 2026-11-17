@@ -6007,9 +6007,11 @@ internal class KotlinBodyConverter(
                 // a left operand with no `equals` to bind to -- a type parameter, or `Any?` against the predefined
                 // java.lang.Object, which carries none of kotlin.Any's members -- is what kotlinc compiles every
                 // nullable `==` to: `Intrinsics.areEqual(a, b)`, null-safe (Exposed's `raw == NotInitializedValue`,
-                // `currentValue != value`, maddi#220)
-                    ?: staticCallOn("kotlin.jvm.internal.Intrinsics", "areEqual", listOf(left, right))
-                    ?: staticCallOn("java.util.Objects", "equals", listOf(left, right))
+                // `currentValue != value`, maddi#220). ⛔ Not for two primitives (`a == b == c` on booleans): that is
+                // Java's own `==`, below.
+                    ?: if (left.parameterizedType().isPrimitiveExcludingVoid && right.parameterizedType().isPrimitiveExcludingVoid) null
+                    else staticCallOn("kotlin.jvm.internal.Intrinsics", "areEqual", listOf(left, right))
+                        ?: staticCallOn("java.util.Objects", "equals", listOf(left, right))
             }
             if (equality != null) return if (negate) logicalNot(equality) else equality
         }
