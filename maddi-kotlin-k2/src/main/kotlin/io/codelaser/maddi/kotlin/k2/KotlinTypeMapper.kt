@@ -577,6 +577,10 @@ internal class KotlinTypeMapper(
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
         properties.mapNotNull { convertLibraryPropertyGetter(typeInfo, it) }
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        // ...and a `var`'s static SETTER: `p.isAccessible = true` is `KCallablesJvm.setAccessible(p, true)` (Exposed's
+        // References.kt, maddi#220), which a facade of getters alone cannot resolve
+        properties.mapNotNull { convertLibraryPropertySetter(typeInfo, it) }
+            .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
         properties.filter { it.receiverParameter == null && (it as? KaKotlinPropertySymbol)?.isConst == true }
             .forEach { builder.addField(convertLibraryConstField(typeInfo, it)) }
         builder.computeAccess().commit()
@@ -611,6 +615,33 @@ internal class KotlinTypeMapper(
         }
         receiver?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner, method)) }
         builder.setReturnType(mapType(property.returnType, owner, method))
+            .setMethodBody(runtime.emptyBlock())
+            .setMissingData(runtime.methodMissingMethodBody())
+            .addMethodModifier(runtime.methodModifierPublic())
+            .addMethodModifier(runtime.methodModifierStatic())
+        builder.commitParameters().computeAccess().commit()
+        return method
+    }
+
+    /**
+     * A top-level library `var` (extension or not) as the static setter kotlinc compiles it to: `var C.x: T` becomes
+     * `setX(C, T): void` on the file facade. Null for a `val`, and for a setter that is not public API.
+     */
+    @OptIn(KaExperimentalApi::class) // javaSetterName
+    private fun KaSession.convertLibraryPropertySetter(owner: TypeInfo, property: KaPropertySymbol): MethodInfo? {
+        if (property.isVal) return null
+        val setter = property.setter ?: return null
+        if (setter.visibility == KaSymbolVisibility.PRIVATE || setter.visibility == KaSymbolVisibility.INTERNAL) return null
+        val name = property.javaSetterName?.asString() ?: ("set" + property.name.asString().replaceFirstChar { it.uppercaseChar() })
+        val method = runtime.newMethod(owner, name, runtime.methodTypeStaticMethod())
+        val builder = method.builder()
+        property.typeParameters.forEachIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method)
+                .also { builder.addTypeParameter(it) }.builder().setTypeBounds(listOf()).setVariance(mapVariance(tp.variance)).commit()
+        }
+        property.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner, method)) }
+        builder.addParameter("value", mapType(property.returnType, owner, method))
+        builder.setReturnType(runtime.voidParameterizedType())
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody())
             .addMethodModifier(runtime.methodModifierPublic())
