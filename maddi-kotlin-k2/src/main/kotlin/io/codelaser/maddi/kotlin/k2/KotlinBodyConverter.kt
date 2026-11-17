@@ -2823,7 +2823,7 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.convertReturningBlock(body: KtExpression?, method: MethodInfo,
                                                 locals: Map<String, Variable>, blockIndex: String): Block =
-        convertTailBlock(body, method, locals, blockIndex) { value -> runtime.newReturnStatement(value) }
+        convertTailBlock(body, method, locals, blockIndex, returning = true) { value -> runtime.newReturnStatement(value) }
 
     /**
      * <b>A `when` arm in the position of a VALUE</b>, in the shape the Java parser gives a switch-expression arm:
@@ -2925,6 +2925,7 @@ internal class KotlinBodyConverter(
     /** A block whose tail expression becomes [tail] (a return, a yield); any other tail statement is kept. */
     private fun KaSession.convertTailBlock(body: KtExpression?, method: MethodInfo,
                                            locals: Map<String, Variable>, blockIndex: String,
+                                           returning: Boolean = false,
                                            tail: (Expression) -> Statement): Block {
         val childLocals = locals.toMutableMap()
         val statements = when (body) {
@@ -2947,6 +2948,12 @@ internal class KotlinBodyConverter(
             if (isValueWhen(s)) {
                 block.addStatement(indexed(tail(convertExpression(s, method, childLocals)), childIndex))
                 return@forEachIndexed
+            }
+            // `return if (c) { a ?: throw E() } else …`: the returned tail's guard, then its return, as
+            // addAssigningTail does for an assigned one
+            if (returning && isControlFlowElvis(s)) {
+                controlFlowElvisLowering(s, method, childLocals, childIndex, returnValue = true)
+                    ?.let { lowered -> return@forEachIndexed lowered.forEach { block.addStatement(it) } }
             }
             val (hoisted, tailIndex) = hoistBefore(s, method, childLocals, childIndex)
             hoisted.forEach { block.addStatement(it) }

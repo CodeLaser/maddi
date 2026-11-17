@@ -31,6 +31,14 @@ class ReturnOfStatementIfTest : KotlinScanTestBase() {
 
     private val source = """
         class P {
+            fun h(c: Boolean, a: String?, b: String?): String {
+                return if (c) {
+                    a ?: throw IllegalStateException()
+                } else {
+                    val x = b
+                    return x ?: ""
+                }
+            }
             fun <T> q(o: T, a: T, b: T?): T {
                 @Suppress("UNCHECKED_CAST")
                 return if (o is String) {
@@ -50,5 +58,8 @@ class ReturnOfStatementIfTest : KotlinScanTestBase() {
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
         assertEquals("{Object \$if0;if(o instanceof String){\$if0=a;}else{Object x=b;return x==null?o:x;}return (Object)\$if0;}",
             p.findUniqueMethod("q", 3).methodBody().toString())
+        // a returned branch's `a ?: throw E()`: its guard, then its return
+        assertEquals("{if(c){if(a==null){throw new IllegalStateException();}return a;}else{String x=b;return x==null?\"\":x;}}",
+            p.findUniqueMethod("h", 3).methodBody().toString())
     }
 }
