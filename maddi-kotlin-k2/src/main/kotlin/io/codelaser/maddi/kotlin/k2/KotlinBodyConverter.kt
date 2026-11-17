@@ -4160,12 +4160,29 @@ internal class KotlinBodyConverter(
         if (!property.isStatic) return null
         val owner = property.callableId?.classId?.let { findClass(it) as? KaNamedClassSymbol }
             ?.let { classTypeInfo(it) }?.let { members(it) } ?: return null
-        val getter = resolveAccessor(owner, reference.getReferencedName())?.takeIf { it.isStatic } ?: return null
+        val getter = resolveAccessor(owner, reference.getReferencedName())?.takeIf { it.isStatic }
+            ?: return javaEnumEntries(reference, owner)
         return runtime.newMethodCallBuilder()
             .setObject(staticQualifier(owner))
             .setObjectIsImplicit(false).setMethodInfo(getter).setParameterExpressions(listOf())
             .setConcreteReturnType(getter.returnType()).setTypeArguments(listOf())
             .setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * `E.entries` on a JAVA enum, which has no `getEntries()`: kotlinc reads it from a synthetic mapping class of the
+     * caller; its value is the stdlib's `EnumEntriesKt.enumEntries(E.values())` (Spring's `MemberCategory.entries` in
+     * Exposed, maddi#220).
+     */
+    private fun KaSession.javaEnumEntries(reference: KtNameReferenceExpression, owner: TypeInfo): Expression? {
+        if (reference.getReferencedName() != "entries" || !owner.typeNature().isEnum) return null
+        val values = owner.methods().firstOrNull { it.isStatic && it.name() == "values" && it.parameters().isEmpty() }
+            ?: return null
+        val array = runtime.newMethodCallBuilder().setObject(staticQualifier(owner)).setObjectIsImplicit(false)
+            .setMethodInfo(values).setParameterExpressions(listOf()).setConcreteReturnType(values.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        // a top-level stdlib function: on its facade, which K2 does not list as a class
+        return stdlibStatic("kotlin.enums", "enumEntries", null, listOf(array))
     }
 
     /**
