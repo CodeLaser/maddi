@@ -3607,7 +3607,9 @@ internal class KotlinBodyConverter(
                     // name reaches (Exposed's ExposedSQLException, JdbcIdentifierManager, maddi#220)
                     else -> receiverType?.let { t ->
                         (selector.mainReference.resolveToSymbol() as? KaSyntheticJavaPropertySymbol)?.javaGetterSymbol
-                            ?.name?.asString()?.let { resolveCallee(t, it, listOf()) } ?: resolveAccessor(t, name) }?.let { getter ->
+                            ?.name?.asString()?.let { resolveCallee(t, it, listOf()) }
+                            ?: resolveAccessor(t, name, selector.expressionType?.let { mapType(it, method.typeInfo()) }
+                                ?.takeIf { it.typeInfo() != null && it.typeParameter() == null }?.erasedForFQN()?.fullyQualifiedName()) }?.let { getter ->
                         accessorCall(receiver, getter, selector.expressionType?.let { mapType(it, method.typeInfo()) }
                             ?.takeIf { getter.returnType().typeParameter() != null }) }
                         // an EXTENSION property is not a member of the receiver's type, so neither lookup
@@ -4293,12 +4295,14 @@ internal class KotlinBodyConverter(
      * The no-arg accessor method behind a Kotlin property idiom on a Java type: `size`->`size()`,
      * `name`->`getName()`, `empty`->`isEmpty()`. Used when `obj.x` has no field of that name.
      */
-    private fun resolveAccessor(type: TypeInfo, propertyName: String): MethodInfo? {
+    // [returnTypeFqn]: the erasure of the type K2 resolved the read to, which picks between getters that differ by
+    // return type only (kotlinx-datetime's compat `LocalDate.getMonth()`: kotlinx.datetime.Month and java.time.Month)
+    private fun resolveAccessor(type: TypeInfo, propertyName: String, returnTypeFqn: String? = null): MethodInfo? {
         val capitalized = propertyName.replaceFirstChar { it.uppercaseChar() }
-        return resolveCallee(type, propertyName, listOf())          // size(), length()
-            ?: resolveCallee(type, "get$capitalized", listOf())     // getName()
-            ?: resolveCallee(type, "is$capitalized", listOf())      // isEmpty() (boolean)
-            ?: MAPPED_PROPERTIES[propertyName]?.let { resolveCallee(type, it, listOf()) } // map.keys -> keySet()
+        return resolveCallee(type, propertyName, listOf(), returnTypeFqn)          // size(), length()
+            ?: resolveCallee(type, "get$capitalized", listOf(), returnTypeFqn)     // getName()
+            ?: resolveCallee(type, "is$capitalized", listOf(), returnTypeFqn)      // isEmpty() (boolean)
+            ?: MAPPED_PROPERTIES[propertyName]?.let { resolveCallee(type, it, listOf(), returnTypeFqn) } // map.keys -> keySet()
     }
 
     /**

@@ -600,7 +600,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
         if (recursionPrevention.add(newTypeInfo)) {
             //The following completely loads 'cs', so leave it here even though it can move nearer to its usage
-            List<? extends Element> members = elements.getAllMembers(cs);
+            List<? extends Element> members = withDeclaredMethods(cs, elements.getAllMembers(cs));
             flagHelper.type(cs, builder);
             if (infoByFqn.markClassScannerSetupDone(newTypeInfo)) {
                 // ensure that the enclosing types have at least been lazily loaded; so that we can compute access
@@ -1199,6 +1199,30 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         Symbol.ModuleSymbol module = findModule(cs);
         if (module == null || module.isUnnamed()) return true;
         return getSourceSet(module.name.toString()) != null;
+    }
+
+    /**
+     * {@code getAllMembers} filters what javac takes for hidden, and drops BOTH methods of a pair that differs by
+     * return type only: kotlinx-datetime's compat {@code LocalDate} declares {@code Month getMonth()} and
+     * {@code java.time.Month getMonth()}, neither a bridge, and the loaded type had no {@code getMonth} at all
+     * (Exposed's {@code value.month.number}, CodeLaser/maddi#220). A Java compiler emits such a pair only as a bridge;
+     * Kotlin's {@code @JvmName} and binary-compatibility shims emit it as two real methods. The type's own methods
+     * that javac dropped are added back; everything kept ({@link #addMemberToType}) is the type's own anyway.
+     */
+    private static List<? extends Element> withDeclaredMethods(Symbol.ClassSymbol cs, List<? extends Element> members) {
+        Set<Element> present = Collections.newSetFromMap(new IdentityHashMap<>());
+        present.addAll(members);
+        List<Element> missing = new ArrayList<>();
+        for (Symbol s : cs.members().getSymbols(Scope.LookupKind.NON_RECURSIVE)) {
+            if (s instanceof Symbol.MethodSymbol ms && ms.owner == cs && !present.contains(ms)
+                && (ms.flags() & (Flags.SYNTHETIC | Flags.BRIDGE)) == 0) {
+                missing.add(ms);
+            }
+        }
+        if (missing.isEmpty()) return members;
+        List<Element> all = new ArrayList<>(members);
+        all.addAll(missing.reversed()); // getSymbols lists a scope newest first: declaration order
+        return all;
     }
 
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member, LoadMode loadMode) {
