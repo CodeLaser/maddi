@@ -5643,8 +5643,12 @@ internal class KotlinBodyConverter(
             is KaReceiverParameterSymbol -> (symbol.owningCallableSymbol.psi as? KtDeclaration)
                 ?.takeIf { it is KtFunctionLiteral || (it as? KtNamedFunction)?.isLocal == true }
                 ?.let { locals[receiverKey(it)] }?.let { variableExpression(it) }
+            // the class's own `this`, also when it is the method's own class: inside a MEMBER EXTENSION
+            // (`fun Composite.default(…)` in `class Table`) the caller's default for `this` is the extension receiver,
+            // so `this@Table` -- and through it `with(this@Table) { col.default(v) }` -- became the Composite
+            // (Exposed's Table.default, maddi#220)
             is KaClassSymbol -> symbol.classId?.asFqNameString()?.let { infoByFqn.getType(it, sourceSet) }
-                ?.takeIf { it != method.typeInfo() }?.let { variableExpression(runtime.newThis(it.asParameterizedType())) }
+                ?.let { if (it == method.typeInfo()) self(method) else variableExpression(runtime.newThis(it.asParameterizedType())) }
             else -> null
         }
 
