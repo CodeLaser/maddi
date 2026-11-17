@@ -1681,7 +1681,7 @@ internal class KotlinBodyConverter(
             is KtDotQualifiedExpression -> e.receiverExpression
             else -> break
         }
-        val call = e as? KtCallExpression ?: return null
+        val call = arrayInitArgument(root) ?: e as? KtCallExpression ?: return null
         // a temporary's number only for a Kotlin array constructor: every other call passes through here
         val owner = (call.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol)?.containingClassId
         if (owner?.packageFqName?.asString() != "kotlin" || owner.shortClassName.asString() !in JVM_ARRAY_CLASSES) return null
@@ -1696,6 +1696,31 @@ internal class KotlinBodyConverter(
             hoistedReads.remove(call)
         }
         return fill + tail
+    }
+
+    /**
+     * `s.setArray(i, this, Array(n) { … })`: the root call's ARGUMENT, when the receiver and every argument before it
+     * are stable reads (evaluating the array first then moves no evaluation) and none is named. Exposed's
+     * ArrayColumnType.setParameter (maddi#220).
+     */
+    private fun KaSession.arrayInitArgument(root: KtExpression): KtCallExpression? {
+        val call = when (val r = KtPsiUtil.safeDeparenthesize(unannotated(root))) {
+            is KtCallExpression -> r
+            is KtDotQualifiedExpression -> (r.selectorExpression as? KtCallExpression)?.takeIf { isStableReference(r.receiverExpression) }
+            else -> null
+        } ?: return null
+        if (call.valueArguments.any { it.getArgumentName() != null || it.getSpreadElement() != null }) return null
+        for (argument in call.valueArguments) {
+            val a = argument.getArgumentExpression() ?: return null
+            if (isStableReference(a)) continue
+            val owner = ((a as? KtCallExpression)?.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol)
+                ?.containingClassId ?: return null
+            return (a as KtCallExpression).takeIf {
+                owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in JVM_ARRAY_CLASSES
+                    && it.lambdaArguments.isNotEmpty()
+            }
+        }
+        return null
     }
 
     /**
