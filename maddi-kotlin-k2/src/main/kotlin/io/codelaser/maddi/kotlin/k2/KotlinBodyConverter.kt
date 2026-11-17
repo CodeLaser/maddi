@@ -1065,6 +1065,12 @@ internal class KotlinBodyConverter(
                 else -> null
             }
         }
+        // `f(a, x.let { … })`, `r.m(x.apply { … })`: the root call's argument, evaluated before the call and after
+        // nothing but stable reads (#98)
+        if (node != null) return
+        val argument = firstEvaluatedArgument(root)?.takeIf { !hoistedReads.containsKey(it) } ?: return
+        val sc = scopeCall(argument) ?: return
+        lowerScopeCall(sc, method, locals, index, true, out)?.let { hoistedReads[argument] = it }
     }
 
     /** A statement that IS a scope call, its value discarded (`sb.apply { … }`, `x?.let { f(it) }`): the inlined body alone. */
@@ -1610,7 +1616,7 @@ internal class KotlinBodyConverter(
     }
 
     /** The elvis [spineElvisLowering] lowers: first on [root]'s spine, with a right operand that has no expression form. */
-    private fun spineElvis(root: KtExpression): KtBinaryExpression? {
+    private fun KaSession.spineElvis(root: KtExpression): KtBinaryExpression? {
         var e: KtExpression = root
         while (true) e = when (e) {
             is KtAnnotatedExpression -> e.baseExpression ?: return null
@@ -1632,9 +1638,11 @@ internal class KotlinBodyConverter(
         }
     }
 
-    private fun hasNoExpressionForm(expression: KtExpression?): Boolean = when (val e = expression?.let { unannotated(it) }) {
+    private fun KaSession.hasNoExpressionForm(expression: KtExpression?): Boolean = when (val e = expression?.let { unannotated(it) }) {
         is KtThrowExpression, is KtReturnExpression, is KtContinueExpression, is KtBreakExpression, is KtTryExpression -> true
-        is KtCallExpression -> isThrowingCall(e)
+        // `a ?: b.also { … }`: a scope function's body runs only when `a` is null, so it is inlined into that branch (#98)
+        is KtDotQualifiedExpression, is KtSafeQualifiedExpression -> scopeCall(e) != null
+        is KtCallExpression -> isThrowingCall(e) || scopeCall(e) != null
         is KtIfExpression -> e.needsStatementForm()
         is KtParenthesizedExpression -> hasNoExpressionForm(e.expression)
         is KtBinaryExpression -> e.operationToken == KtTokens.ELVIS && hasNoExpressionForm(e.right)
@@ -1712,6 +1720,20 @@ internal class KotlinBodyConverter(
      * ArrayColumnType.setParameter (maddi#220).
      */
     private fun KaSession.arrayInitArgument(root: KtExpression): KtCallExpression? {
+        val a = firstEvaluatedArgument(root) as? KtCallExpression ?: return null
+        val owner = (a.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol)?.containingClassId ?: return null
+        return a.takeIf {
+            owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in JVM_ARRAY_CLASSES
+                && it.lambdaArguments.isNotEmpty()
+        }
+    }
+
+    /**
+     * The first argument of [root]'s call whose evaluation does something, when the call's receiver and every
+     * argument before it are stable reads, constants or lambdas, and none is named or spread: evaluating it before
+     * the statement then moves no evaluation. Deparenthesized; null when there is no such argument.
+     */
+    private fun firstEvaluatedArgument(root: KtExpression): KtExpression? {
         val call = when (val r = KtPsiUtil.safeDeparenthesize(unannotated(root))) {
             is KtCallExpression -> r
             is KtDotQualifiedExpression -> (r.selectorExpression as? KtCallExpression)?.takeIf { isStableReference(r.receiverExpression) }
@@ -1719,14 +1741,9 @@ internal class KotlinBodyConverter(
         } ?: return null
         if (call.valueArguments.any { it.getArgumentName() != null || it.getSpreadElement() != null }) return null
         for (argument in call.valueArguments) {
-            val a = argument.getArgumentExpression() ?: return null
-            if (isStableReference(a)) continue
-            val owner = ((a as? KtCallExpression)?.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol)
-                ?.containingClassId ?: return null
-            return (a as KtCallExpression).takeIf {
-                owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in JVM_ARRAY_CLASSES
-                    && it.lambdaArguments.isNotEmpty()
-            }
+            val a = KtPsiUtil.safeDeparenthesize(argument.getArgumentExpression() ?: return null)
+            if (isStableReference(a) || a is KtLambdaExpression || a is KtCallableReferenceExpression) continue
+            return a
         }
         return null
     }
