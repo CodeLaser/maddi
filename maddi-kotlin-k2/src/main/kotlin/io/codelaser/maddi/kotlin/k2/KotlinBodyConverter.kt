@@ -2612,10 +2612,16 @@ internal class KotlinBodyConverter(
         val name = fn.name ?: return null
         val enclosingType = method.typeInfo()
         val receiverType = symbol.receiverParameter?.let { mapType(it.returnType, enclosingType, method) }
-        val parameters = listOfNotNull(receiverType?.let { "\$receiver" to it }) +
+        val valueParameters = listOfNotNull(receiverType?.let { "\$receiver" to it }) +
             symbol.valueParameters.map { p -> p.name.asString() to mapType(p.returnType, enclosingType, method)
                 .let { if (p.isVararg) it.copyWithArrays(it.arrays() + 1) else it } } // `vararg t: T` is a T[]
-        val returnType = mapType(symbol.returnType, enclosingType, method)
+        val kotlinReturnType = mapType(symbol.returnType, enclosingType, method)
+        // a SUSPEND local function is a suspend function value: `invoke(…, Continuation<R> $completion): Object`, as a
+        // suspend lambda is; a call passes the caller's continuation (continuationArguments), a suspend call in its
+        // body passes this one on (Exposed's `suspend fun S2.handleBatchException(…)` inside executeBatch)
+        val continuation = if (symbol.isSuspend) with(typeMapper) { continuationType(kotlinReturnType) } else null
+        val parameters = valueParameters + listOfNotNull(continuation?.let { "\$completion" to it })
+        val returnType = if (continuation != null) runtime.objectParameterizedType() else kotlinReturnType
         val functionN = (findClass(org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/functions/Function${parameters.size}"))
             as? KaNamedClassSymbol)?.let { classTypeInfo(it) } ?: return null
         val boxedReturn = if (returnType == runtime.voidParameterizedType()) runtime.objectParameterizedType()
@@ -2642,7 +2648,7 @@ internal class KotlinBodyConverter(
             ?: fn.bodyExpression?.let { e ->
                 val value = convertExpression(e, method, bodyScope)
                 runtime.newBlockBuilder().addStatement(indexed(
-                    if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(value)
+                    if (kotlinReturnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(value)
                     else runtime.newReturnStatement(value), "0")).build()
             } ?: runtime.emptyBlock()
         samBuilder.setMethodBody(normalizeIndices(body)).commit()
@@ -4811,6 +4817,11 @@ internal class KotlinBodyConverter(
                 // without any PSI, and that is the question being asked here.
                 if (!p.hasDefaultValue
                     && (declaring?.valueParameters?.get(i)?.psi as? KtParameter)?.defaultValue == null) return null
+                // a LOCAL function has no `$default` (it is a function value, convertLocalFunction): an omitted
+                // argument whose default is a constant is that constant, which is what the call evaluates
+                ((declaring?.psi as? KtNamedFunction)?.takeIf { it.isLocal }
+                    ?.let { (declaring.valueParameters[i].psi as? KtParameter)?.defaultValue as? KtConstantExpression })
+                    ?.let { return@mapIndexed listOf(convertExpression(it, method, locals)) }
                 masks[i / 32] = masks[i / 32] or (1 shl (i % 32))
                 listOf(runtime.nullValue(mapType(p.returnType, method.typeInfo(), method)))
             }
