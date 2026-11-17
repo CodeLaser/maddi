@@ -570,8 +570,16 @@ internal class KotlinBodyConverter(
         } ?: return listOf()
         val raw = ArrayList<Statement>()
         hoistOutOfOrderArguments(root, method, locals, raw)
-        hoistSpineOf(root, method, locals, index, raw)
-        lowerScopeOnReceiverChain(root, method, locals, index, valueDiscarded && root === statement, raw)
+        // `s?.run { … } == t`, `s.apply { … } to n`, `f(x.let { … }) + 1`: the LEFT operand runs first, of any
+        // operator but an assignment; the elvis is hoistSpineOf's own (#98)
+        var spine = root
+        while (true) spine = when (val r = spine) {
+            is KtBinaryExpression -> r.left?.takeIf { r.operationToken != KtTokens.ELVIS && r.operationToken !in KtTokens.ALL_ASSIGNMENTS } ?: break
+            is KtBinaryExpressionWithTypeRHS -> r.left
+            else -> break
+        }
+        hoistSpineOf(spine, method, locals, index, raw)
+        lowerScopeOnReceiverChain(spine, method, locals, index, valueDiscarded && spine === statement, raw)
         // ⚠ indexed only now: the declarations and the statement they precede must sort, and `pad` needs the
         // total (9 temporaries and a statement would otherwise index .10 before .2, as strings)
         return raw.mapIndexed { i, d -> indexed(d, "$index.${pad(i, raw.size + 1)}") }
@@ -1113,6 +1121,15 @@ internal class KotlinBodyConverter(
                                                     rootDiscarded: Boolean, out: MutableList<Statement>) {
         var node: KtExpression? = root
         while (node != null && !hoistedReads.containsKey(node)) {
+            // `f(a, x.let { … })`, `r.m(x.apply { … })`: the call's argument, evaluated before the call and after
+            // nothing but stable reads (#98)
+            // (an argument that is no scope call leaves the node to the walk: `with(f()) { … }` is one itself)
+            firstEvaluatedArgument(node)?.takeIf { !hoistedReads.containsKey(it) }?.let { argument ->
+                scopeCall(argument)?.let { asc ->
+                    lowerScopeCall(asc, method, locals, index, true, out)?.let { hoistedReads[argument] = it }
+                    return
+                }
+            }
             val sc = scopeCall(node)
             if (sc != null) {
                 val discarded = rootDiscarded && node === root
@@ -1128,12 +1145,6 @@ internal class KotlinBodyConverter(
                 else -> null
             }
         }
-        // `f(a, x.let { … })`, `r.m(x.apply { … })`: the root call's argument, evaluated before the call and after
-        // nothing but stable reads (#98)
-        if (node != null) return
-        val argument = firstEvaluatedArgument(root)?.takeIf { !hoistedReads.containsKey(it) } ?: return
-        val sc = scopeCall(argument) ?: return
-        lowerScopeCall(sc, method, locals, index, true, out)?.let { hoistedReads[argument] = it }
     }
 
     /** A statement that IS a scope call, its value discarded (`sb.apply { … }`, `x?.let { f(it) }`): the inlined body alone. */
@@ -1578,7 +1589,12 @@ internal class KotlinBodyConverter(
         val right = elvis.right ?: return null
         val out = ArrayList<Statement>()
         val read = { v: Variable -> runtime.newVariableExpressionBuilder().setVariable(v).setSource(runtime.noSource()).build() }
-        val tested = if (isStableReference(left)) null else {
+        // `x?.let { … } ?: y?.let { … }`: the left operand's scope function is inlined as on any spine (#88)
+        val leftScope = ArrayList<Statement>()
+        val scopeValue = scopeCall(KtPsiUtil.safeDeparenthesize(left))
+            ?.let { sc -> lowerScopeCall(sc, method, locals, "$index.0", true, leftScope) }
+        leftScope.forEach { out.add(indexed(it, "$index.${out.size}")) }
+        val tested = if (scopeValue != null) scopeValue else if (isStableReference(left)) null else {
             val type = left.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
             val name = "\$elvis${elvisTemporaries++}"
             runtime.newLocalVariable(name, type, convertExpression(left, method, locals)).also {
@@ -1687,7 +1703,9 @@ internal class KotlinBodyConverter(
             is KtBinaryExpressionWithTypeRHS -> e.left
             is KtDotQualifiedExpression -> e.receiverExpression
             is KtBinaryExpression -> {
+                // `(a ?: b.also { … }) ?: c`: the inner elvis is the outer one's left operand, on the spine too
                 if (e.operationToken == KtTokens.ELVIS) return e.takeIf { hasNoExpressionForm(it.right) }
+                    ?: spineElvis(e.left ?: return null)
                 // `a + (x ?: throw E())`: the left operand runs first, so the right is on the spine when the left is
                 // free to read at any moment (Exposed's `allColumnsInDataSet + (… ?: throw …)`, maddi#220). Not past
                 // `&&`/`||`, whose right operand runs only sometimes, nor an assignment.
