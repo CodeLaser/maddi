@@ -5201,11 +5201,30 @@ internal class KotlinBodyConverter(
         with(memberConverter) { finishAnonMembers(anon, expression.objectDeclaration) }
         builder.commit()
 
+        // `object : Point(6) { … }`: the superclass constructor that runs, with its arguments, as the Java front end
+        // records `new Point(6) { … }` (#194); converted as an enum entry's `A(1)` is (CodeLaser/maddi#213). An object
+        // that only implements interfaces has no such call.
+        val superCall = expression.objectDeclaration.superTypeListEntries.filterIsInstance<KtSuperTypeCallEntry>().firstOrNull()
+        val superSymbol = superCall?.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol
+        val superArguments = superCall?.let { call ->
+            superSymbol?.let { callArguments(call, it, method, locals) }
+                ?: Arguments(call.valueArguments.mapNotNull { va ->
+                    va.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }, null)
+        }
+        val superConstructor = superArguments?.let { arguments ->
+            arguments.defaults ?: parentClass?.typeInfo()?.let { members(it) }?.let { parent ->
+                superSymbol?.let { constructorOf(it, parent, method) }
+                    ?: parent.constructors().firstOrNull { !it.isSynthetic && it.parameters().size == arguments.expressions.size }
+            }
+        } ?: if (superCall == null && parentClass == null) // interfaces only: Object's, as the Java front end sets
+            members(runtime.objectTypeInfo()).constructors().firstOrNull { it.parameters().isEmpty() } else null
+
         return runtime.newConstructorCallBuilder()
             .setConcreteReturnType(concreteReturnType)
             .setAnonymousClass(anon)
             .setDiamond(runtime.diamondNo())
-            .setParameterExpressions(listOf())
+            .also { b -> superConstructor?.let { b.setConstructor(it) } }
+            .setParameterExpressions(superArguments?.expressions.orEmpty())
             .setTypeArguments(listOf())
             .setSource(runtime.noSource())
             .build()
