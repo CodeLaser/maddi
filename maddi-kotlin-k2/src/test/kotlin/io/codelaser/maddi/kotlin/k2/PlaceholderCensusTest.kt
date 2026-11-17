@@ -32,13 +32,14 @@ class PlaceholderCensusTest : KotlinScanTestBase() {
 
     @Test
     fun anUnreadConstructIsCounted() {
-        // ⚠ a builtin's companion as a receiver (`Float.fromBits`, maddi#219) rather than `Int::plus`, `1u`, `T::class`,
-        // `String::class` or `s.length`: each stopped being a hole (`Integer::sum`; unsigned lowering; a reified class
-        // literal is its erasure's; class
+        // ⚠ the VALUE of a postfix `c++` on a user `inc()` (a deliberate placeholder: it needs a temporary) rather than
+        // `Float.fromBits`, `Int::plus`, `1u`, `T::class`, `String::class` or `s.length`: each stopped being a hole
+        // (#219's builtin companion; `Integer::sum`; unsigned lowering; a reified class literal is its erasure's; class
         // literals, §7.36; `bootstrapString` loading String's properties). A census test needs a construct actually missing.
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            fun use(): Any = Float.fromBits(1)
+            class C { operator fun inc(): C = C() }
+            fun use(c0: C): Any { var c = c0; return c++ }
             """.trimIndent() + "\n")
         val census = PlaceholderCensus.of(types)
         assertEquals(1, census.total, census.byKind.toString())

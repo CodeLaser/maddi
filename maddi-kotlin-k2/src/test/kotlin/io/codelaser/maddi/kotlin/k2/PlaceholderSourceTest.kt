@@ -33,8 +33,8 @@ import org.junit.jupiter.api.Test
  *
  * ⚠ The unconverted operand has had to move twice, which is the healthy direction: it was a library extension
  * call until maddi#43 converted those, then `s.length` until `bootstrapString` started loading String's
- * PROPERTIES, then a reified `T::class` until that became its erasure's class, then an unsigned literal, then `Int::plus`. It is now
- * a builtin's companion as a call receiver, `Float` in `Float.fromBits(1)` (maddi#219).
+ * PROPERTIES, then a reified `T::class` until that became its erasure's class, then an unsigned literal, then `Int::plus`, then `Float.fromBits(1)`
+ * (maddi#219). It is now the value of a postfix `c++` on a user `inc()`, a deliberate placeholder.
  * The test is about the RANGE mechanism, not about which construct is missing.
  */
 class PlaceholderSourceTest : KotlinScanTestBase() {
@@ -43,16 +43,17 @@ class PlaceholderSourceTest : KotlinScanTestBase() {
     fun anUnconvertedExpressionKeepsItsRange() {
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            fun use(): Any = Float.fromBits(1)
+            fun use(c0: C): Any { var c = c0; return c++ }
+            class C { operator fun inc(): C = C() }
             """.trimIndent() + "\n")
         val use = types.single { it.simpleName() == "UKt" }.methods().single { it.name() == "use" }
         val placeholders = mutableListOf<EmptyExpression>()
         use.methodBody().visit { e -> if (e is EmptyExpression && e.msg()?.startsWith("k2-") == true) placeholders += e; true }
         assertEquals(1, placeholders.size, placeholders.map { it.msg() }.toString())
         val s = placeholders.single().source()
-        // `Float`, columns 18-22 of line 2: the placeholder's range is the construct it stands for
-        // (a builtin's companion as a receiver, maddi#219)
-        assertEquals(listOf(2, 18, 2, 22), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
+        // `c++`, columns 42-44 of line 2: the placeholder's range is the construct it stands for
+        // (the old value of a postfix increment on a user `inc()`, which needs a temporary)
+        assertEquals(listOf(2, 42, 2, 44), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
             placeholders.single().msg())
     }
 }

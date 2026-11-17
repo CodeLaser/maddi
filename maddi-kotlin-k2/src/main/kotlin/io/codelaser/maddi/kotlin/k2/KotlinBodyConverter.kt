@@ -212,6 +212,9 @@ private val PRIMITIVE_CONVERSIONS =
 private val DURATION_UNITS = mapOf("nanoseconds" to "NANOSECONDS", "microseconds" to "MICROSECONDS",
     "milliseconds" to "MILLISECONDS", "seconds" to "SECONDS", "minutes" to "MINUTES", "hours" to "HOURS", "days" to "DAYS")
 
+/** The builtins whose companion is a `kotlin.jvm.internal.<X>CompanionObject` on the JVM. */
+private val BUILTIN_COMPANIONS = setOf("Int", "Long", "Short", "Byte", "Char", "Float", "Double", "String", "Boolean", "Enum")
+
 /** The unsigned classes and their width in bits. */
 private val UNSIGNED_BITS = mapOf("kotlin.UByte" to 8, "kotlin.UShort" to 16, "kotlin.UInt" to 32, "kotlin.ULong" to 64)
 
@@ -2186,6 +2189,13 @@ internal class KotlinBodyConverter(
         val on = inlineOnlyReceiverClass(symbol)
         val n = arguments.size
         return when {
+            // `Float.fromBits(i)` / `Double.fromBits(l)`: the JDK's `Float.intBitsToFloat(i)` / `Double.longBitsToDouble(l)`
+            // that kotlinc inlines (CodeLaser/maddi#219)
+            id == "kotlin.fromBits" && n == 1 -> when (inlineOnlyReceiverClass(symbol)) {
+                "kotlin.Float.Companion" -> staticCallOn("java.lang.Float", "intBitsToFloat", arguments)
+                "kotlin.Double.Companion" -> staticCallOn("java.lang.Double", "longBitsToDouble", arguments)
+                else -> null
+            }
             // an ARRAY's isEmpty/isNotEmpty is `a.length == 0`: before the collection branch, which would ask an array
             // for an isEmpty() method and give up (#15)
             (id == "kotlin.collections.isEmpty" || id == "kotlin.collections.isNotEmpty") && receiver != null && n == 0
@@ -3798,6 +3808,7 @@ internal class KotlinBodyConverter(
 
     /** The static field holding [symbol]'s instance -- `Outer.Companion`, `Object.INSTANCE` -- or its class's companion. */
     private fun KaSession.singletonOf(symbol: KaNamedClassSymbol): Expression? {
+        builtinCompanion(symbol)?.let { return it }
         // the companion's holder: its outer class, reached through K2 -- a LIBRARY companion is loaded as a type of
         // its own, with no enclosing type to walk up to
         val (holderSymbol, fieldName) = when (symbol.classKind) {
@@ -3808,6 +3819,22 @@ internal class KotlinBodyConverter(
         }
         val holder = classTypeInfo(holderSymbol)?.let { members(it) } ?: return null
         return holder.fields().firstOrNull { it.name() == fieldName && it.isStatic }?.let { staticFieldRef(it, holder) }
+    }
+
+    /**
+     * A BUILTIN's companion (`Float` in `Float.fromBits(i)`, `Int.MAX_VALUE`'s holder): on the JVM it is
+     * `kotlin.jvm.internal.FloatCompanionObject.INSTANCE`, as kotlinc compiles it -- `kotlin.Float` maps to the
+     * primitive, which has no `Companion` field (CodeLaser/maddi#219).
+     */
+    private fun KaSession.builtinCompanion(symbol: KaNamedClassSymbol): Expression? {
+        val classId = symbol.classId ?: return null
+        val owner = when (symbol.classKind) {
+            KaClassKind.COMPANION_OBJECT -> classId.outerClassId ?: return null
+            else -> classId.takeIf { symbol.companionObject != null } ?: return null
+        }
+        if (owner.packageFqName.asString() != "kotlin" || owner.shortClassName.asString() !in BUILTIN_COMPANIONS) return null
+        val holder = typeNamed("kotlin.jvm.internal.${owner.shortClassName.asString()}CompanionObject") ?: return null
+        return holder.fields().firstOrNull { it.name() == "INSTANCE" && it.isStatic }?.let { staticFieldRef(it, holder) }
     }
 
     /**
