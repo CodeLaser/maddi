@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Torg.mockito.BDDMockito", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "SBDDMyOngoingStubbing(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[

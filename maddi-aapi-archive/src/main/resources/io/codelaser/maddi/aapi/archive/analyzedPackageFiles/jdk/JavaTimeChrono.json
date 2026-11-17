@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tjava.time.chrono.AbstractChronology", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "McompareTo(0,java.time.chrono.Chronology)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":

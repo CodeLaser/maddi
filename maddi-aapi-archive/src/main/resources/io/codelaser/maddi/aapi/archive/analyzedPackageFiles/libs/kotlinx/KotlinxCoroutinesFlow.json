@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tkotlinx.coroutines.flow.Flow", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
  {"name": "Mcollect(0,kotlinx.coroutines.flow.FlowCollector,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "subs":[

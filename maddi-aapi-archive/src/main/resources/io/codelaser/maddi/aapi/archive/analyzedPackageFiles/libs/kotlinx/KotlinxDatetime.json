@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tkotlinx.datetime.ConvertersKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MtoJavaDayOfWeek(0,kotlinx.datetime.DayOfWeek)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":

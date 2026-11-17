@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Torg.apache.commons.io.FileUtils", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FEMPTY_FILE_ARRAY(0)", "data":{"finalField":1,"immutableField":1}},

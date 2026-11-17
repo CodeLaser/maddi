@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tio.vavr.concurrent.Future", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
  {"name": "FDEFAULT_EXECUTOR(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1}},

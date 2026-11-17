@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tjava.time.temporal.ChronoField", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FALIGNED_DAY_OF_WEEK_IN_MONTH(0)", "data":{"finalField":1,"nullabilityField":"N"}},

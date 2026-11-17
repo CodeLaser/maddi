@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Torg.junit.jupiter.params.provider.Arguments", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MargumentSet(0,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[

@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Torg.mockito.stubbing.BaseStubber", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MdoAnswer(0,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":

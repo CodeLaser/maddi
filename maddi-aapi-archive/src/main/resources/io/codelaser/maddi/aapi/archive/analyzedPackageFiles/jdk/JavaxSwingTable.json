@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tjavax.swing.table.TableColumn", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FCELL_RENDERER_PROPERTY(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
