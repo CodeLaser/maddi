@@ -215,7 +215,7 @@ immutability verdicts are derived.
   do not turn it on): re-derives NON_MODIFYING_METHOD / UNMODIFIED_PARAMETER / UNMODIFIED_FIELD from primitive
   evidence + converged links; a *cutover* downgrades frozen optimistic TRUEs past `TolerantWrite` (the one
   sanctioned non-monotone write), freezes the three, clears the derived immutability/independence/container family,
-  re-derives and re-certifies; up to `MODREACH_ROUNDS`=3. Seeds: a walkable body (in order, non-empty, not
+  re-derives and re-certifies; up to `MODREACH_ROUNDS`=10 (a safety bound; the rounds stop when one writes nothing). Seeds: a walkable body (in order, non-empty, not
   union-over-implementations, not opaque) is seeded from primitive evidence, not from its callers' summaries
   (b265dc8f, 2026-10-20, maddi-mod#55: a parameter a recursion cycle only reads stays unmodified); an array
   expression (`DependentVariable` without `arrayVariable()`) taints instead of failing the pass (5512762c).
