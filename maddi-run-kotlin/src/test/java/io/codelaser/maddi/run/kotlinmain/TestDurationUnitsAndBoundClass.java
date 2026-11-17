@@ -33,10 +33,12 @@ import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
 
 /**
- * Two shapes from Exposed (maddi#220), in the class-file world:
+ * Three shapes from Exposed (maddi#220), in the class-file world:
  * <ul>
  *     <li>{@code n.milliseconds}, imported from {@code Duration.Companion}: an @InlineOnly getter, private in the class
  *     file, inlined by kotlinc to {@code DurationKt.toDuration(n, DurationUnit.MILLISECONDS)};</li>
+ *     <li>{@code Duration.parse(s)}, with the Java side naming {@code Duration.Companion} and minting a stub for it,
+ *     which K2 does not take for its model (CodeLaser/maddi#76);</li>
  *     <li>{@code x::class} on a value typed by a type parameter, or on a lambda's {@code it}: {@code Object.getClass()}
  *     on it, wrapped in {@code Reflection.getOrCreateKotlinClass}.</li>
  * </ul>
@@ -55,11 +57,12 @@ public class TestDurationUnitsAndBoundClass {
                 class K {
                     fun imported(n: Long): kotlin.time.Duration = n.milliseconds
                     fun nanos(n: Long): kotlin.time.Duration = n.nanoseconds
+                    fun parsed(s: String): kotlin.time.Duration = kotlin.time.Duration.parse(s)
                     fun <S : Any> typed(s: S): String? = s::class.qualifiedName
                     fun inLambda(xs: List<Any>): List<String?> = xs.map { it::class.simpleName }
                 }
                 """);
-        Files.writeString(jDir.resolve("s/Trivial.java"), "package s;\npublic class Trivial { public int n; }\n");
+        Files.writeString(jDir.resolve("s/Trivial.java"), "package s;\n// names Duration.Companion: without the stdlib on its own class path, the Java side mints a STUB for it\npublic class Trivial { public Object c(kotlin.time.Duration.Companion c) { return c; } }\n");
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
                 .setSourceDirectories(List.of(jDir)).setUri(jDir.toUri()).build();
         SourceSet kotlinSet = new SourceSetImpl.Builder().setName("kotlin/main")
@@ -71,6 +74,8 @@ public class TestDurationUnitsAndBoundClass {
                 PlaceholderCensus.of(parsed.getKotlinTypes()).getByKind().toString());
         assertEquals("{return DurationKt.toDuration(n,DurationUnit.MILLISECONDS);}", body(k, "imported"));
         assertEquals("{return DurationKt.toDuration(n,DurationUnit.NANOSECONDS);}", body(k, "nanos"));
+        // a stub the Java side minted for Duration.Companion is not K2's model (CodeLaser/maddi#76)
+        assertEquals("{return Duration.Companion.parse(s);}", body(k, "parsed"));
         assertEquals("{return Reflection.getOrCreateKotlinClass(s.getClass()).qualifiedName;}", body(k, "typed"));
         assertEquals("{return CollectionsKt.map(xs,it->Reflection.getOrCreateKotlinClass(it.getClass()).simpleName);}",
                 body(k, "inLambda"));

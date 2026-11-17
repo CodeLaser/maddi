@@ -200,6 +200,14 @@ internal class KotlinTypeMapper(
      * Called where members are LOOKED UP, not where a type is mentioned, so a type only named stays a shell.
      * Not for a type this mapper built itself from K2 symbols (its own shells: [deepen]), nor for a source type.
      */
+    /**
+     * A type the Java front end MINTED because its own class path lacked it (`ClassSymbolScanner`'s "Creating stub type
+     * for …": no source set, no members). K2 can know the type -- the Kotlin source set may have the jar the Java one
+     * lacks -- so a stub is never taken for its model: every call through it would silently become a placeholder
+     * (`Duration.Companion.parse`, `Function1.invoke`; CodeLaser/maddi#76).
+     */
+    private fun isJavaStub(type: TypeInfo): Boolean = type.compilationUnit().sourceSet() == null
+
     internal fun withMembers(type: TypeInfo): TypeInfo {
         if (type.hasBeenInspected() || compiledTypesManager == null) return type
         val compilationUnit = type.compilationUnit()
@@ -362,14 +370,15 @@ internal class KotlinTypeMapper(
         // type, so the sibling-source lookup below would otherwise return it and break the JVM model (and the
         // enum/annotation parent invariants asserted at commit). So skip that lookup for mapped builtins.
         // already known (a sibling source type, or a previously loaded library type), else load it:
-        val typeInfo = (if (mapped) null else infoByFqn.getType(kotlinFqn, sourceSet))
+        val typeInfo = (if (mapped) null else infoByFqn.getType(kotlinFqn, sourceSet)?.takeUnless { isJavaStub(it) })
             ?: (if (!mapped && type.symbol.origin == KaSymbolOrigin.JAVA_SOURCE) javaSourceTypes?.invoke(kotlinFqn) else null)
             ?: run {
             // Phase 1 -- shared JDK/library core: delegate to the injected CompiledTypesManager (its
             // getOrLoad lazily loads from bytecode), so java.* is ONE TypeInfo instance across the Java and
             // Kotlin front-ends. Cache it locally; fall back to the K2-based load when absent (standalone) or
             // when the manager doesn't know the type (a Kotlin-only stdlib type).
-            (if (nestedInLoading(jvmFqn)) null else compiledTypesManager?.type(jvmFqn, librarySourceSet))?.also {
+            (if (nestedInLoading(jvmFqn)) null else compiledTypesManager?.type(jvmFqn, librarySourceSet)
+                ?.takeUnless { isJavaStub(it) })?.also {
                 // only register if absent: a SHARED registry (mixed setup) already holds this instance under its
                 // own (java.base) source set via the openjdk load, and re-putting the same instance trips the
                 // InfoByFqn duplicate assertion. Standalone: getType is null on first use, so we still cache.
@@ -645,14 +654,14 @@ internal class KotlinTypeMapper(
     internal fun KaSession.loadLibraryClass(symbol: KaNamedClassSymbol): TypeInfo? {
         val classId = symbol.classId ?: return null
         val jvmFqn = mapToJvmFqn(classId)
-        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { deepen(it); return it }
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.takeUnless { isJavaStub(it) }?.let { deepen(it); return it }
         // Shared-core delegation, exactly as in mapClassType: when a driver injected the Java front-end's
         // CompiledTypesManager, the library type may already have been built (and COMMITTED) from bytecode under
         // its own source set, which the registry lookup above — keyed by librarySourceSet — does not see.
         // Rebuilding it here then commits a second time: "Trying to overwrite final value". This path was
         // reachable only once the manager actually had contents; while its lazy loader was dead in Kotlin-only
         // runs it always missed, which is why a `Type.staticMember` access never tripped it before.
-        compiledTypesManager?.type(jvmFqn, librarySourceSet)?.let {
+        compiledTypesManager?.type(jvmFqn, librarySourceSet)?.takeUnless { isJavaStub(it) }?.let {
             if (infoByFqn.getType(jvmFqn, librarySourceSet) == null) infoByFqn.put(jvmFqn, it, librarySourceSet)
             return it
         }
@@ -671,7 +680,7 @@ internal class KotlinTypeMapper(
     }
 
     private fun KaSession.loadLibraryType(symbol: KaNamedClassSymbol, jvmFqn: String): TypeInfo {
-        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { deepen(it); return it }
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.takeUnless { isJavaStub(it) }?.let { deepen(it); return it }
         val typeInfo = runtime.newTypeInfo(
             libraryCompilationUnit(jvmFqn.substringBeforeLast('.', "")),
             jvmFqn.substringAfterLast('.')
