@@ -208,6 +208,10 @@ private val ARRAY_LITERALS = setOf("arrayOf", "intArrayOf", "longArrayOf", "doub
 private val PRIMITIVE_CONVERSIONS =
     setOf("toInt", "toLong", "toDouble", "toFloat", "toShort", "toByte", "toChar")
 
+/** `Duration.Companion`'s extension properties and the [kotlin.time.DurationUnit] each stands for. */
+private val DURATION_UNITS = mapOf("nanoseconds" to "NANOSECONDS", "microseconds" to "MICROSECONDS",
+    "milliseconds" to "MILLISECONDS", "seconds" to "SECONDS", "minutes" to "MINUTES", "hours" to "HOURS", "days" to "DAYS")
+
 /** The unsigned classes and their width in bits. */
 private val UNSIGNED_BITS = mapOf("kotlin.UByte" to 8, "kotlin.UShort" to 16, "kotlin.UInt" to 32, "kotlin.ULong" to 64)
 
@@ -4270,6 +4274,21 @@ internal class KotlinBodyConverter(
     }
 
     /**
+     * `n.milliseconds` (imported from `Duration.Companion`): an @InlineOnly getter, private in the class file, which
+     * kotlinc inlines to `DurationKt.toDuration(n, DurationUnit.MILLISECONDS)` (Exposed's `retryDelay.milliseconds`,
+     * `nanoseconds`, maddi#220).
+     */
+    private fun KaSession.durationOf(property: KaCallableSymbol, receiver: Expression): Expression? {
+        val id = property.callableId ?: return null
+        if (id.classId?.asFqNameString() != "kotlin.time.Duration.Companion") return null
+        val unitName = DURATION_UNITS[id.callableName.asString()] ?: return null
+        val receiverClass = (property.receiverParameter?.returnType as? KaClassType)?.classId?.asFqNameString() ?: return null
+        val unitType = typeNamed("kotlin.time.DurationUnit") ?: return null
+        val unit = unitType.fields().firstOrNull { it.isStatic && it.name() == unitName } ?: return null
+        return stdlibStatic("kotlin.time", "toDuration", receiverClass, listOf(receiver, staticFieldRef(unit, unitType)))
+    }
+
+    /**
      * `recv.extProp` where `extProp` is a MEMBER extension property -- declared inside a type, so it has a dispatch
      * receiver as well as an extension receiver: detekt's `expression.expressionType` inside `analyze(…) { }` is
      * `$receiver.getExpressionType(expression)` on the JVM, an instance getter of the session with the extension
@@ -4281,6 +4300,7 @@ internal class KotlinBodyConverter(
                                                         locals: Map<String, Variable>): Expression? {
         val access = selector.resolveToCall()?.successfulVariableAccessCall() ?: return null
         if (access.partiallyAppliedSymbol.symbol.receiverParameter == null) return null
+        durationOf(access.partiallyAppliedSymbol.symbol, receiver)?.let { return it }
         val dispatch = access.partiallyAppliedSymbol.dispatchReceiver
         val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
         val type = receiverLookupType(dispatch, obj, method) ?: return null
@@ -4447,7 +4467,17 @@ internal class KotlinBodyConverter(
         val isValue = receiver is KtThisExpression
             || (receiver as? KtNameReferenceExpression)?.mainReference?.resolveToSymbol() is KaVariableSymbol
         if (!isValue) return null
-        return instanceCall(convertExpression(receiver, method, locals), "getClass", listOf())
+        val value = convertExpression(receiver, method, locals)
+        // a value typed by a type parameter (`entity::class` for `entity: SRC`) has no type to look getClass() up
+        // on: it is java.lang.Object's, whatever the value
+        if (value.parameterizedType().typeInfo() == null || value.parameterizedType().typeParameter() != null) {
+            val getClass = members(runtime.objectTypeInfo()).methods()
+                .firstOrNull { it.name() == "getClass" && it.parameters().isEmpty() } ?: return null
+            return runtime.newMethodCallBuilder().setObject(value).setObjectIsImplicit(false).setMethodInfo(getClass)
+                .setParameterExpressions(listOf()).setConcreteReturnType(getClass.returnType()).setTypeArguments(listOf())
+                .setSource(runtime.noSource()).build()
+        }
+        return instanceCall(value, "getClass", listOf())
     }
 
     private fun KaSession.javaClassLiteral(expression: KtClassLiteralExpression, method: MethodInfo): Expression? {
