@@ -98,4 +98,20 @@ class InheritedPropertyAssignmentTest : KotlinScanTestBase() {
         assertEquals("{{t.setName(t.getName()+\"-x\");}}", p.findUniqueMethod("append", 1).methodBody().toString())
         assertEquals("{t.setDaemon(false);}", p.findUniqueMethod("qualified", 1).methodBody().toString())
     }
+    /** A Java getter with an acronym, `getSQLState()` for `e.sqlState`: the name K2 gives, not a capitalization. */
+    @Test
+    fun aJavaGetterWithAnAcronymIsRead() {
+        val types = parse("""
+            package a
+            class P {
+                fun state(e: java.sql.SQLException?): String = e?.sqlState.orEmpty()
+                fun keywords(m: java.sql.DatabaseMetaData): List<String> = m.sqlKeywords.split(',')
+            }
+        """.trimIndent())
+        val p = types.first { it.simpleName() == "P" }
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        assertEquals("{return StringsKt.orEmpty(e==null?null:e.getSQLState());}", p.findUniqueMethod("state", 1).methodBody().toString())
+        assertEquals("{return StringsKt.split(m.getSQLKeywords(),new char[]{','},false,0);}",
+            p.findUniqueMethod("keywords", 1).methodBody().toString())
+    }
 }

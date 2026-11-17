@@ -3483,7 +3483,11 @@ internal class KotlinBodyConverter(
                     // property idiom backed by an accessor method: `list.size`->size(), `obj.name`->getName()
                     // the USE-SITE type, as the Java front end gives a call: `lazy.value` on a `Lazy<Entry>` is an Entry,
                     // not the erased T -- a destructuring of it found no componentN (javalin's JettyServer)
-                    else -> receiverType?.let { resolveAccessor(it, name) }?.let { getter ->
+                    // a Java getter K2 names: `getSQLState()` for `e.sqlState`, which no capitalization of the property
+                    // name reaches (Exposed's ExposedSQLException, JdbcIdentifierManager, maddi#220)
+                    else -> receiverType?.let { t ->
+                        (selector.mainReference.resolveToSymbol() as? KaSyntheticJavaPropertySymbol)?.javaGetterSymbol
+                            ?.name?.asString()?.let { resolveCallee(t, it, listOf()) } ?: resolveAccessor(t, name) }?.let { getter ->
                         accessorCall(receiver, getter, selector.expressionType?.let { mapType(it, method.typeInfo()) }
                             ?.takeIf { getter.returnType().typeParameter() != null }) }
                         // an EXTENSION property is not a member of the receiver's type, so neither lookup
