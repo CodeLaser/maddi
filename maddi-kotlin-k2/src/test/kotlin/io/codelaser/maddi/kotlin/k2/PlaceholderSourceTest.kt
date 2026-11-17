@@ -33,8 +33,8 @@ import org.junit.jupiter.api.Test
  *
  * ⚠ The unconverted operand has had to move twice, which is the healthy direction: it was a library extension
  * call until maddi#43 converted those, then `s.length` until `bootstrapString` started loading String's
- * PROPERTIES, then a reified `T::class` until that became its erasure's class, then an unsigned literal. It is now a reference
- * to a primitive's member, `Int::plus`.
+ * PROPERTIES, then a reified `T::class` until that became its erasure's class, then an unsigned literal, then `Int::plus`. It is now
+ * a builtin's companion as a call receiver, `Float` in `Float.fromBits(1)` (maddi#219).
  * The test is about the RANGE mechanism, not about which construct is missing.
  */
 class PlaceholderSourceTest : KotlinScanTestBase() {
@@ -43,16 +43,16 @@ class PlaceholderSourceTest : KotlinScanTestBase() {
     fun anUnconvertedExpressionKeepsItsRange() {
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            fun use(): Any = listOf(1, 2).reduce(Int::plus)
+            fun use(): Any = Float.fromBits(1)
             """.trimIndent() + "\n")
         val use = types.single { it.simpleName() == "UKt" }.methods().single { it.name() == "use" }
         val placeholders = mutableListOf<EmptyExpression>()
         use.methodBody().visit { e -> if (e is EmptyExpression && e.msg()?.startsWith("k2-") == true) placeholders += e; true }
         assertEquals(1, placeholders.size, placeholders.map { it.msg() }.toString())
         val s = placeholders.single().source()
-        // `Int::plus`, columns 38-46 of line 2: the placeholder's range is the construct it stands for
-        // (a callable reference to a primitive's member, maddi#220)
-        assertEquals(listOf(2, 38, 2, 46), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
+        // `Float`, columns 18-22 of line 2: the placeholder's range is the construct it stands for
+        // (a builtin's companion as a receiver, maddi#219)
+        assertEquals(listOf(2, 18, 2, 22), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
             placeholders.single().msg())
     }
 }

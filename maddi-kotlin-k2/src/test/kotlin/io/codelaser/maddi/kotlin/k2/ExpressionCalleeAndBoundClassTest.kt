@@ -66,4 +66,31 @@ class ExpressionCalleeAndBoundClassTest : KotlinScanTestBase() {
         assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
         assertEquals("{return !Intrinsics.areEqual(current,value);}", p.findUniqueMethod("changed", 2).methodBody().toString())
     }
+    /**
+     * An indexed set or get whose `operator fun` is renamed by `@JvmName` (Exposed's `CompositeID`, whose three `set`
+     * overloads would clash on the JVM): found under its JVM name, as a written call is.
+     */
+    @Test
+    fun aRenamedIndexOperatorResolves() {
+        val types = parse("""
+            package a
+            class Id {
+                private val values = HashMap<String, Any?>()
+                @JvmName("setString")
+                operator fun set(key: String, value: String) { values[key] = value }
+                @JvmName("setInt")
+                operator fun set(key: String, value: Int) { values[key] = value }
+                @JvmName("getAny")
+                operator fun get(key: String): Any? = values[key]
+            }
+            class P {
+                fun fill(id: Id) { id["a"] = "x"; id["b"] = 1 }
+                fun read(id: Id): Any? = id["a"]
+            }
+        """.trimIndent())
+        val p = types.first { it.simpleName() == "P" }
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        assertEquals("{id.setString(\"a\",\"x\");id.setInt(\"b\",1);}", p.findUniqueMethod("fill", 1).methodBody().toString())
+        assertEquals("{return id.getAny(\"a\");}", p.findUniqueMethod("read", 1).methodBody().toString())
+    }
 }
