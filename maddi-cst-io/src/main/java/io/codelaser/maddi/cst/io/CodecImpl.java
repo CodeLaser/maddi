@@ -290,9 +290,36 @@ public class CodecImpl implements Codec {
             case 'M' -> decodeMethodInfo(context.currentType(), name);
             case 'T' -> typeProvider.get(name);
             case 'S' -> decodeSubType(context.currentType(), name);
+            case 'A' -> decodeLocalType(context.currentType(), name);
             case 'P' -> decodeParameterInfo(context.currentMethod(), name);
             default -> throw new UnsupportedOperationException();
         };
+    }
+
+    /*
+     A local type (anonymous, local class, lambda) in context, as WriteAnalysisResults names it: its simple name and
+     its position in the enclosing type's localTypes. Both must agree, or the type is not resolvable, and says so.
+     There is no fallback by name alone: anonymous classes and lambdas are numbered in source order, so after an edit
+     that removes one, the next one carries the removed one's name, and a match by name would apply its values to
+     another type. The same source and the same transform give the same list.
+     */
+    private final Map<TypeInfo, List<TypeInfo>> localTypesCache = new IdentityHashMap<>();
+
+    private TypeInfo decodeLocalType(TypeAndSorted typeAndSorted, String nameIndex) {
+        Matcher m = NAME_INDEX_PATTERN.matcher(nameIndex);
+        if (!m.matches()) throw new DecoderException("local type '" + nameIndex + "' has no index");
+        if (typeAndSorted == null) {
+            throw new DecoderException("no current type while decoding local type '" + nameIndex + "'");
+        }
+        String name = m.group(1);
+        int index = Integer.parseInt(m.group(2));
+        List<TypeInfo> locals = localTypesCache.computeIfAbsent(typeAndSorted.typeInfo(),
+                _ -> localTypes(typeAndSorted));
+        if (index < locals.size() && locals.get(index).simpleName().equals(name)) return locals.get(index);
+        throw new DecoderException("local type '" + nameIndex + "' not found in " + typeAndSorted.typeInfo() + ": "
+                                   + (index < locals.size() ? "place " + index + " holds '"
+                                                              + locals.get(index).simpleName() + "'"
+                                           : "only " + locals.size() + " local types"));
     }
 
     @Override
@@ -736,9 +763,10 @@ public class CodecImpl implements Codec {
             if (typeInfo.isPrimaryType()) {
                 return "T" + typeInfo.fullyQualifiedName();
             }
-            if (typeInfo.isAnonymous()) {
-                assert context.currentMethod() != null;
-                return "A" + typeInfo.enclosingMethod() + "(" + index + ")";
+            if (!isMemberType(typeInfo)) {
+                // an anonymous, local or lambda type: the caller's index is its place in the enclosing type's
+                // localTypes (WriteAnalysisResults, decodeLocalType)
+                return "A" + typeInfo.simpleName() + "(" + index + ")";
             }
             return "S" + typeInfo.simpleName() + "(" + index + ")";
         }
@@ -840,6 +868,16 @@ public class CodecImpl implements Codec {
      * visit order, the bodies of the types found included. Encoder and decoder build it from the same sources, so a
      * position in it names one type.
      */
+    public static List<TypeInfo> localTypes(TypeInfo typeInfo) {
+        return localTypes(new TypeAndSorted(typeInfo));
+    }
+
+    // a member type is among its enclosing type's sub-types; an anonymous, local or lambda type is not
+    private static boolean isMemberType(TypeInfo typeInfo) {
+        var cuOrEnclosing = typeInfo.compilationUnitOrEnclosingType();
+        return cuOrEnclosing.isRight() && cuOrEnclosing.getRight().subTypes().contains(typeInfo);
+    }
+
     protected static List<TypeInfo> localTypes(TypeAndSorted tas) {
         List<TypeInfo> list = new ArrayList<>();
         java.util.function.Predicate<io.codelaser.maddi.cst.api.element.Element> collect = e -> {
