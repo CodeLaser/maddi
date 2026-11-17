@@ -4666,6 +4666,10 @@ internal class KotlinBodyConverter(
         // Kotlin's `Number.toLong()` is `java.lang.Number.longValue()` on the JVM, on a `Number` or any subclass of it
         // (`(x as? Number)?.toLong()`, `is Number -> value.toInt()`: Exposed, 17 placeholders)
         if (all.isEmpty() && arguments.isEmpty()) NUMBER_CONVERSIONS[name]?.let { collectMethods(type, it, 0, mutableSetOf(), all) }
+        // a function that takes or returns an inline (value) class is MANGLED in the class file: `Duration.parse(s)` is
+        // `Duration.Companion.parse-UwyO8pc(String)` there. A type K2 builds keeps the Kotlin name; one loaded from
+        // bytecode (a Kotlin-only project's stdlib) has only the mangled one (Exposed's DurationColumnType)
+        if (all.isEmpty() && !name.contains('-')) collectMethods(type, name, arguments.size, mutableSetOf(), all, mangled = true)
         if (all.size <= 1) return all.firstOrNull()
         // an overload kotlinc adds (KotlinScan.overloadMethods) is Java's to call: a Kotlin call binds to a declaration
         // of the same type. (Not to an inherited one: a data class's synthesized `equals` is the callee, not Object's.)
@@ -5176,19 +5180,19 @@ internal class KotlinBodyConverter(
     }
 
     private fun collectMethods(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>,
-                               acc: MutableList<MethodInfo>) {
+                               acc: MutableList<MethodInfo>, mangled: Boolean = false) {
         if (!visited.add(type)) return
         // ⚠ A varargs callee is matched the way the Java front end represents one: the arguments stay
         // WRITTEN OUT, so a call carries more expressions than the method has parameters (hence
         // MethodInfo.typeOfParameterHandleVarargs). Without this, `listOf("a", "b")` — 2 written against 1
         // array parameter — found nothing and became a placeholder.
         members(type).methods().filterTo(acc) {
-            it.name() == name
+            (it.name() == name || mangled && it.name().startsWith("$name-"))
             && (it.parameters().size == arity || (it.isVarargs && arity >= it.parameters().size - 1))
         }
-        type.parentClass()?.typeInfo()?.let { collectMethods(it, name, arity, visited, acc) }
+        type.parentClass()?.typeInfo()?.let { collectMethods(it, name, arity, visited, acc, mangled) }
         type.interfacesImplemented().forEach { iface ->
-            iface.typeInfo()?.let { collectMethods(it, name, arity, visited, acc) }
+            iface.typeInfo()?.let { collectMethods(it, name, arity, visited, acc, mangled) }
         }
     }
 

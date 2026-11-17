@@ -81,6 +81,34 @@ public class TestDurationUnitsAndBoundClass {
                 body(k, "inLambda"));
     }
 
+    /**
+     * The same call in a Kotlin-only project: there {@code Duration.Companion} is the stdlib CLASS FILE's type, whose
+     * method is {@code parse-UwyO8pc} -- kotlinc mangles a function that takes or returns an inline class.
+     */
+    @Test
+    public void durationParseInAKotlinOnlyProject(@TempDir Path tmp) throws Exception {
+        Path kDir = tmp.resolve("src/main/kotlin");
+        Files.createDirectories(kDir.resolve("a"));
+        Files.writeString(kDir.resolve("a/K.kt"), """
+                package a
+                import kotlin.time.Duration
+                class K {
+                    fun parsed(s: String): Duration = Duration.parse(s)
+                    fun orNull(s: String): Duration? = Duration.parseOrNull(s)
+                    fun dflt(value: Any): Duration = when (value) { is String -> Duration.parse(value); else -> Duration.ZERO }
+                }
+                """);
+        SourceSet kotlinSet = new SourceSetImpl.Builder().setName("kotlin/main")
+                .setSourceDirectories(List.of(kDir)).setUri(kDir.toUri()).build();
+        MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(new InputConfigurationImpl.Builder()
+                .addSourceSets(kotlinSet).addClassPath(kotlinStdlibJar()).build());
+        TypeInfo k = parsed.getKotlinTypes().stream().filter(t -> "a.K".equals(t.fullyQualifiedName())).findFirst().orElseThrow();
+        assertEquals(0, PlaceholderCensus.of(parsed.getKotlinTypes()).getTotal(),
+                PlaceholderCensus.of(parsed.getKotlinTypes()).getByKind().toString());
+        // the class file's JVM name: what the call binds to
+        assertEquals("{return Duration.Companion.parse-UwyO8pc(s);}", body(k, "parsed"));
+    }
+
     private static String body(TypeInfo type, String name) {
         return type.methods().stream().filter(m -> name.equals(m.name())).findFirst().orElseThrow().methodBody().toString();
     }
