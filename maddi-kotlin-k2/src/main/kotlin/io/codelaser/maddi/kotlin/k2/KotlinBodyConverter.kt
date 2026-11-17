@@ -618,6 +618,11 @@ internal class KotlinBodyConverter(
     /** The index the hoisted statement itself takes, after [n] declarations. */
     private fun hoistedStatementIndex(index: String, n: Int): String = "$index.${pad(n, n + 1)}"
 
+    /** A call whose inlined body reads its receiver twice: `Result.getOrNull()` (see inlineOnlyCall). */
+    private fun KaSession.readsItsReceiverTwice(expression: KtDotQualifiedExpression): Boolean =
+        (expression.selectorExpression as? KtCallExpression)?.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+            ?.callableId?.asSingleFqName()?.asString() == "kotlin.Result.getOrNull"
+
     /** Depth-first along the spine, so an inner receiver is bound before the outer one that reads it. */
     private fun KaSession.hoistSpineOf(expression: KtExpression, method: MethodInfo,
                                        locals: MutableMap<String, Variable>, index: String,
@@ -625,6 +630,8 @@ internal class KotlinBodyConverter(
         val tested = when {
             expression is KtSafeQualifiedExpression -> expression.receiverExpression
             expression is KtBinaryExpression && expression.operationToken == KtTokens.ELVIS -> expression.left
+            // `runCatching { … }.getOrNull()`: inlined, the call reads its receiver twice (inlineOnlyCall)
+            expression is KtDotQualifiedExpression && readsItsReceiverTwice(expression) -> expression.receiverExpression
             expression is KtParenthesizedExpression -> {
                 expression.expression?.let { hoistSpineOf(it, method, locals, index, declarations) }
                 return
@@ -2235,6 +2242,16 @@ internal class KotlinBodyConverter(
                 val bits = listOf("getMostSignificantBits", "getLeastSignificantBits")
                     .map { instanceCall(receiver, it, listOf()) ?: return null }
                 instanceCall(arguments[0], "invoke", bits)
+            }
+            // `r.getOrNull()` on a kotlin.Result: kotlinc inlines `isFailure ? null : value`, and an unboxed Result IS its
+            // value (or a Result.Failure): `Result.isFailure-impl(r) ? null : (T) r`. The receiver is read twice; a
+            // `runCatching { … }` receiver goes to a temporary first (hoistSpineOf). Detekt's extractRuleName (maddi#220)
+            id == "kotlin.Result.getOrNull" && receiver != null && n == 0 && rereadable(receiver) -> {
+                val failed = staticCallOn("kotlin.Result", "isFailure-impl", listOf(receiver)) ?: return null
+                val type = call?.expressionType?.let { mapType(it, method.typeInfo(), method) } ?: return null
+                runtime.newInlineConditionalBuilder().setCondition(failed)
+                    .setIfTrue(runtime.nullConstant()).setIfFalse(runtime.newCast(receiver, type))
+                    .setSource(runtime.noSource()).build(runtime)
             }
             // an ARRAY's isEmpty/isNotEmpty is `a.length == 0`: before the collection branch, which would ask an array
             // for an isEmpty() method and give up (#15)
