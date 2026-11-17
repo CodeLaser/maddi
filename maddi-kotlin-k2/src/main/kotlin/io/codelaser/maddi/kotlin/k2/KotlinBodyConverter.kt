@@ -1558,12 +1558,15 @@ internal class KotlinBodyConverter(
         } ?: return null
         val tryExpression = spineTry(root) ?: return null
         val type = tryExpression.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
-        val name = "\$try${elvisTemporaries++}"
+        val name = (if (tryExpression is KtIfExpression) "\$if" else "\$try") + elvisTemporaries++
         val value = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
         locals[name] = value
         val out = ArrayList<Statement>()
         out.add(indexed(runtime.newLocalVariableCreation(value), "$index.0"))
-        out.add(convertTry(tryExpression, method, locals, "$index.1", assignTo = value).withSource(source(tryExpression, "$index.1")))
+        out.add(if (tryExpression is KtIfExpression)
+                    convertValueIf(tryExpression, method, locals, "$index.1", returning = false, assignTo = value)
+                else convertTry(tryExpression as KtTryExpression, method, locals, "$index.1", assignTo = value)
+                    .withSource(source(tryExpression, "$index.1")))
         hoistedReads[tryExpression] = value
         try {
             out.add(if (expressionBody) indexed(runtime.newReturnStatement(convertExpression(statement, method, locals)), "$index.2")
@@ -1574,13 +1577,18 @@ internal class KotlinBodyConverter(
         return out
     }
 
-    /** The `try` [spineTryLowering] lowers: on [root]'s spine, strictly inside it. */
-    private fun spineTry(root: KtExpression): KtTryExpression? {
+    /**
+     * The `try` [spineTryLowering] lowers: on [root]'s spine, strictly inside it. Or an `if` with no expression form
+     * there, a branch of several statements or one that jumps: `return if (c) { a } else { …; return b } as T`
+     * (Exposed's QueryAlias.get, maddi#220), assigned in each branch just the same.
+     */
+    private fun spineTry(root: KtExpression): KtExpression? {
         var e: KtExpression = root
         var inside = false
         while (true) {
             e = when (e) {
                 is KtTryExpression -> return e.takeIf { inside }
+                is KtIfExpression -> return e.takeIf { inside && e.`else` != null && e.needsStatementForm() }
                 is KtAnnotatedExpression -> e.baseExpression ?: return null
                 is KtParenthesizedExpression -> e.expression ?: return null
                 is KtBinaryExpressionWithTypeRHS -> e.left
