@@ -828,7 +828,7 @@ class KotlinScan(
         annotate(typeInfo.builder(), classSymbol, typeInfo)
         typeInfo.builder().computeAccess() // eventual type access, needed before members' computeAccess()
         // ...and before its companion's, which a class nested in the companion needs in ITS prepareType, next
-        registeredCompanions[typeInfo]?.let { setUpCompanion(it) }
+        registeredCompanions[typeInfo]?.let { setUpCompanion(it, classSymbol.companionObject) }
         // declaration source (nature is set now): name keyed by simpleName(), keyword by typeNature(), and
         // each supertype reference keyed by its TypeInfo (the `: Base(), Iface` clause) -- mirroring Java
         val superTypeDetails = declaration.superTypeListEntries.mapNotNull { entry ->
@@ -1015,7 +1015,7 @@ class KotlinScan(
         val companion = registeredCompanions.remove(enclosing) ?: runtime.newTypeInfo(enclosing, name).also {
             enclosing.builder().addSubType(it)
             infoByFqn.put(it.fullyQualifiedName(), it, sourceSet)
-            setUpCompanion(it)
+            setUpCompanion(it, companionSymbol)
         }
         references.target(companionSymbol.psi, companion)
         // the private constructor kotlinc gives it, called once, from the enclosing class's static initializer. The
@@ -1069,10 +1069,22 @@ class KotlinScan(
         addCompanionStatics(enclosing, companion, companionField, companionSymbol)
     }
 
-    private fun setUpCompanion(companion: TypeInfo) {
+    /**
+     * The companion's declared supertypes are its own, as a class's are: `companion object : DialectNameProvider("H2")`
+     * makes `H2.dialectName` a read of the inherited property. With `Object` as the parent, nothing inherited
+     * could be found (Exposed: 74 placeholders, the corpus's largest kind).
+     */
+    private fun KaSession.setUpCompanion(companion: TypeInfo, symbol: KaClassSymbol?) {
+        var parentClass: ParameterizedType? = null
+        symbol?.superTypes?.forEach { superType ->
+            val pt = mapType(superType, companion)
+            if (pt.isJavaLangObject) return@forEach
+            val superKind = ((superType as? KaClassType)?.symbol as? KaClassSymbol)?.classKind
+            if (superKind == KaClassKind.INTERFACE) companion.builder().addInterfaceImplemented(pt) else parentClass = pt
+        }
         companion.builder()
             .setTypeNature(runtime.typeNatureClass())
-            .setParentClass(runtime.objectParameterizedType())
+            .setParentClass(parentClass ?: runtime.objectParameterizedType())
             .addTypeModifier(runtime.typeModifierPublic())
             .addTypeModifier(runtime.typeModifierStatic()) // a nested object is a static nested class on the JVM
             .addTypeModifier(runtime.typeModifierFinal())
