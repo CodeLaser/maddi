@@ -51,6 +51,10 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
                 fun compared(s: StringBuilder?, t: String): Boolean = s?.run { append("j"); toString() } == t
                 fun nested(s: StringBuilder): Int = take2(1, s.apply { append("k") }) + 1
                 fun withACall(): Int = with(StringBuilder("w")) { append("l"); length }
+                fun whenArm(k: Int, a: StringBuilder?, b: StringBuilder?): Int? = when (k) { 1 -> { a?.let { it.length } ?: b?.let { it.length + 1 } } else -> null }
+                fun lambdaTail(xs: List<StringBuilder?>, b: StringBuilder): List<StringBuilder> = xs.map { val y = it; y ?: b.also { c -> c.append("m") } }
+                fun lambdaOnly(xs: List<StringBuilder?>, b: StringBuilder): List<StringBuilder> = xs.map { it ?: b.also { c -> c.append("n") } }
+                fun unitElvis(a: StringBuilder?, b: StringBuilder, m: MutableMap<Int, String>) { a?.let { m[1] = "p" } ?: run { m.remove(1) } }
                 fun localElvis(a: StringBuilder?, b: StringBuilder): Int { val x = a ?: b.apply { append("g") }; return x.length }
             }
             """.trimIndent() + "\n")
@@ -64,7 +68,8 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
     fun theShapes() {
         val census = PlaceholderCensus.of(types)
         val names = listOf("argument", "memberArgument", "statementArgument", "afterACall", "elvis", "safeElvis", "localElvis",
-            "chain", "chain3", "elvisRun", "valueRun", "infix", "compared", "nested", "withACall")
+            "chain", "chain3", "elvisRun", "valueRun", "infix", "compared", "nested", "withACall",
+            "whenArm", "lambdaTail", "lambdaOnly", "unitElvis")
         val actual = names.joinToString("\n") { "$it: ${body(it)}" }
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
         // `afterACall`: `make()` runs before the lambda, so inlining it first would move that call; it stays a call
@@ -75,7 +80,7 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
             afterACall: return take2(make(),StandardKt.apply(s,${'$'}receiver->${'$'}receiver.append("d")));
             elvis: StringBuilder ${'$'}elvis0; if(a!=null){${'$'}elvis0=a;}else{{b.append("e");}${'$'}elvis0=b;} return ${'$'}elvis0;
             safeElvis: StringBuilder ${'$'}elvis1; if(a!=null){${'$'}elvis1=a;}else{if(!(b==null)){b.append("f");}${'$'}elvis1=b;} return ${'$'}elvis1;
-            localElvis: StringBuilder ${'$'}elvis6; if(a!=null){${'$'}elvis6=a;}else{{b.append("g");}${'$'}elvis6=b;} StringBuilder x=${'$'}elvis6; return x.length;
+            localElvis: StringBuilder ${'$'}elvis9; if(a!=null){${'$'}elvis9=a;}else{{b.append("g");}${'$'}elvis9=b;} StringBuilder x=${'$'}elvis9; return x.length;
             chain: Integer ${'$'}let0=null; if(!(a==null)){${'$'}let0=a.length;} Integer ${'$'}elvis2; if(${'$'}let0!=null){${'$'}elvis2=${'$'}let0;}else{Integer ${'$'}let1=null;if(!(b==null)){${'$'}let1=b.length+1;}${'$'}elvis2=${'$'}let1;} return ${'$'}elvis2;
             chain3: Integer ${'$'}let2=null; if(!(a==null)){${'$'}let2=a.length;} Integer ${'$'}elvis3; if(${'$'}let2!=null){${'$'}elvis3=${'$'}let2;}else{Integer ${'$'}let3=null;if(!(b==null)){${'$'}let3=b.length+1;}${'$'}elvis3=${'$'}let3;} return ${'$'}elvis3==null?c:${'$'}elvis3;
             elvisRun: StringBuilder ${'$'}let4=null; if(!(a==null)){${'$'}let4=a.append("x");} StringBuilder ${'$'}elvis4; if(${'$'}let4!=null){${'$'}elvis4=${'$'}let4;}else{StringBuilder ${'$'}run5;{${'$'}run5=b.append("y");}${'$'}elvis4=${'$'}run5;} ${'$'}elvis4;
@@ -84,6 +89,10 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
             compared: String ${'$'}run7=null; if(!(s==null)){s.append("j");${'$'}run7=s.toString();} return ${'$'}run7.equals(t);
             nested: {s.append("k");} return take2(1,s)+1;
             withACall: StringBuilder ${'$'}this${'$'}with=new StringBuilder("w"); int ${'$'}with8; {${'$'}this${'$'}with.append("l");${'$'}with8=${'$'}this${'$'}with.length;} return ${'$'}with8;
+            whenArm: return switch(k){case 1->{Integer ${'$'}let9=null;if(!(a==null)){${'$'}let9=a.length;}Integer ${'$'}elvis6;if(${'$'}let9!=null){${'$'}elvis6=${'$'}let9;}else{Integer ${'$'}let10=null;if(!(b==null)){${'$'}let10=b.length+1;}${'$'}elvis6=${'$'}let10;}yield ${'$'}elvis6;}default->null;};
+            lambdaTail: return CollectionsKt.map(xs,it->{StringBuilder y=it;StringBuilder ${'$'}elvis7;if(y!=null){${'$'}elvis7=y;}else{{b.append("m");}${'$'}elvis7=b;}return ${'$'}elvis7;});
+            lambdaOnly: return CollectionsKt.map(xs,it->{StringBuilder ${'$'}elvis8;if(it!=null){${'$'}elvis8=it;}else{{b.append("n");}${'$'}elvis8=b;}return ${'$'}elvis8;});
+            unitElvis: if(!(a==null)){m.put(1,"p");}else{{m.remove(1);}}
             """.trimIndent(), actual)
     }
 }

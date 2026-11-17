@@ -1173,6 +1173,13 @@ internal class KotlinBodyConverter(
     private fun KaSession.hoistBefore(expression: KtExpression, method: MethodInfo,
                                       locals: MutableMap<String, Variable>,
                                       index: String): Pair<List<Statement>, String> {
+        // an elvis whose right operand is a scope function: lowered, as for a statement (#98). Only that: a jump or a
+        // `try` on a tail's elvis has its own conversions (controlFlowElvisLowering, addAssigningTail)
+        val tail = unannotated(expression)
+        if (tail !is KtReturnExpression && tail !is KtProperty && spineElvis(tail)?.let { rightIsScopeCall(it) } == true) {
+            hoistedReads.clear()
+            spineElvisPrefix(tail, method, locals, index)?.let { (prefix, _) -> return prefix to "$index.${prefix.size}" }
+        }
         val hoisted = hoistNullSafeSpine(expression, method, locals, index)
         return hoisted to if (hoisted.isEmpty()) index else hoistedStatementIndex(index, hoisted.size)
     }
@@ -1241,6 +1248,32 @@ internal class KotlinBodyConverter(
     }
 
     /**
+     * <b>`x?.let { m[k] = it } ?: run { m.remove(k) }`</b>, alone on a line: a scope function whose body yields `Unit`
+     * is never null once it has run, so the right operand runs exactly when `x` is null. An `if`/`else`, with both
+     * bodies inlined (Exposed's AbstractQuery.comment, #98):
+     * <pre>
+     *   if (!(x == null)) { m.put(k, x); } else { m.remove(k); }
+     * </pre>
+     */
+    private fun KaSession.unitScopeElvisLowering(statement: KtExpression, method: MethodInfo,
+                                                 locals: MutableMap<String, Variable>, index: String): List<Statement>? {
+        if (statement !is KtBinaryExpression || statement.operationToken != KtTokens.ELVIS) return null
+        val left = KtPsiUtil.safeDeparenthesize(statement.left ?: return null) as? KtSafeQualifiedExpression ?: return null
+        val right = statement.right ?: return null
+        val sc = scopeCall(left)?.takeIf { it.safe && !it.kind.valueIsReceiver } ?: return null
+        if ((sc.lambda?.expressionType as? KaFunctionType)?.returnType?.isUnitType != true) return null
+        // only a receiver the guard can read directly: then the lowered call is one `if`, with nothing after it
+        if (!isStableReference(left.receiverExpression)) return null
+        val lowered = scopeCallStatementLowering(left, method, locals, index) ?: return null
+        // any other shape is left to the lowerings after this one
+        val guard = (lowered.singleOrNull() as? IfElseStatement)?.takeIf { it.elseBlock().isEmpty } ?: return null
+        val guardIndex = guard.source().index()
+        return listOf(runtime.newIfElseBuilder().setExpression(guard.expression()).setIfBlock(guard.block())
+            .setElseBlock(convertBlock(right, method, locals, "$guardIndex.1"))
+            .setSource(source(statement, guardIndex)).build())
+    }
+
+    /**
      * The two statement-level lowerings, in one place. ⚠ A statement list lives in FOUR places — a block
      * body, a lambda body, and the branch blocks of a value-yielding `try`/`if` — and a lowering that
      * reaches only the first sees a fraction of the sites: measured on detekt, all four remaining
@@ -1253,6 +1286,7 @@ internal class KotlinBodyConverter(
         val s = unannotated(annotated)
         return (controlFlowElvisLowering(s, method, locals, index)
             ?: argumentElvisLowering(s, method, locals, index)
+            ?: unitScopeElvisLowering(s, method, locals, index)
             ?: spineElvisLowering(s, method, locals, index)
             ?: spineTryLowering(s, method, locals, index)
             ?: arrayInitLowering(s, method, locals, index)
@@ -1576,6 +1610,25 @@ internal class KotlinBodyConverter(
     private fun KaSession.spineElvisLowering(statement: KtExpression, method: MethodInfo,
                                              locals: MutableMap<String, Variable>, index: String,
                                              expressionBody: Boolean = false): List<Statement>? {
+        val (out, elvis) = spineElvisPrefix(statement, method, locals, index, expressionBody) ?: return null
+        val tailIndex = "$index.${out.size}"
+        try {
+            out.add(if (expressionBody) indexed(runtime.newReturnStatement(convertExpression(statement, method, locals)), tailIndex)
+            else convertStatement(statement, method, locals, tailIndex))
+        } finally {
+            hoistedReads.remove(elvis)
+        }
+        return out
+    }
+
+    /**
+     * What [spineElvisLowering] puts BEFORE its statement: the temporaries and the guard, with the elvis registered in
+     * [hoistedReads] for the statement's conversion to read. Apart, for a block's TAIL ([hoistBefore]), which its
+     * caller converts: a `when` arm's or a lambda's `a?.let { … } ?: b?.let { … }` (Exposed's Query, #98).
+     */
+    private fun KaSession.spineElvisPrefix(statement: KtExpression, method: MethodInfo,
+                                           locals: MutableMap<String, Variable>, index: String,
+                                           expressionBody: Boolean = false): Pair<MutableList<Statement>, KtExpression>? {
         val root = when {
             expressionBody -> statement
             statement is KtProperty -> if (statement.isLocal) statement.initializer else null
@@ -1621,15 +1674,8 @@ internal class KotlinBodyConverter(
                     "$guardIndex.0.0")).build())
             .setElseBlock(elseBlock)
             .setSource(source(elvis, guardIndex)).build())
-        val tailIndex = "$index.${out.size}"
         hoistedReads[elvis] = value
-        try {
-            out.add(if (expressionBody) indexed(runtime.newReturnStatement(convertExpression(statement, method, locals)), tailIndex)
-            else convertStatement(statement, method, locals, tailIndex))
-        } finally {
-            hoistedReads.remove(elvis)
-        }
-        return out
+        return out to elvis
     }
 
     /**
@@ -1718,6 +1764,9 @@ internal class KotlinBodyConverter(
             else -> return null
         }
     }
+
+    private fun KaSession.rightIsScopeCall(elvis: KtBinaryExpression): Boolean =
+        elvis.right?.let { KtPsiUtil.safeDeparenthesize(unannotated(it)) }?.let { scopeCall(it) } != null
 
     private fun KaSession.hasNoExpressionForm(expression: KtExpression?): Boolean = when (val e = expression?.let { unannotated(it) }) {
         is KtThrowExpression, is KtReturnExpression, is KtContinueExpression, is KtBreakExpression, is KtTryExpression -> true
