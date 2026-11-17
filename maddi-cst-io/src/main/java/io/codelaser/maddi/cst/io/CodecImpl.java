@@ -699,6 +699,12 @@ public class CodecImpl implements Codec {
             }
             case "T" -> {
                 TypeInfo typeInfo = (TypeInfo) this.decodeInfoOutOfContext(context, list.get(1));
+                if (list.size() > 2) {
+                    boolean writeSuper = decodeBoolean(context, list.get(2));
+                    TypeInfo explicit = list.size() > 3
+                            ? (TypeInfo) this.decodeInfoOutOfContext(context, list.get(3)) : null;
+                    yield runtime.newThis(typeInfo.asParameterizedType(), explicit, writeSuper);
+                }
                 yield runtime.newThis(typeInfo.asParameterizedType());
             }
             case "L" -> {
@@ -1054,8 +1060,19 @@ public class CodecImpl implements Codec {
                 }
                 yield encodeList(context, List.of(f, encodedFieldInfo, encodeExpression(context, fr.scope())));
             }
-            case This thisVar -> encodeList(context, List.of(encodeString(context, "T"),
-                    encodeInfoOutOfContext(context, thisVar.typeInfo())));
+            case This thisVar -> {
+                // 'super' and 'X.this' are This variables too: their flags travel as optional entries, so that a
+                // restored 'super*.§m' is not 'this*.§m' (an old file has two entries and reads as plain 'this')
+                List<EncodedValue> list = new ArrayList<>(List.of(encodeString(context, "T"),
+                        encodeInfoOutOfContext(context, thisVar.typeInfo())));
+                if (thisVar.writeSuper() || thisVar.explicitlyWriteType() != null) {
+                    list.add(encodeBoolean(context, thisVar.writeSuper()));
+                    if (thisVar.explicitlyWriteType() != null) {
+                        list.add(encodeInfoOutOfContext(context, thisVar.explicitlyWriteType()));
+                    }
+                }
+                yield encodeList(context, list);
+            }
             case LocalVariable lv ->
                     encodeList(context, List.of(encodeString(context, "L"), encodeString(context, lv.simpleName()),
                             encodeType(context, lv.parameterizedType())));
