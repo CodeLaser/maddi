@@ -17,8 +17,10 @@
 package io.codelaser.maddi.kotlin.k2
 
 import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation
 import io.codelaser.maddi.kotlin.api.PlaceholderCensus
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
@@ -65,5 +67,25 @@ class CompanionInheritedMemberTest : KotlinScanTestBase() {
         assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
         val companion = types.first { it.simpleName() == "H2" }.subTypes().single()
         assertEquals("a.NameProvider", companion.parentClass().typeInfo().fullyQualifiedName())
+    }
+    /** The companion's private constructor calls the supertype's, as statement "0", before an init block. */
+    @Test
+    fun theCompanionConstructorCallsTheSuperConstructor() {
+        val types = parse("""
+            package a
+            abstract class NameProvider(val dialectName: String)
+            class H2 {
+                companion object : NameProvider("H2") {
+                    init { println(dialectName) }
+                }
+            }
+        """.trimIndent())
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        val constructor = types.first { it.simpleName() == "H2" }.subTypes().single().constructors().single()
+        val statements = constructor.methodBody().statements()
+        val superCall = statements.first() as ExplicitConstructorInvocation
+        assertTrue(superCall.isSuper)
+        assertEquals("a.NameProvider.<init>(String)", superCall.methodInfo().fullyQualifiedName())
+        assertEquals(2, statements.size, statements.toString())
     }
 }

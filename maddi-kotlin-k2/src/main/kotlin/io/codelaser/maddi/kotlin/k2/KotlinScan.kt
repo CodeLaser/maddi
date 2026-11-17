@@ -864,7 +864,7 @@ class KotlinScan(
         declared.forEach { (ctor, constructor) ->
             defaultsConstructor(typeInfo, ctor, constructor)?.let { overloadConstructors(typeInfo, ctor, constructor, it) }
         }
-        if (bodyDepth == 0) declared.forEach { (ctor, constructor) -> recordDelegation(declaration, ctor, constructor) }
+        if (bodyDepth == 0) declared.forEach { (ctor, constructor) -> recordDelegation(declaration, ctor.psi, constructor) }
         // an overload's `this(...)` is into its target, and throws what the target's own delegation throws
         if (bodyDepth == 0) overloadTargets.forEach { (overload, target) ->
             if (overload.typeInfo() === typeInfo) delegationOf[overload] = ConstructorDelegation(false,
@@ -1029,6 +1029,10 @@ class KotlinScan(
             .setSynthetic(true).setSource(runtime.noSource()).commitParameters().computeAccess()
         companion.builder().addConstructor(constructor)
         runsInitOf[companion] = constructor
+        // `companion object : DialectNameProvider("H2")`: the private constructor calls the supertype's, as a class's
+        // primary constructor does -- for the Java stub before any body exists, and as statement "0" of the body
+        val companionDeclaration = companionSymbol.psi as? KtObjectDeclaration
+        if (bodyDepth == 0) companionDeclaration?.let { recordDelegation(it, null, constructor) }
         commitOrDefer(constructor, null) { constructor.builder().commit() }
 
         recordWrittenSignatures(companion, companionSymbol)
@@ -1058,7 +1062,11 @@ class KotlinScan(
             convertInitializers(companion)
             companionPsi?.let { declaration ->
                 convertInitBlocks(declaration, companion)
-                initBlocksOf.remove(constructor)?.let { constructor.builder().setMethodBody(bodyConverter.normalizeIndices(constructorBody(listOf(), it))) }
+            }
+            val superCall = companionDeclaration?.let { explicitConstructorInvocation(companion, it, null, constructor) }
+            val planned = initBlocksOf.remove(constructor)
+            if (superCall != null || planned != null) {
+                constructor.builder().setMethodBody(bodyConverter.normalizeIndices(constructorBody(listOfNotNull(superCall), planned)))
             }
             companion.builder().commit()
         }
@@ -1223,7 +1231,7 @@ class KotlinScan(
         val ctorSymbols = classSymbol.declaredMemberScope.declarations.filterIsInstance<KaConstructorSymbol>().toList()
         ctorSymbols.zip(typeInfo.constructors()).forEach { (sym, cst) ->
             val statements = mutableListOf<Statement>()
-            explicitConstructorInvocation(typeInfo, declaration, sym, cst)?.let { statements.add(it) } // index "0"
+            explicitConstructorInvocation(typeInfo, declaration, sym.psi, cst)?.let { statements.add(it) } // index "0"
             propertyParameters(declaration, sym.isPrimary, cst, typeInfo).forEach { (param, field) ->
                 statements.add(assignFieldFromParam(typeInfo, field, param, false))
             }
@@ -1315,7 +1323,8 @@ class KotlinScan(
         }
         val symbol = (declaration.symbol as? KaNamedClassSymbol)?.declaredMemberScope?.declarations
             ?.filterIsInstance<KaConstructorSymbol>()?.toList()?.getOrNull(owner.constructors().indexOf(ctor))
-        val invocation = if (symbol != null && hasExplicitInvocation(declaration, symbol)) 1 else 0
+        // a companion's synthetic constructor may have no symbol: its declaration still says whether it calls super
+        val invocation = if (hasExplicitInvocation(declaration, symbol?.psi)) 1 else 0
         // an unresolved symbol counts as primary: a slot planned too many stays empty (constructorBody)
         val prefix = invocation + propertyParameters(declaration, symbol?.isPrimary ?: true, ctor, owner).size
         val total = prefix + inits.size
@@ -1331,8 +1340,8 @@ class KotlinScan(
     }
 
     /** Whether [ctor] is written with a `this(...)`/`super(...)` call, resolved or not: see [explicitConstructorInvocation]. */
-    private fun hasExplicitInvocation(declaration: KtClassOrObject, ctor: KaConstructorSymbol): Boolean =
-        when (val psi = ctor.psi) {
+    private fun hasExplicitInvocation(declaration: KtClassOrObject, ctorPsi: PsiElement?): Boolean =
+        when (val psi = ctorPsi) {
             is KtSecondaryConstructor -> !psi.getDelegationCall().isImplicit
             else -> declaration.superTypeListEntries.any { it is KtSuperTypeCallEntry }
         }
@@ -1344,9 +1353,9 @@ class KotlinScan(
      */
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
     private fun KaSession.explicitConstructorInvocation(
-        owner: TypeInfo, declaration: KtClassOrObject, ctor: KaConstructorSymbol, constructor: MethodInfo,
+        owner: TypeInfo, declaration: KtClassOrObject, ctorPsi: PsiElement?, constructor: MethodInfo,
     ): Statement? {
-        val (isSuper, call) = when (val psi = ctor.psi) {
+        val (isSuper, call) = when (val psi = ctorPsi) {
             is KtSecondaryConstructor -> {
                 val delegation = psi.getDelegationCall()
                 if (delegation.isImplicit) return null // implicit super() — not represented
@@ -1419,8 +1428,8 @@ class KotlinScan(
     }
 
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
-    private fun KaSession.recordDelegation(declaration: KtClassOrObject, ctor: KaConstructorSymbol, constructor: MethodInfo) {
-        val (isSuper, call) = when (val psi = ctor.psi) {
+    private fun KaSession.recordDelegation(declaration: KtClassOrObject, ctorPsi: PsiElement?, constructor: MethodInfo) {
+        val (isSuper, call) = when (val psi = ctorPsi) {
             is KtSecondaryConstructor -> {
                 val delegation = psi.getDelegationCall()
                 if (delegation.isImplicit) return
