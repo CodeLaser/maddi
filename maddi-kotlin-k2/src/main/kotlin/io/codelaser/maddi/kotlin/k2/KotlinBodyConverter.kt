@@ -89,6 +89,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.analysis.api.symbols.KaReceiverParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSamConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
@@ -4729,9 +4730,32 @@ internal class KotlinBodyConverter(
             else -> explicitReceiverScope(receiver, method, locals)
         }
         val (scope, owner) = scopeAndOwner ?: return placeholder("k2-callable-ref-scope", expression)
+        primitiveMemberReference(fn, owner, functionalType, expression)?.let { return it }
         val callee = resolveCalleeByArity(owner, fn.name.asString(), fn.valueParameters.size)
             ?: return placeholder("k2-callable-ref-unresolved:${fn.name.asString()}", expression)
         return methodReference(scope, callee, functionalType, expression)
+    }
+
+    /**
+     * `Int::plus` (unbound, two operands): a primitive's operator member has no JVM method, but the boxed class has its
+     * exact static twin, `Integer::sum`; `Int::compareTo` is `Integer::compare` (Exposed's `reduce(Int::plus)`, maddi#220).
+     */
+    private fun KaSession.primitiveMemberReference(fn: KaNamedFunctionSymbol, owner: TypeInfo, functionalType: ParameterizedType,
+                                                   expression: KtCallableReferenceExpression): Expression? {
+        val classId = fn.callableId?.classId ?: return null
+        if (classId.packageFqName.asString() != "kotlin" || classId.shortClassName.asString() !in KOTLIN_PRIMITIVES) return null
+        if (expression.receiverExpression?.let { it is KtNameReferenceExpression &&
+                it.mainReference.resolveToSymbol() is KaClassifierSymbol } != true) return null // a BOUND `x::plus`
+        val jvmName = when (fn.name.asString()) {
+            "plus" -> "sum"
+            "compareTo" -> "compare"
+            else -> return null
+        }
+        // the scope of `Int::` may be the primitive `int`, which declares nothing: the statics are on `Integer`
+        val boxed = members(if (owner.isPrimitiveExcludingVoid) runtime.boxed(owner) else owner)
+        val callee = boxed.methods().firstOrNull { it.isStatic && it.name() == jvmName && it.parameters().size == 2 }
+            ?: return null
+        return methodReference(staticQualifier(boxed), callee, functionalType, expression)
     }
 
     /**
