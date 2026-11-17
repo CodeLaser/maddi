@@ -2653,14 +2653,20 @@ internal class KotlinBodyConverter(
      * last. Kotlin catch is single-type (no Java-style union), and the catch variable is in scope for its
      * block.
      */
-    /** `x = try { … } catch …` with `x` a variable: the try statement assigning each branch's tail; null otherwise. */
+    /**
+     * `x = try { … } catch …`, or `x = if (c) null else try { … }` (a value `if` only a statement can hold, Exposed's
+     * `values = …` in InsertSuspendExecutable), with `x` a variable: the statement assigning each branch's tail, as
+     * for a declaration `val x = …`; null otherwise.
+     */
     private fun KaSession.tryAssignment(statement: KtBinaryExpression, method: MethodInfo,
                                         locals: MutableMap<String, Variable>, index: String): Statement? {
         if (statement.operationToken != KtTokens.EQ) return null
-        val value = statement.right?.let { KtPsiUtil.safeDeparenthesize(it) } as? KtTryExpression ?: return null
+        val value = statement.right?.let { KtPsiUtil.safeDeparenthesize(it) } ?: return null
+        if (value !is KtTryExpression && !(value is KtIfExpression && value.needsStatementForm())) return null
         val target = (statement.left?.let { convertExpression(it, method, locals) } as? VariableExpression)?.variable()
             ?: return null
-        return convertTry(value, method, locals, index, assignTo = target)
+        return if (value is KtTryExpression) convertTry(value, method, locals, index, assignTo = target)
+        else convertValueIf(value as KtIfExpression, method, locals, index, returning = false, assignTo = target)
     }
 
     private fun KaSession.convertTry(statement: KtTryExpression, method: MethodInfo,

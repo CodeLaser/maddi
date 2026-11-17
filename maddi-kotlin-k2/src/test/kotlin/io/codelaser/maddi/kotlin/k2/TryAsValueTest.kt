@@ -37,6 +37,7 @@ class TryAsValueTest : KotlinScanTestBase() {
             class P(private val s: String) {
                 var x: Int = 0
                 fun assign() { x = try { s.toInt() } catch (e: NumberFormatException) { -1 } }
+                fun assignIf(c: Boolean) { x = if (c) 0 else try { s.toInt() } catch (e: NumberFormatException) { -1 } }
                 val parsed: Int
                     get() = try { s.toInt() } catch (e: NumberFormatException) { 0 }
                 var cached: String? = null
@@ -50,6 +51,8 @@ class TryAsValueTest : KotlinScanTestBase() {
         assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
         val body = { name: String -> p.methods().first { it.name() == name }.methodBody().toString() }
         assertEquals("{try{this.x=StringsKt.toInt(this.s);}catch(NumberFormatException e){this.x=-1;}}", body("assign"))
+        assertEquals("{if(c){this.x=0;}else{try{this.x=StringsKt.toInt(this.s);}catch(NumberFormatException e){this.x=-1;}}}",
+            body("assignIf"))
         assertEquals("{try{return StringsKt.toInt(this.s);}catch(NumberFormatException e){return 0;}}", body("getParsed"))
         assertEquals("{if(this.cached==null){try{this.cached=StringsKt.trim(this.s);}catch(Exception e){this.cached=\"\";}}return this.cached;}",
             body("getCached"))
