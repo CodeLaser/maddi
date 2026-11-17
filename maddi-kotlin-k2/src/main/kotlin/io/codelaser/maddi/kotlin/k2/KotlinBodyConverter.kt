@@ -2196,6 +2196,12 @@ internal class KotlinBodyConverter(
                 "kotlin.Double.Companion" -> staticCallOn("java.lang.Double", "longBitsToDouble", arguments)
                 else -> null
             }
+            // `uuid.toLongs { msb, lsb -> … }`: kotlinc inlines `action(getMostSignificantBits(), getLeastSignificantBits())`
+            id == "kotlin.uuid.Uuid.toLongs" && receiver != null && n == 1 && rereadable(receiver) -> {
+                val bits = listOf("getMostSignificantBits", "getLeastSignificantBits")
+                    .map { instanceCall(receiver, it, listOf()) ?: return null }
+                instanceCall(arguments[0], "invoke", bits)
+            }
             // an ARRAY's isEmpty/isNotEmpty is `a.length == 0`: before the collection branch, which would ask an array
             // for an isEmpty() method and give up (#15)
             (id == "kotlin.collections.isEmpty" || id == "kotlin.collections.isNotEmpty") && receiver != null && n == 0
@@ -5390,8 +5396,11 @@ internal class KotlinBodyConverter(
         if (arguments.isEmpty()) receiver?.first?.let { unsignedConversion(calleeSymbol, it, call, method) }?.let { return it }
         // an @InlineOnly stdlib member has no method in the class file: the call kotlinc inlines, see inlineOnlyCall
         if (contexts.isEmpty() && call.valueArguments.none { it.getSpreadElement() != null || it.getArgumentName() != null }) {
-            val inlineReceiver = if (calleeSymbol?.receiverParameter == null) null
-                                 else receiver?.first ?: implicitExtensionReceiver(call, method, locals)
+            // an extension's receiver, or a MEMBER's (`uuid.toLongs { … }`, or `toLongs { … }` on an implicit `this`)
+            val inlineReceiver = if (calleeSymbol?.receiverParameter != null) receiver?.first ?: implicitExtensionReceiver(call, method, locals)
+                                 else if (calleeSymbol?.dispatchReceiverType != null) receiver?.first
+                                     ?: implicitReceiverValue(call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver, method, locals)
+                                 else null
             inlineOnlyCall(calleeSymbol, inlineReceiver, valueArgs, call, method, locals)?.let { return it }
         }
 
