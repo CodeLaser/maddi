@@ -3956,7 +3956,9 @@ internal class KotlinBodyConverter(
         // Kotlin's indexed get is the `get` operator on most types (List/array/Map/custom), but on a String it
         // is an intrinsic that maps to the JVM `charAt(int)` -- java.lang.String has no `get`. Fall back to it so
         // `s[i]` resolves (and its receiver read is tracked) rather than collapsing to a placeholder.
-        val get = arrayType?.let { resolveCallee(it, "get", indices) } // String: charAt, in resolveCallee
+        // an `operator fun get` renamed by @JvmName is found under its JVM name (withJvmName), as a written call is
+        val getSymbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+        val get = arrayType?.let { withJvmName("get", getSymbol) { resolveCallee(it, "get", indices) } } // String: charAt
             // on detekt K2 types a chained `a?.m` as the ELEMENT (the chain's result); the resolved `get` knows the map
             ?: expression.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver?.type
                 ?.let { mapType(it, method.typeInfo()).typeInfo() }?.let { resolveCallee(it, "get", indices) }
@@ -3987,7 +3989,11 @@ internal class KotlinBodyConverter(
         val arrayType = arrayAccess.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         // `set` on List/arrays is a member; on a Map, Kotlin's `map[k]=v` set-operator is a stdlib extension
         // that delegates to `put`, so fall back to put (same key,value arguments)
-        val set = arrayType?.let { resolveCallee(it, "set", arguments) ?: resolveCallee(it, "put", arguments) }
+        // an `operator fun set` renamed by @JvmName -- Exposed's CompositeID has three, `setWithEntityID` and two more,
+        // whose erasures would clash -- is found under its JVM name (withJvmName), as a written call is (maddi#220)
+        val setSymbol = arrayAccess.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+        val set = arrayType?.let {
+            withJvmName("set", setSymbol) { resolveCallee(it, "set", arguments) } ?: resolveCallee(it, "put", arguments) }
             ?: return indexOperatorExtension(arrayAccess, array, arguments, method, locals)
                 ?: placeholder("k2-indexed-set-unresolved", arrayAccess)
         return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(set)
