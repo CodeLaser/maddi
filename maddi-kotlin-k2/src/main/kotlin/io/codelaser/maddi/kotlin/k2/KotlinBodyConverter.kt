@@ -3151,10 +3151,17 @@ internal class KotlinBodyConverter(
         else runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
             expression, runtime.precedenceUnary())
 
-    /** `x in range` -> `range.contains(x)`, when the range type has a unary `contains` method. */
+    /**
+     * `x in range` -> `range.contains(x)`, when the range type has (or inherits) a unary `contains`; on a `Map`, Kotlin's
+     * `in` is `containsKey` (Exposed's `in likePatternSpecialChars`, maddi#220).
+     */
     private fun containsCall(range: Expression, subject: Expression?): Expression? {
         val containsOn = range.parameterizedType().typeInfo() ?: return null
-        val contains = members(containsOn).methods().firstOrNull { it.name() == "contains" && it.parameters().size == 1 } ?: return null
+        val argument = listOf(subject ?: runtime.newEmptyExpression())
+        val contains = members(containsOn).methods().firstOrNull { it.name() == "contains" && it.parameters().size == 1 }
+            ?: resolveCallee(containsOn, "contains", argument)?.takeIf { !it.isStatic }
+            ?: resolveCallee(containsOn, "containsKey", argument)?.takeIf { !it.isStatic }
+            ?: return null
         return runtime.newMethodCallBuilder()
             .setObject(range).setObjectIsImplicit(false).setMethodInfo(contains)
             .setParameterExpressions(listOf(subject ?: runtime.newEmptyExpression()))
@@ -3510,6 +3517,10 @@ internal class KotlinBodyConverter(
         }
     }
 
+    /** The JVM array type K2 gives [receiver] by a smart cast, when the receiver is not declared one. */
+    private fun KaSession.smartCastArray(receiver: KtExpression, method: MethodInfo): ParameterizedType? =
+        receiver.expressionType?.let { mapType(it, method.typeInfo()) }?.takeIf { it.arrays() > 0 }
+
     /** The anonymous type of [receiver] when K2 types it as an `object : …` converted here: see [objectLiteralTypes]. */
     private fun KaSession.objectLiteralType(receiver: KtExpression): TypeInfo? {
         val symbol = (receiver.expressionType as? KaClassType)?.symbol as? KaAnonymousObjectSymbol ?: return null
@@ -3548,6 +3559,12 @@ internal class KotlinBodyConverter(
             // `a.size` on a JVM array is Java's `a.length`
             is KtNameReferenceExpression if selector.getReferencedName() == "size" && receiver.parameterizedType().arrays() > 0 ->
                 runtime.newArrayLengthBuilder().setExpression(receiver).setSource(runtime.noSource()).build()
+            // ...also on a value SMART-CAST to an array (`is FloatArray -> v.size`, Exposed's vector binders): the
+            // receiver converts to its declared type, so it is cast to the array type K2 knows here (maddi#220)
+            is KtNameReferenceExpression if selector.getReferencedName() == "size" && smartCastArray(expression.receiverExpression, method) != null ->
+                runtime.newArrayLengthBuilder()
+                    .setExpression(runtime.newCast(receiver, smartCastArray(expression.receiverExpression, method)!!))
+                    .setSource(runtime.noSource()).build()
             is KtNameReferenceExpression -> {
                 val name = selector.getReferencedName()
                 // a Java getter/setter pair Kotlin reads as a property is never the same-named (private) field

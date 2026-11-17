@@ -93,4 +93,21 @@ class ExpressionCalleeAndBoundClassTest : KotlinScanTestBase() {
         assertEquals("{id.setString(\"a\",\"x\");id.setInt(\"b\",1);}", p.findUniqueMethod("fill", 1).methodBody().toString())
         assertEquals("{return id.getAny(\"a\");}", p.findUniqueMethod("read", 1).methodBody().toString())
     }
+    /** `v.size` on a value smart-cast to a JVM array, and `c in map` in a `when` (Exposed's binders, LikePattern). */
+    @Test
+    fun aSmartCastArraySizeAndAMapInAWhen() {
+        val types = parse("""
+            package a
+            class P {
+                fun size(v: Any): Int = when (v) { is FloatArray -> v.size; is IntArray -> v.size; else -> 0 }
+                fun inMap(c: Char, m: Map<Char, Char?>): Boolean = when (c) { 'x' -> true; in m -> false; else -> true }
+            }
+        """.trimIndent())
+        val p = types.first { it.simpleName() == "P" }
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        assertEquals("{return switch(v){case float[] it->((float[])v).length;case int[] it->((int[])v).length;default->0;};}",
+            p.findUniqueMethod("size", 1).methodBody().toString())
+        assertEquals("{return switch(c){case 'x'->true;case m.containsKey(c)->false;default->true;};}",
+            p.findUniqueMethod("inMap", 2).methodBody().toString())
+    }
 }
