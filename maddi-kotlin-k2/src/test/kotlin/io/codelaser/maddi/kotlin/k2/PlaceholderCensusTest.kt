@@ -32,12 +32,12 @@ class PlaceholderCensusTest : KotlinScanTestBase() {
 
     @Test
     fun anUnreadConstructIsCounted() {
-        // ⚠ an UNSIGNED literal rather than `T::class`, `String::class` or `s.length`: each stopped being a hole (a reified
-        // class literal is its erasure's; class literals, §7.36; `bootstrapString` loading String's properties). A
-        // census test needs a construct actually missing.
+        // ⚠ a reference to a primitive's member (`Int::plus`) rather than `1u`, `T::class`, `String::class` or
+        // `s.length`: each stopped being a hole (unsigned lowering; a reified class literal is its erasure's; class
+        // literals, §7.36; `bootstrapString` loading String's properties). A census test needs a construct actually missing.
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            fun use(): Any = 1u
+            fun use(): Any = listOf(1, 2).reduce(Int::plus)
             """.trimIndent() + "\n")
         val census = PlaceholderCensus.of(types)
         assertEquals(1, census.total, census.byKind.toString())

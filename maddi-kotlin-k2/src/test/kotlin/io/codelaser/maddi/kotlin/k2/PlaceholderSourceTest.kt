@@ -33,7 +33,8 @@ import org.junit.jupiter.api.Test
  *
  * ⚠ The unconverted operand has had to move twice, which is the healthy direction: it was a library extension
  * call until maddi#43 converted those, then `s.length` until `bootstrapString` started loading String's
- * PROPERTIES, then a reified `T::class` until that became its erasure's class. It is now an unsigned literal.
+ * PROPERTIES, then a reified `T::class` until that became its erasure's class, then an unsigned literal. It is now a reference
+ * to a primitive's member, `Int::plus`.
  * The test is about the RANGE mechanism, not about which construct is missing.
  */
 class PlaceholderSourceTest : KotlinScanTestBase() {
@@ -42,16 +43,16 @@ class PlaceholderSourceTest : KotlinScanTestBase() {
     fun anUnconvertedExpressionKeepsItsRange() {
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            fun use(): Any = 1u
+            fun use(): Any = listOf(1, 2).reduce(Int::plus)
             """.trimIndent() + "\n")
         val use = types.single { it.simpleName() == "UKt" }.methods().single { it.name() == "use" }
         val placeholders = mutableListOf<EmptyExpression>()
         use.methodBody().visit { e -> if (e is EmptyExpression && e.msg()?.startsWith("k2-") == true) placeholders += e; true }
         assertEquals(1, placeholders.size, placeholders.map { it.msg() }.toString())
         val s = placeholders.single().source()
-        // `1u`, columns 18-19 of line 2: the placeholder's range is the construct it stands for
-        // (an unsigned constant: a value class the converter does not model yet)
-        assertEquals(listOf(2, 18, 2, 19), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
+        // `Int::plus`, columns 38-46 of line 2: the placeholder's range is the construct it stands for
+        // (a callable reference to a primitive's member, maddi#220)
+        assertEquals(listOf(2, 38, 2, 46), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
             placeholders.single().msg())
     }
 }

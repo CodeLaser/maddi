@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test
  * A placeholder that is a call's ARGUMENT survives [KotlinBodyConverter.normalizeIndices]. The renumbering translates
  * the body, and MethodCall's translation removed every argument that was an empty expression -- which a placeholder
  * is. Unread code vanished from the CST and from the census with it: `ServiceLoader.load(T::class.java)` (then a
- * placeholder; now an unsigned literal plays its part) became `load(getJava())` whenever the body needed renumbering, which every inlined scope function
+ * placeholder; now `reduce(Int::plus)` plays its part) became `load(getJava())` whenever the body needed renumbering, which every inlined scope function
  * (#88) does, and detekt's `loadExtensions` lost its verdict to the call with one argument too few.
  */
 class RenumberedPlaceholderTest : KotlinScanTestBase() {
@@ -34,13 +34,13 @@ class RenumberedPlaceholderTest : KotlinScanTestBase() {
     fun aPlaceholderArgumentIsKeptAndCounted() {
         val types = KotlinScan(runtime, sourceSet).parse("r/R.kt", """
             package r
-            fun plain(): List<Any> = java.util.Collections.singletonList(1u)
-            fun viaAlso(): List<Any> = java.util.Collections.singletonList(1u).also { println(it.size) }
+            fun plain(): Int = listOf(1, 2).reduce(Int::plus)
+            fun viaAlso(): Int = listOf(1, 2).reduce(Int::plus).also { println(it) }
             """.trimIndent() + "\n")
         val body = { name: String -> types.flatMap { it.methods() }.first { it.name() == name }.methodBody().toString() }
-        assertEquals("{return Collections.singletonList(k2-unsupported-constant:UInt);}",
+        assertEquals("{return CollectionsKt.reduce(CollectionsKt.listOf(1,2),k2-callable-ref-unresolved:plus);}",
             body("plain"))
-        assertEquals("{List<UInt> it=Collections.singletonList(k2-unsupported-constant:UInt);{System.out.println(it.size);}return it;}",
+        assertEquals("{int it=CollectionsKt.reduce(CollectionsKt.listOf(1,2),k2-callable-ref-unresolved:plus);{System.out.println(it);}return it;}",
             body("viaAlso"))
         assertEquals(2, PlaceholderCensus.of(types).total)
     }
