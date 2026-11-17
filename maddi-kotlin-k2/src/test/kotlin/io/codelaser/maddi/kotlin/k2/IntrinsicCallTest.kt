@@ -64,7 +64,7 @@ class IntrinsicCallTest : KotlinScanTestBase() {
             store: a[i]="x";
             concat: return s+"x";
             boxedPlus: Integer ${'$'}nullSafe0=x==null?null:x+1; return ${'$'}nullSafe0==null?0:${'$'}nullSafe0;
-            boxedNot: return ((s==null?null:StringsKt.isEmpty(s))==null?null:!(s==null?null:StringsKt.isEmpty(s))).equals(true);
+            boxedNot: Boolean ${'$'}nullSafe1=s==null?null:StringsKt.isEmpty(s); return (${'$'}nullSafe1==null?null:!${'$'}nullSafe1).equals(true);
             put: ${'$'}receiver[i]=v;
             bits: return a^b?i<<2:i&3|i>>>1;
             """.trimIndent(), actual)
