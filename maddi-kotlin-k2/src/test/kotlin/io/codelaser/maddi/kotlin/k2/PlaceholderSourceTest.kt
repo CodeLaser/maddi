@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test
  *
  * ⚠ The unconverted operand has had to move twice, which is the healthy direction: it was a library extension
  * call until maddi#43 converted those, then `s.length` until `bootstrapString` started loading String's
- * PROPERTIES. It is now `String::class`, a class literal, which the converter's dispatch still has no arm for.
+ * PROPERTIES, then a reified `T::class` until that became its erasure's class. It is now an unsigned literal.
  * The test is about the RANGE mechanism, not about which construct is missing.
  */
 class PlaceholderSourceTest : KotlinScanTestBase() {
@@ -42,16 +42,16 @@ class PlaceholderSourceTest : KotlinScanTestBase() {
     fun anUnconvertedExpressionKeepsItsRange() {
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            inline fun <reified T> use(): Int = T::class.hashCode() + 1
+            fun use(): Any = 1u
             """.trimIndent() + "\n")
         val use = types.single { it.simpleName() == "UKt" }.methods().single { it.name() == "use" }
         val placeholders = mutableListOf<EmptyExpression>()
         use.methodBody().visit { e -> if (e is EmptyExpression && e.msg()?.startsWith("k2-") == true) placeholders += e; true }
         assertEquals(1, placeholders.size, placeholders.map { it.msg() }.toString())
         val s = placeholders.single().source()
-        // `T::class`, columns 37-44 of line 2: the placeholder's range is the construct it stands for
-        // (a reified type parameter's class literal: no Java spelling, so still a placeholder)
-        assertEquals(listOf(2, 37, 2, 44), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
+        // `1u`, columns 18-19 of line 2: the placeholder's range is the construct it stands for
+        // (an unsigned constant: a value class the converter does not model yet)
+        assertEquals(listOf(2, 18, 2, 19), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
             placeholders.single().msg())
     }
 }

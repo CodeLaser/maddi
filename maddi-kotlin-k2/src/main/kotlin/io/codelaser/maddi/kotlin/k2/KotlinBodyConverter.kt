@@ -207,6 +207,10 @@ private val ARRAY_LITERALS = setOf("arrayOf", "intArrayOf", "longArrayOf", "doub
 private val PRIMITIVE_CONVERSIONS =
     setOf("toInt", "toLong", "toDouble", "toFloat", "toShort", "toByte", "toChar")
 
+/** `kotlin.Number`'s conversions and the `java.lang.Number` methods they compile to (`toChar` has none). */
+private val NUMBER_CONVERSIONS = mapOf("toInt" to "intValue", "toLong" to "longValue", "toDouble" to "doubleValue",
+    "toFloat" to "floatValue", "toShort" to "shortValue", "toByte" to "byteValue")
+
 internal class KotlinBodyConverter(
     private val runtime: Runtime,
     private val infoByFqn: InfoByFqn,
@@ -4335,8 +4339,13 @@ internal class KotlinBodyConverter(
     private fun KaSession.javaClassLiteral(expression: KtClassLiteralExpression, method: MethodInfo): Expression? {
         val kClass = expression.expressionType as? KaClassType ?: return null
         val classified = kClass.typeArguments.singleOrNull()?.type ?: return null
-        if (classified is KaTypeParameterType) return null
-        val type = mapType(classified, method.typeInfo()).takeIf { it.typeInfo() != null } ?: return null
+        // `T::class` on a REIFIED type parameter: the inline function's own compiled body loads the erasure's class
+        // (after a reifiedOperationMarker); every call site gets its own copy with the real type, which we do not
+        // model. Exposed's `resolveColumnType(T::class)`, `enumSetOf<T>()`: 19 placeholders.
+        if (classified is KaTypeParameterType && !classified.symbol.isReified) return null
+        val erasure = (classified as? KaTypeParameterType)?.let { it.symbol.upperBounds.firstOrNull() ?: builtinTypes.any }
+        val type = mapType(erasure ?: classified, method.typeInfo()).let { if (erasure != null) it.erasedForFQN() else it }
+            .takeIf { it.typeInfo() != null } ?: return null
         return runtime.newClassExpressionBuilder(type).setSource(runtime.noSource()).build()
     }
 
@@ -4374,6 +4383,9 @@ internal class KotlinBodyConverter(
         if (all.isEmpty() && jvmName != name) collectMethods(type, name, arguments.size, mutableSetOf(), all)
         // Kotlin's `MutableList.removeAt(i)` is `java.util.List.remove(int)`; the argument's type picks that overload
         if (all.isEmpty() && name == "removeAt" && arguments.size == 1) collectMethods(type, "remove", 1, mutableSetOf(), all)
+        // Kotlin's `Number.toLong()` is `java.lang.Number.longValue()` on the JVM, on a `Number` or any subclass of it
+        // (`(x as? Number)?.toLong()`, `is Number -> value.toInt()`: Exposed, 17 placeholders)
+        if (all.isEmpty() && arguments.isEmpty()) NUMBER_CONVERSIONS[name]?.let { collectMethods(type, it, 0, mutableSetOf(), all) }
         if (all.size <= 1) return all.firstOrNull()
         // an overload kotlinc adds (KotlinScan.overloadMethods) is Java's to call: a Kotlin call binds to a declaration
         // of the same type. (Not to an inherited one: a data class's synthesized `equals` is the callee, not Object's.)
@@ -4944,6 +4956,7 @@ internal class KotlinBodyConverter(
         locals: Map<String, Variable>,
     ): Expression {
         val written = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
+            ?.let { unaliased(it, call) }
         val symbol = call.resolveSymbol() as? KaCallableSymbol
         val savedResolved = resolvedParameters
         resolvedParameters = (symbol as? KaFunctionSymbol)?.let { f ->
@@ -4994,12 +5007,21 @@ internal class KotlinBodyConverter(
         }
     }
 
+    /**
+     * The declared name behind an import alias: `import org.x.wrap as topLevelWrap` makes `topLevelWrap(t)` a call of
+     * `wrap`, and every lookup by name below needs `wrap` (Exposed's SQLExpressionBuilder: 35 placeholders).
+     */
+    private fun unaliased(written: String, element: KtElement): String =
+        element.containingKtFile.importDirectives.firstOrNull { it.aliasName == written }
+            ?.importedFqName?.shortName()?.asString() ?: written
+
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
     private fun KaSession.convertResolvedCall(
         call: KtCallExpression, receiver: Pair<Expression, TypeInfo?>?, implicitThis: Boolean, method: MethodInfo,
         locals: Map<String, Variable>,
     ): Expression {
         val name = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
+            ?.let { unaliased(it, call) }
             ?: return placeholder("k2-unsupported-callee", call)
         // `call.valueArguments` already includes a trailing lambda (a KtLambdaArgument IS a KtValueArgument),
         // so it must NOT be appended again from `call.lambdaArguments` (that double-counts the lambda).
@@ -5872,7 +5894,7 @@ internal class KotlinBodyConverter(
             KtTokens.MUL -> "times"
             KtTokens.DIV -> "div"
             KtTokens.PERC -> "rem"
-            KtTokens.IDENTIFIER -> expression.operationReference.getReferencedName() // infix function
+            KtTokens.IDENTIFIER -> unaliased(expression.operationReference.getReferencedName(), expression) // infix
             else -> null
         } ?: return placeholder("k2-unsupported-operator:${expression.operationToken}", expression)
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) }

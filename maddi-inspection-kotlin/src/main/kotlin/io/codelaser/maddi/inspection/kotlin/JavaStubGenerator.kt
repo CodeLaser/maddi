@@ -252,7 +252,10 @@ object JavaStubGenerator {
         // a `$default` constructor (the trailing `int` mask and DefaultConstructorMarker) is kotlinc's, called by
         // Kotlin only; it would need a `this(...)` of its own, and nothing in Java can name its marker. A companion's
         // private one is not Java's to call either; an overload kotlinc adds (a no-argument one) is
-        if (m.isConstructor && !isStubbed(m)) return
+        // ...unless it calls a supertype constructor that takes arguments (`companion object : NameProvider("H2")`):
+        // left out, javac gives the stub an implicit `super()` the parent does not have, and refuses it
+        if (m.isConstructor && !isStubbed(m)
+            && (m.parameters().lastOrNull()?.name() == "\$marker" || hints.delegation(m) == null)) return
         val isStatic = m.isStatic
         // a Kotlin interface method WITH an implementation is a Java `default` method (javac needs the keyword,
         // else a Java class relying on it is forced to implement it); one without a body stays abstract.

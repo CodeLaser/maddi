@@ -355,4 +355,30 @@ class TestMixedHardening {
         val derived = result.javaTypes.first { it.simpleName() == "Derived" }
         assertSame(base, derived.parentClass().typeInfo())
     }
+    /**
+     * A companion with a supertype whose constructor takes arguments (`companion object : NameProvider("H2")`, Exposed's
+     * dialects): the stub's `Companion` extends it, so its constructor must call `super(...)`, or javac refuses the stub.
+     */
+    @Test
+    fun javaReadsAnInheritedMemberOfAKotlinCompanion() {
+        val result = MixedInspector().parse(
+            mapOf(
+                "H2.kt" to "package a.b\n" +
+                    "abstract class NameProvider(val dialectName: String)\n" +
+                    "class H2 {\n" +
+                    "    companion object : NameProvider(\"H2\") {\n" +
+                    "        init { println(dialectName) }\n" +
+                    "    }\n" +
+                    "}\n"
+            ),
+            mapOf(
+                "a.b.UseDialect" to "package a.b;\n" +
+                    "public class UseDialect {\n" +
+                    "    public String go() { return a.b.H2.Companion.getDialectName(); }\n" +
+                    "}\n"
+            )
+        )
+        val use = result.javaTypes.first { it.simpleName() == "UseDialect" }
+        assertEquals("java.lang.String", use.findUniqueMethod("go", 0).returnType().typeInfo().fullyQualifiedName())
+    }
 }

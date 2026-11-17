@@ -32,11 +32,12 @@ class PlaceholderCensusTest : KotlinScanTestBase() {
 
     @Test
     fun anUnreadConstructIsCounted() {
-        // ⚠ a REIFIED `T::class` rather than `String::class` or `s.length`: both stopped being holes (class literals,
-        // §7.36; `bootstrapString` loading String's properties). A census test needs a construct actually missing.
+        // ⚠ an UNSIGNED literal rather than `T::class`, `String::class` or `s.length`: each stopped being a hole (a reified
+        // class literal is its erasure's; class literals, §7.36; `bootstrapString` loading String's properties). A
+        // census test needs a construct actually missing.
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            inline fun <reified T> use(): Int = T::class.hashCode() + 1
+            fun use(): Any = 1u
             """.trimIndent() + "\n")
         val census = PlaceholderCensus.of(types)
         assertEquals(1, census.total, census.byKind.toString())
