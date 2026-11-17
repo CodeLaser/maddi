@@ -4111,16 +4111,24 @@ internal class KotlinBodyConverter(
         // `s[i]` resolves (and its receiver read is tracked) rather than collapsing to a placeholder.
         // an `operator fun get` renamed by @JvmName is found under its JVM name (withJvmName), as a written call is
         val getSymbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+        var castTo: TypeInfo? = null
         val get = arrayType?.let { withJvmName("get", getSymbol) { resolveCallee(it, "get", indices) } } // String: charAt
             // on detekt K2 types a chained `a?.m` as the ELEMENT (the chain's result); the resolved `get` knows the map
             ?: expression.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver?.type
                 ?.let { mapType(it, method.typeInfo()).typeInfo() }?.let { resolveCallee(it, "get", indices) }
+            // the receiver SMART-CAST to an intersection with a type parameter (`value as CompositeID` on a `REF`:
+            // `REF & CompositeID`), which maps to the type parameter: the class declaring the operator K2 resolved,
+            // the receiver cast to it as kotlinc's CHECKCAST does (Exposed's Referrers.getValue, maddi#220)
+            ?: getSymbol?.callableId?.classId?.let { findClass(it) as? KaNamedClassSymbol }?.let { classTypeInfo(it) }
+                ?.let { owner -> resolveCallee(members(owner), "get", indices)?.also { castTo = owner } }
             ?: return indexOperatorExtension(expression, array, indices, method, locals)
                 ?: placeholder("k2-index-get-unresolved", expression)
         // use-site element type (List<Int>[i] -> Int), falling back to the declared (erased) return type
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: get.returnType()
+        val receiver = castTo?.takeIf { array.parameterizedType().typeInfo() != it }
+            ?.let { runtime.newCast(array, it.asSimpleParameterizedType()) } ?: array
         // marked INDEX_ACCESS at the `[` so the engine knows this get() was written as indexing
-        return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(get)
+        return runtime.newMethodCallBuilder().setObject(receiver).setObjectIsImplicit(false).setMethodInfo(get)
             .setParameterExpressions(indices).setConcreteReturnType(returnType).setTypeArguments(listOf())
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.INDEX_ACCESS, expression.leftBracket)))
             .build()
@@ -6578,6 +6586,10 @@ internal class KotlinBodyConverter(
                 va.getArgumentExpression()?.let { convertExpression(it, context, emptyMap()) } }, null)
         val constructor = arguments.defaults
             ?: members(owner).constructors().firstOrNull { !it.isSynthetic && it.parameters().size == arguments.expressions.size }
+            // a VARARG constructor, its arguments written out as a varargs call's are (`ORACLE("a", "b", "c")` for
+            // `enum class E(vararg val prefixes: String)`, Exposed's MigrationGenerator.SupportedImage)
+            ?: members(owner).constructors().firstOrNull { !it.isSynthetic && it.isVarargs
+                && arguments.expressions.size >= it.parameters().size - 1 }
             ?: return placeholder("k2-enum-entry-constructor:${entry.name}", entry)
         // `B(2) { override fun g() = 9 }`: kotlinc compiles the body to a subclass of the enum; as a Java enum constant
         // with a body, an anonymous subtype of E, its members converted as an `object :` expression's are
