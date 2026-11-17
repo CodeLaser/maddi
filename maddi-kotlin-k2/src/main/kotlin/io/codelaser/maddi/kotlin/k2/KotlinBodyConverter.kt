@@ -83,6 +83,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaEnumEntrySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaTypeAliasSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
@@ -4955,7 +4956,12 @@ internal class KotlinBodyConverter(
         // `::Foo` — the scope is the type, the callee its constructor, and the engine has a dedicated arm for it
         // (a constructor reference's SAM returns the new object).
         if (symbol is KaConstructorSymbol) {
-            val owner = (symbol.containingDeclaration as? KaNamedClassSymbol)?.let { classTypeInfo(it) }
+            // ...also through a typealias: `::LinkedHashSet` is kotlin.collections.LinkedHashSet, an alias of
+            // java.util.LinkedHashSet (retrofit's `getOrPut(serviceType, ::LinkedHashSet)`, maddi#220)
+            val owner = (symbol.containingDeclaration as? KaNamedClassSymbol
+                    ?: ((symbol.containingDeclaration as? KaTypeAliasSymbol)?.expandedType as? KaClassType)?.symbol as? KaNamedClassSymbol
+                    ?: symbol.containingClassId?.let { findClass(it) as? KaNamedClassSymbol })
+                ?.let { classTypeInfo(it) }
                 ?: return placeholder("k2-callable-ref-constructor-owner", expression)
             val ctor = constructorOf(symbol, members(owner), method)
                 ?: members(owner).constructors().firstOrNull { it.parameters().size == symbol.valueParameters.size }
