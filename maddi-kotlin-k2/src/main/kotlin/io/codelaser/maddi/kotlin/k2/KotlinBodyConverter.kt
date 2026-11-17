@@ -29,6 +29,7 @@ import io.codelaser.maddi.cst.api.expression.ConstructorCall
 import io.codelaser.maddi.cst.api.expression.Lambda
 import io.codelaser.maddi.cst.api.expression.MethodCall
 import io.codelaser.maddi.cst.api.expression.VariableExpression
+import io.codelaser.maddi.cst.api.expression.MethodReference
 import io.codelaser.maddi.cst.api.variable.This
 import io.codelaser.maddi.cst.api.info.FieldInfo
 import io.codelaser.maddi.cst.api.info.MethodInfo
@@ -694,8 +695,10 @@ internal class KotlinBodyConverter(
         RUN_PLAIN(false, false), USE(false, false)
     }
 
+    /** [lambda] is the literal inlined; or, for a FUNCTION VALUE (`x?.let(::f)`, `apply(builder)`, #98), [function]. */
     private class ScopeCall(val kind: ScopeKind, val name: String, val call: KtCallExpression,
-                            val receiver: KtExpression?, val safe: Boolean, val lambda: KtLambdaExpression)
+                            val receiver: KtExpression?, val safe: Boolean, val lambda: KtLambdaExpression?,
+                            val function: KtExpression? = null)
 
     private var scopeTemporaries = 0
     private var scopeBlocks = 0
@@ -735,7 +738,16 @@ internal class KotlinBodyConverter(
         }
         val arguments = call.valueArguments
         if (arguments.size != (if (kind == ScopeKind.WITH) 2 else 1)) return null
-        val lambda = arguments.last().getArgumentExpression() as? KtLambdaExpression ?: return null
+        val argument = arguments.last().getArgumentExpression() ?: return null
+        val lambda = argument as? KtLambdaExpression
+        // a FUNCTION VALUE, `x?.let(::f)`, `apply(builder)` (#98): inlined, the one direct call kotlinc makes
+        if (lambda == null) {
+            if (kind == ScopeKind.USE || !(argument is KtCallableReferenceExpression || argument is KtNameReferenceExpression)) return null
+            val withValue = if (kind == ScopeKind.WITH) arguments[0].getArgumentExpression() ?: return null else null
+            if (withValue == null && receiver == null && kind != ScopeKind.RUN_PLAIN
+                && call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.extensionReceiver == null) return null
+            return ScopeCall(kind, name, call, withValue ?: receiver, safe, null, argument)
+        }
         if (lambda.valueParameters.any { it.destructuringDeclaration != null }) return null
         // `return@let v` returns from the literal itself: inlined, only where the rest of the body can be moved
         // into the other branch ([structuredScopeBody]); a jump out of a block the analysis cannot merge
@@ -790,7 +802,7 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.lowerScopeCall(sc: ScopeCall, method: MethodInfo, locals: MutableMap<String, Variable>,
                                          index: String, valueUsed: Boolean, out: MutableList<Statement>): Variable? {
-        val functionType = sc.lambda.expressionType as? KaFunctionType ?: return null
+        val functionType = (sc.lambda ?: sc.function)?.expressionType as? KaFunctionType ?: return null
         val resultUnit = functionType.returnType.isUnitType
         if (valueUsed && !sc.kind.valueIsReceiver && resultUnit) return null
         val enclosingType = method.typeInfo()
@@ -802,7 +814,7 @@ internal class KotlinBodyConverter(
             else -> implicitReceiverValue(sc.call.resolveToCall()?.singleFunctionCallOrNull()
                 ?.partiallyAppliedSymbol?.extensionReceiver, method, locals) ?: return null
         }
-        val parameterName = sc.lambda.valueParameters.singleOrNull()?.name ?: "it"
+        val parameterName = sc.lambda?.valueParameters?.singleOrNull()?.name ?: "it"
         // `use`: the receiver is the try's resource, declared there unless a null test must read it first
         var resource: Statement? = null
         val bound: Variable? = receiverValue?.let { value ->
@@ -815,7 +827,7 @@ internal class KotlinBodyConverter(
                 // variables by name, so detekt's `loadExtensions` and everything calling it got no verdict at all
                 val base = when {
                     sc.kind.receiverLambda -> "\$this\$${sc.name}"
-                    declaresInside(sc.lambda.bodyExpression, parameterName)
+                    declaresInside(sc.lambda?.bodyExpression, parameterName)
                         || declaresInside(sc.receiver, parameterName) -> "$parameterName\$${sc.name}"
                     else -> parameterName
                 }
@@ -832,8 +844,8 @@ internal class KotlinBodyConverter(
         if (bound != null) {
             if (sc.kind.receiverLambda) {
                 scope["\$receiver"] = bound
-                scope[receiverKey(sc.lambda.functionLiteral)] = bound
-            } else if (sc.lambda.valueParameters.size <= 1) scope[parameterName] = bound
+                sc.lambda?.let { scope[receiverKey(it.functionLiteral)] = bound }
+            } else if ((sc.lambda?.valueParameters?.size ?: 0) <= 1) scope[parameterName] = bound
         }
         val result = if (!sc.kind.valueIsReceiver && valueUsed) {
             val type = (sc.call.parent as? KtQualifiedExpression)?.takeIf { it.selectorExpression === sc.call }
@@ -851,21 +863,16 @@ internal class KotlinBodyConverter(
         // `use` wraps the body in `try (resource) { … }`: one level deeper
         val tryIndex = if (resource != null) if (sc.safe) "$statementIndex.0" else statementIndex else null
         val blockIndex = tryIndex?.let { "$it.0" } ?: statementIndex
-        val literal = sc.lambda.functionLiteral
-        inlinedLiterals.add(literal)
-        inlinedResults[literal] = result
-        val body = try {
-            val statements = branchStatements(literal.bodyExpression)
-            when {
-                statements.any { returnsTo(it, literal) } ->
-                    structuredScopeBody(statements, result, literal, method, scope.toMutableMap(), blockIndex)
-                result != null -> convertAssigningBlock(result, sc.lambda.bodyExpression, method, scope, blockIndex)
-                else -> convertBlock(sc.lambda.bodyExpression, method, scope, blockIndex)
-            }
-        } finally {
-            inlinedLiterals.remove(literal)
-            inlinedResults.remove(literal)
-        }.let { inner ->
+        val body = (if (sc.function != null) {
+            val direct = directCall(sc.function, listOfNotNull(bound?.let { variableExpression(it) }), functionType, method, locals)
+                ?: return null
+            val st = if (result != null) runtime.newExpressionAsStatement(runtime.newAssignment(
+                         runtime.newVariableExpressionBuilder().setVariable(result).setSource(runtime.noSource()).build(), direct))
+                     else runtime.newExpressionAsStatement(direct)
+            runtime.newBlockBuilder().addStatement(indexed(st, "$blockIndex.0"))
+                .setSource(runtime.noSource().withIndex(blockIndex)).build()
+        } else lowerScopeLiteral(sc.lambda!!, result, method, scope, blockIndex))
+        .let { inner ->
             if (resource == null) inner
             else {
                 val tried = runtime.newTryBuilder().addResource(indexed(resource!!, "$tryIndex+0")).setBlock(inner)
@@ -884,6 +891,62 @@ internal class KotlinBodyConverter(
         } else emitted.add(body)
         out.addAll(emitted)
         return if (sc.kind.valueIsReceiver) bound else result
+    }
+
+    /** The body of an inlined scope LITERAL: its statements, the value to [result] when one is wanted. */
+    private fun KaSession.lowerScopeLiteral(lambda: KtLambdaExpression, result: Variable?, method: MethodInfo,
+                                            scope: MutableMap<String, Variable>, blockIndex: String): Block {
+        val literal = lambda.functionLiteral
+        inlinedLiterals.add(literal)
+        inlinedResults[literal] = result
+        return try {
+            val statements = branchStatements(literal.bodyExpression)
+            when {
+                statements.any { returnsTo(it, literal) } ->
+                    structuredScopeBody(statements, result, literal, method, scope.toMutableMap(), blockIndex)
+                result != null -> convertAssigningBlock(result, lambda.bodyExpression, method, scope, blockIndex)
+                else -> convertBlock(lambda.bodyExpression, method, scope, blockIndex)
+            }
+        } finally {
+            inlinedLiterals.remove(literal)
+            inlinedResults.remove(literal)
+        }
+    }
+
+    /**
+     * The call an inlined scope function makes of a FUNCTION VALUE (#98), with [arguments] (the bound receiver, if
+     * any): `::C` is `new C(x)`, `r::m` is `r.m(x)`, a static or top-level `::f` is `f(x)`, an unbound `T::m` is
+     * `x.m()`, any other value of a function type `f.invoke(x)`. Null where the shapes do not match: the scope
+     * function then stays a call.
+     */
+    private fun KaSession.directCall(function: KtExpression, arguments: List<Expression>, functionType: KaFunctionType,
+                                     method: MethodInfo, locals: Map<String, Variable>): Expression? {
+        val returnType = mapType(functionType.returnType, method.typeInfo(), method)
+        fun call(obj: Expression?, callee: MethodInfo, args: List<Expression>): Expression? {
+            if (callee.parameters().size != args.size) return null
+            return runtime.newMethodCallBuilder().setObject(obj ?: staticQualifier(callee.typeInfo()))
+                .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(args)
+                .setConcreteReturnType(if (returnType.isVoid) callee.returnType() else returnType)
+                .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        }
+        return when (val value = convertExpression(function, method, locals)) {
+            is MethodReference -> {
+                val callee = value.methodInfo()
+                val scope = value.scope()
+                when {
+                    callee.isConstructor -> if (callee.parameters().size != arguments.size) null else
+                        runtime.newConstructorCallBuilder().setConstructor(callee).setConcreteReturnType(returnType)
+                            .setParameterExpressions(arguments).setDiamond(runtime.diamondNo()).setTypeArguments(listOf())
+                            .setSource(runtime.noSource()).build()
+                    callee.isStatic -> call(null, callee, arguments)
+                    scope is TypeExpression -> arguments.firstOrNull()?.let { call(it, callee, arguments.drop(1)) }
+                    else -> call(scope, callee, arguments)
+                }
+            }
+            is VariableExpression -> value.parameterizedType().typeInfo()?.let { resolveCallee(members(it), "invoke", arguments) }
+                ?.let { invoke -> call(value, invoke, arguments) }
+            else -> null
+        }
     }
 
     /**
