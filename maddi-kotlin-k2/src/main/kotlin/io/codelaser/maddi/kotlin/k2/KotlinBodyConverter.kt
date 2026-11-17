@@ -3986,6 +3986,32 @@ internal class KotlinBodyConverter(
      * [defaults], the `$default` synthetic constructor, when the call omits an argument. [outer] is the explicit
      * outer instance of an `inner` class's creation, `outer.Inner()`.
      */
+    /**
+     * `Array<Any?>(n) { UNCACHED }`: an init lambda that ignores the index and yields a stable read puts the SAME
+     * object in every element, which an expression can say: `Collections.nCopies(n, v).toArray(new T[0])`. Where
+     * no statement can be hoisted -- a property initializer, Exposed's `ResultRowCache.cacheData` (maddi#220) --
+     * this is the filling loop's value. A reference element type only; the value is the converted lambda's return.
+     */
+    private fun KaSession.sameElementArray(call: KtCallExpression, type: ParameterizedType,
+                                           arguments: List<Expression>): Expression? {
+        if (type.arrays() != 1 || type.copyWithOneFewerArrays().isPrimitiveExcludingVoid) return null
+        val literal = (call.lambdaArguments.singleOrNull()?.getLambdaExpression()
+            ?: call.valueArguments.lastOrNull()?.getArgumentExpression() as? KtLambdaExpression) ?: return null
+        val body = literal.bodyExpression?.statements?.singleOrNull() ?: return null
+        if (!isStableReference(body)
+            && !(body is org.jetbrains.kotlin.psi.KtStringTemplateExpression && !body.hasInterpolation())) return null
+        val index = literal.valueParameters.singleOrNull()?.name ?: "it"
+        if (PsiTreeUtil.collectElementsOfType(body, KtNameReferenceExpression::class.java)
+                .any { it.getReferencedName() == index }) return null
+        val value = ((arguments[1] as? Lambda)?.methodInfo()?.methodBody()?.statements()?.singleOrNull() as? ReturnStatement)
+            ?.expression() ?: return null
+        val copies = staticCallOn("java.util.Collections", "nCopies", listOf(arguments[0], value)) ?: return null
+        val empty = runtime.newConstructorCallBuilder().setSource(runtime.noSource())
+            .setConstructor(arrayCreationConstructor(type)).setConcreteReturnType(type)
+            .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(runtime.newInt(0))).build()
+        return instanceCall(copies, "toArray", listOf(empty))?.let { runtime.newCast(it, type) }
+    }
+
     private fun KaSession.convertConstructorCall(call: KtCallExpression, arguments: List<Expression>, method: MethodInfo,
                                                  defaults: MethodInfo?, outer: Expression? = null): Expression {
         val type = call.expressionType?.let { mapType(it, method.typeInfo()) }
@@ -3994,6 +4020,7 @@ internal class KotlinBodyConverter(
         // With an init lambda (`IntArray(n) { i -> … }`) kotlinc inlines a filling loop no Java expression spells:
         // that stays a placeholder, named for what it is.
         if (type.arrays() > 0) {
+            if (arguments.size == 2) sameElementArray(call, type, arguments)?.let { return it }
             if (arguments.size != 1) return placeholder("k2-array-constructor-with-init", call)
             return runtime.newConstructorCallBuilder()
                 .setSource(runtime.noSource())
