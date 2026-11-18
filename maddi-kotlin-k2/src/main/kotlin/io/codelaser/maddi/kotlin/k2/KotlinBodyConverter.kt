@@ -355,8 +355,14 @@ internal class KotlinBodyConverter(
             } else {
                 // `fun f() = a?.b()?.c()` is a tail too: hoist its spine above the single returned statement;
                 // `fun f() = (x ?: throw E()) as T`, `= a ?: try { … }`: what it returns takes any elvis
-                val (hoisted, tailIndex) = hoistBefore(body, method, locals, "0", anyRootElvis = returning)
+                // `fun f(): Unit = with(x) { … }`: nothing is returned, so the scope function is the body's statement
+                val (hoisted, tailIndex) = hoistBefore(body, method, locals, "0", anyRootElvis = returning,
+                    valueDiscarded = !returning)
                 hoisted.forEach { block.addStatement(it) }
+                if (discardedScopeStatements.remove(body)) {
+                    hoistedReads.clear()
+                    return block.build()
+                }
                 val expr = convertExpression(body, method, locals)
                 hoistedReads.clear()
                 block.addStatement(indexed(
@@ -622,7 +628,11 @@ internal class KotlinBodyConverter(
 
     private fun KaSession.linearize(e: KtExpression, l: Linearization) {
         if (isHoisted(e) || lowerNode(e, l)) return
-        val operands = evaluationOrder(e)
+        linearizeOperands(evaluationOrder(e), l)
+    }
+
+    /** [operands], evaluated in this order: those before the last that needs statements go to temporaries first. */
+    private fun KaSession.linearizeOperands(operands: List<KtExpression>, l: Linearization) {
         val k = operands.indexOfLast { needsStatements(it, l) }
         if (k < 0) return
         for (i in 0 until k) spill(operands[i], l)
@@ -657,6 +667,8 @@ internal class KotlinBodyConverter(
         is KtPostfixExpression -> if (e.operationToken == KtTokens.EXCLEXCL) listOfNotNull(e.baseExpression) else listOf()
         is KtArrayAccessExpression -> listOfNotNull(e.arrayExpression) + e.indexExpressions
         is KtStringTemplateExpression -> e.entries.mapNotNull { it.expression }
+        // the condition runs always, a branch only sometimes
+        is KtIfExpression -> listOfNotNull(e.condition)
         else -> listOf()
     }
 
@@ -668,15 +680,32 @@ internal class KotlinBodyConverter(
     private fun KaSession.isNode(e: KtExpression, l: Linearization): Boolean {
         scopeCall(e)?.let { sc -> return (l.rootDiscarded && e === l.root) || yieldsAValue(sc) }
         return when (e) {
-            is KtBinaryExpression -> e.operationToken == KtTokens.ELVIS && hasNoExpressionForm(e.right)
-                // the statement's own elvis with a jump: [controlFlowElvisLowering] and a tail's conversion take it
-                && (e !== l.root || l.anyRootElvis || rightIsScopeCall(e))
+            is KtBinaryExpression -> when (e.operationToken) {
+                KtTokens.ELVIS -> if (hasNoExpressionForm(e.right))
+                    // the statement's own elvis with a jump: [controlFlowElvisLowering] and a tail's conversion take it
+                    e !== l.root || l.anyRootElvis || rightIsScopeCall(e)
+                    else e.right?.let { needsStatements(it, l) } == true
+                // `a && b.let { … }`: the right operand's statements, in the branch where it runs
+                KtTokens.ANDAND, KtTokens.OROR -> e.right?.let { needsStatements(it, l) } == true
+                else -> false
+            }
             // the statement's own `try` or `if` is [convertTry]'s, [convertValueIf]'s
             is KtTryExpression -> e !== l.root
-            is KtIfExpression -> e !== l.root && e.`else` != null && e.needsStatementForm()
+            is KtIfExpression -> e !== l.root && e.`else` != null
+                && (e.needsStatementForm() || listOf(e.then, e.`else`).any { b -> branchValue(b)?.let { needsStatements(it, l) } == true })
             is KtCallExpression -> isArrayInit(e)
+            // `r?.f(x.let { … })`: the arguments' statements, in the branch where `r` is not null
+            is KtSafeQualifiedExpression -> (e.selectorExpression as? KtCallExpression)
+                ?.let { call -> argumentsOf(call).any { needsStatements(it, l) } } == true
+                && (l.rootDiscarded && e === l.root || e.expressionType?.isUnitType == false)
             else -> false
         }
+    }
+
+    /** A branch's value: the branch, or the single expression of a block. */
+    private fun branchValue(branch: KtExpression?): KtExpression? = when (branch) {
+        is KtBlockExpression -> branch.statements.singleOrNull()?.takeIf { it !is KtDeclaration }
+        else -> branch
     }
 
     /** An inlined scope function in a value position needs a value: `apply`/`also`'s receiver, or a body's non-Unit result. */
@@ -739,9 +768,18 @@ internal class KotlinBodyConverter(
             }
             e is KtBinaryExpression -> {
                 e.left?.let { linearize(it, l) }
-                preservingHoistedReads { lowerElvis(e, l) }
+                preservingHoistedReads { if (e.operationToken == KtTokens.ELVIS) lowerElvis(e, l) else lowerLogical(e, l) }
             }
-            e is KtTryExpression || e is KtIfExpression -> preservingHoistedReads { lowerValueStatement(e, l) }
+            e is KtSafeQualifiedExpression -> {
+                linearize(e.receiverExpression, l)
+                hoistSpineOf(e, l.method, l.locals, l.index, l.out)
+                lowerSafeCall(e, l, valueUsed = !(l.rootDiscarded && e === l.root))
+            }
+            e is KtIfExpression -> {
+                e.condition?.let { linearize(it, l) }
+                preservingHoistedReads { lowerValueStatement(e, l) }
+            }
+            e is KtTryExpression -> preservingHoistedReads { lowerValueStatement(e, l) }
             e is KtCallExpression -> {
                 // the size argument is evaluated first
                 e.valueArguments.firstOrNull()?.getArgumentExpression()?.let { linearize(it, l) }
@@ -818,6 +856,87 @@ internal class KotlinBodyConverter(
                     "$guardIndex.0.0")).build())
             .setElseBlock(elseBlock)
             .setSource(source(elvis, guardIndex)).build())
+        return value
+    }
+
+    /**
+     * <b>`a && b`, `a || b` whose right operand needs statements</b>: they run only when the left does not decide,
+     * so they go into that branch:
+     * <pre>
+     *   return ok && take(s.apply { append("u") }) > 0   ->   boolean $and0 = ok;
+     *                                                        if ($and0) { { s.append("u"); } $and0 = take(s) > 0; }
+     *                                                        return $and0;
+     * </pre>
+     */
+    private fun KaSession.lowerLogical(e: KtBinaryExpression, l: Linearization): Variable? {
+        val left = e.left ?: return null
+        val and = e.operationToken == KtTokens.ANDAND
+        val name = (if (and) "\$and" else "\$or") + elvisTemporaries++
+        val value = runtime.newLocalVariable(name, runtime.booleanParameterizedType(), convertExpression(left, l.method, l.locals))
+        l.locals[name] = value
+        l.out.add(runtime.newLocalVariableCreation(value))
+        val guardIndex = "${l.index}.${l.out.size}"
+        val read = runtime.newVariableExpressionBuilder().setVariable(value).setSource(runtime.noSource()).build()
+        val condition = if (and) read else runtime.newUnaryOperator(listOf(), runtime.noSource(),
+            runtime.logicalNotOperatorBool(), read, runtime.precedenceUnary())
+        l.out.add(runtime.newIfElseBuilder().setExpression(condition)
+            .setIfBlock(convertAssigningBlock(value, e.right, l.method, l.locals, "$guardIndex.0"))
+            .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$guardIndex.1")).build())
+            .setSource(source(e, guardIndex)).build())
+        return value
+    }
+
+    /**
+     * <b>`r?.f(a, x.let { … })` whose arguments need statements</b>: they run only when `r` is not null, so the
+     * call and its arguments' statements go into that branch, the receiver evaluated once:
+     * <pre>
+     *   val n = r?.take(s.apply { append("v") })   ->   Integer $safe0 = null;
+     *                                                  if (r != null) { { s.append("v"); } $safe0 = r.take(s); }
+     *                                                  Integer n = $safe0;
+     * </pre>
+     * With the value discarded (the whole statement), the call is the branch's last statement, and nothing follows.
+     */
+    private fun KaSession.lowerSafeCall(e: KtSafeQualifiedExpression, l: Linearization, valueUsed: Boolean): Variable? {
+        val call = e.selectorExpression as? KtCallExpression ?: return null
+        val receiver = e.receiverExpression
+        val tested = hoistedRead(receiver) ?: if (isStableReference(receiver)) null else {
+            val type = receiver.expressionType?.let { mapType(it, l.method.typeInfo()) } ?: runtime.objectParameterizedType()
+            val name = "\$nullSafe${nullSafeTemporaries++}"
+            runtime.newLocalVariable(name, type, convertExpression(receiver, l.method, l.locals)).also {
+                l.locals[name] = it
+                l.out.add(runtime.newLocalVariableCreation(it))
+                hoistedReads[receiver] = it
+            }
+        }
+        val value = if (!valueUsed) null else {
+            val type = e.expressionType?.let { mapType(it, l.method.typeInfo()) } ?: runtime.objectParameterizedType()
+            val name = "\$safe${safeTemporaries++}"
+            runtime.newLocalVariable(name, type, runtime.nullConstant()).also {
+                l.locals[name] = it
+                l.out.add(runtime.newLocalVariableCreation(it))
+            }
+        }
+        val guardIndex = "${l.index}.${l.out.size}"
+        val branch = ArrayList<Statement>()
+        val converted = preservingHoistedReads {
+            val inner = Linearization(l.method, l.locals, "$guardIndex.0", branch, call, rootDiscarded = false, anyRootElvis = true)
+            linearizeOperands(argumentsOf(call), inner)
+            unwrappedSafeCalls[e] = true
+            try { convertExpression(e, l.method, l.locals) } finally { unwrappedSafeCalls.remove(e) }
+        }
+        branch.add(if (value == null) runtime.newExpressionAsStatement(converted)
+            else runtime.newExpressionAsStatement(runtime.newAssignment(
+                runtime.newVariableExpressionBuilder().setVariable(value).setSource(runtime.noSource()).build(), converted)))
+        val testedValue = tested?.let { runtime.newVariableExpressionBuilder().setVariable(it).setSource(runtime.noSource()).build() }
+            ?: convertExpression(receiver, l.method, l.locals)
+        val notNull = runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
+            runtime.newEquals(testedValue, runtime.nullConstant()), runtime.precedenceUnary())
+        val block = runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$guardIndex.0"))
+        branch.forEachIndexed { i, st -> block.addStatement(reindexed(st, "$guardIndex.0.${pad(i, branch.size)}")) }
+        l.out.add(runtime.newIfElseBuilder().setExpression(notNull).setIfBlock(block.build())
+            .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$guardIndex.1")).build())
+            .setSource(source(e, guardIndex)).build())
+        if (value == null) discardedScopeStatements.add(e)
         return value
     }
 
@@ -1427,11 +1546,12 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.hoistBefore(expression: KtExpression, method: MethodInfo,
                                       locals: MutableMap<String, Variable>,
-                                      index: String, anyRootElvis: Boolean = false): Pair<List<Statement>, String> {
+                                      index: String, anyRootElvis: Boolean = false,
+                                      valueDiscarded: Boolean = false): Pair<List<Statement>, String> {
         // the tail's own elvis only when its right operand is a scope function (#98): one with a jump or a `try`
         // has its own conversions (controlFlowElvisLowering, addAssigningTail); an expression body's returned value
         // takes any
-        val hoisted = hoistNullSafeSpine(expression, method, locals, index, anyRootElvis = anyRootElvis)
+        val hoisted = hoistNullSafeSpine(expression, method, locals, index, valueDiscarded, anyRootElvis)
         return hoisted to if (hoisted.isEmpty()) index else hoistedStatementIndex(index, hoisted.size)
     }
 
@@ -1475,7 +1595,9 @@ internal class KotlinBodyConverter(
         // ⚠ the WHOLE safe call, not its receiver: the node whose tested operand needs a temporary is this
         // one, and walking from the receiver skips exactly that. Measured by the probe -- the receiver
         // ternary was still inlined twice, in the condition and in the call.
-        val hoisted = hoistNullSafeSpine(statement, method, locals, index)
+        val hoisted = hoistNullSafeSpine(statement, method, locals, index, valueDiscarded = true)
+        // its arguments' statements in the guard ([lowerSafeCall]): the guard is the statement
+        if (discardedScopeStatements.remove(statement)) { hoistedReads.clear(); return hoisted }
         val callIndex = if (hoisted.isEmpty()) index else hoistedStatementIndex(index, hoisted.size)
         val receiver = convertExpression(receiverPsi, method, locals)
         unwrappedSafeCalls[statement] = true

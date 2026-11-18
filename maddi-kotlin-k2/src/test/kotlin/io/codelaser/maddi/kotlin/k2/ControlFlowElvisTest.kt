@@ -101,12 +101,22 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
         assertEquals(0, PlaceholderCensus.of(listOf(p)).total, PlaceholderCensus.of(listOf(p)).byKind.toString())
     }
 
-    /** ⛔ CONTROL. Under `&&` the argument runs only sometimes: hoisting its jump would run it always. Refused. */
+    /** Under `&&` the argument runs only sometimes: its guard goes into the branch where it does. */
     @Test
-    fun anElvisInAConditionalArgumentIsRefused() {
+    fun anElvisInAConditionalArgumentIsLowered() {
         val p = parse("""
                 fun g(a: Int, b: String) = a > 0
                 fun f(c: Boolean, s: String?): Boolean { return c && g(1, s ?: return false) }
+        """)
+        assertEquals(0, PlaceholderCensus.of(listOf(p)).total, PlaceholderCensus.of(listOf(p)).byKind.toString())
+    }
+
+    /** ⛔ CONTROL. A loop's condition runs again on every iteration: no place before it runs it each time. Refused. */
+    @Test
+    fun anElvisInALoopConditionIsRefused() {
+        val p = parse("""
+                fun g(a: Int, b: String) = a > 0
+                fun f(s: String?): Boolean { while (g(1, s ?: return false)) { } ; return true }
         """)
         val census = PlaceholderCensus.of(listOf(p))
         assertEquals(setOf("k2-unsupported-expr:KtReturnExpression"), census.byKind.keys, census.byKind.toString())

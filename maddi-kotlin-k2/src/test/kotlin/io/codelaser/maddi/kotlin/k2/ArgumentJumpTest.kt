@@ -25,8 +25,9 @@ import org.junit.jupiter.api.Test
 /**
  * `f(a, x ?: return)`: a jump in ARGUMENT position, lowered to a temporary, a guard, and the call reading the
  * temporary. What is evaluated before that argument (the receiver, earlier arguments in source order) is evaluated
- * into a temporary first, so the move reorders nothing (#98). Only a position that runs CONDITIONALLY -- a safe
- * call's argument -- keeps its placeholder, and is counted.
+ * into a temporary first, so the move reorders nothing (#98); a safe call's argument runs its statements in the branch
+ * where the receiver is not null. Only a loop's condition, which runs again on each iteration, keeps its placeholder,
+ * and is counted.
  */
 class ArgumentJumpTest : KotlinScanTestBase() {
 
@@ -42,6 +43,8 @@ class ArgumentJumpTest : KotlinScanTestBase() {
                 fun unstableReceiver(s: String?) { q().check("a", s?.hashCode() ?: return, 1) }
                 fun unstableEarlier(s: String?) { check2(q().toString(), s?.hashCode() ?: return) }
                 fun conditional(s: String?, q: Q?) { q?.check("a", s?.hashCode() ?: return, 1) }
+                fun ok(n: Int): Boolean = n > 0
+                fun loopCondition(s: String?) { while (ok(s?.hashCode() ?: return)) { } }
             }
             """.trimIndent() + "\n")
     }
@@ -52,9 +55,9 @@ class ArgumentJumpTest : KotlinScanTestBase() {
         type("K").methods().first { it.name() == name }.methodBody().statements().joinToString(" ")
 
     @Test
-    fun onlyTheConditionalPositionKeepsAPlaceholder() {
+    fun onlyALoopConditionKeepsAPlaceholder() {
         val census = PlaceholderCensus.of(types)
-        assertEquals(listOf("conditional"),
+        assertEquals(listOf("loopCondition"),
             census.dumpLines().map { it.split("\t")[1].substringBefore('(').substringAfterLast('.') }.sorted(),
             census.dumpLines().joinToString("\n"))
     }
@@ -65,7 +68,8 @@ class ArgumentJumpTest : KotlinScanTestBase() {
             positional: Q q=new Q(); Integer ${'$'}elvis0=s==null?null:s.hashCode(); if(${'$'}elvis0==null){return;} q.check(p,${'$'}elvis0,2);
             named: Integer ${'$'}elvis1=s==null?null:s.hashCode(); if(${'$'}elvis1==null){return;} check2("x",${'$'}elvis1);
             unstableReceiver: Q ${'$'}value0=q(); Integer ${'$'}elvis2=s==null?null:s.hashCode(); if(${'$'}elvis2==null){return;} ${'$'}value0.check("a",${'$'}elvis2,1);
+            conditional: if(!(q==null)){Integer ${'$'}elvis4=s==null?null:s.hashCode();if(${'$'}elvis4==null){return;}q.check("a",${'$'}elvis4,1);}
             unstableEarlier: String ${'$'}value1=q().toString(); Integer ${'$'}elvis3=s==null?null:s.hashCode(); if(${'$'}elvis3==null){return;} check2(${'$'}value1,${'$'}elvis3);
-            """.trimIndent(), listOf("positional", "named", "unstableReceiver", "unstableEarlier").joinToString("\n") { "$it: ${body(it)}" })
+            """.trimIndent(), listOf("positional", "named", "unstableReceiver", "conditional", "unstableEarlier").joinToString("\n") { "$it: ${body(it)}" })
     }
 }

@@ -48,17 +48,17 @@ class BlockInExpressionPositionTest : KotlinScanTestBase() {
     }
 
     /**
-     * ⭐ The control: a multi-statement block that is NOT a local's initializer, in a position evaluated only
-     * sometimes — here an argument under `&&` — has no statement context to hoist a temporary into, so it keeps a
-     * placeholder, and one that names the shape. (As an argument evaluated always it is lowered: #98's linearization;
-     * as the initializer of a `val`: `StatementAsValueTest`.)
+     * ⭐ The control: a multi-statement block that is NOT a local's initializer, in a loop's condition — which runs
+     * again on each iteration — has no statement context to hoist a temporary into, so it keeps a placeholder, and
+     * one that names the shape. (As an argument, even under `&&`, it is lowered: #98's linearization; as the
+     * initializer of a `val`: `StatementAsValueTest`.)
      */
     @Test
     fun aMultiStatementBlockOutsideADeclarationKeepsANamedPlaceholder() {
         val types = KotlinScan(runtime, sourceSet).parse("P.kt", """
             class P {
                 fun g(i: Int): Boolean = i > 0
-                fun f(c: Boolean, d: Boolean): Boolean = d && g(if (c) { val a = 1; a + 1 } else { 2 })
+                fun f(c: Boolean) { while (g(if (c) { val a = 1; a + 1 } else { 2 })) { } }
             }
             """.trimIndent() + "\n")
         val census = PlaceholderCensus.of(types)

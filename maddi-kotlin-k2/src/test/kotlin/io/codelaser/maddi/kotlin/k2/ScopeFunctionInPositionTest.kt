@@ -28,7 +28,9 @@ import org.junit.jupiter.api.Test
  * operator, or the right operand of an elvis on the spine, whose body then runs in the branch where the left operand
  * is null (and in a chain `a?.let { … } ?: b?.let { … } ?: c`, each link in the branch the one before leaves).
  * Anything evaluated before it is evaluated into a temporary first (`between`), in any operand evaluated always:
- * a template, an index. Under `&&` it runs only sometimes, and stays a call (`conditional`).
+ * a template, an index. Where it runs only sometimes -- under `&&`, a safe call's argument, a branch, an elvis's right
+ * operand -- its statements go into the branch where it runs. A loop's condition, run on each iteration, has no
+ * such place: there it stays a call (`loop`).
  */
 class ScopeFunctionInPositionTest : KotlinScanTestBase() {
 
@@ -63,6 +65,12 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
                 fun template(s: StringBuilder): String = "<${'$'}{s.apply { append("r") }}>"
                 fun index(xs: IntArray, s: StringBuilder): Int = xs[s.apply { append("t") }.length]
                 fun conditional(c: Boolean, s: StringBuilder): Boolean = c && take(s.apply { append("u") }) > 0
+                fun safeArgument(o: B?, s: StringBuilder): Int? = o?.take2(1, s.apply { append("v") })
+                fun safeStatement(o: B?, s: StringBuilder) { o?.take(s.apply { append("w") }) }
+                fun ifBranch(c: Boolean, s: StringBuilder, t: StringBuilder): Int = take(if (c) s.apply { append("x") } else t)
+                fun elvisDeep(a: Int?, s: StringBuilder): Int = a ?: take(s.apply { append("y") })
+                fun unitBody(s: StringBuilder): Unit = with(s) { append("z") }
+                fun loop(s: StringBuilder) { while (take(s.apply { append("!") }) > 0) { } }
             }
             """.trimIndent() + "\n")
     }
@@ -76,7 +84,8 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
         val census = PlaceholderCensus.of(types)
         val names = listOf("argument", "memberArgument", "statementArgument", "afterACall", "elvis", "safeElvis", "localElvis",
             "chain", "chain3", "elvisRun", "valueRun", "infix", "compared", "nested", "withACall",
-            "whenArm", "lambdaTail", "lambdaOnly", "unitElvis", "between", "template", "index", "conditional")
+            "whenArm", "lambdaTail", "lambdaOnly", "unitElvis", "between", "template", "index", "conditional",
+            "safeArgument", "safeStatement", "ifBranch", "elvisDeep", "unitBody", "loop")
         val actual = names.joinToString("\n") { "$it: ${body(it)}" }
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
         // `afterACall`: `make()` runs before the lambda, so it is evaluated into a temporary first
@@ -103,7 +112,13 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
             between: int ${'$'}value1=make(); {s.append("q");} return take3(${'$'}value1,s,make());
             template: {s.append("r");} return "<"+s+">";
             index: {s.append("t");} return xs[s.length];
-            conditional: return c&&take(StandardKt.apply(s,${'$'}receiver->${'$'}receiver.append("u")))>0;
+            conditional: boolean ${'$'}and10=c; if(${'$'}and10){{s.append("u");}${'$'}and10=take(s)>0;} return ${'$'}and10;
+            safeArgument: Integer ${'$'}safe0=null; if(!(o==null)){{s.append("v");}${'$'}safe0=o.take2(1,s);} return ${'$'}safe0;
+            safeStatement: if(!(o==null)){{s.append("w");}o.take(s);}
+            ifBranch: StringBuilder ${'$'}if11; if(c){{s.append("x");}${'$'}if11=s;}else{${'$'}if11=t;} return take(${'$'}if11);
+            elvisDeep: int ${'$'}elvis12; if(a!=null){${'$'}elvis12=a;}else{{s.append("y");}${'$'}elvis12=take(s);} return ${'$'}elvis12;
+            unitBody: {s.append("z");}
+            loop: while(take(StandardKt.apply(s,${'$'}receiver->${'$'}receiver.append("!")))>0){}
             """.trimIndent(), actual)
     }
 }
