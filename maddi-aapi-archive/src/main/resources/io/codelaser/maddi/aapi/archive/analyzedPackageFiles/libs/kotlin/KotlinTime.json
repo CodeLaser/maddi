@@ -3,7 +3,7 @@
 
 {"name": "Tkotlin.time.Clock", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FCompanion(0)", "data":{"containerField":1,"finalField":1,"independentField":2}},
- {"name": "M<clinit>(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "M<clinit>(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mnow(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}}]},
 
 {"name": "Tkotlin.time.Instant", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[

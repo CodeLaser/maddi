@@ -378,7 +378,7 @@
   {"name": "P$this$replaceRange(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Prange(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "Preplacement(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MrequireNonNegativeLimit(50,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MrequireNonNegativeLimit(50,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Plimit(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MskipWhile(51,java.lang.String,int,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$skipWhile(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
