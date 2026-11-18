@@ -90,4 +90,18 @@ public class TestValueImpl {
         assertEquals(1, i2.linkToParametersReturnValue().get(1));
         assertEquals(1, i2.linkToParametersReturnValue().get(-1));
     }
+
+    // NO_VALUE is a value, written as -1 and read back as NO_VALUE; only the default (MUTABLE, 0) is left out
+    @Test
+    public void immutableNoValue() {
+        Codec.Context context = new CodecImpl.ContextImpl();
+        assertNull(ValueImpl.ImmutableImpl.MUTABLE.encode(codec, context));
+        Codec.EncodedValue ev = ValueImpl.ImmutableImpl.NO_VALUE.encode(codec, context);
+        assertEquals("-1", String.valueOf(ev));
+        JSONParser parser = new JSONParser("-1");
+        parser.Root();
+        CodecImpl.D d = new CodecImpl.D(parser.rootNode().getFirstChild());
+        Value back = ValueImpl.decoder(ValueImpl.ImmutableImpl.class).apply(new CodecImpl.DII(codec, context), d);
+        assertSame(ValueImpl.ImmutableImpl.NO_VALUE, back);
+    }
 }
