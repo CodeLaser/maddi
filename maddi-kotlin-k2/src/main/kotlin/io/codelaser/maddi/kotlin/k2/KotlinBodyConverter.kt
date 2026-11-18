@@ -561,7 +561,7 @@ internal class KotlinBodyConverter(
     private fun KaSession.hoistNullSafeSpine(statement: KtExpression, method: MethodInfo,
                                              locals: MutableMap<String, Variable>,
                                              index: String, valueDiscarded: Boolean = false,
-                                             anyRootElvis: Boolean = true): List<Statement> {
+                                             anyRootElvis: Boolean = true, tail: Boolean = false): List<Statement> {
         hoistedReads.clear()
         val root = when (statement) {
             is KtProperty -> if (statement.isLocal) statement.initializer else null
@@ -575,7 +575,9 @@ internal class KotlinBodyConverter(
         val unstableTarget = statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ
             && !isStableTarget(statement.left)
         val linearization = if (unstableTarget) null else Linearization(method, locals, index, raw, root,
-            rootDiscarded = valueDiscarded && root === statement, anyRootElvis = anyRootElvis)
+            rootDiscarded = valueDiscarded && root === statement, anyRootElvis = anyRootElvis,
+            // a declaration's, a return's, an assignment's value is used, and so is a tail's: not a statement's own
+            rootValueUsed = root !== statement || tail && !valueDiscarded)
         hoistOutOfOrderArguments(root, method, locals, raw, linearization)
         linearization?.let { linearize(root, it) }
         hoistSpine(root, method, locals, index, raw)
@@ -620,7 +622,7 @@ internal class KotlinBodyConverter(
      */
     private class Linearization(val method: MethodInfo, val locals: MutableMap<String, Variable>, val index: String,
                                 val out: MutableList<Statement>, val root: KtExpression,
-                                val rootDiscarded: Boolean, val anyRootElvis: Boolean) {
+                                val rootDiscarded: Boolean, val anyRootElvis: Boolean, val rootValueUsed: Boolean = true) {
         val needs = java.util.IdentityHashMap<KtExpression, Boolean>()
     }
 
@@ -691,8 +693,11 @@ internal class KotlinBodyConverter(
             }
             // the statement's own `try` or `if` is [convertTry]'s, [convertValueIf]'s
             is KtTryExpression -> e !== l.root
-            is KtIfExpression -> e !== l.root && e.`else` != null
-                && (e.needsStatementForm() || listOf(e.then, e.`else`).any { b -> branchValue(b)?.let { needsStatements(it, l) } == true })
+            // ... and so is one in statement form whose value is used (assigned, declared, returned in each branch). One
+            // whose BRANCH needs statements is lowered there too: `return if (c) { x.also { … } } else y`
+            is KtIfExpression -> e.`else` != null && (if (e.needsStatementForm()) e !== l.root
+                else (e !== l.root || l.rootValueUsed)
+                    && listOf(e.then, e.`else`).any { b -> branchValue(b)?.let { needsStatements(it, l) } == true })
             is KtCallExpression -> isArrayInit(e)
             // `r?.f(x.let { … })`: the arguments' statements, in the branch where `r` is not null
             is KtSafeQualifiedExpression -> (e.selectorExpression as? KtCallExpression)
@@ -839,6 +844,16 @@ internal class KotlinBodyConverter(
             }
         }
         val leftValue = { tested?.let(read) ?: convertExpression(left, method, locals) }
+        // the whole statement, its value discarded: `if (a == null) { … }`, and nothing after it
+        if (l.rootDiscarded && elvis === l.root) {
+            val guardIndex = "${l.index}.${out.size}"
+            out.add(runtime.newIfElseBuilder().setExpression(runtime.newEquals(leftValue(), runtime.nullConstant()))
+                .setIfBlock(convertBlock(right, method, locals, "$guardIndex.0"))
+                .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$guardIndex.1")).build())
+                .setSource(source(elvis, guardIndex)).build())
+            discardedScopeStatements.add(elvis)
+            return null
+        }
         val type = elvis.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
         val name = "\$elvis${elvisTemporaries++}"
         val value = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
@@ -1551,7 +1566,7 @@ internal class KotlinBodyConverter(
         // the tail's own elvis only when its right operand is a scope function (#98): one with a jump or a `try`
         // has its own conversions (controlFlowElvisLowering, addAssigningTail); an expression body's returned value
         // takes any
-        val hoisted = hoistNullSafeSpine(expression, method, locals, index, valueDiscarded, anyRootElvis)
+        val hoisted = hoistNullSafeSpine(expression, method, locals, index, valueDiscarded, anyRootElvis, tail = true)
         return hoisted to if (hoisted.isEmpty()) index else hoistedStatementIndex(index, hoisted.size)
     }
 
@@ -1563,7 +1578,12 @@ internal class KotlinBodyConverter(
                                           locals: MutableMap<String, Variable>,
                                           index: String): List<Statement> {
         val s = unannotated(annotated)
-        val hoisted = hoistNullSafeSpine(s, method, locals, index)
+        // a statement's own value is discarded: `a?.invoke() ?: run { … }` is an `if` and nothing after it
+        val hoisted = hoistNullSafeSpine(s, method, locals, index, valueDiscarded = true)
+        if (discardedScopeStatements.remove(s)) {
+            hoistedReads.clear()
+            return withRefInit(s, hoisted, index)
+        }
         if (hoisted.isEmpty()) {
             hoistedReads.clear()
             return withRefInit(s, listOf(convertStatement(s, method, locals, index)), index)
@@ -3616,8 +3636,19 @@ internal class KotlinBodyConverter(
      * detekt AbsentOrWrongFileLicense): the field is assigned in each branch, as Java writes it in an initializer
      * block. Null when the initializer is an expression the field can keep.
      */
-    internal fun needsStatementInitializer(initializer: KtExpression): Boolean =
-        unannotated(initializer).let { it is KtTryExpression || (it is KtIfExpression && it.needsStatementForm()) }
+    /**
+     * Whether a property's initializer only statements can hold: a `try`, a statement-form `if`, or anything with a
+     * construct the linearization lowers (`val b = StringBuilder().apply { … }`, `val n = a?.let { … } ?: 0`, #98).
+     * [method] is the code it becomes part of: the constructor, or the static initializer.
+     */
+    internal fun KaSession.needsStatementInitializer(initializer: KtExpression, method: MethodInfo): Boolean {
+        val value = unannotated(initializer)
+        if (value is KtTryExpression || (value is KtIfExpression && value.needsStatementForm())) return true
+        // `val a = Array(n) { c }` has an expression form here, `Collections.nCopies` (sameElementArray)
+        if (value is KtCallExpression && isArrayInit(value)) return false
+        return needsStatements(value, Linearization(method, mutableMapOf(), "0", ArrayList(), value,
+            rootDiscarded = false, anyRootElvis = true))
+    }
 
     internal fun KaSession.statementInitializer(initializer: KtExpression, field: FieldInfo, method: MethodInfo,
                                                 index: String): Statement? {
@@ -3629,13 +3660,23 @@ internal class KotlinBodyConverter(
             value is KtTryExpression ->
                 convertTry(value, method, mutableMapOf(), index, assignTo = target).withSource(source(value, index))
             // any other initializer moved into the constructor (one reading a constructor parameter, #85): the
-            // assignment `this.field = value`, converted in the constructor's scope, where the parameter resolves
+            // assignment `this.field = value`, converted in the constructor's scope, where the parameter resolves;
+            // after the statements its value needs, if any (#98), all in one block
             else -> {
+                val locals = mutableMapOf<String, Variable>()
+                // `Array(n) { c }` itself keeps its expression form, `Collections.nCopies` (sameElementArray)
+                val (hoisted, tailIndex) = if (value is KtCallExpression && isArrayInit(value)) listOf<Statement>() to index
+                    else hoistBefore(value, method, locals, index, anyRootElvis = true)
                 val assignment = runtime.newAssignmentBuilder()
                     .setTarget(runtime.newVariableExpressionBuilder().setVariable(target).setSource(runtime.noSource()).build())
-                    .setValue(convertExpression(value, method, mutableMapOf()))
+                    .setValue(convertExpression(value, method, locals))
                     .setSource(runtime.noSource()).build()
-                indexed(runtime.newExpressionAsStatement(assignment), index).withSource(source(initializer, index))
+                hoistedReads.clear()
+                if (hoisted.isEmpty()) indexed(runtime.newExpressionAsStatement(assignment), index).withSource(source(initializer, index))
+                else runtime.newBlockBuilder().apply {
+                    hoisted.forEach { addStatement(it) }
+                    addStatement(indexed(runtime.newExpressionAsStatement(assignment), tailIndex))
+                }.setSource(source(initializer, index)).build()
             }
         }
     }

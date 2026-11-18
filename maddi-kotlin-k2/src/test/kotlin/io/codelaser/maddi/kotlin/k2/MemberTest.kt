@@ -577,7 +577,8 @@ class MemberTest : KotlinScanTestBase() {
                 }
             }
         }
-        walk(all.flatMap { it.methods() })
+        // constructors too: `val inInitializer = run { … }` is code of the constructor since #98's linearization
+        walk(all.flatMap { it.methods() + it.constructors() })
         all.flatMap { it.fields() }.forEach { f ->
             f.initializer()?.visit { e ->
                 val found = when (e) {

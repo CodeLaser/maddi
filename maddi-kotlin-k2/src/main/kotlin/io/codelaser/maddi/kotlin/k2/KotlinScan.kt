@@ -1908,7 +1908,7 @@ class KotlinScan(
         pending.forEach { p ->
             // ... and one that reads a primary-constructor parameter: kotlinc runs every initializer in the
             // constructor, and a field initializer cannot see the parameter -- it read as @Independent (#85)
-            if (!bodyConverter.needsStatementInitializer(p.expression)
+            if (!with(bodyConverter) { needsStatementInitializer(p.expression, initializerContext(p.owner, p.static)) }
                 && !(!p.static && runsInitOf[owner] != null && readsAConstructorParameter(p.expression))) return@forEach
             if (!p.static && runsInitOf[owner] != null) {
                 statementInitializersOf.getOrPut(owner) { mutableListOf() } += p

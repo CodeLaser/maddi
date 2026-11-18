@@ -70,6 +70,8 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
                 fun ifBranch(c: Boolean, s: StringBuilder, t: StringBuilder): Int = take(if (c) s.apply { append("x") } else t)
                 fun elvisDeep(a: Int?, s: StringBuilder): Int = a ?: take(s.apply { append("y") })
                 fun unitBody(s: StringBuilder): Unit = with(s) { append("z") }
+                fun returnedIf(c: Boolean, s: StringBuilder, t: StringBuilder): StringBuilder = if (c) { s.apply { append("+") } } else t
+                fun statementIf(c: Boolean, s: StringBuilder) { if (c) s.apply { append("-") } else s }
                 fun loop(s: StringBuilder) { while (take(s.apply { append("!") }) > 0) { } }
             }
             """.trimIndent() + "\n")
@@ -85,7 +87,7 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
         val names = listOf("argument", "memberArgument", "statementArgument", "afterACall", "elvis", "safeElvis", "localElvis",
             "chain", "chain3", "elvisRun", "valueRun", "infix", "compared", "nested", "withACall",
             "whenArm", "lambdaTail", "lambdaOnly", "unitElvis", "between", "template", "index", "conditional",
-            "safeArgument", "safeStatement", "ifBranch", "elvisDeep", "unitBody", "loop")
+            "safeArgument", "safeStatement", "ifBranch", "elvisDeep", "unitBody", "loop", "returnedIf", "statementIf")
         val actual = names.joinToString("\n") { "$it: ${body(it)}" }
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
         // `afterACall`: `make()` runs before the lambda, so it is evaluated into a temporary first
@@ -96,29 +98,31 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
             afterACall: int ${'$'}value0=make(); {s.append("d");} return take2(${'$'}value0,s);
             elvis: StringBuilder ${'$'}elvis0; if(a!=null){${'$'}elvis0=a;}else{{b.append("e");}${'$'}elvis0=b;} return ${'$'}elvis0;
             safeElvis: StringBuilder ${'$'}elvis1; if(a!=null){${'$'}elvis1=a;}else{if(!(b==null)){b.append("f");}${'$'}elvis1=b;} return ${'$'}elvis1;
-            localElvis: StringBuilder ${'$'}elvis9; if(a!=null){${'$'}elvis9=a;}else{{b.append("g");}${'$'}elvis9=b;} StringBuilder x=${'$'}elvis9; return x.length;
+            localElvis: StringBuilder ${'$'}elvis8; if(a!=null){${'$'}elvis8=a;}else{{b.append("g");}${'$'}elvis8=b;} StringBuilder x=${'$'}elvis8; return x.length;
             chain: Integer ${'$'}let0=null; if(!(a==null)){${'$'}let0=a.length;} Integer ${'$'}elvis2; if(${'$'}let0!=null){${'$'}elvis2=${'$'}let0;}else{Integer ${'$'}let1=null;if(!(b==null)){${'$'}let1=b.length+1;}${'$'}elvis2=${'$'}let1;} return ${'$'}elvis2;
             chain3: Integer ${'$'}let2=null; if(!(a==null)){${'$'}let2=a.length;} Integer ${'$'}elvis3; if(${'$'}let2!=null){${'$'}elvis3=${'$'}let2;}else{Integer ${'$'}let3=null;if(!(b==null)){${'$'}let3=b.length+1;}${'$'}elvis3=${'$'}let3;} return ${'$'}elvis3==null?c:${'$'}elvis3;
-            elvisRun: StringBuilder ${'$'}let4=null; if(!(a==null)){${'$'}let4=a.append("x");} StringBuilder ${'$'}elvis4; if(${'$'}let4!=null){${'$'}elvis4=${'$'}let4;}else{StringBuilder ${'$'}run5;{${'$'}run5=b.append("y");}${'$'}elvis4=${'$'}run5;} ${'$'}elvis4;
-            valueRun: StringBuilder ${'$'}elvis5; if(a!=null){${'$'}elvis5=a;}else{StringBuilder ${'$'}run6;{b.append("y");${'$'}run6=b;}${'$'}elvis5=${'$'}run6;} StringBuilder v=${'$'}elvis5; return v;
+            elvisRun: StringBuilder ${'$'}let4=null; if(!(a==null)){${'$'}let4=a.append("x");} if(${'$'}let4==null){{b.append("y");}}
+            valueRun: StringBuilder ${'$'}elvis4; if(a!=null){${'$'}elvis4=a;}else{StringBuilder ${'$'}run5;{b.append("y");${'$'}run5=b;}${'$'}elvis4=${'$'}run5;} StringBuilder v=${'$'}elvis4; return v;
             infix: {s.append("i");} return TuplesKt.to(s,n);
-            compared: String ${'$'}run7=null; if(!(s==null)){s.append("j");${'$'}run7=s.toString();} return ${'$'}run7.equals(t);
+            compared: String ${'$'}run6=null; if(!(s==null)){s.append("j");${'$'}run6=s.toString();} return ${'$'}run6.equals(t);
             nested: {s.append("k");} return take2(1,s)+1;
-            withACall: StringBuilder ${'$'}this${'$'}with=new StringBuilder("w"); int ${'$'}with8; {${'$'}this${'$'}with.append("l");${'$'}with8=${'$'}this${'$'}with.length;} return ${'$'}with8;
-            whenArm: return switch(k){case 1->{Integer ${'$'}let9=null;if(!(a==null)){${'$'}let9=a.length;}Integer ${'$'}elvis6;if(${'$'}let9!=null){${'$'}elvis6=${'$'}let9;}else{Integer ${'$'}let10=null;if(!(b==null)){${'$'}let10=b.length+1;}${'$'}elvis6=${'$'}let10;}yield ${'$'}elvis6;}default->null;};
-            lambdaTail: return CollectionsKt.map(xs,it->{StringBuilder y=it;StringBuilder ${'$'}elvis7;if(y!=null){${'$'}elvis7=y;}else{{b.append("m");}${'$'}elvis7=b;}return ${'$'}elvis7;});
-            lambdaOnly: return CollectionsKt.map(xs,it->{StringBuilder ${'$'}elvis8;if(it!=null){${'$'}elvis8=it;}else{{b.append("n");}${'$'}elvis8=b;}return ${'$'}elvis8;});
+            withACall: StringBuilder ${'$'}this${'$'}with=new StringBuilder("w"); int ${'$'}with7; {${'$'}this${'$'}with.append("l");${'$'}with7=${'$'}this${'$'}with.length;} return ${'$'}with7;
+            whenArm: return switch(k){case 1->{Integer ${'$'}let8=null;if(!(a==null)){${'$'}let8=a.length;}Integer ${'$'}elvis5;if(${'$'}let8!=null){${'$'}elvis5=${'$'}let8;}else{Integer ${'$'}let9=null;if(!(b==null)){${'$'}let9=b.length+1;}${'$'}elvis5=${'$'}let9;}yield ${'$'}elvis5;}default->null;};
+            lambdaTail: return CollectionsKt.map(xs,it->{StringBuilder y=it;StringBuilder ${'$'}elvis6;if(y!=null){${'$'}elvis6=y;}else{{b.append("m");}${'$'}elvis6=b;}return ${'$'}elvis6;});
+            lambdaOnly: return CollectionsKt.map(xs,it->{StringBuilder ${'$'}elvis7;if(it!=null){${'$'}elvis7=it;}else{{b.append("n");}${'$'}elvis7=b;}return ${'$'}elvis7;});
             unitElvis: if(!(a==null)){m.put(1,"p");}else{{m.remove(1);}}
             between: int ${'$'}value1=make(); {s.append("q");} return take3(${'$'}value1,s,make());
             template: {s.append("r");} return "<"+s+">";
             index: {s.append("t");} return xs[s.length];
-            conditional: boolean ${'$'}and10=c; if(${'$'}and10){{s.append("u");}${'$'}and10=take(s)>0;} return ${'$'}and10;
+            conditional: boolean ${'$'}and9=c; if(${'$'}and9){{s.append("u");}${'$'}and9=take(s)>0;} return ${'$'}and9;
             safeArgument: Integer ${'$'}safe0=null; if(!(o==null)){{s.append("v");}${'$'}safe0=o.take2(1,s);} return ${'$'}safe0;
             safeStatement: if(!(o==null)){{s.append("w");}o.take(s);}
-            ifBranch: StringBuilder ${'$'}if11; if(c){{s.append("x");}${'$'}if11=s;}else{${'$'}if11=t;} return take(${'$'}if11);
-            elvisDeep: int ${'$'}elvis12; if(a!=null){${'$'}elvis12=a;}else{{s.append("y");}${'$'}elvis12=take(s);} return ${'$'}elvis12;
+            ifBranch: StringBuilder ${'$'}if10; if(c){{s.append("x");}${'$'}if10=s;}else{${'$'}if10=t;} return take(${'$'}if10);
+            elvisDeep: int ${'$'}elvis11; if(a!=null){${'$'}elvis11=a;}else{{s.append("y");}${'$'}elvis11=take(s);} return ${'$'}elvis11;
             unitBody: {s.append("z");}
             loop: while(take(StandardKt.apply(s,${'$'}receiver->${'$'}receiver.append("!")))>0){}
+            returnedIf: StringBuilder ${'$'}if12; if(c){{s.append("+");}${'$'}if12=s;}else{${'$'}if12=t;} return ${'$'}if12;
+            statementIf: if(c){{s.append("-");}}else{s;}
             """.trimIndent(), actual)
     }
 }
