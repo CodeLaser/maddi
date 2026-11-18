@@ -103,7 +103,7 @@ class ScopeFunctionInliningTest : KotlinScanTestBase() {
             tailIf: int ${'$'}let9; {if(xs.isEmpty()){${'$'}let9=0;}else{${'$'}let9=xs.size;}} return ${'$'}let9;
             discarded: {if(xs.isEmpty()){{}}else{sb.append(xs);}}
             inLoop: return StandardKt.let(xs,it->{for(String x:it){if(StringsKt.isEmpty(x)){return 0;}}return 1;});
-            shadowed: List<String> it${'$'}also=StandardKt.also(make(),xs->CollectionsKt.forEach(xs,it->this.sb.append(it))); {CollectionsKt.forEach(make(),x->this.sb.append(it${'$'}also.size));} return it${'$'}also;
+            shadowed: List<String> xs=make(); {CollectionsKt.forEach(xs,it->this.sb.append(it));} List<String> it${'$'}also=xs; {CollectionsKt.forEach(make(),x->this.sb.append(it${'$'}also.size));} return it${'$'}also;
             innerIt: List<String> it${'$'}also=make(); {this.sb.append(CollectionsKt.joinToString(it${'$'}also,",",null,null,0,null,it->it));} return it${'$'}also;
             elvisSafe: Integer ${'$'}let10=null; if(!(xs==null)){${'$'}let10=xs.size;} if(${'$'}let10==null){return -1;} int n=${'$'}let10; return n;
             elvisThrow: List<String> it=m.get(k); Integer ${'$'}let11=null; if(!(it==null)){${'$'}let11=it.size+1;} if(${'$'}let11==null){throw new IllegalStateException();} int v=${'$'}let11; return v;

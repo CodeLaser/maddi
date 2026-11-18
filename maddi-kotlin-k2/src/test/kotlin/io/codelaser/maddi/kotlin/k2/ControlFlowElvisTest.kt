@@ -93,10 +93,20 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
      * source evaluates `1` first. Refused, and left counted.
      */
     @Test
-    fun anElvisInsideAnArgumentIsRefused() {
+    fun anElvisInsideAnArgumentIsLowered() {
         val p = parse("""
                 fun g(a: Int, b: String) = a
                 fun f(s: String?): Int { return g(1, s ?: return 0) }
+        """)
+        assertEquals(0, PlaceholderCensus.of(listOf(p)).total, PlaceholderCensus.of(listOf(p)).byKind.toString())
+    }
+
+    /** ⛔ CONTROL. Under `&&` the argument runs only sometimes: hoisting its jump would run it always. Refused. */
+    @Test
+    fun anElvisInAConditionalArgumentIsRefused() {
+        val p = parse("""
+                fun g(a: Int, b: String) = a > 0
+                fun f(c: Boolean, s: String?): Boolean { return c && g(1, s ?: return false) }
         """)
         val census = PlaceholderCensus.of(listOf(p))
         assertEquals(setOf("k2-unsupported-expr:KtReturnExpression"), census.byKind.keys, census.byKind.toString())

@@ -94,8 +94,8 @@ class TryAsValueTest : KotlinScanTestBase() {
         assertEquals("{String \$try0;try{\$try0=StringsKt.trim(this.s);}catch(Exception e){\$try0=null;}return \$try0==null?\"\":\$try0;}",
             body("getCatalog"))
         assertEquals("{if(c){return \"X\";}else{throw new IllegalStateException(\"no\");}}", body("type"))
-        assertEquals("{return CollectionsKt.map(xs,x->{try{return StringsKt.trim(x);}catch(Exception e){String \$nullSafe0;" +
-            "try{\$nullSafe0=x.toLowerCase(Locale.ROOT);}catch(Exception e){\$nullSafe0=null;}return \$nullSafe0==null?\"?\":\$nullSafe0;}});}",
+        assertEquals("{return CollectionsKt.map(xs,x->{try{return StringsKt.trim(x);}catch(Exception e){String \$try1;" +
+            "try{\$try1=x.toLowerCase(Locale.ROOT);}catch(Exception e){\$try1=null;}return \$try1==null?\"?\":\$try1;}});}",
             body("all"))
     }
 }

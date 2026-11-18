@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test
  * rest of it all the same: an argument of a call on the spine after nothing but stable reads, the left operand of an
  * operator, or the right operand of an elvis on the spine, whose body then runs in the branch where the left operand
  * is null (and in a chain `a?.let { … } ?: b?.let { … } ?: c`, each link in the branch the one before leaves).
+ * Anything evaluated before it is evaluated into a temporary first (`between`), in any operand evaluated always:
+ * a template, an index. Under `&&` it runs only sometimes, and stays a call (`conditional`).
  */
 class ScopeFunctionInPositionTest : KotlinScanTestBase() {
 
@@ -56,6 +58,11 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
                 fun lambdaOnly(xs: List<StringBuilder?>, b: StringBuilder): List<StringBuilder> = xs.map { it ?: b.also { c -> c.append("n") } }
                 fun unitElvis(a: StringBuilder?, b: StringBuilder, m: MutableMap<Int, String>) { a?.let { m[1] = "p" } ?: run { m.remove(1) } }
                 fun localElvis(a: StringBuilder?, b: StringBuilder): Int { val x = a ?: b.apply { append("g") }; return x.length }
+                fun take3(n: Int, x: StringBuilder, m: Int): Int = n + m
+                fun between(s: StringBuilder): Int = take3(make(), s.apply { append("q") }, make())
+                fun template(s: StringBuilder): String = "<${'$'}{s.apply { append("r") }}>"
+                fun index(xs: IntArray, s: StringBuilder): Int = xs[s.apply { append("t") }.length]
+                fun conditional(c: Boolean, s: StringBuilder): Boolean = c && take(s.apply { append("u") }) > 0
             }
             """.trimIndent() + "\n")
     }
@@ -69,15 +76,15 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
         val census = PlaceholderCensus.of(types)
         val names = listOf("argument", "memberArgument", "statementArgument", "afterACall", "elvis", "safeElvis", "localElvis",
             "chain", "chain3", "elvisRun", "valueRun", "infix", "compared", "nested", "withACall",
-            "whenArm", "lambdaTail", "lambdaOnly", "unitElvis")
+            "whenArm", "lambdaTail", "lambdaOnly", "unitElvis", "between", "template", "index", "conditional")
         val actual = names.joinToString("\n") { "$it: ${body(it)}" }
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
-        // `afterACall`: `make()` runs before the lambda, so inlining it first would move that call; it stays a call
+        // `afterACall`: `make()` runs before the lambda, so it is evaluated into a temporary first
         assertEquals("""
             argument: {s.append("a");} return take(s);
             memberArgument: {s.append("b");} return o.take2(1,s);
             statementArgument: {s.append("c");} take(s);
-            afterACall: return take2(make(),StandardKt.apply(s,${'$'}receiver->${'$'}receiver.append("d")));
+            afterACall: int ${'$'}value0=make(); {s.append("d");} return take2(${'$'}value0,s);
             elvis: StringBuilder ${'$'}elvis0; if(a!=null){${'$'}elvis0=a;}else{{b.append("e");}${'$'}elvis0=b;} return ${'$'}elvis0;
             safeElvis: StringBuilder ${'$'}elvis1; if(a!=null){${'$'}elvis1=a;}else{if(!(b==null)){b.append("f");}${'$'}elvis1=b;} return ${'$'}elvis1;
             localElvis: StringBuilder ${'$'}elvis9; if(a!=null){${'$'}elvis9=a;}else{{b.append("g");}${'$'}elvis9=b;} StringBuilder x=${'$'}elvis9; return x.length;
@@ -93,6 +100,10 @@ class ScopeFunctionInPositionTest : KotlinScanTestBase() {
             lambdaTail: return CollectionsKt.map(xs,it->{StringBuilder y=it;StringBuilder ${'$'}elvis7;if(y!=null){${'$'}elvis7=y;}else{{b.append("m");}${'$'}elvis7=b;}return ${'$'}elvis7;});
             lambdaOnly: return CollectionsKt.map(xs,it->{StringBuilder ${'$'}elvis8;if(it!=null){${'$'}elvis8=it;}else{{b.append("n");}${'$'}elvis8=b;}return ${'$'}elvis8;});
             unitElvis: if(!(a==null)){m.put(1,"p");}else{{m.remove(1);}}
+            between: int ${'$'}value1=make(); {s.append("q");} return take3(${'$'}value1,s,make());
+            template: {s.append("r");} return "<"+s+">";
+            index: {s.append("t");} return xs[s.length];
+            conditional: return c&&take(StandardKt.apply(s,${'$'}receiver->${'$'}receiver.append("u")))>0;
             """.trimIndent(), actual)
     }
 }

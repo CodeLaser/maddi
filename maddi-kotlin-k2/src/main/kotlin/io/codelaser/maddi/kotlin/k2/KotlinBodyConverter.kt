@@ -343,13 +343,6 @@ internal class KotlinBodyConverter(
                     return block.build()
                 }
             }
-            // `fun f() = (x ?: throw E()) as T`
-            if (returning) (spineElvisLowering(body, method, locals, "0", expressionBody = true)
-                ?: spineTryLowering(body, method, locals, "0", expressionBody = true)
-                ?: spineArrayInitLowering(body, method, locals, "0", expressionBody = true))?.let { lowered ->
-                lowered.forEach { block.addStatement(it) }
-                return block.build()
-            }
             val statement = when {
                 body is KtTryExpression -> convertTry(body, method, locals, "0", returning = returning)
                 // ...or a branch with no expression form, `else { throw E() }` (needsStatementForm)
@@ -360,8 +353,9 @@ internal class KotlinBodyConverter(
             if (statement != null) {
                 block.addStatement(indexed(statement, "0"))
             } else {
-                // `fun f() = a?.b()?.c()` is a tail too: hoist its spine above the single returned statement
-                val (hoisted, tailIndex) = hoistBefore(body, method, locals, "0")
+                // `fun f() = a?.b()?.c()` is a tail too: hoist its spine above the single returned statement;
+                // `fun f() = (x ?: throw E()) as T`, `= a ?: try { … }`: what it returns takes any elvis
+                val (hoisted, tailIndex) = hoistBefore(body, method, locals, "0", anyRootElvis = returning)
                 hoisted.forEach { block.addStatement(it) }
                 val expr = convertExpression(body, method, locals)
                 hoistedReads.clear()
@@ -560,7 +554,8 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.hoistNullSafeSpine(statement: KtExpression, method: MethodInfo,
                                              locals: MutableMap<String, Variable>,
-                                             index: String, valueDiscarded: Boolean = false): List<Statement> {
+                                             index: String, valueDiscarded: Boolean = false,
+                                             anyRootElvis: Boolean = true): List<Statement> {
         hoistedReads.clear()
         val root = when (statement) {
             is KtProperty -> if (statement.isLocal) statement.initializer else null
@@ -569,20 +564,309 @@ internal class KotlinBodyConverter(
             else -> statement
         } ?: return listOf()
         val raw = ArrayList<Statement>()
-        hoistOutOfOrderArguments(root, method, locals, raw)
-        // `s?.run { … } == t`, `s.apply { … } to n`, `f(x.let { … }) + 1`: the LEFT operand runs first, of any
-        // operator but an assignment; the elvis is hoistSpineOf's own (#98)
-        var spine = root
-        while (true) spine = when (val r = spine) {
-            is KtBinaryExpression -> r.left?.takeIf { r.operationToken != KtTokens.ELVIS && r.operationToken !in KtTokens.ALL_ASSIGNMENTS } ?: break
-            is KtBinaryExpressionWithTypeRHS -> r.left
-            else -> break
-        }
-        hoistSpineOf(spine, method, locals, index, raw)
-        lowerScopeOnReceiverChain(spine, method, locals, index, valueDiscarded && spine === statement, raw)
+        // `x = …` evaluates its target's receiver first: the right operand's statements move above it only when it
+        // evaluates nothing
+        val unstableTarget = statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ
+            && !isStableTarget(statement.left)
+        val linearization = if (unstableTarget) null else Linearization(method, locals, index, raw, root,
+            rootDiscarded = valueDiscarded && root === statement, anyRootElvis = anyRootElvis)
+        hoistOutOfOrderArguments(root, method, locals, raw, linearization)
+        linearization?.let { linearize(root, it) }
+        hoistSpine(root, method, locals, index, raw)
         // ⚠ indexed only now: the declarations and the statement they precede must sort, and `pad` needs the
         // total (9 temporaries and a statement would otherwise index .10 before .2, as strings)
-        return raw.mapIndexed { i, d -> indexed(d, "$index.${pad(i, raw.size + 1)}") }
+        return raw.mapIndexed { i, d -> reindexed(d, "$index.${pad(i, raw.size + 1)}") }
+    }
+
+    /** [statement] at [index], keeping the range a lowering gave it (a guard's elvis, a hoisted `try`). */
+    private fun reindexed(statement: Statement, index: String): Statement =
+        statement.withSource((statement.source() ?: runtime.noSource()).withIndex(index))
+
+    /** An assignment target whose evaluation does nothing: `x`, `a.b`, `a[i]` of stable reads. */
+    private fun isStableTarget(target: KtExpression?): Boolean = when (val t = target?.let { KtPsiUtil.safeDeparenthesize(it) }) {
+        is KtArrayAccessExpression -> isStableReference(t.arrayExpression) && t.indexExpressions.all { isStableReference(it) }
+        else -> isStableReference(t)
+    }
+
+    // ---- linearization: what must run before a statement, in the order it runs (#98) ------------------------------
+
+    /**
+     * <b>A construct with no expression form, anywhere it is evaluated unconditionally.</b> An inlined scope function
+     * (`x.let { … }`), an elvis whose right operand jumps, throws or is itself such a construct, a `try` or a
+     * statement-form `if` inside an expression, and `Array(n) { … }` all become STATEMENTS whose value a temporary
+     * holds; the expression then reads the temporary, through [hoistedReads]. Those statements run before the
+     * statement that holds the construct, so whatever the source evaluates before it must run before them too. This
+     * walks the expression in evaluation order and, at each node, finds the LAST operand that needs statements: every
+     * operand before it is evaluated into a temporary first ("spilled", unless reading it evaluates nothing), and
+     * the walk continues into that operand. Operands after it stay in place, evaluated after, as in the source:
+     * <pre>
+     *   take(f(), x.let { it + 1 }, g())   ->   F $value0 = f();
+     *                                           int $let1; { $let1 = x + 1; }
+     *                                           take($value0, $let1, g());
+     * </pre>
+     * Evaluation order, per construct ([evaluationOrder]): a receiver, then the arguments as written; an operator's
+     * left operand, then its right; a template's entries; an array and its indices. ⛔ Only what runs
+     * UNCONDITIONALLY: the right operand of `?:`, `&&` and `||`, a safe call's selector, branches and lambda bodies
+     * are not walked, and a construct there stays as it was.
+     *
+     * <p>One rule for every position. It replaces six that each took one: the spine, a receiver chain, an argument
+     * after stable reads, an argument's jump elvis, a spine `try`, a spine `Array(n) { … }` (maddi#220, #98).
+     */
+    private class Linearization(val method: MethodInfo, val locals: MutableMap<String, Variable>, val index: String,
+                                val out: MutableList<Statement>, val root: KtExpression,
+                                val rootDiscarded: Boolean, val anyRootElvis: Boolean) {
+        val needs = java.util.IdentityHashMap<KtExpression, Boolean>()
+    }
+
+    private var valueTemporaries = 0
+
+    private fun KaSession.linearize(e: KtExpression, l: Linearization) {
+        if (isHoisted(e) || lowerNode(e, l)) return
+        val operands = evaluationOrder(e)
+        val k = operands.indexOfLast { needsStatements(it, l) }
+        if (k < 0) return
+        for (i in 0 until k) spill(operands[i], l)
+        linearize(operands[k], l)
+    }
+
+    private fun KaSession.needsStatements(e: KtExpression, l: Linearization): Boolean =
+        !isHoisted(e) && l.needs.getOrPut(e) { isNode(e, l) || evaluationOrder(e).any { needsStatements(it, l) } }
+
+    private fun isHoisted(e: KtExpression): Boolean =
+        hoistedReads.containsKey(e) || hoistedReads.containsKey(KtPsiUtil.safeDeparenthesize(e))
+
+    private fun hoistedRead(e: KtExpression): Variable? = hoistedReads[e] ?: hoistedReads[KtPsiUtil.safeDeparenthesize(e)]
+
+    /** The operands of [e] evaluated unconditionally, in evaluation order; none for a construct not walked. */
+    private fun evaluationOrder(e: KtExpression): List<KtExpression> = when (e) {
+        is KtParenthesizedExpression -> listOfNotNull(e.expression)
+        is KtAnnotatedExpression -> listOfNotNull(e.baseExpression)
+        is KtSafeQualifiedExpression -> listOf(e.receiverExpression)
+        is KtDotQualifiedExpression -> listOf(e.receiverExpression) + ((e.selectorExpression as? KtCallExpression)?.let { argumentsOf(it) } ?: listOf())
+        is KtCallExpression -> if (e.calleeExpression is KtNameReferenceExpression) argumentsOf(e) else listOf()
+        is KtBinaryExpressionWithTypeRHS -> listOf(e.left)
+        is KtIsExpression -> listOf(e.leftHandSide)
+        is KtBinaryExpression -> when (e.operationToken) {
+            // `in` as the spine always took it: the left operand only
+            KtTokens.ELVIS, KtTokens.ANDAND, KtTokens.OROR, KtTokens.IN_KEYWORD, KtTokens.NOT_IN -> listOfNotNull(e.left)
+            in KtTokens.ALL_ASSIGNMENTS -> listOf()
+            else -> listOfNotNull(e.left, e.right)
+        }
+        is KtPrefixExpression -> if (e.operationToken == KtTokens.PLUSPLUS || e.operationToken == KtTokens.MINUSMINUS) listOf()
+            else listOfNotNull(e.baseExpression)
+        is KtPostfixExpression -> if (e.operationToken == KtTokens.EXCLEXCL) listOfNotNull(e.baseExpression) else listOf()
+        is KtArrayAccessExpression -> listOfNotNull(e.arrayExpression) + e.indexExpressions
+        is KtStringTemplateExpression -> e.entries.mapNotNull { it.expression }
+        else -> listOf()
+    }
+
+    /** A call's arguments as written, which is the order they are evaluated in, named or not; a trailing lambda is none. */
+    private fun argumentsOf(call: KtCallExpression): List<KtExpression> =
+        call.valueArguments.filter { it !is KtLambdaArgument }.mapNotNull { it.getArgumentExpression() }
+
+    /** Whether [e] is itself lowered to statements; see [lowerNode]. */
+    private fun KaSession.isNode(e: KtExpression, l: Linearization): Boolean {
+        scopeCall(e)?.let { sc -> return (l.rootDiscarded && e === l.root) || yieldsAValue(sc) }
+        return when (e) {
+            is KtBinaryExpression -> e.operationToken == KtTokens.ELVIS && hasNoExpressionForm(e.right)
+                // the statement's own elvis with a jump: [controlFlowElvisLowering] and a tail's conversion take it
+                && (e !== l.root || l.anyRootElvis || rightIsScopeCall(e))
+            // the statement's own `try` or `if` is [convertTry]'s, [convertValueIf]'s
+            is KtTryExpression -> e !== l.root
+            is KtIfExpression -> e !== l.root && e.`else` != null && e.needsStatementForm()
+            is KtCallExpression -> isArrayInit(e)
+            else -> false
+        }
+    }
+
+    /** An inlined scope function in a value position needs a value: `apply`/`also`'s receiver, or a body's non-Unit result. */
+    private fun KaSession.yieldsAValue(sc: ScopeCall): Boolean = sc.kind.valueIsReceiver
+        || ((sc.lambda ?: sc.function)?.expressionType as? KaFunctionType)?.returnType?.isUnitType == false
+
+    private fun KaSession.isArrayInit(call: KtCallExpression): Boolean {
+        if (call.valueArguments.size != 2 || call.valueArguments[1].getArgumentExpression() !is KtLambdaExpression) return false
+        val owner = (call.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol)?.containingClassId ?: return false
+        return owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in JVM_ARRAY_CLASSES
+    }
+
+    /**
+     * [e] evaluated into a temporary now, so that what follows it in the walk can run its statements before the
+     * statement and still after [e]. A read that evaluates nothing stays where it is.
+     */
+    private fun KaSession.spill(e: KtExpression, l: Linearization) {
+        linearize(e, l)
+        hoistSpine(e, l.method, l.locals, l.index, l.out)
+        if (isHoisted(e) || evaluatesNothing(e)) return
+        val type = e.expressionType?.let { mapType(it, l.method.typeInfo()) } ?: runtime.objectParameterizedType()
+        val name = "\$value${valueTemporaries++}"
+        val temporary = runtime.newLocalVariable(name, type, preservingHoistedReads { convertExpression(e, l.method, l.locals) })
+        l.locals[name] = temporary
+        l.out.add(runtime.newLocalVariableCreation(temporary))
+        hoistedReads[e] = temporary
+    }
+
+    /** Whether evaluating [e] does nothing a move could reorder: a name, `this`, a constant, a lambda, a class literal. */
+    private fun KaSession.evaluatesNothing(e: KtExpression): Boolean = when (val d = KtPsiUtil.safeDeparenthesize(e)) {
+        is KtNameReferenceExpression, is KtThisExpression, is KtSuperExpression, is KtConstantExpression,
+        is KtLambdaExpression, is KtClassLiteralExpression -> true
+        is KtDotQualifiedExpression -> d.selectorExpression is KtNameReferenceExpression && evaluatesNothing(d.receiverExpression)
+        is KtCallableReferenceExpression -> d.receiverExpression?.let { evaluatesNothing(it) } ?: true
+        is KtStringTemplateExpression -> !d.hasInterpolation()
+        else -> d.evaluate() != null
+    }
+
+    /**
+     * Lowers [e] when it is a node ([isNode]): its statements to the linearization's output, its value registered in
+     * [hoistedReads]. Its own first operand (a receiver, an elvis's left) is walked first. False when [e] is no node.
+     * A construct that turns out not to lower after all (a scope function [lowerScopeCall] refuses) is left as it is.
+     */
+    private fun KaSession.lowerNode(e: KtExpression, l: Linearization): Boolean {
+        if (!isNode(e, l)) return false
+        val sc = scopeCall(e)
+        val value: Variable? = when {
+            sc != null -> {
+                val discarded = l.rootDiscarded && e === l.root
+                sc.receiver?.let { linearize(it, l) }
+                // a receiver read twice, null-tested then bound, is evaluated once: `f()?.let { … }`
+                if (sc.safe) hoistSpineOf(e, l.method, l.locals, l.index, l.out)
+                else sc.receiver?.let { hoistSpineOf(it, l.method, l.locals, l.index, l.out) }
+                val before = l.out.size
+                val v = preservingHoistedReads { lowerScopeCall(sc, l.method, l.locals, l.index, !discarded, l.out) }
+                if (discarded) {
+                    if (l.out.size > before) discardedScopeStatements.add(e)
+                    null
+                } else v
+            }
+            e is KtBinaryExpression -> {
+                e.left?.let { linearize(it, l) }
+                preservingHoistedReads { lowerElvis(e, l) }
+            }
+            e is KtTryExpression || e is KtIfExpression -> preservingHoistedReads { lowerValueStatement(e, l) }
+            e is KtCallExpression -> {
+                // the size argument is evaluated first
+                e.valueArguments.firstOrNull()?.getArgumentExpression()?.let { linearize(it, l) }
+                arrayFill(e, "\$array${elvisTemporaries++}", l.method, l.locals, "${l.index}.${l.out.size}")
+                    ?.let { (array, fill) -> l.locals[array.simpleName()] = array; l.out.addAll(fill); array }
+            }
+            else -> null
+        }
+        if (value != null) hoistedReads[e] = value
+        return true
+    }
+
+    /**
+     * <b>An elvis whose right operand has no expression form</b> -- a jump, a `try`, a value-`if` that needs its
+     * statement form, an inlined scope function -- as a temporary assigned in an `if`:
+     * <pre>
+     *   return (l.find { … } ?: throw E()) as T   ->   T $elvis0 = l.find { … };
+     *                                                  T $elvis1;
+     *                                                  if ($elvis0 != null) $elvis1 = $elvis0; else throw new E();
+     *                                                  return (T) $elvis1;
+     * </pre>
+     * A stable left operand is read twice instead; an inlined scope function's value is read from its own local
+     * (`a?.let { … } ?: b?.let { … }`, Exposed's Query). Javalin's `a ?: if (c) f else null ?: throw E()` is this
+     * too: Kotlin binds the inner elvis to the ELSE branch, so the right operand is a value-`if`.
+     *
+     * <p>An ARGUMENT that jumps, `check(p, x?.y() ?: return)`, keeps the shorter form, the left's temporary being
+     * the value: `T $elvis0 = x?.y(); if ($elvis0 == null) return; check(p, $elvis0);`.
+     */
+    private fun KaSession.lowerElvis(elvis: KtBinaryExpression, l: Linearization): Variable? {
+        val method = l.method
+        val locals = l.locals
+        val out = l.out
+        val left = elvis.left ?: return null
+        val right = elvis.right ?: return null
+        val read = { v: Variable -> runtime.newVariableExpressionBuilder().setVariable(v).setSource(runtime.noSource()).build() }
+        if (elvis.parent is KtValueArgument && isControlFlowElvis(elvis)) {
+            val type = left.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
+            val name = "\$elvis${elvisTemporaries++}"
+            val temporary = runtime.newLocalVariable(name, type, convertExpression(left, method, locals))
+            locals[name] = temporary
+            out.add(runtime.newLocalVariableCreation(temporary))
+            val guardIndex = "${l.index}.${out.size}"
+            out.add(runtime.newIfElseBuilder()
+                .setExpression(runtime.newEquals(read(temporary), runtime.nullConstant()))
+                .setIfBlock(statementsToBlock(listOf(right), method, locals, "$guardIndex.0"))
+                .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$guardIndex.1")).build())
+                .setSource(source(elvis, guardIndex))
+                .build())
+            return temporary
+        }
+        val tested = hoistedRead(left) ?: if (isStableReference(left)) null else {
+            val type = left.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
+            val name = "\$elvis${elvisTemporaries++}"
+            runtime.newLocalVariable(name, type, convertExpression(left, method, locals)).also {
+                locals[name] = it
+                out.add(runtime.newLocalVariableCreation(it))
+            }
+        }
+        val leftValue = { tested?.let(read) ?: convertExpression(left, method, locals) }
+        val type = elvis.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
+        val name = "\$elvis${elvisTemporaries++}"
+        val value = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+        locals[name] = value
+        out.add(runtime.newLocalVariableCreation(value))
+        val guardIndex = "${l.index}.${out.size}"
+        val notNull = runtime.newBinaryOperatorBuilder()
+            .setLhs(leftValue()).setRhs(runtime.nullConstant())
+            .setOperator(runtime.notEqualsOperatorObject()).setPrecedence(runtime.precedenceEquality())
+            .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
+        val elseBlock = convertAssigningBlock(value, right, method, locals, "$guardIndex.1")
+        out.add(runtime.newIfElseBuilder().setExpression(notNull)
+            .setIfBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$guardIndex.0"))
+                .addStatement(indexed(runtime.newExpressionAsStatement(runtime.newAssignment(read(value), leftValue())),
+                    "$guardIndex.0.0")).build())
+            .setElseBlock(elseBlock)
+            .setSource(source(elvis, guardIndex)).build())
+        return value
+    }
+
+    /**
+     * <b>A `try`, or an `if` with no expression form, inside an expression</b>: `try { … } catch … ?: x`,
+     * `(try { … } catch …).f()` (Exposed's `get() = try { connection.catalog } catch … ?: …`, maddi#220), or
+     * `return if (c) { a } else { …; return b } as T` (Exposed's QueryAlias.get): a temporary, assigned in each
+     * branch. One that IS the statement's value is [convertTry]'s or [convertValueIf]'s own.
+     */
+    private fun KaSession.lowerValueStatement(e: KtExpression, l: Linearization): Variable {
+        val type = e.expressionType?.let { mapType(it, l.method.typeInfo()) } ?: runtime.objectParameterizedType()
+        val name = (if (e is KtIfExpression) "\$if" else "\$try") + elvisTemporaries++
+        val value = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+        l.locals[name] = value
+        l.out.add(runtime.newLocalVariableCreation(value))
+        val at = "${l.index}.${l.out.size}"
+        l.out.add(if (e is KtIfExpression) convertValueIf(e, l.method, l.locals, at, returning = false, assignTo = value)
+            else convertTry(e as KtTryExpression, l.method, l.locals, at, assignTo = value).withSource(source(e, at)))
+        return value
+    }
+
+    /** [root]'s null-safe spine ([hoistSpineOf]), from its first-evaluated operand down; nothing already hoisted. */
+    private fun KaSession.hoistSpine(root: KtExpression, method: MethodInfo, locals: MutableMap<String, Variable>,
+                                     index: String, out: MutableList<Statement>) {
+        var spine = root
+        while (true) {
+            if (isHoisted(spine) || spine in discardedScopeStatements) return
+            // `s?.run { … } == t`, `s.apply { … } to n`: the LEFT operand runs first, of any operator but an assignment
+            spine = when (val r = spine) {
+                is KtBinaryExpression -> r.left?.takeIf { r.operationToken != KtTokens.ELVIS && r.operationToken !in KtTokens.ALL_ASSIGNMENTS } ?: break
+                is KtBinaryExpressionWithTypeRHS -> r.left
+                else -> break
+            }
+        }
+        hoistSpineOf(spine, method, locals, index, out)
+    }
+
+    /**
+     * Converting a body (a lambda's, an object literal's) converts its statements, each of which starts its own
+     * [hoistedReads]: the enclosing statement's are put back after, for the operands it converts later.
+     */
+    private inline fun <T> preservingHoistedReads(convert: () -> T): T {
+        val saved = java.util.IdentityHashMap(hoistedReads)
+        try {
+            return convert()
+        } finally {
+            hoistedReads.clear()
+            hoistedReads.putAll(saved)
+        }
     }
 
     /**
@@ -595,7 +879,7 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.hoistOutOfOrderArguments(root: KtExpression, method: MethodInfo,
                                                    locals: MutableMap<String, Variable>,
-                                                   declarations: MutableList<Statement>) {
+                                                   declarations: MutableList<Statement>, l: Linearization?) {
         val call = when (val e = KtPsiUtil.safeDeparenthesize(root)) {
             is KtCallExpression -> e
             is KtDotQualifiedExpression -> (e.selectorExpression as? KtCallExpression)
@@ -614,6 +898,10 @@ internal class KotlinBodyConverter(
             (e is org.jetbrains.kotlin.psi.KtStringTemplateExpression && !e.hasInterpolation()) }
         if (order == order.sorted() || written.all { (e, _) -> effectFree(e) }) return
         written.forEach { (expression, _) ->
+            // an argument with statements of its own runs them here, in its turn; one that evaluates nothing needs no
+            // temporary to keep its place
+            l?.let { linearize(expression, it) }
+            if (isHoisted(expression) || evaluatesNothing(expression)) return@forEach
             val type = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
             val temporary = runtime.newLocalVariable("\$arg${argumentTemporaries++}", type,
                 convertExpression(expression, method, locals))
@@ -636,6 +924,7 @@ internal class KotlinBodyConverter(
     private fun KaSession.hoistSpineOf(expression: KtExpression, method: MethodInfo,
                                        locals: MutableMap<String, Variable>, index: String,
                                        declarations: MutableList<Statement>) {
+        if (isHoisted(expression) || expression in discardedScopeStatements) return
         val tested = when {
             expression is KtSafeQualifiedExpression -> expression.receiverExpression
             expression is KtBinaryExpression && expression.operationToken == KtTokens.ELVIS -> expression.left
@@ -648,6 +937,7 @@ internal class KotlinBodyConverter(
             else -> return
         } ?: return
         hoistSpineOf(tested, method, locals, index, declarations)   // innermost first
+        if (isHoisted(tested)) return
         // a scope function on the spine (`x?.let { … } ?: y`): its body inlined here, its value read after (#88)
         scopeCall(tested)?.let { sc -> lowerScopeCall(sc, method, locals, index, true, declarations)
             ?.let { hoistedReads[tested] = it; return } }
@@ -1112,41 +1402,6 @@ internal class KotlinBodyConverter(
         }
     }
 
-    /**
-     * The root of a statement's value, or a receiver down its `.` chain (`x.apply { … }.build()`): evaluated first,
-     * so inlining it before the statement moves nothing. The safe-call and elvis spine is [hoistSpineOf]'s.
-     */
-    private fun KaSession.lowerScopeOnReceiverChain(root: KtExpression, method: MethodInfo,
-                                                    locals: MutableMap<String, Variable>, index: String,
-                                                    rootDiscarded: Boolean, out: MutableList<Statement>) {
-        var node: KtExpression? = root
-        while (node != null && !hoistedReads.containsKey(node)) {
-            // `f(a, x.let { … })`, `r.m(x.apply { … })`: the call's argument, evaluated before the call and after
-            // nothing but stable reads (#98)
-            // (an argument that is no scope call leaves the node to the walk: `with(f()) { … }` is one itself)
-            firstEvaluatedArgument(node)?.takeIf { !hoistedReads.containsKey(it) }?.let { argument ->
-                scopeCall(argument)?.let { asc ->
-                    lowerScopeCall(asc, method, locals, index, true, out)?.let { hoistedReads[argument] = it }
-                    return
-                }
-            }
-            val sc = scopeCall(node)
-            if (sc != null) {
-                val discarded = rootDiscarded && node === root
-                val before = out.size
-                val value = lowerScopeCall(sc, method, locals, index, !discarded, out)
-                if (value != null && !discarded) hoistedReads[node] = value
-                if (discarded && out.size > before) discardedScopeStatements.add(node)
-                return
-            }
-            node = when (node) {
-                is KtDotQualifiedExpression -> node.receiverExpression
-                is KtParenthesizedExpression -> node.expression
-                else -> null
-            }
-        }
-    }
-
     /** A statement that IS a scope call, its value discarded (`sb.apply { … }`, `x?.let { f(it) }`): the inlined body alone. */
     private fun KaSession.scopeCallStatementLowering(statement: KtExpression, method: MethodInfo,
                                                      locals: MutableMap<String, Variable>, index: String): List<Statement>? {
@@ -1172,15 +1427,11 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.hoistBefore(expression: KtExpression, method: MethodInfo,
                                       locals: MutableMap<String, Variable>,
-                                      index: String): Pair<List<Statement>, String> {
-        // an elvis whose right operand is a scope function: lowered, as for a statement (#98). Only that: a jump or a
-        // `try` on a tail's elvis has its own conversions (controlFlowElvisLowering, addAssigningTail)
-        val tail = unannotated(expression)
-        if (tail !is KtReturnExpression && tail !is KtProperty && spineElvis(tail)?.let { rightIsScopeCall(it) } == true) {
-            hoistedReads.clear()
-            spineElvisPrefix(tail, method, locals, index)?.let { (prefix, _) -> return prefix to "$index.${prefix.size}" }
-        }
-        val hoisted = hoistNullSafeSpine(expression, method, locals, index)
+                                      index: String, anyRootElvis: Boolean = false): Pair<List<Statement>, String> {
+        // the tail's own elvis only when its right operand is a scope function (#98): one with a jump or a `try`
+        // has its own conversions (controlFlowElvisLowering, addAssigningTail); an expression body's returned value
+        // takes any
+        val hoisted = hoistNullSafeSpine(expression, method, locals, index, anyRootElvis = anyRootElvis)
         return hoisted to if (hoisted.isEmpty()) index else hoistedStatementIndex(index, hoisted.size)
     }
 
@@ -1285,12 +1536,8 @@ internal class KotlinBodyConverter(
                                             index: String): List<Statement>? {
         val s = unannotated(annotated)
         return (controlFlowElvisLowering(s, method, locals, index)
-            ?: argumentElvisLowering(s, method, locals, index)
             ?: unitScopeElvisLowering(s, method, locals, index)
-            ?: spineElvisLowering(s, method, locals, index)
-            ?: spineTryLowering(s, method, locals, index)
             ?: arrayInitLowering(s, method, locals, index)
-            ?: spineArrayInitLowering(s, method, locals, index)
             ?: destructuringLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
             ?: scopeCallStatementLowering(s, method, locals, index)
@@ -1542,229 +1789,6 @@ internal class KotlinBodyConverter(
      * Whether re-evaluating [expression] is free of consequence: a name, `this`, a constant, or a dotted
      * chain of those. Anything else — a call, an index, a constructor — must not be evaluated twice.
      */
-    /**
-     * <b>`f(a, x ?: return)` — a jump in ARGUMENT position</b>, in a call that is the whole statement:
-     * <pre>
-     *   check(p, x?.y() ?: return)   ->   T $elvis0 = x?.y();
-     *                                     if ($elvis0 == null) return;
-     *                                     check(p, $elvis0);
-     * </pre>
-     * The argument becomes a read of the temporary through [hoistedReads], so the call is converted as always.
-     * ⛔ Only when nothing the source evaluates BEFORE that argument can observe the move: the receiver and every
-     * earlier argument (in source order, which is evaluation order, named or not) must be a stable reference or a
-     * constant. Anything else keeps the placeholder, as [controlFlowElvisLowering] refuses what it cannot keep in
-     * order.
-     */
-    private fun KaSession.argumentElvisLowering(statement: KtExpression, method: MethodInfo,
-                                                locals: MutableMap<String, Variable>, index: String): List<Statement>? {
-        val call = when (statement) {
-            is KtCallExpression -> statement
-            is KtDotQualifiedExpression -> (statement.selectorExpression as? KtCallExpression)
-                ?.takeIf { isStableReference(statement.receiverExpression) }
-            else -> null
-        } ?: return null
-        val arguments = call.valueArguments
-        val k = arguments.indexOfFirst { isControlFlowElvis(it.getArgumentExpression()) }
-        if (k < 0) return null
-        if (arguments.take(k).any { !isStableReference(it.getArgumentExpression()) }) return null
-        val elvis = arguments[k].getArgumentExpression() as KtBinaryExpression
-        val left = elvis.left ?: return null
-        val control = elvis.right ?: return null
-        val type = left.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
-        val name = "\$elvis${elvisTemporaries++}"
-        val temporary = runtime.newLocalVariable(name, type, convertExpression(left, method, locals))
-        locals[name] = temporary
-        val read = { runtime.newVariableExpressionBuilder().setVariable(temporary).setSource(runtime.noSource()).build() }
-        val guard = runtime.newIfElseBuilder()
-            .setExpression(runtime.newEquals(read(), runtime.nullConstant()))
-            .setIfBlock(statementsToBlock(listOf(control), method, locals, "$index.1.0"))
-            .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$index.1.1")).build())
-            .setSource(source(elvis, "$index.1"))
-            .build()
-        hoistedReads[elvis] = temporary
-        val converted = try {
-            convertStatement(statement, method, locals, "$index.2")
-        } finally {
-            hoistedReads.remove(elvis)
-        }
-        return listOf(indexed(runtime.newLocalVariableCreation(temporary), "$index.0"), guard, converted)
-    }
-
-    /**
-     * <b>`(x ?: throw E()) as T`, `v = a ?: try { f() } catch (e: E) { return@l w }`</b> -- an elvis whose right
-     * operand has no expression form (a jump, a `try`, a value-`if` that needs its statement form), at a position
-     * [controlFlowElvisLowering] does not take: inside a cast, a receiver, or with a right operand that is not a
-     * bare jump. Its value goes to a temporary, which the statement then reads through [hoistedReads]:
-     * <pre>
-     *   return (l.find { … } ?: throw E()) as T   ->   T $elvis0 = l.find { … };
-     *                                                  T $elvis1;
-     *                                                  if ($elvis0 != null) $elvis1 = $elvis0; else throw new E();
-     *                                                  return (T) $elvis1;
-     * </pre>
-     * ⛔ Only on the statement's SPINE -- the part evaluated first, unconditionally (through parentheses, casts and
-     * receivers): the move runs nothing earlier than the source does. Javalin's `a ?: if (c) f else null ?: throw E()`
-     * is this too: Kotlin binds the inner elvis to the ELSE branch, so the right operand is a value-`if`.
-     *
-     * @param expressionBody the function's expression body when [statement] is one: the tail returns its value
-     */
-    private fun KaSession.spineElvisLowering(statement: KtExpression, method: MethodInfo,
-                                             locals: MutableMap<String, Variable>, index: String,
-                                             expressionBody: Boolean = false): List<Statement>? {
-        val (out, elvis) = spineElvisPrefix(statement, method, locals, index, expressionBody) ?: return null
-        val tailIndex = "$index.${out.size}"
-        try {
-            out.add(if (expressionBody) indexed(runtime.newReturnStatement(convertExpression(statement, method, locals)), tailIndex)
-            else convertStatement(statement, method, locals, tailIndex))
-        } finally {
-            hoistedReads.remove(elvis)
-        }
-        return out
-    }
-
-    /**
-     * What [spineElvisLowering] puts BEFORE its statement: the temporaries and the guard, with the elvis registered in
-     * [hoistedReads] for the statement's conversion to read. Apart, for a block's TAIL ([hoistBefore]), which its
-     * caller converts: a `when` arm's or a lambda's `a?.let { … } ?: b?.let { … }` (Exposed's Query, #98).
-     */
-    private fun KaSession.spineElvisPrefix(statement: KtExpression, method: MethodInfo,
-                                           locals: MutableMap<String, Variable>, index: String,
-                                           expressionBody: Boolean = false): Pair<MutableList<Statement>, KtExpression>? {
-        val root = when {
-            expressionBody -> statement
-            statement is KtProperty -> if (statement.isLocal) statement.initializer else null
-            statement is KtReturnExpression -> statement.returnedExpression
-            statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ ->
-                statement.right?.takeIf { isStableReference(statement.left) }
-            else -> statement
-        } ?: return null
-        val elvis = spineElvis(root) ?: return null
-        val left = elvis.left ?: return null
-        val right = elvis.right ?: return null
-        val out = ArrayList<Statement>()
-        val read = { v: Variable -> runtime.newVariableExpressionBuilder().setVariable(v).setSource(runtime.noSource()).build() }
-        // `x?.let { … } ?: y?.let { … }`: the left operand's scope function is inlined as on any spine (#88)
-        val leftScope = ArrayList<Statement>()
-        val scopeValue = scopeCall(KtPsiUtil.safeDeparenthesize(left))
-            ?.let { sc -> lowerScopeCall(sc, method, locals, "$index.0", true, leftScope) }
-        leftScope.forEach { out.add(indexed(it, "$index.${out.size}")) }
-        val tested = if (scopeValue != null) scopeValue else if (isStableReference(left)) null else {
-            val type = left.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
-            val name = "\$elvis${elvisTemporaries++}"
-            runtime.newLocalVariable(name, type, convertExpression(left, method, locals)).also {
-                locals[name] = it
-                out.add(indexed(runtime.newLocalVariableCreation(it), "$index.${out.size}"))
-            }
-        }
-        val leftValue = { tested?.let(read) ?: convertExpression(left, method, locals) }
-        val type = elvis.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
-        val name = "\$elvis${elvisTemporaries++}"
-        val value = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
-        locals[name] = value
-        out.add(indexed(runtime.newLocalVariableCreation(value), "$index.${out.size}"))
-        val guardIndex = "$index.${out.size}"
-        val notNull = runtime.newBinaryOperatorBuilder()
-            .setLhs(leftValue()).setRhs(runtime.nullConstant())
-            .setOperator(runtime.notEqualsOperatorObject()).setPrecedence(runtime.precedenceEquality())
-            .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
-        // ⚠ the else block first: convertAssigningBlock clears hoistedReads, so the read below is registered after it
-        val elseBlock = convertAssigningBlock(value, right, method, locals, "$guardIndex.1")
-        out.add(runtime.newIfElseBuilder().setExpression(notNull)
-            .setIfBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$guardIndex.0"))
-                .addStatement(indexed(runtime.newExpressionAsStatement(runtime.newAssignment(read(value), leftValue())),
-                    "$guardIndex.0.0")).build())
-            .setElseBlock(elseBlock)
-            .setSource(source(elvis, guardIndex)).build())
-        hoistedReads[elvis] = value
-        return out to elvis
-    }
-
-    /**
-     * <b>`try { … } catch … ?: x`, `(try { … } catch …).f()`</b> -- a `try` used as a value INSIDE a statement, on its
-     * spine (evaluated first, unconditionally): its value goes to a temporary, assigned in each branch, which the
-     * statement then reads through [hoistedReads] (Exposed's `get() = try { connection.catalog } catch … ?: …`,
-     * maddi#220). A `try` that IS the statement's value is [convertTry]'s own.
-     */
-    private fun KaSession.spineTryLowering(statement: KtExpression, method: MethodInfo,
-                                           locals: MutableMap<String, Variable>, index: String,
-                                           expressionBody: Boolean = false): List<Statement>? {
-        val root = when {
-            expressionBody -> statement
-            statement is KtProperty -> if (statement.isLocal) statement.initializer else null
-            statement is KtReturnExpression -> statement.returnedExpression
-            statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ ->
-                statement.right?.takeIf { isStableReference(statement.left) }
-            else -> statement
-        } ?: return null
-        val tryExpression = spineTry(root) ?: return null
-        val type = tryExpression.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
-        val name = (if (tryExpression is KtIfExpression) "\$if" else "\$try") + elvisTemporaries++
-        val value = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
-        locals[name] = value
-        val out = ArrayList<Statement>()
-        out.add(indexed(runtime.newLocalVariableCreation(value), "$index.0"))
-        out.add(if (tryExpression is KtIfExpression)
-                    convertValueIf(tryExpression, method, locals, "$index.1", returning = false, assignTo = value)
-                else convertTry(tryExpression as KtTryExpression, method, locals, "$index.1", assignTo = value)
-                    .withSource(source(tryExpression, "$index.1")))
-        hoistedReads[tryExpression] = value
-        try {
-            out.add(if (expressionBody) indexed(runtime.newReturnStatement(convertExpression(statement, method, locals)), "$index.2")
-            else convertStatement(statement, method, locals, "$index.2"))
-        } finally {
-            hoistedReads.remove(tryExpression)
-        }
-        return out
-    }
-
-    /**
-     * The `try` [spineTryLowering] lowers: on [root]'s spine, strictly inside it. Or an `if` with no expression form
-     * there, a branch of several statements or one that jumps: `return if (c) { a } else { …; return b } as T`
-     * (Exposed's QueryAlias.get, maddi#220), assigned in each branch just the same.
-     */
-    private fun spineTry(root: KtExpression): KtExpression? {
-        var e: KtExpression = root
-        var inside = false
-        while (true) {
-            e = when (e) {
-                is KtTryExpression -> return e.takeIf { inside }
-                is KtIfExpression -> return e.takeIf { inside && e.`else` != null && e.needsStatementForm() }
-                is KtAnnotatedExpression -> e.baseExpression ?: return null
-                is KtParenthesizedExpression -> e.expression ?: return null
-                is KtBinaryExpressionWithTypeRHS -> e.left
-                is KtDotQualifiedExpression -> e.receiverExpression
-                // the LEFT operand runs first: of an elvis, and of any operator but an assignment
-                is KtBinaryExpression -> if (e.operationToken in KtTokens.ALL_ASSIGNMENTS) return null else e.left ?: return null
-                else -> return null
-            }
-            inside = true
-        }
-    }
-
-    /** The elvis [spineElvisLowering] lowers: first on [root]'s spine, with a right operand that has no expression form. */
-    private fun KaSession.spineElvis(root: KtExpression): KtBinaryExpression? {
-        var e: KtExpression = root
-        while (true) e = when (e) {
-            is KtAnnotatedExpression -> e.baseExpression ?: return null
-            is KtParenthesizedExpression -> e.expression ?: return null
-            is KtBinaryExpressionWithTypeRHS -> e.left
-            is KtDotQualifiedExpression -> e.receiverExpression
-            is KtBinaryExpression -> {
-                // `(a ?: b.also { … }) ?: c`: the inner elvis is the outer one's left operand, on the spine too
-                if (e.operationToken == KtTokens.ELVIS) return e.takeIf { hasNoExpressionForm(it.right) }
-                    ?: spineElvis(e.left ?: return null)
-                // `a + (x ?: throw E())`: the left operand runs first, so the right is on the spine when the left is
-                // free to read at any moment (Exposed's `allColumnsInDataSet + (… ?: throw …)`, maddi#220). Not past
-                // `&&`/`||`, whose right operand runs only sometimes, nor an assignment.
-                if (e.operationToken == KtTokens.ANDAND || e.operationToken == KtTokens.OROR
-                    || e.operationToken in KtTokens.ALL_ASSIGNMENTS) return null
-                spineElvis(e.left ?: return null)?.let { return it }
-                if (!isStableReference(e.left)) return null
-                e.right ?: return null
-            }
-            else -> return null
-        }
-    }
-
     private fun KaSession.rightIsScopeCall(elvis: KtBinaryExpression): Boolean =
         elvis.right?.let { KtPsiUtil.safeDeparenthesize(unannotated(it)) }?.let { scopeCall(it) } != null
 
@@ -1801,81 +1825,6 @@ internal class KotlinBodyConverter(
             locals[name] = array
             statements
         }
-    }
-
-    /**
-     * <b>`Array(n) { … }.joinToString()`</b>: the same filling loop, when the array is not a local's initializer but
-     * sits on the statement's SPINE (a receiver, a cast, parentheses: evaluated first, unconditionally). The loop
-     * fills a temporary, which the statement then reads through [hoistedReads] (javalin's TestResponse).
-     */
-    private fun KaSession.spineArrayInitLowering(statement: KtExpression, method: MethodInfo,
-                                                 locals: MutableMap<String, Variable>, index: String,
-                                                 expressionBody: Boolean = false): List<Statement>? {
-        val root = when {
-            expressionBody -> statement
-            statement is KtProperty -> if (statement.isLocal) statement.initializer else null
-            statement is KtReturnExpression -> statement.returnedExpression
-            statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ ->
-                statement.right?.takeIf { isStableReference(statement.left) }
-            else -> statement
-        } ?: return null
-        var e: KtExpression = root
-        while (true) e = when (e) {
-            is KtAnnotatedExpression -> e.baseExpression ?: return null
-            is KtParenthesizedExpression -> e.expression ?: return null
-            is KtBinaryExpressionWithTypeRHS -> e.left
-            is KtDotQualifiedExpression -> e.receiverExpression
-            else -> break
-        }
-        val call = arrayInitArgument(root) ?: e as? KtCallExpression ?: return null
-        // a temporary's number only for a Kotlin array constructor: every other call passes through here
-        val owner = (call.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol)?.containingClassId
-        if (owner?.packageFqName?.asString() != "kotlin" || owner.shortClassName.asString() !in JVM_ARRAY_CLASSES) return null
-        val (array, fill) = arrayFill(call, "\$array${elvisTemporaries++}", method, locals, index) ?: return null
-        locals[array.simpleName()] = array
-        val tailIndex = "$index.${fill.size}"
-        hoistedReads[call] = array
-        val tail = try {
-            if (expressionBody) indexed(runtime.newReturnStatement(convertExpression(statement, method, locals)), tailIndex)
-            else convertStatement(statement, method, locals, tailIndex)
-        } finally {
-            hoistedReads.remove(call)
-        }
-        return fill + tail
-    }
-
-    /**
-     * `s.setArray(i, this, Array(n) { … })`: the root call's ARGUMENT, when the receiver and every argument before it
-     * are stable reads (evaluating the array first then moves no evaluation) and none is named. Exposed's
-     * ArrayColumnType.setParameter (maddi#220).
-     */
-    private fun KaSession.arrayInitArgument(root: KtExpression): KtCallExpression? {
-        val a = firstEvaluatedArgument(root) as? KtCallExpression ?: return null
-        val owner = (a.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol)?.containingClassId ?: return null
-        return a.takeIf {
-            owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in JVM_ARRAY_CLASSES
-                && it.lambdaArguments.isNotEmpty()
-        }
-    }
-
-    /**
-     * The first argument of [root]'s call whose evaluation does something, when the call's receiver and every
-     * argument before it are stable reads, constants or lambdas, and none is named or spread: evaluating it before
-     * the statement then moves no evaluation. Deparenthesized; null when there is no such argument.
-     */
-    private fun firstEvaluatedArgument(root: KtExpression): KtExpression? {
-        val call = when (val r = KtPsiUtil.safeDeparenthesize(unannotated(root))) {
-            is KtCallExpression -> r
-            is KtDotQualifiedExpression -> (r.selectorExpression as? KtCallExpression)?.takeIf { isStableReference(r.receiverExpression) }
-            else -> null
-        } ?: return null
-        if (call.valueArguments.any { it.getArgumentName() != null || it.getSpreadElement() != null }) return null
-        for (argument in call.valueArguments) {
-            val a = KtPsiUtil.safeDeparenthesize(argument.getArgumentExpression() ?: return null)
-            if (isStableReference(a) || a is KtLambdaExpression || a is KtCallableReferenceExpression) continue
-            return a
-        }
-        return null
     }
 
     /**
@@ -4404,7 +4353,11 @@ internal class KotlinBodyConverter(
      * not yet resolved). Implicit `it` is materialised when the function type has one parameter.
      */
     private fun KaSession.convertLambda(lambda: KtLambdaExpression, method: MethodInfo,
-                                        locals: Map<String, Variable>, samType: ParameterizedType? = null): Expression {
+                                        locals: Map<String, Variable>, samType: ParameterizedType? = null): Expression =
+        preservingHoistedReads { convertLambdaBody(lambda, method, locals, samType) }
+
+    private fun KaSession.convertLambdaBody(lambda: KtLambdaExpression, method: MethodInfo,
+                                            locals: Map<String, Variable>, samType: ParameterizedType?): Expression {
         val enclosingType = method.typeInfo()
         val anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes())
         anonymousType.builder()
@@ -5469,7 +5422,11 @@ internal class KotlinBodyConverter(
      * anonymous type's members. (Captured outer variables in member bodies are a later refinement.)
      */
     private fun KaSession.convertObjectLiteral(expression: KtObjectLiteralExpression, method: MethodInfo,
-                                               locals: Map<String, Variable>): Expression {
+                                               locals: Map<String, Variable>): Expression =
+        preservingHoistedReads { convertObjectLiteralBody(expression, method, locals) }
+
+    private fun KaSession.convertObjectLiteralBody(expression: KtObjectLiteralExpression, method: MethodInfo,
+                                                   locals: Map<String, Variable>): Expression {
         val symbol = expression.objectDeclaration.symbol as? KaClassSymbol
         val enclosing = method.typeInfo()
         val anon = runtime.newAnonymousType(enclosing, enclosing.builder().getAndIncrementAnonymousTypes())
