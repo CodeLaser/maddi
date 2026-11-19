@@ -50,10 +50,18 @@ chapter only when detail is missing here. Last checked against the code and the 
     Written and read as `@Modified(hc=true)` (modified in the hidden content only; a contract on a bodiless
     declaration, `AnnotationToProperty`/`DecoratorImpl`/`SourceContractMaterializer`). Consumer: the Java→Kotlin
     printer's `List`/`MutableList` choice. Immutability, independence and `@Container` keep the deep property.
-    The book's §"Propagating modifications" (080) describes it. A modified element reached through `∈`/`∋` is
-    hidden for the structural verdict even when its type is concrete (`Leaf.children`), unless the owner's type has
-    another non-static field of a compatible type (assignable either way; `Object` counts, a type-parameter field
-    does not): then it is structural (maddi-mod#117, `Util.hiddenAliasOwner`; book example `Node.first`, test
+    The book's §"Propagating modifications" (080) describes it. A modified element reached through `∈`/`∋`
+    (hidden content) counts structurally when it may also be the owner's accessible content (maddi-mod#130, Bart 2026-11-19): the definition is "the written
+    object is reachable from p by SOME path of accessible fields", accessible judged by DECLARED types (a field only a
+    subclass declares is hidden; type-parameter/`Object` fields and container elements are hidden).
+    `Util.accessibleTypes` = declared types reachable through accessible fields at any depth;
+    `Util.mayBeAccessibleContent` = the written type is assignable either way to one of them (gate
+    `NOACCESSIBLEREACH`; applied in `ShadowModificationPass.project` and the engine's `mayAliasAccessibleField`;
+    widens #117's one-field `Util.hiddenAliasOwner`). Approximations (accepted): (a) a call's modification compares
+    the object plus the application objects it holds, not its JDK containers (else `clearList` loses its read-only
+    `List`); (b) the owner's own type counts only through a field back to it (`Node.first` yes; `Leaf.children` no:
+    `clearLeaves` not structural); (c) the fixpoint engine can't tell a direct write from a call, so it is coarser
+    than the reachability pass. Book §080 `structural-definition`; tests `TestAccessibleReach`,
     `TestBook080Elements`). The step back from a modified container to its elements is computed within one method
     (maddi-mod#113: a co-element of a modified element is modified, in the element's mode: structurally when the
     element's own state is written, maddi-mod#130), not through a call

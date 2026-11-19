@@ -214,7 +214,8 @@ method touches only the elements of its argument.
 In `NonEmptyList<StringBuilder>`, the elements are hidden content because `T` is the list's own type parameter.
 Elements can also be of a concrete type that the owner names.
 By the definition of <<accessible-hidden-content>> (`Counters`), those are accessible content, not hidden content.
-The structural verdict does not follow that definition to the letter, as the next example shows.
+The structural verdict follows that definition, judged by declared types, with three approximations
+(<<structural-definition>>).
 
 .Example {counter:example}, elements of a concrete type and of a type parameter
 [source,java]
@@ -260,22 +261,82 @@ The analyzer gives these verdicts on the parameters:
 |===
 
 * *(1) and (2)* can write to the same object (`node.first == node.children.get(0)`), so one cannot be structural
-and the other not.
-The analyzer counts a modified element as a structural modification of its owner when the owner's type has
-another field whose type is compatible with the element's type (CodeLaser/maddi-mod#117).
-Compatible means assignable either way: a field of type `Object` counts, a field whose type is a type parameter
-does not.
-* *(6)*, the same code without the alias, is structurally unmodified.
-Whether a modification reaches the owner through an element, the `∈`/`∋` links of <<link-system>>, decides the
-structural verdict, and only a possible alias with an accessible field makes it count.
-This is narrower than <<accessible-hidden-content>>, where the children of `Leaf` are accessible content: the
-structural verdict treats every element reached through a container as hidden, except where it may be a field's
+and the other not: `Node.first` makes a `Node` accessible content of a `Node`, and a modified child may be that
 object.
+* *(6)*, the same code without `first`, is structurally unmodified: no field leads from a `Leaf` to a `Leaf`, so
+by approximation (b) below a child is never the leaf's accessible content.
 * *(3) versus (4)*: the instantiation `Box<Node>` does not make `Node` accessible content of `Box`, and the field
-`first` of type `T` is no alias in the sense of (1).
+`first` of type `T` is hidden content.
 * *(3)* is the case the Java→Kotlin translation reads to choose `List` over `MutableList` for a parameter.
 
 The test `TestBook080Elements` in maddi-mod pins these verdicts.
+
+[#structural-definition]
+==== The definition, and how the analyzer approximates it
+
+The definition (CodeLaser/maddi-mod#130) is that of <<accessible-hidden-content>>, read with declared types:
+
+. A write is a structural modification of `p` when the object written is accessible content of `p`: reached from
+`p` by _some_ path of accessible fields in the heap the call leaves, whatever route the method took to reach it.
+. Accessible fields are judged by _declared_ types: the fields that the declared type of `p` -- or of the field the
+path came through -- declares, together with those of its supertypes. A field that only a subclass declares is
+hidden content, whatever the run-time class; so are fields typed by a type parameter or `Object`, and the elements
+of a container.
+
+A run-time check, which validates the analyzer's verdicts on test suites, applies the definition literally by
+walking the heap at the method's exit. The analyzer cannot see the heap. For a modified object that it reached
+through hidden content, it asks whether that object _may_ also be accessible content of the owner. It computes the
+_accessible types_ of the owner's declared type: the declared types reachable through accessible fields, at any
+depth (`Util.accessibleTypes`). The modification is structural when the written object's type is compatible with
+one of them, meaning assignable either way (`Util.mayBeAccessibleContent`, gate `NOACCESSIBLEREACH`). Before #130,
+only the owner's own fields were compared (CodeLaser/maddi-mod#117, `Util.hiddenAliasOwner`).
+
+.Example {counter:example}, an element that may be accessible content further down
+[source,java]
+----
+class St   { St parent; St first; final List<Edge> edges = new ArrayList<>(); final Set<Edge> labels = new HashSet<>(); }
+class IfSt extends St { Edge ifedge; }
+class Edge { St dest; boolean labeled; }
+class Item { int n; void touch() { n++; } }
+class Bag  { final List<Item> items = new ArrayList<>(); }
+
+static void lift(St s)      { for (Edge e : s.edges) e.dest.labels.add(e); }  // <1>
+static void reset(St s)     { for (Edge e : s.edges) e.labeled = true; }      // <2>
+static void resetIf(IfSt s) { for (Edge e : s.edges) e.labeled = true; }      // <3>
+static void touchAll(Bag b) { for (Item i : b.items) i.touch(); }             // <4>
+----
+<1> Structural. `e.dest` is a `St`, and a `St` is accessible content of `s` through `s.parent` and `s.first`, so the
+write may be to the state of `s.parent`. This is fernflower's `LabelHelper.liftClosures`.
+<2> Not structural. No accessible field of `St`, at any depth, is declared `Edge`. `IfSt.ifedge` is such a field, but
+only a subclass declares it: to a `St`, it is hidden content, even when `s.parent` is an `IfSt` at run time.
+<3> Structural. To an `IfSt`, `ifedge` is accessible content, and a listed edge may be that edge.
+<4> Not structural. Nothing accessible from a `Bag` is an `Item`.
+
+The test `TestAccessibleReach` in maddi-mod pins these verdicts.
+
+The analyzer makes three approximations, accepted on 2026-11-19:
+
+(a) A modification made by a call is compared by its object and the application objects that object holds, not by
+the JDK containers it holds.::
+The analyzer knows that a call modifies an object structurally, but not where in that object's accessible content
+the write lands. Taken literally, every application object that the written object holds, and every container it
+holds, would be a candidate. With containers included, a `List<Node> children` in every `Node` would make every
+modification of a list's elements a modification of the list. Then (3) `clearList` would lose its read-only
+`List`. +
+The gap: a call that writes a JDK container that both the element and the owner hold is missed. The run-time check
+guards this case.
+
+(b) The owner's own type is one of its accessible types only when a field leads back to it.::
+`St` is an accessible type of `St` because of `parent`, while `Leaf` is not one of `Leaf`: its only route back is
+the hidden list `children`. So (6) `clearLeaves` is not structural, as it was under #117. +
+The gap: a heap in which a leaf is in its own `children` list is missed. The run-time check would see such a write
+as structural.
+
+(c) The fixpoint engine does not know whether a modification was a direct write or a call.::
+The reachability pass, on by default, knows the exact write: in (2), `e.labeled = true` writes the edge's own
+`boolean`, so only `Edge` is compared. The fixpoint engine (`setModificationViaReachability(false)`) knows only
+that the edge is modified, so it compares as in (a). There an `Edge` holds a `St`, and (2) comes out structural:
+sound, but coarser.
 
 === The step back to the elements
 
