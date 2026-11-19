@@ -223,6 +223,7 @@ public class RunMixedPrepAnalyzer {
             // type's, and a dump that cannot show it cannot rule it out either (#34)
             writeVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
             writeMemberVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+            writeMemberCulprits(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
         }
         writeAnalysisResults(engine, options.analysisResultsTargetDir(), runtime, parsed, primaryTypes,
                 inputConfiguration);
@@ -383,6 +384,53 @@ public class RunMixedPrepAnalyzer {
         if (path.getParent() != null) Files.createDirectories(path.getParent());
         Files.write(path, lines);
         LOGGER.info("Wrote {} member verdict(s) to {}", lines.size(), path);
+    }
+
+    /**
+     * The culprit of every member judged modified, to the file named by {@code -Dmaddi.memberCulpritDump} (absent: no
+     * file): {@code <kind> <member>} and then one {@code   file:line:col text} line per step, the element's own statement
+     * first. Culprits are recorded only when the environment has {@code CULPRITS} set (Culprits.ENABLED). An
+     * instrument, to explain a verdict that differs between two runs (TestKotlinVsJavaFernflower, maddi-mod#145).
+     */
+    private static void writeMemberCulprits(List<TypeInfo> types) throws IOException {
+        String target = System.getProperty("maddi.memberCulpritDump");
+        if (target == null || target.isBlank()) return;
+        Map<String, List<String>> byMember = new java.util.TreeMap<>();
+        Map<Object, Boolean> seen = new IdentityHashMap<>();
+        for (TypeInfo type : types) memberCulprits(type, byMember, seen);
+        List<String> lines = new ArrayList<>();
+        byMember.forEach((member, steps) -> {
+            lines.add(member);
+            lines.addAll(steps);
+        });
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, lines);
+        LOGGER.info("Wrote {} member culprit(s) to {}", byMember.size(), path);
+    }
+
+    private static void memberCulprits(TypeInfo type, Map<String, List<String>> byMember, Map<Object, Boolean> seen) {
+        if (seen.put(type, true) != null) return;
+        type.subTypes().forEach(sub -> memberCulprits(sub, byMember, seen));
+        type.fields().forEach(f -> culprit("F " + f.fullyQualifiedName(), f.analysis(), byMember));
+        type.methodStream().forEach(m -> {
+            culprit("M " + m.fullyQualifiedName(), m.analysis(), byMember);
+            m.parameters().forEach(p -> culprit("P " + m.fullyQualifiedName() + "#" + p.index(), p.analysis(), byMember));
+        });
+    }
+
+    private static void culprit(String member, io.codelaser.maddi.cst.api.analysis.PropertyValueMap analysis,
+                                Map<String, List<String>> byMember) {
+        Value.Culprit culprit = analysis.getOrNull(PropertyImpl.MODIFIED_CULPRIT, ValueImpl.CulpritImpl.class);
+        if (culprit == null || culprit.steps().isEmpty()) return;
+        byMember.put(member, culprit.steps().stream().map(st -> "  " + fileName(st.uri()) + ":" + st.line() + ":"
+                                                                + st.column() + " " + st.text()).toList());
+    }
+
+    private static String fileName(String uri) {
+        if (uri == null) return "?";
+        int slash = uri.lastIndexOf('/');
+        return slash < 0 ? uri : uri.substring(slash + 1);
     }
 
     private static void memberVerdicts(TypeInfo type, List<String> lines, Map<Object, Boolean> seen) {
