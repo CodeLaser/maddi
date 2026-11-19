@@ -203,4 +203,32 @@ public class TestLombokFallback {
     public void failFastStopsAtTheFallback() {
         assertThrows(Summary.FailFastException.class, () -> parse(true));
     }
+
+    /**
+     * With a second front end (the Kotlin interleave) the Java route's retry is impossible: Lombok runs after the other
+     * front end has declared against the set's units. The jar is probed first instead, and a set whose Lombok cannot
+     * run is parsed without it, as the same LombokFallback error. It aborted the whole mixed parse before (quarkus's
+     * lombok-1.18.36 on JDK 26: "TypeTag :: UNKNOWN").
+     */
+    @Test
+    public void withASecondFrontEndTheJarIsProbedFirst() {
+        ((JavaInspectorImpl) javaInspector).setInterleave(new io.codelaser.maddi.java.openjdk.SourceSetInterleave() {
+            @Override
+            public void beforeAttribution(SourceSet set, java.util.function.Function<String,
+                    io.codelaser.maddi.cst.api.info.TypeInfo> sourceTypes) {
+            }
+
+            @Override
+            public void afterCommit(SourceSet set) {
+            }
+        });
+        Summary summary = parse(false);
+        List<JavaInspectorImpl.LombokFallback> fallbacks = summary.parseExceptions().stream()
+                .filter(e -> e instanceof JavaInspectorImpl.LombokFallback)
+                .map(e -> (JavaInspectorImpl.LombokFallback) e).toList();
+        assertEquals(1, fallbacks.size(), String.valueOf(summary.parseExceptions()));
+        assertTrue(fallbacks.getFirst().rootCause().contains("simulated: a javac class this Lombok needs is gone"),
+                fallbacks.getFirst().rootCause());
+        assertNotNull(summary.parseResultIgnoringErrors().findType("io.codelaser.maddi.test.X"));
+    }
 }

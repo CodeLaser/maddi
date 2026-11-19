@@ -1251,6 +1251,11 @@ public class JavaInspectorImpl implements JavaInspector {
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, lombok, classOutput,
                 false, false);
+        Throwable lombokProbe = LOMBOK_PROBE_FAILURE.get();
+        if (lombokProbe != null) {
+            LOMBOK_PROBE_FAILURE.remove();
+            summary.addParseException(new LombokFallback(sourceSet, lombokProbe));
+        }
         if (javacTask == null) {
             LOGGER.warn("Have no sources in source set {}", sourceSet.name());
             return;
@@ -1754,6 +1759,18 @@ public class JavaInspectorImpl implements JavaInspector {
                              + " annotation processing", sourceSet.name());
                 lombokOnClassPath = false;
             }
+            if (lombokOnClassPath && interleave != null) {
+                // ⛔ WITH A SECOND FRONT END THERE IS NO RETRY: Lombok runs inside analyze(), after the Kotlin session
+                // has declared its types against this set's units (see the catch in singleSourceSetOnThisThread), so a
+                // Lombok too old for this JDK aborted the whole mixed parse with javac's TypeTag::UNKNOWN (quarkus's
+                // lombok-1.18.36 on JDK 26). Ask first, once per jar: a set whose Lombok cannot run is parsed without
+                // it, and recorded as the same LombokFallback error the Java route records after its retry.
+                Throwable failure = lombokProbeFailure(sourceSet);
+                if (failure != null) {
+                    lombokOnClassPath = false;
+                    LOMBOK_PROBE_FAILURE.set(failure);
+                }
+            }
             if (lombokOnClassPath) {
                 // Run the real Lombok annotation processor inside javac: it mutates the AST (generating getters,
                 // setters, constructors, @Builder, loggers, ...) and the scanner then reads those members into the
@@ -2190,6 +2207,46 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     // does the cause chain point into Lombok's own code? (processor init/handler crash, not a source problem)
+    // createTask -> singleSourceSetOnThisThread: the probe's verdict for the set being created, on this thread
+    private static final ThreadLocal<Throwable> LOMBOK_PROBE_FAILURE = new ThreadLocal<>();
+    // per Lombok jar: empty when its processor runs on this JDK, else why not
+    private final Map<String, Optional<Throwable>> lombokProbes = new ConcurrentHashMap<>();
+
+    /**
+     * Whether the Lombok jar of [sourceSet] can run on the JDK maddi runs on: a one-class compilation with its
+     * processor, on its own task (javac loads processors per task, so a failed static initialiser is not left
+     * behind). Null when it runs, else the failure. Cached per jar.
+     */
+    private Throwable lombokProbeFailure(SourceSet sourceSet) {
+        SourceSet jar = sourceSet.dependencies().stream()
+                .filter(d -> d.externalLibrary() && d.name().startsWith("lombok-")).findFirst().orElse(null);
+        if (jar == null || jar.uri() == null) return null;
+        return lombokProbes.computeIfAbsent(jar.uri().toString(), k -> Optional.ofNullable(probeLombok(jar))).orElse(null);
+    }
+
+    private static Throwable probeLombok(SourceSet jar) {
+        javax.tools.JavaCompiler compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
+        // annotated: javac instantiates processors only in a round that has annotations to offer
+        JavaFileObject probe = new javax.tools.SimpleJavaFileObject(URI.create("string:///LombokProbe.java"),
+                JavaFileObject.Kind.SOURCE) {
+            @Override
+            public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+                return "@SuppressWarnings(\"unused\") class LombokProbe { private int x; }";
+            }
+        };
+        javax.tools.DiagnosticCollector<JavaFileObject> diagnostics = new javax.tools.DiagnosticCollector<>();
+        List<String> options = List.of("-proc:only", "-classpath", Path.of(jar.uri()).toString(),
+                "-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor");
+        try {
+            compiler.getTask(null, null, diagnostics, options, null, List.of(probe)).call();
+        } catch (RuntimeException | Error e) {
+            LOGGER.info("Lombok {} cannot run on JDK {}: {}", jar.name(), java.lang.Runtime.version().feature(),
+                    String.valueOf(e));
+            return e;
+        }
+        return null;
+    }
+
     private static boolean lombokFailure(Throwable t) {
         for (Throwable c = t; c != null; c = c.getCause() == c ? null : c.getCause()) {
             for (StackTraceElement ste : c.getStackTrace()) {
