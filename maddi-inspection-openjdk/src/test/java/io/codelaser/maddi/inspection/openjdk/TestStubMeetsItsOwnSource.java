@@ -150,11 +150,9 @@ public class TestStubMeetsItsOwnSource {
         assertEquals("(stub, no source set)", gap.prepAsSeenByProjectData(),
                 "with the gap the consumer resolves ProjectData.prep() to a stub -- if this ever stops being"
                 + " true the fixture has stopped minting one and the test above proves nothing");
-        // ⚠ Asserted as "a real source set", not by name. The control answers java.base, which is NOT the
-        // 'prep-classes' set it was given: ensureSourceSet's directory-prefix lookup takes the first
-        // sourceSetDirPrefixes entry whose key the path starts with, and that map is unordered. Noted as an
-        // observation, not fixed here -- what this control has to establish is that the gap run's stub is the
-        // gap, and a type on a real source set is exactly that.
+        // the class directory's own set: ensureSourceSet takes the longest directory prefix (it took the first entry
+        // of an unordered map, and answered java.base, whose 'file:/' is a prefix of everything)
+        assertEquals("prep-classes", control.prepAsSeenByProjectData());
         assertNotEquals("(stub, no source set)", control.prepAsSeenByProjectData(),
                 "without the gap Prep resolves to a real source set, so no stub is minted at all");
     }
