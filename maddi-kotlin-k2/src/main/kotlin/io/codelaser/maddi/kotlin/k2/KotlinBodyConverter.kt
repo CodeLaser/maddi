@@ -1644,9 +1644,62 @@ internal class KotlinBodyConverter(
             .setValue(value).setSource(source(qualified, "-")).build()
     }
 
-    /** Whether [literal] is lowered: a statement-level forEach's (a loop) or an `also` assignment's. No capture. */
+    /** Function literals lowered into a labelled block ([runBlockLowering]), with that block's label. */
+    private val blockLiterals: java.util.IdentityHashMap<KtFunctionLiteral, String> = java.util.IdentityHashMap()
+    private var runBlocks = 0
+
+    /**
+     * `run sw@ { … return@sw … }` as a statement, its value discarded -> the labelled block `sw: { … break sw; … }`, as
+     * kotlinc inlines `run`. It is J2K's translation of a `switch` whose case `break`s out of it, the `return@sw` deep
+     * in a `when` branch where [structuredScopeBody] cannot move the rest. ⛔ As a CALL with a lambda, what the lambda
+     * did to a captured local did not reach where that local came from: fernflower's ExprProcessor.processBlock
+     * pushes onto `data.getStack()` inside `run switch1@ { when (opcode) { … } }`, and `data` stayed unmodified in
+     * Kotlin only (maddi-mod#145). A bare `return` inside still leaves the enclosing function. `T.run` with no explicit
+     * receiver (inside a class, what `run { }` resolves to) has the enclosing `this` as its receiver: the same
+     * program. Not lowered: a `return@sw v` with a value, a literal with parameters, an explicit receiver.
+     */
+    private fun KaSession.runBlockLowering(statement: KtExpression, method: MethodInfo,
+                                           locals: MutableMap<String, Variable>, index: String): List<Statement>? {
+        val (literal, sourceLabel) = runBlockLiteral(statement) ?: return null
+        val label = sourceLabel ?: "\$run${runBlocks++}"
+        blockLiterals[literal] = label
+        val body = try {
+            convertBlock(literal.bodyExpression, method, locals, index)
+        } finally {
+            blockLiterals.remove(literal)
+        }
+        return listOf(runtime.newBlockBuilder().addStatements(body.statements()).setLabel(label)
+            .setSource(source(statement, index)).build())
+    }
+
+    /** [statement] as [runBlockLowering] lowers it: the literal and its explicit label (null: none); null otherwise. */
+    private fun KaSession.runBlockLiteral(statement: KtExpression): Pair<KtFunctionLiteral, String?>? {
+        val call = statement as? KtCallExpression ?: return null
+        if (call.calleeExpression?.text != "run" || call.valueArguments.size != 1) return null
+        val argument = call.valueArguments.single().getArgumentExpression() ?: return null
+        val labelled = argument as? KtLabeledExpression
+        val lambda = (labelled?.baseExpression ?: argument) as? KtLambdaExpression ?: return null
+        val literal = lambda.functionLiteral
+        if (literal.valueParameters.isNotEmpty() || literal.hasParameterSpecification()) return null
+        val symbol = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol ?: return null
+        val id = symbol.callableId ?: return null
+        if (id.packageName.asString() != "kotlin" || id.className != null) return null
+        val returns = PsiTreeUtil.findChildrenOfType(literal, KtReturnExpression::class.java)
+            .filter { returnedLiteral(it) === literal }
+        if (returns.any { it.returnedExpression != null }) return null
+        return literal to labelled?.getLabelName()
+    }
+
+    /** Whether [literal] is a statement-level `run`'s, lowered into a labelled block: no capture. */
+    private fun KaSession.isRunBlockLiteral(literal: KtFunctionLiteral): Boolean {
+        val call = PsiTreeUtil.getParentOfType(literal, KtCallExpression::class.java, true) ?: return false
+        if (call.parent !is KtBlockExpression) return false
+        return runBlockLiteral(call)?.first === literal
+    }
+
+    /** Whether [literal] is lowered: a statement-level forEach's (a loop), an `also` assignment's, a `run` block's. No capture. */
     private fun KaSession.isLoweredLiteral(literal: KtFunctionLiteral): Boolean {
-        if (isLoweredForEachLiteral(literal)) return true
+        if (isLoweredForEachLiteral(literal) || isRunBlockLiteral(literal)) return true
         val call = PsiTreeUtil.getParentOfType(literal, KtCallExpression::class.java, true) ?: return false
         val qualified = call.parent as? KtDotQualifiedExpression ?: return false
         return qualified.selectorExpression === call && alsoAssignmentLiteral(qualified) === literal
@@ -1800,6 +1853,7 @@ internal class KotlinBodyConverter(
             ?: statementAsValueLowering(s, method, locals, index)
             ?: scopeCallStatementLowering(s, method, locals, index)
             ?: forEachLowering(s, method, locals, index)
+            ?: runBlockLowering(s, method, locals, index)
             ?: safeCallAsStatementLowering(s, method, locals, index))
             ?.let { withRefInit(s, it, index) }
     }
@@ -2165,6 +2219,10 @@ internal class KotlinBodyConverter(
         returnedLiteral(statement)?.let { loopLiterals[it] }?.let { loopLabel ->
             return runtime.newContinueBuilder().setGoToLabel(loopLabel).setSource(runtime.noSource()).build()
         }
+        // `return@sw` in a lowered `run` ([runBlockLowering]): out of its block
+        returnedLiteral(statement)?.let { blockLiterals[it] }?.let { blockLabel ->
+            return runtime.newBreakBuilder().setGoToLabel(blockLabel).setSource(runtime.noSource()).build()
+        }
         inlinedReturn(statement, value)?.let { return it }
         val levels = returnExitLevels(statement)
             ?: return runtime.newExpressionAsStatement(placeholder("k2-return-target-unresolved", statement))
@@ -2185,7 +2243,8 @@ internal class KotlinBodyConverter(
         while (element != null) {
             when (element) {
                 // an INLINED literal (#88) is no lambda in the CST: a return inside it leaves none
-                is KtFunctionLiteral -> if (element !in inlinedLiterals && element !in loopLiterals) {
+                is KtFunctionLiteral -> if (element !in inlinedLiterals && element !in loopLiterals
+                    && element !in blockLiterals) {
                     if (label != null && label in lambdaLabels(element)) return levels
                     levels++
                 }
