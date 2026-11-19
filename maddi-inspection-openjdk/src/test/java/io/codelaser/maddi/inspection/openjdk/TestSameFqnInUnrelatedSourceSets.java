@@ -174,6 +174,60 @@ public class TestSameFqnInUnrelatedSourceSets {
         assertEquals(UNRELATED, sourceSet(primary(summary, "Dummy", UNRELATED)));
     }
 
+    @Language("java")
+    private static final String BOX = """
+            package lib;
+            public class Box {
+                public String get() { return "b"; }
+            }
+            """;
+
+    @Language("java")
+    private static final String USE_BOX = """
+            package use;
+            import lib.Box;
+            public class UseBox extends Box {
+                public String go() { return get(); }
+            }
+            """;
+
+    /*
+     CodeLaser/maddi-mod#151, guava's configuration reduced: the sources are the set 'guava/9' (URI
+     target/classes/META-INF/versions/9, the multi-release set), the class directory target/classes is the external
+     library 'guava/main', and the test sets depend on 'guava/main' only. They see the class files of exactly those
+     sources, so a use resolves to the source type, not to a second copy loaded from the class file.
+     */
+    @DisplayName("a set that depends on another set's class output reaches that set's source types")
+    @Test
+    public void aDependencyOnTheClassOutputReachesItsSources() throws Exception {
+        Path tmp = Files.createTempDirectory("same-fqn-");
+        try {
+            Path classes = compile(tmp, "guava", Map.of("lib.Box", BOX));
+            SourceSet javaBase = SourceSetImpl.javaBase();
+            SourceSet mainClasses = new SourceSetImpl.Builder()
+                    .setName("guava/main").setUri(classes.toUri())
+                    .setLibrary(true).setExternalLibrary(true)
+                    .setDependencies(List.of(javaBase)).build();
+            SourceSet sources9 = new SourceSetImpl.Builder().setName(UNRELATED)
+                    .setUri(classes.resolve("META-INF/versions/9").toUri())
+                    .setDependencies(List.of(javaBase, mainClasses)).build();
+            SourceSet consumer = new SourceSetImpl.Builder().setName(CONSUMER)
+                    .setUri(URI.create("file:/guava-tests/")).setDependencies(List.of(javaBase, mainClasses)).build();
+            Map<SourceSet, Map<String, String>> sources = new LinkedHashMap<>();
+            sources.put(sources9, Map.of("lib.Box", BOX));
+            sources.put(consumer, Map.of("use.UseBox", USE_BOX));
+            Summary summary = parse(List.of(javaBase, mainClasses), sources);
+
+            assertFalse(summary.haveErrors(), "the parse succeeds: " + summary.parseExceptions());
+            TypeInfo useBox = primary(summary, "use.UseBox", CONSUMER);
+            TypeInfo box = useBox.parentClass().typeInfo();
+            assertEquals(UNRELATED, sourceSet(box), "UseBox extends the source Box, not a copy from the class file");
+            assertSame(primary(summary, "lib.Box", UNRELATED), box);
+        } finally {
+            delete(tmp);
+        }
+    }
+
     private static Summary parse(List<SourceSet> classPath, Map<SourceSet, Map<String, String>> sources)
             throws Exception {
         InputConfiguration ic = new InputConfigurationImpl.Builder()
