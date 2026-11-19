@@ -85,7 +85,28 @@ public class CodecImpl implements Codec {
     public static String quote(String s) {
         // escape backslashes first, then double quotes, so the result is valid JSON even for strings that
         // contain '\' or end in '\' (which previously produced an unterminated string literal)
-        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        String escaped = s.replace("\\", "\\\\").replace("\"", "\\\"");
+        return "\"" + escapeControlCharacters(escaped) + "\"";
+    }
+
+    /*
+     A control character (below U+0020) is not allowed raw in a JSON string, and the parser refuses the whole file:
+     guava's "\0" (SetGenerators) and "\r" (LineBufferTest) string constants lost their types' stored analysis
+     (CodeLaser/maddi-mod#110). Written as \\uXXXX. Every other character is written as before, so a file that could be
+     read stays byte-identical.
+     */
+    private static String escapeControlCharacters(String s) {
+        int i = 0;
+        while (i < s.length() && s.charAt(i) >= 0x20) i++;
+        if (i == s.length()) return s;
+        StringBuilder sb = new StringBuilder(s.length() + 8);
+        sb.append(s, 0, i);
+        for (; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
+            else sb.append(c);
+        }
+        return sb.toString();
     }
 
     private static String quoteNumber(String s) {
@@ -93,11 +114,23 @@ public class CodecImpl implements Codec {
         return s;
     }
 
+    // the value of four hex digits at 'from', or -1
+    private static int parseHex4(String s, int from) {
+        int v = 0;
+        for (int k = from; k < from + 4; k++) {
+            int d = Character.digit(s.charAt(k), 16);
+            if (d < 0) return -1;
+            v = v * 16 + d;
+        }
+        return v;
+    }
+
     public static String unquote(String s) {
         String body = s.substring(1, s.length() - 1);
         if (body.indexOf('\\') < 0) return body; // fast path: no escapes
-        // exact inverse of quote(): a backslash escapes the following '\' or '"'; any other backslash is
-        // passed through unchanged (we never emit other escapes, and must not corrupt e.g. a literal '\n')
+        // exact inverse of quote(): a backslash escapes the following '\' or '"', or starts the \\uXXXX of a control
+        // character; any other backslash is passed through unchanged (we never emit other escapes, and must not
+        // corrupt e.g. a literal '\n')
         StringBuilder sb = new StringBuilder(body.length());
         int i = 0;
         while (i < body.length()) {
@@ -109,11 +142,29 @@ public class CodecImpl implements Codec {
                     i += 2;
                     continue;
                 }
+                if (next == 'u' && i + 6 <= body.length()) {
+                    int code = parseHex4(body, i + 2);
+                    if (code >= 0 && code < 0x20) {
+                        sb.append((char) code);
+                        i += 6;
+                        continue;
+                    }
+                }
             }
             sb.append(c);
             i++;
         }
         return sb.toString();
+    }
+
+    /*
+     A type the source set of the request cannot resolve, which the type being decoded may still name: a test type's
+     analysis refers to a test-only library (guava's StreamsTest to Truth's IntStreamSubject), and the restore asks
+     for the main sources. Null here; a codec that can load types resolves it in that type's own source set
+     (CodeLaser/maddi-mod#110).
+     */
+    protected TypeInfo typeOutsideSourceSetOfRequest(Context context, String fullyQualifiedName) {
+        return null;
     }
 
     // checkpoint-restore mode (task #34): when true, decode skips properties that already carry a value
@@ -360,6 +411,8 @@ public class CodecImpl implements Codec {
             case 'M' -> new DR(decodeMethodInfo(tas, name), tas);
             case 'T' -> {
                 TypeInfo typeInfo = typeProvider.get(name);
+                if (typeInfo == null) typeInfo = typeOutsideSourceSetOfRequest(context, name);
+                if (typeInfo == null) throw new UnsupportedOperationException("Unknown type " + name);
                 yield new DR(typeInfo, new TypeAndSorted(typeInfo));
             }
             case 'S' -> {
