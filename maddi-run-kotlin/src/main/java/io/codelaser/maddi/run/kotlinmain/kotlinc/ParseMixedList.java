@@ -1,12 +1,13 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
@@ -48,29 +49,34 @@ public class ParseMixedList {
         ParseKotlincList.LineReader kotlincReader = new ParseKotlincList().new LineReader();
         List<CompileInvocation> ordered = new ArrayList<>();
         int javacCount = 0, kotlincCount = 0;
-        for (String line : readLines(logFile)) {
-            Javac j = javacParser.javacLine(line);
-            if (j != null) {
-                ordered.add(j);
-                javacCount++;
-                continue;
-            }
-            Kotlinc k = kotlincReader.accept(line);
-            if (k != null) {
-                ordered.add(k);
-                kotlincCount++;
+        try (BufferedReader reader = open(logFile)) {
+            for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                if (line.isBlank()) continue;
+                Javac j = javacParser.javacLine(line);
+                if (j != null) {
+                    ordered.add(j);
+                    javacCount++;
+                    continue;
+                }
+                Kotlinc k = kotlincReader.accept(line);
+                if (k != null) {
+                    ordered.add(k);
+                    kotlincCount++;
+                }
             }
         }
         LOGGER.info("Mixed log {}: {} javac + {} kotlinc invocations", logFile, javacCount, kotlincCount);
         return ordered;
     }
 
-    private static List<String> readLines(Path logFile) throws IOException {
-        if (logFile.getFileName().toString().endsWith(".gz")) {
-            try (BufferedInputStream bis = new BufferedInputStream(new GZIPInputStream(new FileInputStream(logFile.toFile())))) {
-                return Arrays.stream(new String(bis.readAllBytes()).split("\\n")).toList();
-            }
-        }
-        return Arrays.stream(Files.readString(logFile).split("\n")).filter(s -> !s.isBlank()).toList();
+    /**
+     * The log, line by line. ⚠ Never read whole: quarkus's whole-reactor {@code mvn -X} log is 3 GB, past a Java
+     * array's size ("Required array size too large", whatever the heap). Undecodable bytes become U+FFFD rather
+     * than failing the read: a build log is not guaranteed UTF-8.
+     */
+    private static BufferedReader open(Path logFile) throws IOException {
+        InputStream in = Files.newInputStream(logFile);
+        if (logFile.getFileName().toString().endsWith(".gz")) in = new GZIPInputStream(in);
+        return new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8), 1 << 16);
     }
 }
