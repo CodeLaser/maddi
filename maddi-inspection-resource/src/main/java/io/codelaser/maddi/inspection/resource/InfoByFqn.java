@@ -206,40 +206,47 @@ public class InfoByFqn {
             }
             return;
         }
-        TypeInfo prev = singleTypeByFqn.put(fqn, typeInfo);
+        /*
+         ⛔ A NAME LIVES IN EXACTLY ONE OF THE TWO MAPS, AND A MULTI LIST NEVER LOSES ANOTHER SET'S COPY. The old code
+         put a copy registered for another set into singleTypeByFqn while a multi list existed, and the next own-set
+         copy found it as 'prev' and replaced the whole list by List.of(prev, new): every earlier copy was gone.
+         Harmless while a lookup took whatever copy it found; fatal once a set may only take a copy it reaches
+         (quarkus: some twenty integration-tests generate examples.GreeterGrpc, and two copies were left, so each test
+         set's own main copy was missing: ClassSymbolScanner#unreachableSourceCopy, TestSameFqnInUnrelatedSourceSets).
+         */
+        TypeInfo prev = singleTypeByFqn.get(fqn);
         // ...and a properly loaded type DOES displace a stub, silently: nothing was known about that name.
         if (prev != null && isStub(prev)) prev = null;
-        List<TypeInfo> list;
-        if (sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet())) {
-            if (prev != null) {
-                if (!prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())) {
-                    singleTypeByFqn.remove(fqn);
-                    multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
-                    LOGGER.debug("Create multi: {}", typeInfo.descriptor());
-                } else {
-                    throw new UnsupportedOperationException("Duplicating type " + typeInfo);
-                }
-            } else if ((list = multiTypeByFqn.get(fqn)) != null) {
-                multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
-                LOGGER.debug("Appended to multi: {}", typeInfo.descriptor());
-            }
-        } else if (prev != null && isSourceType(prev)
-                   && !sameSourceSet(prev, typeInfo.compilationUnit().sourceSet())) {
-            /*
-             A source type of one set and another set's copy of the same name, loaded for a set that sees only the
-             second: both stay, each for the sets that reach it (quarkus' generated gRPC classes, see
-             ClassSymbolScanner#unreachableSourceCopy). Overwriting dropped the source set's copy, and its subtypes.
-             */
+        SourceSet set = typeInfo.compilationUnit().sourceSet();
+        boolean own = sourceSetOfCurrentTask.equals(set);
+        List<TypeInfo> list = multiTypeByFqn.get(fqn);
+        if (list != null) {
+            assert prev == null : "a name in both maps: " + fqn;
+            TypeInfo sameSet = list.stream().filter(t -> sameSourceSet(t, set)).findFirst().orElse(null);
+            if (sameSet != null && own) throw new UnsupportedOperationException("Duplicating type " + typeInfo);
+            // another set's (or a reload of a library's) copy: replace that set's entry, keep the others
+            multiTypeByFqn.put(fqn, Stream.concat(list.stream().filter(t -> t != sameSet), Stream.of(typeInfo))
+                    .toList());
+            LOGGER.debug("Appended to multi: {}", typeInfo.descriptor());
+            return;
+        }
+        if (prev == null) {
+            singleTypeByFqn.put(fqn, typeInfo);
+            return;
+        }
+        boolean sameSetAsPrev = sameSourceSet(prev, set);
+        if (own && sameSetAsPrev) throw new UnsupportedOperationException("Duplicating type " + typeInfo);
+        if (!sameSetAsPrev && (own || isSourceType(prev))) {
+            // two sets' copies: an own-set definition beside another set's, or another set's copy beside a source
+            // type, which only the sets reaching it may take
             singleTypeByFqn.remove(fqn);
             multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
-            LOGGER.debug("Create multi beside a source type: {}", typeInfo.descriptor());
-        } else if (prev == null && (list = multiTypeByFqn.get(fqn)) != null
-                   && list.stream().anyMatch(InfoByFqn::isSourceType)
-                   && list.stream().noneMatch(t -> sameSourceSet(t, typeInfo.compilationUnit().sourceSet()))) {
-            singleTypeByFqn.remove(fqn);
-            multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
-            LOGGER.debug("Appended to multi beside a source type: {}", typeInfo.descriptor());
-        } else if (prev != null) {
+            LOGGER.debug("Create multi: {}", typeInfo.descriptor());
+            return;
+        }
+        // a library copy replaced: another version of the library, or the same jar re-read
+        singleTypeByFqn.put(fqn, typeInfo);
+        {
             LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
                     prev.compilationUnit().sourceSet(), typeInfo.compilationUnit().sourceSet());
             if (isDisplacedLibraryCopy(prev, typeInfo)) {

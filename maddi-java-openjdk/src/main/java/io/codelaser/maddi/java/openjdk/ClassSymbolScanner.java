@@ -57,6 +57,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Elements elements;
     private final Types types;
     private final SourceSet sourceSetOfCurrentTask;
+    // the source sets this (Java) inspector scans; another front-end's (Kotlin's) are not among them
+    private final Set<SourceSet> scannedSourceSets;
     /**
      * The shared-JDK loader: resolves and COMMITS a platform type on the task the shared {@code java.*} model is
      * built on (the preload pass's, at the run's shared release), so that a platform type first touched lazily by
@@ -162,6 +164,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.infoByFqn = Objects.requireNonNull(infoByFqn);
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
+        this.scannedSourceSets = Set.copyOf(inputConfiguration.sourceSets());
         this.diagnosticCollector = maddiDiagnosticCollector;
         this.parameterNameIndex = parameterNameIndex;
         this.jdkInternals = jdkInternals;
@@ -2278,7 +2281,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             throw new UnsupportedOperationException("Cannot map javac's type '" + ct + "' (tsym "
                                                     + (ct.tsym == null ? "null" : ct.tsym.getQualifiedName()
                                                        + ", owner " + ct.tsym.owner) + ") onto a TypeInfo"
-                                                    + offClassPathHint(ct));
+                                                    + offClassPathHint(ct) + registeredCopies(ct));
         }
         List<ParameterizedType> outerArguments = outerArguments(ct, visited);
         if (ct.getTypeArguments().isEmpty() && outerArguments.isEmpty()) {
@@ -2640,9 +2643,32 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
      and its unit was dropped (TestSameFqnInUnrelatedSourceSets). Answering "not registered" sends the caller down
      the path javac took. Libraries and the JDK keep the old, looser lookup: a jar is matched to its set by name.
      */
+    // what the registry holds under the name, for a "Cannot map": each copy's source set, and whether this set reaches it
+    private String registeredCopies(Type.ClassType ct) {
+        if (!(ct.tsym instanceof Symbol.ClassSymbol cs)) return "";
+        String fqn = nested(cs).toString();
+        List<TypeInfo> all = infoByFqn.allTypes(fqn);
+        Symbol.ClassSymbol top = primary(cs);
+        String origin = top.classfile != null ? String.valueOf(top.classfile.toUri())
+                : top.sourcefile != null ? String.valueOf(top.sourcefile.toUri()) : "?";
+        return "; javac's origin " + origin + "; registered copies of " + fqn + ": " + all.stream()
+                .map(t -> t.compilationUnit().sourceSet() == null ? "(stub)"
+                        : t.compilationUnit().sourceSet().name()
+                          + (infoByFqn.reaches(sourceSetOfCurrentTask, t.compilationUnit().sourceSet()) ? " (reached)" : ""))
+                .toList();
+    }
+
+    /*
+     ⛔ ONLY A SET THIS INSPECTOR SCANS (see getType for the rule). A type another front-end registered is shared on
+     purpose: the mixed inspector (maddi-inspection-mixed) replaces a Java set's Kotlin-set dependencies by the stub
+     directory, so the Kotlin set is no dependency here, yet the K2 TypeInfo IS the type javac sees through its stub.
+     Refusing it loaded the stub's class file as a second TypeInfo (gate 2026-11-19: TestMixedProjectInspector, six
+     tests on TypeInfo identity; maddi-mod TestMixedBoundaryVerdicts, a Java caller bound to the stub copy).
+     */
     private boolean unreachableSourceCopy(TypeInfo typeInfo) {
         SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
         return sourceSet != null && !sourceSet.externalLibrary() && !sourceSet.partOfJdk()
+               && scannedSourceSets.contains(sourceSet)
                && !infoByFqn.reaches(sourceSetOfCurrentTask, sourceSet);
     }
 
