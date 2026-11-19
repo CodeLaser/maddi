@@ -195,8 +195,10 @@ public record Javac(int sourceRelease,
         List<String> result = new ArrayList<>(tokens.length);
         for (int i = 0; i < tokens.length; i++) {
             String t = tokens[i];
-            int joined = 0;
-            if (looksLikeMissingAbsolutePath(t)) {
+            // repeated: a class path can hold several split paths ("…/simple with space/target/test-classes:…/simple
+            // with space/target/classes"), and the first join leaves the next one's start as its last element
+            while (looksLikeMissingAbsolutePath(t)) {
+                int joined = 0;
                 StringBuilder candidate = new StringBuilder(t);
                 String prefix = lastElement(t); // the split path so far
                 for (int k = 1; k <= 8 && i + k < tokens.length && !tokens[i + k].startsWith("-"); k++) {
@@ -212,9 +214,10 @@ public record Javac(int sourceRelease,
                     if (c >= 0) break; // the path ended at the separator without existing
                     prefix = path;
                 }
+                if (joined == 0) break;
+                i += joined;
             }
             result.add(t);
-            i += joined;
         }
         return result.toArray(String[]::new);
     }

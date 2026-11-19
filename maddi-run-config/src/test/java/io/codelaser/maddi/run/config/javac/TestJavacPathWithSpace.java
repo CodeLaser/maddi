@@ -47,4 +47,37 @@ public class TestJavacPathWithSpace {
         assertEquals("/nowhere/simple", javac.destination());
         assertEquals(17, javac.release());
     }
+
+    /**
+     * The whole derivation, main and test of a module whose directory has a space: the rejoined path reached
+     * `URI.create("file:" + path)` and aborted it ("Illegal character in path"). Now two source sets, test depending on
+     * main, their URIs percent-encoded.
+     */
+    @Test
+    public void aModuleWithASpaceDerivesItsSourceSets() throws IOException {
+        derive("simple with space");
+    }
+
+    private void derive(String dir) throws IOException {
+        Path module = tmp.resolve(dir);
+        Path classes = Files.createDirectories(module.resolve("target/classes"));
+        Path testClasses = Files.createDirectories(module.resolve("target/test-classes"));
+        Path main = Files.createDirectories(module.resolve("src/main/java/p"));
+        Path test = Files.createDirectories(module.resolve("src/test/java/p"));
+        Path a = Files.writeString(main.resolve("A.java"), "package p; public class A {}");
+        Path t = Files.writeString(test.resolve("TA.java"), "package p; class TA { A a; }");
+        Path log = tmp.resolve("compile.log");
+        Files.writeString(log, "javac -d " + classes + " -classpath " + classes + " --release 17 " + a + "\n"
+                               + "javac -d " + testClasses + " -classpath " + testClasses + ":" + classes
+                               + " --release 17 " + t + "\n");
+
+        var config = new ParseJavacList().parse(log);
+
+        var sets = config.sourceSets().stream().filter(s -> !s.externalLibrary()).toList();
+        assertEquals(2, sets.size(), () -> String.valueOf(sets));
+        var testSet = sets.stream().filter(s -> s.uri().getPath().endsWith("test-classes")).findFirst().orElseThrow();
+        var mainSet = sets.stream().filter(s -> s.uri().getPath().endsWith("target/classes")).findFirst().orElseThrow();
+        assertEquals(classes.toString(), mainSet.uri().getPath());
+        assertEquals(true, testSet.dependencies().contains(mainSet), () -> String.valueOf(testSet.dependencies()));
+    }
 }

@@ -38,24 +38,27 @@ class NonLocalReturnTest : KotlinScanTestBase() {
     private val types: List<TypeInfo> by lazy {
         KotlinScan(runtime, sourceSet).parse("nl/Nl.kt", """
             package nl
+            // an inline function of the fixture's own: kotlin's forEach is lowered into a loop (ForEachLoweringTest), and
+            // these cases are about returns from a lambda that stays one
+            inline fun <T> Iterable<T>.each(action: (T) -> Unit) { for (x in this) action(x) }
             class K {
-                fun bare(xs: List<Int>): Boolean { xs.forEach { if (it < 0) return false }; return true }
-                fun local(xs: List<Int>) { xs.forEach { if (it < 0) return@forEach; println(it) } }
+                fun bare(xs: List<Int>): Boolean { xs.each { if (it < 0) return false }; return true }
+                fun local(xs: List<Int>) { xs.each { if (it < 0) return@each; println(it) } }
                 fun viaRun(x: Int): Int { run { if (x < 0) return 1 }; return 2 }
                 fun nested(xs: List<Int>, ys: List<Int>): Int {
-                    xs.forEach { x -> ys.forEach { y -> if (y == 0) return@forEach; if (x == y) return 1 } }
+                    xs.each { x -> ys.each { y -> if (y == 0) return@each; if (x == y) return 1 } }
                     return 0
                 }
                 fun explicit(xs: List<Int>, ys: List<Int>) {
-                    xs.forEach outer@{ x -> ys.forEach { y -> if (x == y) return@outer } }
+                    xs.each outer@{ x -> ys.each { y -> if (x == y) return@outer } }
                 }
                 fun localFun(xs: List<Int>): Int {
-                    fun g(): Int { xs.forEach { if (it > 0) return it }; return 0 }
+                    fun g(): Int { xs.each { if (it > 0) return it }; return 0 }
                     return g()
                 }
-                fun single(xs: List<Int>): Int { xs.forEach { return it }; return 0 }
+                fun single(xs: List<Int>): Int { xs.each { return it }; return 0 }
                 fun elvis(xs: List<String>, m: Map<String, Int>): Boolean {
-                    xs.forEach { val v = m[it] ?: return false; println(v) }
+                    xs.each { val v = m[it] ?: return false; println(v) }
                     return true
                 }
             }
@@ -91,19 +94,19 @@ class NonLocalReturnTest : KotlinScanTestBase() {
 
     @Test
     fun aQualifiedReturnStaysInItsLambda() {
-        assertEquals("0@forEach", returns("local"))
+        assertEquals("0@each", returns("local"))
     }
 
     @Test
     fun nestedLambdasCountOneLevelEach() {
-        // the inner `return@forEach` matches the INNERMOST forEach; the bare return leaves both lambdas
-        assertEquals("0@forEach 2 0", returns("nested"))
+        // the inner `return@each` matches the INNERMOST each; the bare return leaves both lambdas
+        assertEquals("0@each 2 0", returns("nested"))
         assertEquals("1@outer", returns("explicit"))
     }
 
     @Test
     fun aLocalFunctionIsItsOwnTarget() {
-        // g's forEach lambda returns from g, one level; g's `return 0` and `return g()` are their own
+        // g's each lambda returns from g, one level; g's `return 0` and `return g()` are their own
         assertEquals("0 0 1", returns("localFun").split(" ").sorted().joinToString(" "))
     }
 
@@ -144,7 +147,7 @@ class NonLocalReturnTest : KotlinScanTestBase() {
         assertEquals("1 0", returns("single"))
     }
 
-    /** Kotlin prints both kinds: `return@forEach` must keep its label, or it becomes a non-local return. */
+    /** Kotlin prints both kinds: `return@each` must keep its label, or it becomes a non-local return. */
     @Test
     fun theKotlinPrinterKeepsTheLabel() {
         fun printed(name: String): List<String> {
@@ -155,7 +158,7 @@ class NonLocalReturnTest : KotlinScanTestBase() {
             }
             return out
         }
-        assertEquals(listOf("return@forEach"), printed("local"))
+        assertEquals(listOf("return@each"), printed("local"))
         assertEquals(listOf("return@outer"), printed("explicit"))
         assertEquals(listOf("return false", "return true"), printed("bare"))
     }
