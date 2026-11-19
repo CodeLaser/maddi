@@ -13,7 +13,9 @@ An input configuration is:
   encoding, a test flag, an optional package restriction, and *dependencies* on other source sets;
 * a set of *class-path parts* — the compiled libraries (jars/directories) and JDK modules the sources
   are analyzed against;
-* a working directory (relative paths are resolved against it), and an optional alternative JRE.
+* a working directory (relative paths are resolved against it), and an optional alternative JRE;
+* optionally, hashes of the build files it was derived from (`--build-files`), by which a later reader can tell
+  that the build has changed since.
 
 Source sets carry a dependency graph, which the analyzer linearizes so that a set is analyzed after the
 sets it depends on. Class-path parts marked as JDK modules use the `jmod:` URI scheme.
@@ -31,11 +33,12 @@ sets it depends on. Class-path parts marked as JDK modules use the `jmod:` URI s
 | Compile-log capture
 | `--compile-log` (<<command-line>>) reconstructs the configuration from the compiler command lines a
   build actually issued (`javac`/`kotlinc`). Because it consumes what the compiler was told, it works
-  for *any* build system, not just Gradle/Maven.
+  for *any* build system, not just Gradle/Maven. The <<agents-and-ides,MCP server>> uses this way for a Gradle or
+  Maven build it is pointed at: it needs no {maddi} plugin in the build.
 
 | Explicit / serialized
 | The CLI `--source`/`--classpath`/`--jmod` flags build one by hand; `--input-configuration` reads a
-  previously written one.
+  previously written one, from the CLI or from the Gradle task `maddi-write-input-configuration`.
 |===
 
 == Partial classpaths are fine

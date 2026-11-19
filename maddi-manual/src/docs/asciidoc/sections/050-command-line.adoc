@@ -1,40 +1,64 @@
 [[command-line]]
 = The command line
 
-There are two command-line entry points, both requiring the javac `--add-exports` from <<overview>>
-on the launching JVM:
+The command line comes as two self-contained zips on the
+https://github.com/CodeLaser/maddi/releases/latest[GitHub release]. Unpack and run: every jar is in `lib/`, and the
+launcher carries the JVM flags the analyzer needs.
 
-* the *openjdk runner* (`io.codelaser.maddi.run.openjdkmain.Main`) — the primary CLI, for Java projects;
-* the *Kotlin/mixed runner* (`io.codelaser.maddi.run.kotlinmain.Main`) — for mixed Java+Kotlin, prep
-  only (see <<kotlin>>).
+[cols="2,1,1",options="header"]
+|===
+| Zip | Launcher | Analyses
 
-In the examples below, `maddi` stands for a launcher that starts the appropriate main class with the
-`--add-exports` already applied (the `maddi-cli` / `maddi-cli-kotlin` modules apply Gradle's `application`
-plugin, so `./gradlew :maddi-cli:run --args="…"` works too).
+| `maddi-<version>.zip` | `bin/maddi` | Java
+| `maddi-kotlin-<version>.zip` | `bin/maddi-kotlin` | Java and Kotlin
+|===
+
+`bin/maddi-kotlin` takes the same command line as `bin/maddi`, and on a project without a `.kt` file it behaves
+identically. Take the small zip for a Java-only build: the Kotlin one carries about 85 MB of Kotlin compiler jars.
+<<kotlin>> has the details. `maddi --help` prints all options.
 
 == Providing the input
 
-The openjdk CLI accepts the input configuration in three mutually-exclusive ways (checked in this
-order):
+The CLI accepts the input configuration in three mutually-exclusive ways (checked in this order):
 
 `--input-configuration <file.json>`:: Read a previously written input configuration.
 `--compile-log <file>`:: Derive it from a build/compiler log — raw `javac …` lines, Gradle
-`Compiler arguments: …` lines, or Maven `[DEBUG] -d …` lines; `.gz` is accepted. Add `--extra-jmod
+`Compiler arguments: …` lines, Maven `[DEBUG] -d …` lines, or an Ant log; `.gz` is accepted. Add `--extra-jmod
 <module>` (repeatable) to widen the JDK-module closure.
-Explicit flags:: `--source <dirs>`, `--test-source <dirs>`, `--classpath <cp>`, `--jmod <module>`,
-`--source-packages <pkgs>`, `--test-source-packages`, `--exclude-from-classpath`.
+Explicit flags:: `-s`/`--source <dirs>`, `--test-source <dirs>`, `-cp`/`--classpath <cp>`, `-jm`/`--jmod <module>`,
+`--exclude-from-classpath`, `--jre <dir>`, `--source-encoding <enc>`.
+`--source-packages` and `--test-source-packages` are legacy and best avoided: they fail on a modular project.
 
 See <<input-configuration>> for what these build.
 
 == Choosing what to run
 
-`--analysis-steps <steps>`:: `none`, `prep`, `modification`, `rewire-tests` (comma-separated).
+`--analysis-steps <steps>`:: `none`, `prep`, `analysis-order` (prep, and print the order), `modification`
+(comma-separated).
 `--analysis-results-dir <dir>`:: Where results are written.
 `--preload-analysis-results-dirs <dirs>`:: Load pre-computed analysis results for library types
 before modification analysis (see <<analysis-hints>>). Without it, an analysis run loads the JDK and
 library results that ship with maddi; `default` names them in a list (`default,my/results`), `none`
 loads nothing.
-`-p`/`--parallel`, `--quiet`, `-d`/`--debug <targets>`, `--jre <dir>`, `--source-encoding <enc>`.
+`--ownership`:: Run the ownership pass: `@Fresh` methods, `@Borrowed` parameters, `@Owned` fields. Off by default.
+`--closed-world`:: With `--ownership`: the sources are an application, and no code outside them calls their public
+methods, so a parameter that every caller hands over may be `@Owned`. Off by default, because a library's public
+methods have callers {maddi} cannot see.
+`--warn-near-misses`:: Emit advisory warnings for types and methods that narrowly miss a property, e.g. a type that
+would be `@Container` but for a single modifying parameter.
+`--translate <language>`, `--translate-output <dir>`:: Translate the main sources instead of writing results; see
+<<translation>>.
+`-i`/`--incremental-analysis`:: Build on the results already present in the results directory.
+`-p`/`--parallel`, `-q`/`--quiet`, `-d`/`--debug <targets>`:: Parallelize; suppress the summary; enable debug
+channels.
+
+Two options are for unusual sources:
+
+`--skip-kotlin-sources`:: Analyse the Java sources of a project that also holds Kotlin, accepting an incomplete
+result. Without it, `bin/maddi` refuses a project in which it meets a `.kt` file (exit code 6) rather than skip it
+silently.
+`--jdk-internals`:: Load `jdk.internal.*` and `sun.*` types and open the JDK's modules to javac. Needed only to
+parse the JDK's own sources.
 
 == Two workflows
 
@@ -47,25 +71,19 @@ $ maddi --compile-log build.log --extra-jmod java.sql --write-input-configuratio
 $ maddi --input-configuration project.json --analysis-steps modification --analysis-results-dir out
 ----
 
+With `--build-files <glob>` (repeatable, relative to the working directory, e.g. `'**/build.gradle.kts'`) the
+configuration also records a hash of the build files that shaped the log, so that a tool reading it later, such as
+the <<agents-and-ides,MCP server>>, can tell when it has gone stale.
+
 *Straight run from a log.*
 
 [source,console]
 ----
-$ maddi --compile-log build.log --analysis-steps prep --analysis-results-dir out
-----
-
-== The Kotlin/mixed runner
-
-The `run-kotlin` CLI mirrors the openjdk one for mixed projects. It takes `--compile-log <mixed log>`
-(a log containing both `javac` and `kotlinc` invocations, parsed into one configuration) or
-`--input-configuration <json>`, runs the *prep* analysis, and prints a summary:
-
-[source,console]
-----
-$ ./gradlew :maddi-cli-kotlin:run --args="--compile-log mixed-build.log"
+$ maddi --compile-log build.log --analysis-steps modification --analysis-results-dir out
 ----
 
 == Exit codes
 
 Every run returns a code: `0` on success, and distinct non-zero codes for parser / IO / analyzer
-failures. See <<appendix-exit-codes>>. A parse error never returns `0`.
+failures, for Kotlin sources met by the Java analyzer, and for an option the pipeline cannot honour.
+See <<appendix-exit-codes>>. A parse error never returns `0`.

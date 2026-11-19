@@ -1,0 +1,98 @@
+[[agents-and-ides]]
+= Coding agents and IDEs
+
+The command line and the build plugins write results to disk. The tools of this chapter answer questions: what
+is the verdict on this type, and why? They share one *analysis daemon*, which runs out of process on its own JDK
+(25 or later), so that the agent or the IDE can run on any JVM.
+
+== The MCP server
+
+`maddi-mcp` is a https://modelcontextprotocol.io[Model Context Protocol] server on standard input and output, for a
+coding agent to configure a project, analyse all or part of it, and ask for the verdicts.
+
+Install it with Homebrew on macOS and Linux, which brings its own JDK, and register it with the agent:
+
+[source,console]
+----
+$ brew install codelaser/tap/maddi-mcp
+$ claude mcp add maddi -- $(brew --prefix)/bin/maddi-mcp
+----
+
+Or download `maddi-mcp-<version>.zip` from the https://github.com/CodeLaser/maddi/releases[GitHub release], unzip it,
+and register its `bin/maddi-mcp`. For Claude Desktop, the same release has `maddi-mcp-<version>.mcpb`. The MCP
+Registry lists the server as `io.github.codelaser/maddi-mcp`.
+
+[cols="2,3",options="header"]
+|===
+| Tool | Does
+
+| `configure_project`, `list_projects`
+| Configure a Gradle or Maven build by its directory alone; any other build by a command whose output shows javac's
+  command lines, or by a log of it; or by an input configuration file.
+
+| `analyze`, `run_status`, `stop_run`
+| A run in the background: a large project takes minutes. A run can be limited to source sets or packages.
+
+| `overview`
+| A project, package or type in one answer: types by immutability level, modifying methods, modified fields and
+  parameters, findings by category.
+
+| `verdicts`, `explain`, `findings`
+| The annotations of types and members, why they hold, and the findings.
+
+| `element_at`
+| The element at a file and line, explained.
+
+| `diff_runs`
+| What changed between two runs: analyse, edit, analyse again, compare.
+
+| `library_annotations`
+| What the last run knows of JDK and library types.
+|===
+
+A Gradle or Maven build needs no {maddi} plugin: given the directory, the server compiles the project with javac's
+arguments logged, and turns that log into an input configuration, as `--compile-log` does (<<input-configuration>>).
+It stores the configuration with hashes of the build files, and computes it again only when one of them changed.
+
+Every answer carries its certainty. Only `FINAL` values are certified; `PROVISIONAL` values (a run going on, or
+stopped) and `BEST_AVAILABLE` values hold, but may be weaker than the code allows.
+
+`explain` says why a verdict holds, as a chain of statements: why a method, field or parameter is `@Modified`, why
+something is `@Dependent` or `@Nullable`; for a type, the first rule of immutability it fails, at the member that
+fails it; and why a type is not a `@Container`.
+
+The server always runs the ownership pass. Its options, each also an environment variable:
+
+[cols="1,1,2",options="header"]
+|===
+| Option | Environment | Default
+
+| `--jdk` | `MADDI_JDK_HOME` | the JDK the server runs on; the daemon needs 25 or later
+| `--xmx-mb` | `MADDI_DAEMON_XMX_MB` | the daemon's own default heap
+| `--log` | `MADDI_DAEMON_LOG` | `maddi-mcp-daemon-<pid>.log` in the temporary directory
+| `--store` | `MADDI_MCP_STORE` | `~/.maddi/mcp`: the configured projects and the last runs of each
+| `--incremental` | `MADDI_INCREMENTAL` | `false`; `true` (experimental) re-analyses only what an edit changed, and
+such a run is `BEST_AVAILABLE`, never `FINAL`
+|===
+
+== IDE plugins
+
+The IntelliJ, Eclipse and VS Code plugins show the computed annotations in the editor. They are not published yet;
+build them from the `maddi-dist` repository:
+
+[cols="1,2,2",options="header"]
+|===
+| IDE | Build | Notes
+
+| IntelliJ IDEA
+| `./gradlew :maddi-intellij:buildPlugin`, or `runIde` to try it
+| Java and Kotlin. The Kotlin front-end is downloaded on demand from the release.
+
+| Eclipse 2025-09 or later
+| `task eclipse:build` (a p2 update site)
+|
+
+| VS Code
+| `task vscode:package` (a `.vsix`)
+| Needs the `redhat.java` extension.
+|===
