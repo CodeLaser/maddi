@@ -103,6 +103,7 @@ public class ParseKotlincList {
     private static final Pattern MVN_SOURCES = Pattern.compile(".*Compiling Kotlin sources from \\[(.*)]");
     private static final Pattern MVN_CLASSPATH = Pattern.compile(".*\\[DEBUG] Classpath:\\s*(.*)");
     private static final Pattern MVN_CLASSES_DIR = Pattern.compile(".*Classes directory is (.*)");
+    private static final Pattern PLUGIN_OPTION = Pattern.compile("(?:^|\\s)-P\\s+(\\S+)");
     private static final Pattern MVN_MODULE = Pattern.compile(".*Module name is (.*)");
 
     /**
@@ -129,6 +130,16 @@ public class ParseKotlincList {
 
         /** @return the invocation this line completes, or {@code null} (not a Kotlin line, or a block in progress) */
         public Kotlinc accept(String line) {
+            Matcher args = block == null ? null : GRADLE.matcher(line);
+            if (args != null && args.matches()) {
+                // kotlin-maven-plugin 2.x logs "[DEBUG] Kotlin compiler args: …" INSIDE its block, between "Classes
+                // directory is" and "Module name is". Taken as a Gradle line it replaced the block with an
+                // invocation without -d, which no javac line folds with: every Kotlin module of quarkus became a
+                // Java "main" plus a Kotlin "main2". The block stays; the args contribute their -P plugin options.
+                Matcher p = PLUGIN_OPTION.matcher(args.group(1));
+                while (p.find()) block.pluginOptions.addAll(Kotlinc.pluginOptions(p.group(1)));
+                return null;
+            }
             Kotlinc single = convertSingleLine(line);
             if (single != null) {
                 block = null;
@@ -164,9 +175,11 @@ public class ParseKotlincList {
         List<String> classpath = List.of();
         String destination;
         String moduleName;
+        final List<String> pluginOptions = new ArrayList<>();
 
         Kotlinc build() {
-            return destination == null ? null : Kotlinc.mavenBlock(destination, sourceDirs, classpath, moduleName);
+            return destination == null ? null
+                    : Kotlinc.mavenBlock(destination, sourceDirs, classpath, moduleName, pluginOptions);
         }
     }
 

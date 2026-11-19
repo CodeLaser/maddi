@@ -110,4 +110,39 @@ public class TestMixedList {
         assertTrue(config.classPathParts().stream().noneMatch(p -> p.uri().toString().endsWith("target/classes")),
                 "the module's own output is not also a library");
     }
+
+    /**
+     * quarkus (kotlin-maven-plugin 2.4): the block holds a "Kotlin compiler args:" line, and a kapt execution logs a
+     * second block into the same {@code target/classes}. Neither may split the module: one source set, holding
+     * the kapt-generated sources, and the args' {@code -P} plugin options.
+     */
+    @Test
+    public void mavenBlockWithCompilerArgsAndKaptIsOneSourceSet() throws IOException {
+        Path tmp = Files.createTempDirectory(tempRoot, "mixed-kapt");
+        Path kotlin = tmp.resolve("proj/src/main/kotlin");
+        Path java = tmp.resolve("proj/src/main/java");
+        Path kapt = tmp.resolve("proj/target/generated-sources/kapt/compile");
+        for (Path dir : List.of(kotlin, java, kapt)) Files.createDirectories(dir);
+        String classes = tmp.resolve("proj/target/classes").toString();
+        String jar = tmp.resolve("lib.jar").toString();
+        String block = "[DEBUG] Classpath: " + jar + "\n" +
+                "[DEBUG] Classes directory is " + classes + "\n" +
+                "[DEBUG] Kotlin compiler args: -classpath " + jar + " -P plugin:org.jetbrains.kotlin.allopen:annotation=a.B"
+                + " -no-stdlib " + kotlin + "\n" +
+                "[DEBUG] Module name is proj\n";
+        String log = "[DEBUG] Compiling Kotlin sources from [" + kotlin + ", " + kapt + "]\n" + block +
+                "[DEBUG] Compiling Kotlin sources from [" + kotlin + ", " + java + "]\n" + block +
+                "[DEBUG] -d " + classes + " -classpath " + classes + ":" + jar + " -sourcepath " + java
+                + ": --release 17 -encoding UTF-8\n";
+        Path logFile = Files.createTempFile(tempRoot, "mixed-kapt", ".txt");
+        Files.writeString(logFile, log);
+
+        assertEquals(3, new ParseMixedList().invocations(logFile).size(), "two Maven blocks and a javac line");
+        List<SourceSet> sets = new ParseMixedList().parse(logFile).sourceSets().stream()
+                .filter(s -> !s.externalLibrary()).toList();
+        assertEquals(1, sets.size(), () -> "one source set for target/classes: " + sets);
+        assertEquals(List.of(kotlin, kapt, java), sets.getFirst().sourceDirectories());
+        assertEquals(List.of("plugin:org.jetbrains.kotlin.allopen:annotation=a.B"),
+                sets.getFirst().kotlinPluginOptions());
+    }
 }

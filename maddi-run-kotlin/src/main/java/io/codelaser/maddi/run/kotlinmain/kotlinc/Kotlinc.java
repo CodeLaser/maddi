@@ -62,8 +62,13 @@ public record Kotlinc(int jvmTarget,
      * <i>directories</i> and put the main output on the test classpath rather than using {@code -Xfriend-paths}).
      */
     public static Kotlinc mavenBlock(String destination, List<String> sourceDirs, List<String> classpath, String moduleName) {
+        return mavenBlock(destination, sourceDirs, classpath, moduleName, List.of());
+    }
+
+    public static Kotlinc mavenBlock(String destination, List<String> sourceDirs, List<String> classpath,
+                                     String moduleName, List<String> pluginOptions) {
         return new Kotlinc(0, null, null, destination, moduleName, null, classpath, List.copyOf(sourceDirs),
-                List.of(), List.of(), null, List.of());
+                List.of(), List.of(), null, List.copyOf(pluginOptions));
     }
 
     public static class Builder {
