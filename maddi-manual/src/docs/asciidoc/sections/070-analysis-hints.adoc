@@ -10,7 +10,9 @@ Compiling those hint sources produces *analysis results* (`.json`) — the same 
 for your own code — which are then loaded before your project is analyzed, so calls into those
 libraries resolve to real annotations instead of unknowns.
 
-The JDK and a set of common libraries ship pre-annotated in the `maddi-aapi-archive` module.
+The JDK and a set of common libraries ship pre-annotated, in the module `maddi-aapi-archive`; every distribution
+bundles them, and loads them by default.
+A library that carries JSpecify's `@NullMarked` needs no hints for its nullability: its own annotations are read.
 
 == The three use cases
 
@@ -20,13 +22,14 @@ analysis-result `.json` files. Loaded before modification analysis so library ty
 
 Use case 2 — *compile* hints into results::
 Turn a directory of hand-written hint sources into result `.json` files. Gradle:
-`analysisResultsTargetDir`; Maven: the `compile-analysis-hints` goal; CLI: an
+`analysisResultsTargetDir`; Maven: the `compile-analysis-hints` goal; CLI:
 `--analysis-results-target-dir`.
 
 Use case 3 — *write* first-cut hints::
 Generate skeleton hint sources for the library types your project actually calls into (annotated with
 call-frequency comments), as a starting point to curate. Gradle: `updatedHintsDir` /
-`updatedHintsPackage`; Maven: the `write-analysis-hints` goal.
+`updatedHintsPackage`; Maven: the `write-analysis-hints` goal; CLI: `--updated-hints-dir`,
+`--updated-hints-package`, `--hints-packages`.
 
 // TODO: expand — the on-disk layout of the archive (jdk/, libs/), and how to add hints for your own
 // library end-to-end.

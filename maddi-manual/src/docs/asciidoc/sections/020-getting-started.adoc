@@ -3,15 +3,44 @@
 
 Two quick paths, depending on how your project is built.
 
+== Any project, from a build log
+
+Download `maddi-<version>.zip` from the https://github.com/CodeLaser/maddi/releases/latest[GitHub release] and
+unpack it: every jar is in `lib/`, and the launcher `bin/maddi` carries the JVM flags the analyzer needs.
+Then capture what the build compiled, and hand it over. No build-tool integration is needed: this is the
+*compile-log* path, in which {maddi} reconstructs the input configuration from the `javac` command lines the build
+actually issued.
+
+[source,console]
+----
+# 1. capture the compiler arguments from a Gradle build (Maven, Ant and raw javac also work)
+$ ./gradlew :your-module:compileJava --debug 2>&1 | grep 'Compiler arguments:' > build.log
+
+# 2. derive the input configuration and run the analysis
+$ maddi --compile-log build.log --analysis-steps modification --analysis-results-dir out
+----
+
+You can also derive the configuration once and reuse it:
+
+[source,console]
+----
+$ maddi --compile-log build.log --write-input-configuration project.json
+$ maddi --input-configuration project.json --analysis-steps modification --analysis-results-dir out
+----
+
+The command line is covered in <<command-line>>; the input-configuration object it produces in
+<<input-configuration>>. For a project with Kotlin sources, take `maddi-kotlin-<version>.zip` and its launcher
+`bin/maddi-kotlin` instead (<<kotlin>>).
+
 == A Gradle project
 
 Apply the plugin and configure the `maddi` extension:
 
-[source,kotlin]
+[source,kotlin,subs="attributes"]
 ----
 plugins {
     java
-    id("io.codelaser.maddi.analyzer")
+    id("io.codelaser.maddi.analyzer") version "{maddi-version}"
 }
 
 maddi {
@@ -32,38 +61,12 @@ worker JVM with the required `--add-exports`, runs the analyzer, and writes one 
 package under `build/maddi`. A non-zero exit fails the task; see <<error-reporting>>. The plugin is
 described in full in <<gradle-plugin>>.
 
-== Any project, from a build log
-
-If you are not on Gradle — or you want to analyze a project exactly as its build compiles it — capture
-the compiler invocation from a verbose build and feed it to the CLI. This is the *compile-log* path:
-{maddi} reconstructs the input configuration from the `javac` (and, for Kotlin, `kotlinc`) command
-lines the build actually issued.
-
-[source,console]
-----
-# 1. capture the compiler arguments from a Gradle build (Maven and raw javac also work)
-$ ./gradlew :your-module:compileJava --debug 2>&1 | grep 'Compiler arguments:' > build.log
-
-# 2. derive the input configuration and run the prep analysis
-$ maddi --compile-log build.log --analysis-steps prep --analysis-results-dir out
-----
-
-Here `maddi` is the CLI launcher for the openjdk runner (started with the `--add-exports` from
-<<overview>>). You can also derive the configuration once and reuse it:
-
-[source,console]
-----
-$ maddi --compile-log build.log --write-input-configuration project.json
-$ maddi --input-configuration project.json --analysis-steps modification --analysis-results-dir out
-----
-
-The command line is covered in <<command-line>>; the input-configuration object it produces in
-<<input-configuration>>.
-
 == What you get
 
-* A results directory (default `build/maddi`) containing one `.json` per analyzed package. These hold
+* A results directory containing one `.json` per analyzed package. These hold
   the computed annotations and are what downstream tooling — and subsequent {maddi} runs — consume.
 * A summary printed to the log, including any errors and warnings with their file/line/column.
 * An exit code that reflects the outcome (`0` OK, non-zero on parse/analysis failure — see
   <<appendix-exit-codes>>).
+
+To _look at_ the verdicts rather than store them, use the <<agents-and-ides,MCP server or an IDE plugin>>.

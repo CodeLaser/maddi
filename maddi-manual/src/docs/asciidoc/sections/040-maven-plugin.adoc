@@ -1,9 +1,28 @@
 [[maven-plugin]]
 = The Maven plugin
 
-The Maven plugin (`maddi-mvnplugin`) derives the input configuration from the Maven project model
-(compile and test source roots, and the dependency classpath resolved via Maven's own resolver) and,
-like the Gradle plugin, hands it to the openjdk `RunAnalyzer`.
+The Maven plugin (`io.codelaser:maddi-mvnplugin`, on Maven Central, goal prefix `maddi`) derives the input
+configuration from the Maven project model (compile and test source roots, and the dependency classpath resolved via
+Maven's own resolver) and, like the Gradle plugin, hands it to the Java analyzer.
+
+== Using it
+
+[source,xml,subs="attributes"]
+----
+<plugin>
+    <groupId>io.codelaser</groupId>
+    <artifactId>maddi-mvnplugin</artifactId>
+    <version>{maddi-version}</version>
+    <configuration>
+        <analysisSteps>modification</analysisSteps>
+    </configuration>
+</plugin>
+----
+
+[source,console]
+----
+$ mvn maddi:run
+----
 
 == Goals
 
@@ -12,17 +31,26 @@ like the Gradle plugin, hands it to the openjdk `RunAnalyzer`.
 | Goal | Does
 
 | `run` | Parse, prep- and modification-analyze the project; write results.
-| `compile-analysis-hints` | Compile hand-written analysis-hint sources into result `.json` files
-(<<analysis-hints>>, use case 2).
+| `write-input-configuration` | Write the computed input configuration to JSON (`outputFile`).
+| `compile-analysis-hints` | Compile hand-written analysis-hint sources (`inputDirectory`) into result `.json`
+files (`outputDirectory`); see <<analysis-hints>>, use case 2.
 | `write-analysis-hints` | Generate first-cut analysis-hint skeletons for the library types the
 project calls into (use case 3).
-| `write-input-configuration` | Write the computed input configuration to JSON.
 | `statistics` | Method-call-frequency histograms.
 |===
 
+== Configuration
+
+The parameters common to all goals mirror the Gradle extension (<<gradle-plugin>>): `analysisSteps`,
+`analysisResultsDir`, `incrementalAnalysis`, `parallel`, `quiet`, `warnNearMisses`, `debug`, `jmods`, `jre`,
+`sourceEncoding`, `excludeFromClasspath`, `workingDirectory`, `preloadAnalysisResultsDirs`, and the hint options
+`analysisResultsTargetDir`, `updatedHintsDir`, `updatedHintsPackage`, `hintsPackages`.
+`sourcePackages` and `testSourcePackages` exist too, with the same warning as for Gradle.
+The ownership pass is not available through the Maven plugin; use the command line.
+
 == The `--add-exports` requirement
 
-Unlike Gradle (which forks a worker), a Maven mojo runs in-process, so the Maven JVM itself must be
+Unlike Gradle (which forks a worker), a Maven goal runs in-process, so the Maven JVM itself must be
 started with the javac `--add-exports` from <<overview>>. Put them in `.mvn/jvm.config` or `MAVEN_OPTS`:
 
 [source]
@@ -35,12 +63,4 @@ started with the javac `--add-exports` from <<overview>>. Put them in `.mvn/jvm.
 --add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
 ----
 
-// TODO: publishing coordinates + the <plugin> stanza. The plugin currently builds in-tree (as a Gradle
-// module) but its Maven descriptor (META-INF/maven/plugin.xml) is not yet generated, so it is not yet
-// installable/runnable as a standard Maven plugin. Document the usage once that is wired.
-[NOTE]
-====
-*Status.* The plugin's sources build in-tree and are aligned with the Gradle plugin, but the Maven
-plugin *descriptor* is not yet generated, so it cannot yet be invoked as a normal Maven plugin. This
-section will be completed once packaging is in place.
-====
+Maven itself must run on JDK 25 or later for these goals.

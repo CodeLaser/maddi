@@ -20,6 +20,7 @@ Bart Naudts <bart.naudts@codelaser.io>
 :attribute-missing: warn
 :description: A practical guide to running maddi on your Java (and Kotlin) project
 :maddi: pass:normal[ _maddi_ ]
+:maddi-version: 0.9.6
 
 // PDF-specific TOC placement
 ifdef::backend-pdf[]
@@ -28,8 +29,8 @@ endif::[]
 
 [abstract]
 This is the _operator's manual_ for {maddi}: how to run the analyzer on your own project — through
-the Gradle plugin, the Maven plugin, or the command line — how to give it the right inputs, how to
-read its output, and how to supply analysis hints for libraries. For the *concepts* behind the
+the command line, the Gradle plugin, the Maven plugin, or a coding agent — how to give it the right inputs, how to
+read its output, how to supply analysis hints for libraries, and how to translate a Java project into Kotlin. For the *concepts* behind the
 annotations it produces (immutability, modification, independence, linking), see the companion
 document _The Road to Immutability_.
 
@@ -72,6 +73,14 @@ include::{includedir}/080-error-reporting.adoc[leveloffset=+1]
 <<<
 
 include::{includedir}/090-kotlin.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/100-translation.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/110-agents-and-ides.adoc[leveloffset=+1]
 
 [appendix]
 include::{includedir}/appendix-a-exit-codes.adoc[leveloffset=+1]
