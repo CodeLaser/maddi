@@ -84,8 +84,11 @@ class TestJavaStub {
         val bag = KotlinScan(runtime, sourceSet).parse(
             "Bag.kt",
             "package a.b\n" +
-                "open class Bag<E> : java.util.ArrayList<E>() {\n" +
+                "open class Bag<E, K> : java.util.ArrayList<E> {\n" +
+                "    constructor() : super()\n" +
+                "    constructor(initialCapacity: Int) : super(initialCapacity)\n" +
                 "    override fun remove(element: E): Boolean = super.remove(element)\n" +
+                "    override fun removeAt(index: Int): E = super.removeAt(index)\n" +
                 "    override fun addAll(elements: Collection<E>): Boolean = super.addAll(elements)\n" +
                 "    fun keep(e: E): Boolean = true\n" +
                 "}\n"
@@ -95,7 +98,7 @@ class TestJavaStub {
         val useBag = """
             package a.b;
             public class UseBag {
-                public boolean use(Bag<String> b, java.util.List<String> l) { return b.remove("x") && b.addAll(l) && b.keep("y"); }
+                public boolean use(Bag<String, Integer> b, java.util.List<String> l) { return b.remove("x") && b.addAll(l) && b.keep("y"); }
             }
         """.trimIndent()
 

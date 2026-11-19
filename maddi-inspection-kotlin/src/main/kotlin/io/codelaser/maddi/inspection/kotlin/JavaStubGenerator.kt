@@ -140,10 +140,30 @@ object JavaStubGenerator {
     private fun javaOverridden(m: MethodInfo): MethodInfo? {
         if (m.isConstructor || m.isStatic) return null
         if (m.parameters().none { javaType(it.parameterizedType()) != erasure(it.parameterizedType()) }) return null
+        fun isJava(t: TypeInfo) = t.compilationUnit()?.uri()?.toString()?.endsWith(".kt") != true
         return runCatching { m.overrides() }.getOrDefault(emptySet()).firstOrNull { o ->
-            o.parameters().size == m.parameters().size
-                && o.typeInfo().compilationUnit()?.uri()?.toString()?.endsWith(".kt") != true
+            o.parameters().size == m.parameters().size && isJava(o.typeInfo())
+        } ?: sameErasureInJavaSupertype(m, m.typeInfo(), ::isJava, HashSet())
+    }
+
+    /**
+     * [m]'s override in a Java supertype, found by erasure. `overrides()` substitutes type variables and misses what
+     * Kotlin maps as `E` and a bytecode-loaded JDK declares `Object`: `remove(element: E)` against `ArrayList`'s
+     * `remove(Object)` (also `contains`, `indexOf`, `Map.get`). Equal erasures are exactly javac's name clash.
+     */
+    private fun sameErasureInJavaSupertype(m: MethodInfo, type: TypeInfo, isJava: (TypeInfo) -> Boolean,
+                                           seen: MutableSet<TypeInfo>): MethodInfo? {
+        val own = m.parameters().map { erasure(it.parameterizedType()) }
+        for (st in listOfNotNull(type.parentClass()) + type.interfacesImplemented()) {
+            val t = st.typeInfo() ?: continue
+            if (!seen.add(t)) continue
+            if (isJava(t)) t.methods().firstOrNull { o ->
+                !o.isStatic && o.name() == m.name() && o.parameters().size == own.size
+                    && o.parameters().map { erasure(it.parameterizedType()) } == own
+            }?.let { return it }
+            sameErasureInJavaSupertype(m, t, isJava, seen)?.let { return it }
         }
+        return null
     }
 
     /** The JLS erasure: a type variable is its leftmost bound's erasure, `Object` when unbounded. */
