@@ -1060,10 +1060,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return known;
         }
         if ("file".equals(uri.getScheme())) {
+            // the LONGEST prefix: the map is unordered, and a set whose URI is a parent directory (java.base's
+            // 'file:/' in the tests) matched every class directory, whichever entry came first
             SourceSet dir = sourceSetDirPrefixes.entrySet().stream()
                     .filter(e -> uri.getPath().startsWith(e.getKey()))
+                    .max(Comparator.comparingInt(e -> e.getKey().length()))
                     .map(Map.Entry::getValue)
-                    .findFirst().orElse(null);
+                    .orElse(null);
             if (dir != null) return dir;
         }
         Symbol.ModuleSymbol module = findModule(cs);
@@ -2407,6 +2410,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private TypeInfo classTypeInfo(Type.ClassType ct) {
         Symbol.ClassSymbol cs = nested((Symbol.ClassSymbol) ct.tsym);
         String fullyQualifiedType = cs.toString();
+        /*
+         A named local class first: javac prints its symbol as the bare simple name, which is also the name of a
+         top-level type in the default package. quarkus: qute's ParserTest declares a local 'class Dummy', and the
+         unrelated arc/tcks/cdi-tck-signature declares a top-level Dummy; the registry answered with that one
+         (TestSameFqnInUnrelatedSourceSets).
+         */
+        if (cs.owner instanceof Symbol.MethodSymbol && !cs.getSimpleName().toString().isBlank()
+            && elementStack.findOrNull(cs.getSimpleName().toString()) instanceof TypeInfo local) {
+            return local;
+        }
         TypeInfo known = getType(fullyQualifiedType);
         TypeInfo typeInfo;
         Symbol.ClassSymbol topCs;
@@ -2614,7 +2627,23 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             || sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet())) {
             return typeInfo;
         }
-        return declaredByOwnSources(fullyQualifiedName) ? null : typeInfo;
+        if (declaredByOwnSources(fullyQualifiedName)) return null;
+        return unreachableSourceCopy(typeInfo) ? null : typeInfo;
+    }
+
+    /*
+     ⛔ A SOURCE TYPE OF A SET THIS SET DOES NOT DEPEND ON IS NOT ONE IT CAN SEE. javac compiles each set against its
+     own class path; two sets that do not depend on each other may each have a type of the same name, and this set
+     sees its own (from its class path) or none. quarkus: several integration-tests generate the same gRPC classes
+     (examples.MutinyGreeterGrpc), and reactive-messaging-pulsar, which has them compiled from its dependency
+     grpc-proto4, resolved to oidc-wiremock's source copy; the class file then arrived as a "second definition"
+     and its unit was dropped (TestSameFqnInUnrelatedSourceSets). Answering "not registered" sends the caller down
+     the path javac took. Libraries and the JDK keep the old, looser lookup: a jar is matched to its set by name.
+     */
+    private boolean unreachableSourceCopy(TypeInfo typeInfo) {
+        SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
+        return sourceSet != null && !sourceSet.externalLibrary() && !sourceSet.partOfJdk()
+               && !infoByFqn.reaches(sourceSetOfCurrentTask, sourceSet);
     }
 
     // the name, or the name of a type enclosing it ('.' for a member type, '$' for an anonymous one), is a top-level

@@ -116,9 +116,13 @@ public class TestGap12StaleJarReproduction {
             // A: declares a.b.Widget from source (the edited version)
             SourceSet setA = new SourceSetImpl.Builder().setName(TEST_PROTOCOL).setUri(URI.create("file:/a/"))
                     .setDependencies(List.of(javaBase)).build();
-            // B: sees the JAR's a.b.Widget, and calls the constructor only the jar has
+            // B: sees the JAR's a.b.Widget, and calls the constructor only the jar has. It depends on A as well, as the
+            // ES module did: the stale jar shadows a definition B can also see. Without that dependency B and A are
+            // unrelated, each has its own a.b.Widget as javac compiles them, and there is no collision to report
+            // (quarkus' generated gRPC classes, TestSameFqnInUnrelatedSourceSets); the jar comes first, so javac
+            // takes its Widget
             SourceSet setB = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "B").setUri(URI.create("file:/b/"))
-                    .setDependencies(List.of(javaBase, staleJar)).build();
+                    .setDependencies(List.of(javaBase, staleJar, setA)).build();
 
             InputConfiguration ic = new InputConfigurationImpl.Builder()
                     .addClassPathParts(javaBase, staleJar)

@@ -223,6 +223,22 @@ public class InfoByFqn {
                 multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
                 LOGGER.debug("Appended to multi: {}", typeInfo.descriptor());
             }
+        } else if (prev != null && isSourceType(prev)
+                   && !sameSourceSet(prev, typeInfo.compilationUnit().sourceSet())) {
+            /*
+             A source type of one set and another set's copy of the same name, loaded for a set that sees only the
+             second: both stay, each for the sets that reach it (quarkus' generated gRPC classes, see
+             ClassSymbolScanner#unreachableSourceCopy). Overwriting dropped the source set's copy, and its subtypes.
+             */
+            singleTypeByFqn.remove(fqn);
+            multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
+            LOGGER.debug("Create multi beside a source type: {}", typeInfo.descriptor());
+        } else if (prev == null && (list = multiTypeByFqn.get(fqn)) != null
+                   && list.stream().anyMatch(InfoByFqn::isSourceType)
+                   && list.stream().noneMatch(t -> sameSourceSet(t, typeInfo.compilationUnit().sourceSet()))) {
+            singleTypeByFqn.remove(fqn);
+            multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
+            LOGGER.debug("Appended to multi beside a source type: {}", typeInfo.descriptor());
         } else if (prev != null) {
             LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
                     prev.compilationUnit().sourceSet(), typeInfo.compilationUnit().sourceSet());
@@ -337,6 +353,25 @@ public class InfoByFqn {
         String fqn = typeInfo.fullyQualifiedName();
         TypeInfo single = singleTypeByFqn.get(fqn);
         return single != null ? single != typeInfo && !isStub(single) : multiTypeByFqn.containsKey(fqn);
+    }
+
+    private final Map<SourceSet, Set<SourceSet>> reachableSourceSets = new HashMap<>();
+
+    /**
+     * Whether {@code from} depends on {@code to}, directly or not, or is it. The transitive closure is computed once
+     * per source set.
+     */
+    public synchronized boolean reaches(SourceSet from, SourceSet to) {
+        if (from.equals(to)) return true;
+        return reachableSourceSets.computeIfAbsent(from, f -> {
+            Set<SourceSet> closure = new HashSet<>();
+            java.util.ArrayDeque<SourceSet> todo = new java.util.ArrayDeque<>(f.dependencies());
+            while (!todo.isEmpty()) {
+                SourceSet s = todo.poll();
+                if (closure.add(s)) todo.addAll(s.dependencies());
+            }
+            return closure;
+        }).contains(to);
     }
 
     public synchronized TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {
