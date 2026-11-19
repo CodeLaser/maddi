@@ -61,7 +61,7 @@ chapter only when detail is missing here. Last checked against the code and the 
     the object plus the application objects it holds, not its JDK containers (else `clearList` loses its read-only
     `List`); (b) the owner's own type counts only through a field back to it (`Node.first` yes; `Leaf.children` no:
     `clearLeaves` not structural); (c) the fixpoint engine can't tell a direct write from a call, so it is coarser
-    than the reachability pass. Book §080 `structural-definition`; tests `TestAccessibleReach`,
+    than the reachability pass. Book §080 `structural-definition` (the definition), §109 `structural-approximations` (a-c); tests `TestAccessibleReach`,
     `TestBook080Elements`). The step back from a modified container to its elements is computed within one method
     (maddi-mod#113: a co-element of a modified element is modified, in the element's mode: structurally when the
     element's own state is written, maddi-mod#130), not through a call
@@ -412,6 +412,8 @@ Tutorial: 010 introduction · 020 final fields · 030 modification · 040 contai
 045 linking & dependence · 050 immutability (incl. §Unmodifiable views) · **055 ownership** (computed behind
 `OWNERSHIP`, incl. §Finalizers; this file's §Ownership) · 060 eventual (computed; §Eventual) ·
 070 modification part 2 · 080 hidden content · **085 nullability** (computed; this file's §Nullability).
-Technical: **105 the link system** · **108 convergence (iterating analyzer)**.
+Technical: **105 the link system** · **108 convergence (iterating analyzer)** · **109 the analyzer today** (status per
+annotation, switches, deviations from the definitions, measurements, pinning tests: the ONLY chapter that talks about
+the current implementation; the tutorial chapters state principles and carry no issue numbers, dates, gates or test names).
 Practice: 110 support classes · 115 the analyzer's own code · 120 other annotations ·
 appendix A annotation overview. (090/100 exist on disk but are excluded: pre-sv terminology.)

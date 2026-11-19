@@ -5,8 +5,11 @@ The previous chapter described how links are computed for one method, given the 
 it calls.
 This chapter describes the layer above: how the analyzer orders the work, iterates it to a fixpoint,
 knows when it is done, and what it does when the code refuses to cooperate.
-Like the previous chapter, it is technical in nature; unlike a design document, everything here describes
-the engine as it runs today.
+Like the previous chapter, it is technical in nature.
+It describes the design of the iteration: what must hold for a result to be trusted, and why the work is organised
+the way it is.
+The particulars of the current engine (its classes, thread counts, switches and measurements) are in
+<<analyzer-today-engine>>.
 
 == Properties, and the discipline of writing them
 
@@ -16,7 +19,7 @@ Three rules govern them:
 
 * Values are written at most once per analysis, and always in the _conservative-to-optimistic_ direction:
   an absent value means "not decided yet", never "assumed fine".
-  A guarded overwrite facility (`TolerantWrite`) exists for the few places that legitimately refine a
+  A guarded overwrite facility exists for the few places that legitimately refine a
   value (cycle breaking, below), and it enforces monotonicity: a verdict may become more precise, never
   contradict itself.
   The one sanctioned exception is the modification cutover after the fixpoint (<<after-the-fixpoint>>).
@@ -49,21 +52,18 @@ Hence: iteration.
 
 == The iteration loop
 
-The main loop (`IteratingAnalyzerImpl`) repeatedly runs the per-element analyzers over the analysis
+The main loop repeatedly runs the per-element analyzers over the analysis
 order, counting _property changes_ — the number of newly decided or refined values in the pass.
 The first pass visits everything; subsequent passes narrow to a _worklist_: only elements whose inputs
 changed in the previous pass are dirty and revisited, with dirty targets mapped to their enclosing
 analysis-order element.
-On large code bases the worklist typically collapses from tens of thousands of elements to a few hundred
-within two or three passes.
 
-The loop may run in parallel: independent elements of the analysis order are processed by a small thread
-pool (at most eight threads, two fewer than the machine has cores; `PARALLEL=n` overrides, and small runs
-stay sequential).
-Parallelism is behaviorally almost — not perfectly — transparent: the vast majority of verdicts are
-scheduling-independent, and the few known non-confluent shapes (a constructor whose modification verdict
-depends on whether a sibling was decided in the same pass) are tracked explicitly and resolve to the
-conservative side.
+The loop can run in parallel: elements of the analysis order that do not depend on each other can be processed
+at the same time.
+The write-once discipline is what makes this possible, but it does not make the result independent of scheduling
+by itself: a verdict that depends on whether a sibling was decided in the same pass or in the previous one can
+come out differently.
+Such shapes must be known, and must resolve to the conservative side.
 
 == Verification and certification
 
@@ -73,9 +73,6 @@ The loop therefore ends with _verification passes_: with all values frozen, ever
 once more and the engine checks that nothing changes.
 A run that exits this way is _certified_: the published verdicts are a self-consistent fixpoint of the
 analysis functions, independent of the path that produced them.
-The engine's proving ground — a set of open-source code bases from a few thousand to fifty thousand
-elements — is kept certified and crash-free on the default configuration, and every engine change is
-gated on reproducing byte-identical verdict dumps (an "A/B with zero diff") on at least one of them.
 
 == Cycle breaking
 
@@ -91,22 +88,19 @@ inputs by strategy rather than waiting.
 The default strategy floors an undecided supertype at final-fields level and treats absent information as
 non-modifying; the breaking pass then lets the normal machinery draw its conclusions, and the loop
 re-certifies including them.
-On the decompiler code base that motivated the work, immutability went from 380-out-of-450 types
-undecided to a single undecided type, with the positive verdicts (immutable, immutable-with-hidden-content)
-appearing for the first time.
+Without it, a code base with many such clusters ends with most of its types undecided; with it, the positive
+verdicts (immutable, immutable with hidden content) appear.
 
 Cycle breaking is deliberately conservative about the _strength_ of what it concludes: a type whose
 deep immutability rests on a broken cycle is published at the hidden-content level rather than the full
 level, because the unbroken evidence is not there.
 
-The supertype path was, for a while, the only one the breaking pass resolved, and the elasticsearch
-first contact exposed what that left behind: 51% of its 45,000 types remained undecided.
-The mechanism was not a cycle at all but a verdict that _will never arrive_: an external, unannotated
+A second kind of residue is not a cycle at all, but a verdict that _will never arrive_: an external, unannotated
 type has no immutability value, any type holding a non-private field of such a type cannot conclude,
 and — since "has a field of an undecided type" closes transitively — the undecidedness cascades through
 the field graph.
 Test code, which touches unannotated framework types most, made up the bulk of the cluster.
-The breaking pass now treats these the same way it treats blocked supertypes: a missing field or
+The breaking pass treats these the same way it treats blocked supertypes: a missing field or
 abstract-method verdict is resolved pessimistically, and the type concludes at final-fields level —
 field finality being the one thing the analysis has, at that point, already established on its own.
 The published result is deliberately weak, honestly arrived at, and — unlike an absent verdict —
@@ -126,21 +120,14 @@ proving-ground code bases settle into full immutability distributions.
 == When code refuses to cooperate
 
 A static analyzer that dies on the first pathological method is useless on real code.
-The engine's fault-tolerance policy, refined over the corpus work, has three tiers:
+Fault tolerance has three tiers:
 
-* _method-level containment_: an exception while linking a method marks it _degraded_
-  (`DEGRADED_ANALYSIS_METHOD`): it carries no links, counts as modifying, and its outputs are unspecified to
+* _method-level containment_: an exception while linking a method marks it _degraded_: it carries no links, counts as modifying, and its outputs are unspecified to
   the nullability pass — the element stays alive, pessimistically;
 * _cycle protection with a tight ceiling_: run-away closures are cut off early and fall back to the method's
-  shallow summary, at reduced precision
-  (an early experiment with a generous ceiling let one module's analysis grind from seconds to half an
-  hour before the tight-ceiling-plus-fallback design was adopted);
+  shallow summary, at reduced precision;
 * _guards at the boundaries_: unrepresentable link shapes are skipped at the point of production, and
   every skip is a logged, countable event rather than a silent loss.
-
-Finally, most non-default behaviors — disabling the worklist, disabling parallelism, disabling cycle
-breaking, dumping the per-element verdict fingerprint — are reachable through environment gates, which is
-how the A/B verification workflow and the regression hunts of the development process are driven.
 
 [#after-the-fixpoint]
 == After the fixpoint: the reachability passes
@@ -152,15 +139,14 @@ There, a value written in an early pass froze the optimistic answer (unmodified,
 evidence against it had arrived, and the write-once discipline then kept it.
 They run instead as _reachability passes_ over the converged link facts.
 
-The modification pass (`ShadowModificationPass`, MODREACH) is a _cutover_: it re-derives which methods,
+The modification pass is a _cutover_: it re-derives which methods,
 parameters and fields are modified from primitive evidence and the converged links, downgrades the frozen
-optimistic values it contradicts — the one place a verdict is allowed to get worse, past `TolerantWrite` —
+optimistic values it contradicts — the one place a verdict is allowed to get worse —
 freezes the three modification properties, clears the immutability, independence and container verdicts
 derived from them, and lets the loop re-derive and re-certify.
-A chain deeper than one round reaches takes another, up to three (`MODREACH_ROUNDS`).
-The production engine runs it by default.
+A chain deeper than one round reaches takes another, up to a fixed safety bound.
 
-The nullability pass (`NullabilityPass`) is the one-shot one: complete facts, after the cutover, every value
+The nullability pass is the one-shot one: complete facts, after the cutover, every value
 written once.
 The chapter on <<nullability>> describes what it computes.
 Mechanically:
@@ -178,19 +164,10 @@ The pass runs in rounds.
 A round trusts no analyzed method's return value; the next round treats every return value the previous one
 found unreached as a non-null value at its call sites, and drops the edges from those sites.
 Dropping edges only shrinks what `null` reaches, so the trusted set grows monotonically; a round also hands
-the next the preconditions it found, and there are at most five.
-The verdicts go into the same property store as everything else (`NULLABILITY_FIELD`,
-`NULLABILITY_PARAMETER`, `NULLABILITY_METHOD`), from where the Java decorator, the Kotlin and C# printers
-and the IDE read them.
+the next the preconditions it found, so that an argument to one is known not to be `null` after the call.
+The verdicts go into the same property store as everything else, from where the Java decorator, the Kotlin and
+C# printers and the IDE read them.
 
-What the pass needs from the iteration is set by one configuration switch (`nullability`): the link engine
-keeps the null markers in the method summaries and records the argument links at every call.
-Both change the summaries' content and are off unless asked for, under the golden rule below.
-
-== A note on scale
-
-For calibration, on current hardware the analyzer processes, certified, code bases in the range of
-50,000 elements (methods, fields, types) in a few minutes, with linking dominating the cost.
-The performance work follows a strict rule worth stating in a document about correctness: an optimization
-is accepted only when the verdict dump is byte-identical before and after.
-Speed is never allowed to buy verdict changes.
+What the pass needs from the iteration is that the link engine keeps the null markers in the method summaries and
+records the argument links at every call.
+Both change the content of the summaries, and are therefore off unless nullability is asked for.

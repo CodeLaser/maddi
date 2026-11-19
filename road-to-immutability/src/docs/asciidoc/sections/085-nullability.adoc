@@ -62,8 +62,6 @@ non-null map with non-null keys and nullable values; `String?[]` is a non-null a
 `null`.
 
 In Java, type-use annotations say the same (`Map<String, @Nullable String>`, `@Nullable String[]`).
-The analyzer's Java output writes the top-level state today, and an array's element state in a type-use flavour;
-the type arguments reach Java only through {maddi}'s own `nullableArguments`, and the Kotlin and C# types in full.
 The {maddi} annotations are declaration annotations, and summarize the content in two ways:
 
 * {nnContent} states that the value is not null, and neither is any of its content: no `null` elements in
@@ -200,11 +198,10 @@ the other the test excluded `null`.
 <4> The parameter is dereferenced on every path through the method: a _precondition_.
 Whatever the caller passes, `null` throws.
 
-The analyzer trusts its own conclusions in rounds: a method whose return value no `null` reaches is, in
-the next round, a non-null value wherever it is called, and the links from its call sites can be dropped.
-Each round only shrinks what `null` reaches, so the rounds stop on their own, after five at most; a round also
-hands the next the preconditions it found, so that an argument to one is known not to be `null` after the call.
-The result is sound in the sense that a round's reachability over-approximates the real flow.
+Finally, conclusions feed conclusions: a method whose return value no `null` reaches is a non-null value wherever
+it is called, and so nothing flows on from its call sites.
+The computation is therefore repeated; each round only shrinks what `null` reaches, so the rounds stop on their own.
+The result is sound in the sense that every round over-approximates the real flow.
 
 === Content, computed
 
@@ -295,32 +292,15 @@ Each such choice moves an exception, never removes one: the `NullPointerExceptio
 have thrown at the dereference is thrown at the write or at the declaration instead.
 The translation reports every place where it made one.
 
-The flow-sensitive facts serve the translation twice.
-Kotlin _smart-casts_ a `val` after a null test, so a `!!` is unnecessary where Kotlin itself sees the
-variable as not null; the analyzer keeps a second set of facts restricted to what Kotlin derives — no fact
-from `requireNonNull`, from `assert`, from a Java call's result, or about a `var` property — and the
-translation drops the `!!` exactly there.
-
 == Measuring it
 
 Immutability has no external oracle; nullability does.
-Guava is `@NullMarked`, with some 16,000 annotated positions in its public and internal API.
-The analyzer infers Guava's nullability with those annotations hidden, and compares per position, in two
-numbers kept apart because they cost differently: _unsafe_, inferred not null where Guava says nullable,
-and _noise_, inferred nullable where Guava says not null.
-The trivial baselines frame the result: "everything not null" is 2,515 unsafe, "everything nullable"
-13,272 noise.
-In the first closed-world measurement of 2026-10-07 the inference agreed on 13,306 of the 15,787 top-level
-positions, with 354 unsafe and 233 noise; the open-world reading more than halved the unsafe count, to 166, at the
-price of leaving a quarter of the positions unspecified.
-Later measurements score more positions (type arguments, array elements) against richer JDK contracts, generated
-from JSpecify's annotated JDK, which moves both columns: on 2026-10-13 the closed world stood at 341 unsafe and the
-open world at 211.
-What remains on the unsafe side is, in the main, Guava's own API design: public parameters it declares
-`@Nullable` on principle, which no caller in Guava ever passes `null` to.
-
-The second oracle is the compiler: a corpus translated to Kotlin either compiles or it does not, and the
-project's own tests either pass against the translated classes or they do not.
-That is the ratchet the translation work is measured by.
+A library that carries null annotations throughout, such as Guava, can be analysed with its annotations hidden, and
+the inferred verdicts compared with the ones its authors wrote.
+Two numbers must be kept apart, because they cost differently: _unsafe_, inferred not null where the authors say
+nullable, and _noise_, inferred nullable where the authors say not null.
+The second oracle is the compiler: a program translated to Kotlin either compiles or it does not, and its own tests
+either pass against the translated classes or they do not.
+The measurements are in <<analyzer-today-measurements>>.
 
 // ensure a newline at the end

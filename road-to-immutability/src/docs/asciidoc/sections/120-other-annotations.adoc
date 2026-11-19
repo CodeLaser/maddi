@@ -3,22 +3,8 @@
 The {maddi} project defines a whole host of annotations complementary to the ones required for immutability.
 We discuss them briefly, and refer to the user manual for an in-depth analysis.
 
-[IMPORTANT]
-====
-*Implementation status varies across this chapter.*
-{identity} and {fluent} are **computed** by the analyzer, and are described first for that reason.
-
-Everything after them is **not implemented** at present, with one partial exception:
-
-* {nn} / {nullable} are **computed**, and have moved to their own chapter, <<nullability>>;
-* {finalizer} has moved to the chapter on ownership, <<finalizers>>;
-* {utilityClass} is read as a *contract* — from explicit annotations and from annotated APIs — but is
-never inferred from your code;
-* {extensionClass} and {singleton} exist in `maddi-annotation`, but nothing in the analyzer reads them.
-
-Those sections describe the intended design, and are retained because the definitions still hold.
-Do not read them as a description of current behaviour.
-====
+The definitions of this chapter stand on their own; which of them the analyzer computes, and which it only reads
+as a contract, is listed in <<analyzer-today-status>>.
 
 [#identity-and-fluent]
 == Identity and fluent methods
@@ -70,10 +56,6 @@ class Builder {
 
 == Utility classes
 
-NOTE: *Not implemented.* {utilityClass} is read as a contract, but the analyzer never computes it: the three
-implications below are not checked.
-The contract does imply {immutable} and {independent} on the type.
-
 We use the simple and common definition:
 
 ****
@@ -87,9 +69,6 @@ These definitions imply
 . and its static fields (if it has any) are of immutable type.
 
 == Extension classes
-
-NOTE: *Not implemented.* {extensionClass} is defined in `maddi-annotation`, but no part of the analyzer reads it,
-and the criteria below are not applied.
 
 In Java, many classes cannot be extended easily.
 Implementations of extensions typically use a utility class with the convention that the first parameter of the
@@ -132,13 +111,10 @@ Note that extension classes will often not be {container}, since the first param
 [#singleton-classes]
 == Singleton classes
 
-NOTE: *Not implemented.* {singleton} is defined in `maddi-annotation`, but no part of the analyzer reads it, and
-neither of the two mechanisms below is currently recognized.
-
 A singleton class is a class which has a mechanism to limit the creation of instances to a maximum of one.
 The term 'singleton' then refers to this unique instance.
 
-Two systems for limiting the number of instances are intended to be recognized:
+There are two common systems for limiting the number of instances:
 the creation of an instance in a single static field with a static constructor, and a precondition on a constructor
 using a private static boolean field.
 

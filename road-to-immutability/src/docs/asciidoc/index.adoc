@@ -79,6 +79,9 @@ toc::[]
 endif::[]
 
 // Include all sections
+
+= Concepts
+
 include::{includedir}/010-introduction.adoc[leveloffset=+1]
 
 <<<
@@ -123,8 +126,10 @@ include::{includedir}/085-nullability.adoc[leveloffset=+1]
 
 <<<
 
-// Part II: the tutorial ends here; the next two chapters describe the implementation
-// (the link system, and the iterating analyzer) at a technical level.
+// The tutorial ends here; the next chapters describe the implementation: the link system and the
+// iterating analyzer at a technical level, and the current state of the analyzer with its limitations.
+
+= Under the hood
 
 include::{includedir}/105-link-system.adoc[leveloffset=+1]
 
@@ -133,6 +138,12 @@ include::{includedir}/105-link-system.adoc[leveloffset=+1]
 include::{includedir}/108-convergence.adoc[leveloffset=+1]
 
 <<<
+
+include::{includedir}/109-analyzer-today.adoc[leveloffset=+1]
+
+<<<
+
+= In practice
 
 include::{includedir}/110-support-classes.adoc[leveloffset=+1]
 

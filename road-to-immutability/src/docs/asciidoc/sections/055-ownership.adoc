@@ -1,40 +1,30 @@
 [[ownership]]
 = Ownership
 
-[IMPORTANT]
-====
-*Computed, behind a gate.* The verdicts of this chapter are computed by a separate pass that runs once the
-analysis has converged, at the point where the analyzer certifies its result.
-One fact flows back into the analysis: a parameter that every caller hands over into an owned field is no
-dependence (<<ownership-and-eventual>>), after which the analysis converges again.
-Otherwise the pass only adds verdicts.
-The IDE plugins and the MCP server always run the pass; on the command line and in the build plugins it is off by
-default, and `--ownership` switches it on (the environment variable `OWNERSHIP` too).
-A closed-world setting (`--closed-world`, a plugin setting, `OWNERSHIP_WORLD=closed`) tells it that the analysed code
-is an application rather than a library (see <<ownership-transfer>>).
-A hand-written `@Fresh`, `@Borrowed` or `@Owned` on code with a body is checked: a negative verdict is a contract
-violation. In the IDE, a negative verdict carries its reason ("not @Fresh: ...").
-The design notes are in maddi-mod, `docs/roadmap/ownership.md`.
-====
-
 The previous chapters asked who can _modify_ an object.
 Independence (<<linking-dependence>>) answers whether modifications can travel between two objects; it lets two
 holders share immutable content, because nothing can travel through it.
 This chapter asks a different question: who _holds_ an object?
 
-The question matters as soon as Java code has to be translated into a language without a garbage collector.
+Why would we want to know?
+Inside Java, an object with a single holder is the one object that is always safe to modify: nobody else is there to
+be surprised.
+We will see in <<ownership-and-eventual>> that this gives a second road to immutability, next to the copy and the
+mark.
+Outside Java, the question is unavoidable as soon as code has to be translated into a language without a garbage
+collector.
 In Rust, an object has one owner, and its lifetime is that of its owner; a value held in several places must be
 wrapped in a shared, reference-counted handle.
 A field whose object nobody else holds can be a plain field; a method whose result nobody else holds can return it
 by value; a parameter the method does not keep can be borrowed.
-The first consumer of the verdicts is the Java→Rust translation.
 
 Ownership differs from independence in two ways.
 
 * Immutable sharing counts. A field holding a `String` that its caller passed in is independent of that caller, as
 modifications cannot travel through a `String`; but the object is shared, so the field does not own it.
-* Ownership is a claim about the _absence_ of links: nobody else holds the object.
-A missing or degraded summary of a method therefore always reads as "shared", never as "owned".
+* Ownership is a claim about the _absence_ of other holders.
+Where independence can be assumed until a link shows up, ownership must be proven: whenever we do not know what a
+method does with an object, we must assume it is shared.
 
 Three annotations express the verdicts: {fresh} on a method, {borrowed} on a parameter, {owned} on a field.
 
@@ -46,8 +36,8 @@ Three annotations express the verdicts: {fresh} on a method, {borrowed} on a par
 `null`, and nothing outside the call holds it when the method returns: the caller owns the result.
 ****
 
-A method is fresh when every return path yields an object created in the method, the result of a call to another
-fresh method, or `null`, and that object is not linked to the receiver, a parameter, a field or a static.
+In practice, every return path must yield an object created in the method, the result of a call to another
+fresh method, or `null`; and that object must not be linked to the receiver, a parameter, a field or a static.
 
 .Example {counter:example}, fresh and non-fresh methods
 [source,java]
@@ -84,14 +74,16 @@ class Lines {
 <3> One return path yields the parameter.
 <4> The new object is also held by `registry`.
 
+Note the first callout: freshness is about the object itself, not about its hidden content.
+The copy is a new list; the strings in it are as shared as they were before.
+
 A lambda or a method reference is not a created object: the Java Language Specification allows every evaluation of
 the same lambda to return the same instance (JLS 15.27.4, 15.13.3), so a method returning one is not fresh.
-A method that calls itself starts out as not fresh, and stays so unless other evidence decides it.
 
 On a method without a body, an abstract method or a library method in the annotated APIs, {fresh} is a contract
 that every implementation must honour.
-The JDK's annotated APIs carry a small first set: `Arrays.copyOf`, `Collection.toArray()`, `ArrayList.clone`,
-`String.toCharArray` and `Map.entry` are fresh, for example.
+In the JDK, `Arrays.copyOf`, `Collection.toArray()`, `ArrayList.clone`, `String.toCharArray` and `Map.entry` are fresh,
+for example.
 `List.copyOf` is not: it may return its argument.
 Neither is `Collections.emptyList`, which returns a shared instance.
 An abstract method without a contract is fresh only when all its implementations are.
@@ -140,8 +132,12 @@ class Lines {
 The method keeps a parameter when a field of the receiver, a static, the return value, another parameter's content,
 or a lambda or object that escapes, holds a link to the parameter's object itself.
 A link to its hidden content does not count: that is the case of `addAll`.
-Calling a method that keeps its argument keeps it too; a method that cannot be analysed fully (a degraded method) is
-assumed to keep all its parameters.
+Keeping is transitive: calling a method that keeps its argument keeps it too.
+
+The second and third callouts show the two questions side by side.
+In the vocabulary of <<content-linking>>, both `c` and `line` are {independentHC}: what they bring ends up in the
+hidden content of `lines`.
+For ownership, the difference is which object ends up there: the elements of `c`, or `line` itself.
 
 On a parameter of a method without a body, {borrowed} is a contract, which every implementation must honour.
 
@@ -154,19 +150,21 @@ holding the field.
 The owned object lives and dies with its owner.
 ****
 
-The analyzer marks a field owned when four rules hold.
+Three conditions make a field owned; they mirror the way an object can come to have a second holder.
 
-. *Arrives fresh.* Every value assigned to the field, in constructors, initializers and methods, is an object
+. *It arrives fresh.* Every value assigned to the field, in constructors, initializers and methods, is an object
 created for it, the result of a fresh method, or `null`. A parameter qualifies only when it is transferred
 (<<ownership-transfer>>).
-An unmodifiable view (`Collections.unmodifiableList(x)` and the rest of that family) arrives fresh when the object it
-wraps does: the view holds that object and nothing else.
-. *Never leaves.* No link takes the field's object to a return value, a parameter, a static, a field of another
+An unmodifiable view (`Collections.unmodifiableList(x)` and the rest of that family, see <<unmodifiable-views>>)
+arrives fresh when the object it wraps does: the view holds that object and nothing else.
+. *It never leaves.* No link takes the field's object to a return value, a parameter, a static, a field of another
 object, or an escaping lambda.
 Passing it to a borrowed parameter is allowed, and so is returning it from a method whose result every caller only
-uses (_lending_: Rust's `&self.f`).
-. *Not accessible.* The field is private, or, in a closed world, no code outside its primary type mentions it.
-. *No degraded referrer.* No method referring to the field has a degraded analysis.
+uses and does not keep. We call the latter _lending_; it is Rust's `&self.f`.
+. *It cannot be taken.* The field is private: no code outside the type can read the reference directly.
+
+Compare these with the rules of immutability in <<immutability>>: the third is rule 2, and the first two are rule 3,
+with 'not dependent' sharpened to 'not held'.
 
 .Example {counter:example}, owned and non-owned fields
 [source,java]
@@ -200,6 +198,7 @@ public class Document {
 
 <1> Created for the field, and it never leaves.
 <2> Created lazily: every assignment is still a creation.
+Note that ownership does not require the field to be final: the owner may replace what it owns.
 <3> The public constructor stores its parameter, which a caller may go on using.
 <4> The unmodifiable view shares the object: a holder of the view sees every change to `index`.
 
@@ -214,14 +213,14 @@ content, are owned too: each arrives created for it, or is handed over by every 
 none leaves.
 In Rust, such a field is a vector of plain values rather than of shared handles.
 
-The analyzer does not read {owned} as a contract: unlike {fresh} and {borrowed}, it concerns a field, which only the
-code of its own type can judge.
+Unlike {fresh} and {borrowed}, {owned} is never a contract: it concerns a field, which only the code of its own type
+can judge.
 
 [#ownership-transfer]
 == Transfer
 
-Rule 1 rejects a field assigned from a parameter: in general the caller may go on using the object.
-When the analyzer can see every call site, it can check that they do not.
+The first condition rejects a field assigned from a parameter: in general the caller may go on using the object.
+But when we can see every call site, we can check that they do not.
 
 ****
 *Definition*: a parameter is *transferred* when every call site passes an object that is created on the spot, or is
@@ -251,23 +250,18 @@ public class Parser {
 <2> Before the hand-over, the local is only the receiver of calls that keep nothing of it.
 <3> The last use of `tokens`.
 
-All call sites are known when the method is private or package-private, or when the world is closed
-(`OWNERSHIP_WORLD=closed`): the analysed code is an application, and no code outside it calls its public methods.
-The method must also not override anything, nothing may override it, and no method reference may name it.
+When are all call sites known?
+Certainly when the method is private or package-private.
+For a public method, it depends on what the code is: in a library, the callers are yet to be written; in an
+application analysed as a whole, a _closed world_, no code outside it calls its public methods.
+We will meet the same distinction in <<null-who-calls>>.
+The method must also not override anything, nothing may override it, and no method reference may name it: each of
+these is a call site we cannot see.
 
 {finalizer}, the subject of the next section, is a transfer of the receiver.
 
 [#finalizers]
 == Finalizers
-
-[NOTE]
-====
-*Partially implemented.* {finalizer} is read as a contract, from source annotations and from the annotated APIs,
-and its modification semantics (<<finalizer-exemption>>) are implemented and load-bearing.
-When the ownership pass is switched on, it also checks the call sites of contracted finalizers for a use of the
-receiver after the call, and computes {finalizer} on some methods (<<finalizer-transfer>>).
-The three sequencing rules of <<finalizer-rules>> are not enforced as stated.
-====
 
 Up to now, we have focused on the distinction between the building phase of an object's life-cycle, and its
 subsequent immutable phase.
@@ -290,30 +284,49 @@ In the terms of this chapter, a finalizer is a _transfer of the receiver_: the c
 call, and does not use it afterwards.
 
 [#finalizer-exemption]
-=== Why the modification exemption matters
+=== A finalizer does not modify
 
-A finalizer marks the end of an object's life-cycle: after the call, the object may not be used again.
-Whatever the finalizer does to the dying object is therefore invisible to the rest of the program — there
-is no "after" in which the change could be observed. The analyzer exploits this: *a call to a
-{finalizer} method never marks its receiver as modified*, whatever the method's own {nm}/{modified}
-status.
+Whatever the finalizer does to the dying object is invisible to the rest of the program: there is no "after" in
+which the change could be observed.
+We can therefore state:
 
-This is not a corner case; it is what keeps stream-based code analyzable at all. The annotated APIs mark
-the stream operations — `filter`, `map`, `flatMap`, `collect`, and their relatives — as {finalizer}:
-each consumes the stream it is called on (using the receiver again afterwards is illegal), and none of
-them carries a {nm} contract. Without the exemption, every one of those calls would conservatively count
-as a modification of the receiver chain, and since a chain such as `this.elements.stream().map(...)`
-roots in a field, the false modification would climb to the field and to `this` — making essentially
-every method containing a stream pipeline {modified}, and sinking the immutability of its type. With the
-exemption, the pipeline is silent about its receivers, and only genuine evidence (the lambda's captures,
-the collector's target) determines the verdict.
+****
+A call to a {finalizer} method does not modify its receiver, whatever the method's own {nm} or {modified} status.
+****
 
-The same reasoning must be applied by *every* component that re-derives modification: when the
-modification-reachability pass (the post-convergence single writer) judges a call to a method outside
-the analysis scope, it mirrors the engine's guard exactly — a boundary callee that is a finalizer
-contributes no receiver-modification evidence, no matter that its conservative no-information default
-would otherwise read as "modifying". A mismatch here is not benign: it silently poisons whole call
-chains with false modification, in code as central as the printing of a parameterized type.
+This is not a corner case; it is what makes stream-based code fit the definitions of this document.
+The stream operations `filter`, `map`, `flatMap`, `collect`, and their relatives each consume the stream they are
+called on: using the receiver again afterwards is illegal.
+They are finalizers, and none of them can promise to be {nm}.
+
+.Example {counter:example}, a stream pipeline does not modify the field it starts from
+[source,java]
+----
+@ImmutableContainer(hc=true)
+class Names {
+    private final List<String> names;
+
+    public Names(List<String> names) {
+        this.names = List.copyOf(names);
+    }
+
+    @NotModified
+    public List<String> upperCase() {
+        return names.stream()           // <1>
+            .map(String::toUpperCase)   // <2>
+            .toList();
+    }
+}
+----
+
+<1> A new stream, linked to the field `names`.
+<2> A modifying call on that stream, in the plain reading.
+
+Without the statement above, the modification at the second callout would travel along the link to the field `names`,
+and from there to the method: every method containing a stream pipeline would be {modified}, and no type with such
+a method could be immutable.
+With it, the pipeline is silent about its receivers, and only genuine evidence, such as what the lambda captures and
+modifies, or where the collector puts its results, determines the verdict.
 
 [#finalizer-rules]
 === Sequencing rules
@@ -350,28 +363,90 @@ The eventually immutable types of the next chapter use finalizers to keep an obj
 is held by a field (<<finalizers-before-mark>>).
 
 [#finalizer-transfer]
-=== Computing and checking finalizers
+=== Handing over what you own
 
-A finalizer may hand over an owned field of its own object (`return new Result(this.lines)` in a `build()`
-method), and the field remains owned: after the call, its owner is dead.
-When the ownership pass is on, the analyzer computes {finalizer} on a method that _needs_ to be one, because it
-hands over an owned field of its own type, when it is also _permitted_ to be one, because every call site hands over
-its receiver: a temporary (a construction, a fresh method's result, a chain of {fluent} calls on one), or a local that
-is not used after the call.
+The second condition for an owned field says it never leaves.
+A finalizer is the one place where it may: after the call, its owner is dead, so the object still has a single
+holder.
+
+.Example {counter:example}, a builder handing over its owned field
+[source,java]
+----
+class Report {
+    private final List<String> lines;
+
+    private Report(List<String> lines) {
+        this.lines = lines;
+    }
+
+    static class Builder {
+        @Owned
+        private final List<String> lines = new ArrayList<>();
+
+        @Fluent
+        Builder add(String line) {
+            lines.add(line);
+            return this;
+        }
+
+        @Finalizer
+        Report build() {
+            return new Report(lines); // <1>
+        }
+    }
+}
+
+...
+Report report = new Report.Builder().add("a").add("b").build(); // <2>
+----
+
+<1> The owned list leaves the builder; this is allowed in a finalizer only.
+<2> The builder is a temporary: nothing can use it after `build()`.
+
+The two callouts are the two sides of the annotation.
+A method _needs_ to be a finalizer when it hands over an owned field of its own type; it is _permitted_ to be one
+when every call site hands over the receiver: a temporary (a construction, a fresh method's result, a chain of
+{fluent} calls on one), or a local that is not used after the call.
+The analyzer computes {finalizer} only when both hold.
 Call-site evidence alone would be vacuous: any method called once, on a temporary, would qualify.
 
 For a contracted finalizer, the same test on every call site finds the uses of the receiver after the call, for
 example a stream used again after `map`.
-They are reported as warnings: the modification exemption above relies on them not happening.
+They are reported as warnings: the statement of <<finalizer-exemption>> relies on them not happening.
 
-== Ownership and modification
+== Ownership and independence
 
 Ownership is a stronger form of independence for one field, parameter or result: an owned field is independent,
 since no other holder exists through which a modification could travel; and a borrowed parameter is independent,
 since nothing retains it.
 The converse does not hold, because independence allows immutable sharing.
+The fields of this chapter's examples, side by side:
 
-The examples of this chapter are pinned by the test `TestBook055Ownership` in maddi-mod.
-The verdicts have also been checked against instrumented test runs, which record every place that holds a claimed owned
-object, and every holder of a borrowed argument after the call.
-The contradictions those runs found were holes in the pass, and are fixed.
+[cols="3,1,1,3"]
+|===
+|Field |Independent |Owned |Why
+
+|`List<String> lines = new ArrayList<>()`, never leaves
+|{y}
+|{y}
+|a single holder: nothing can travel, nobody else can reach it
+
+|`String name`, stored from a parameter
+|{y}
+|{n}
+|shared, but nothing can travel through a `String`
+
+|`List<String> tags`, a `List.copyOf` of a parameter
+|{y}
+|{n}
+|`copyOf` may return its argument: possibly shared, and immutable either way
+
+|`List<String> tags`, stored from a public constructor's parameter
+|{n}
+|{n}
+|the caller holds the list, and can modify it
+|===
+
+There is no row with an owned, dependent field.
+
+// ensure a newline at the end

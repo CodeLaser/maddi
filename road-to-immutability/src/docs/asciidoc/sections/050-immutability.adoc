@@ -81,7 +81,7 @@ class Point {
     }
 }
 
-@Container @FinalFields
+@FinalFields
 class Line {
     @Final
     @Modified
@@ -91,7 +91,7 @@ class Line {
     @Modified
     private Point point2;
 
-    public Line(Point point1, Point point2) {
+    public Line(@Modified Point point1, @Modified Point point2) {
         this.point1 = point1;
         this.point2 = point2;
     }
@@ -115,6 +115,8 @@ class Line {
 The fields `point1` and `point2` are effectively final.
 Without the translation method, the fields would be {nm} as well.
 The translation method modifies the fields' content, preventing the type from becoming immutable.
+It also costs `Line` its {container} property: the points that were passed to the constructor are modified
+(<<containers>>).
 
 From the restriction of rule 1, that all its fields should remain unmodified, it follows that, excluding external changes, every method call on an immutable container object with the same arguments will render the same result.
 We note that this statement cannot be bypassed by using _static_ state, i.e., state specific to the type rather than the object.
@@ -202,8 +204,7 @@ class ArrayContainer2<T> {
     public final T[] data;
 
     public ArrayContainer2(@Independent(hc=true) T[] ts) {
-        this.data = new T[ts.length];
-        System.arraycopy(ts, 0, data, 0, ts.length);
+        this.data = Arrays.copyOf(ts, ts.length);
     }
 
     @NotModified
@@ -226,8 +227,7 @@ class ArrayContainer3<T> {
     private final T[] data; // <1>
 
     public ArrayContainer3(@Independent(hc=true) T[] ts) {
-        this.data = new T[ts.length]; // <2>
-        System.arraycopy(ts, 0, data, 0, ts.length);
+        this.data = Arrays.copyOf(ts, ts.length); // <2>
     }
 
     @NotModified
@@ -716,7 +716,7 @@ static class OneWithOne<T> implements NonEmptyList<T> {
 ----
 
 Obviously, an {immutableContainer} implementation is not possible.
-The immutability status of a class cannot be better than that of its superclass; an interface's own verdict is not passed down (its abstract methods are re-read in each implementation's cone, see <<convergence>>), but here `setFirst` is modifying in every implementation of `NonEmptyList`, so the conclusion is the same.
+The immutability status of a class cannot be better than that of its superclass, and no implementation of `setFirst` that does what its name promises can avoid a modification.
 
 We end the section by showing how concrete implementations of the `accept` method in `Consumer` can make modifications.
 First, modifications to the parameter:
@@ -899,8 +899,6 @@ class Client {
 <1> Counter's own static state: not a static side effect.
 <2> Not Client's: a static side effect. Constructing a `HasUniqueIdentifier` from another type is one too.
 
-The analyzer records, per method, the set of types whose static state it modifies (its own included); the static side effect is the part of that set the method does not own.
-
 This is still consistent with the rules of immutable types, which only look at the fields and assume that when methods do not modify the fields, they are actually non-modifying.
 Without an {ignoreModifications} annotation on the field `System.out` (which we would typically add), printing to the console results in
 
@@ -922,50 +920,93 @@ In singletons the normal modification rules apply, unless {ignoreModifications} 
 [#ignore-modifications-hidden-content]
 == Ignoring modifications as manual hidden content
 
-The {ignoreModifications} annotation and hidden content (<<hidden-content>>) are two faces of a single idea.
-Recall why the hidden content of a type never threatens its immutability: by parametricity, an {immutableHC}
-type holds only the _abstract_ interface of its hidden content -- the type parameter `T`, or an unbounded
-generic -- and so it _cannot express_ an operation that reaches out of the hidden content into its own
-accessible state.
-A client is free to mutate the hidden content (`list.get(i).mutate()`); the container stays {immutableHC}.
-Confinement is guaranteed by erasure.
+We have now used {ignoreModifications} twice: on the access counter of `CountAccess`, and on `System.out`.
+In both cases we argued informally that the modification "does not matter" to the type.
+This section makes that argument precise, by relating the annotation to hidden content
+(<<accessible-hidden-content>>, and later <<hidden-content>>).
 
-An {ignoreModifications} field holds a _concrete_ type, which _can_ express such reaching-out operations.
-The annotation asserts, by hand, the very property erasure would otherwise have derived: _modifications to this
-field's object are not part of my immutability contract._
-That is the defining predicate of hidden content.
+Take a type that keeps a record of how it is used:
+
+.Example {counter:example}, an immutable type with an ignored field
+[source,java]
+----
+@ImmutableContainer(hc=true)
+class Catalogue {
+    private final Map<String, Price> prices;
+
+    @IgnoreModifications
+    private final List<String> lookups = new ArrayList<>(); // <1>
+
+    public Catalogue(Map<String, Price> prices) {
+        this.prices = Map.copyOf(prices);
+    }
+
+    @NotModified
+    public Price price(String item) {
+        lookups.add(item); // <2>
+        return prices.get(item);
+    }
+}
+----
+
+<1> A concrete, modifiable type; the annotation is a contract.
+<2> A modifying method call on a field, ignored.
+
+Now recall why the hidden content of a type never threatens its immutability.
+`Pair<K, V>` holds two objects of which it knows nothing but their type parameter.
+A client can modify them; `Pair` cannot, because it has no method to call on them, and it cannot be held
+responsible: `Pair` stays {immutableHC}.
+The modifications are _not part of its immutability contract_.
+
+The {ignoreModifications} annotation on `lookups` says exactly the same thing about a field of a _concrete_ type:
+modifications to this field's object are not part of my immutability contract.
 
 ****
 {ignoreModifications} is the _manual_ form of hidden content.
-It reclassifies a field from accessible content (known type, modifications attributable) to hidden content
-(modifications external to the contract) -- hiding by declaration what the type system would otherwise hide by
-erasure.
-A type all of whose modifiable content is either erased or {ignoreModifications} is {immutableHC}, never
-hc-free.
+It moves a field from the accessible content (known type, modifications count) to the hidden content
+(modifications do not count): hiding by declaration what a type parameter hides by itself.
+A type all of whose modifiable content is either of type parameter type or {ignoreModifications} is {immutableHC},
+never immutable without hidden content.
 ****
 
-The two are interchangeable in the immutability lattice; they differ only in the _provenance_ of the "not my
-concern" judgement -- derived (always sound) versus asserted -- and that difference is a proof obligation, not
-an arithmetic one.
-Which brings us to the guard.
+The two are interchangeable in the definition of immutability.
+They differ in where the "not my concern" judgement comes from.
+For a type parameter it is _derived_, and always correct: the type cannot do anything with a `K`.
+For an ignored field it is _asserted_, and `List<String>` has plenty of methods to do things with.
+An assertion needs a check.
 
 [#confinement-guard]
 === The confinement guard
 
-Because erasure is replaced by an assertion, soundness must be _checked_ where it was previously _given_.
-The check is confinement: an {ignoreModifications} field is sound hidden content exactly when a modification
-reached through it stays inside the _ignored stratum_ -- the transitive content reachable only through that
-field -- and never escapes into accessible or global state.
-This lands at two granularities, which are one principle:
+An ignored field is sound hidden content when a modification made through it stays inside the _ignored part_:
+the objects that can only be reached through that field.
+It must not _escape_ into the accessible content of the type, nor into global state.
+We call this property _confinement_.
+It has two sides.
 
-* _field granularity (separation)_: the ignored field must be {independent} of the type's accessible content --
-no accessible content is aliased _into_ it (else mutating the field mutates accessible state), and no state read
-_out_ of it flows into immutability-relevant accessible content (else the "immutable" surface secretly depends
-on mutable ignored state);
-* _method granularity (containment)_: every modifying call _on_ the ignored field must confine its effect to the
-receiver (and other ignored strata) -- touching no accessible field, no aliased parameter, and no global state.
+The first is _separation_: the ignored field must be {independent} of the type's accessible content.
+In `Catalogue`, add a field and a method:
 
-The method-granularity check, with a logger and a stream as the running examples:
+.Example {counter:example}, an ignored field that is not separated
+[source,java]
+----
+private final Price base; // accessible content; assume Price has a modifying method 'discount'
+
+@IgnoreModifications
+private final List<Price> recent = new ArrayList<>();
+
+public void touch() {
+    recent.add(base);          // <1>
+    recent.get(0).discount();  // <2>
+}
+----
+
+<1> Allowed: the ignored part may refer to accessible content.
+<2> An escape: the modification, made through the ignored field, lands on `base`.
+
+The second is _containment_: every modifying call _on_ the ignored field must keep its effect to the receiver, and
+touch no accessible field, no parameter, and no global state.
+With a logger and a stream as the examples:
 
 [cols="2,3,1"]
 |===
@@ -984,86 +1025,108 @@ The method-granularity check, with a logger and a stream as the running examples
 | escapes -- flagged
 |===
 
-"Changing the mechanics of the stream" is exactly the _escapes-the-stratum_ case, and it fails the guard even
-though `println` on the same object passes.
+Printing to a stream is using it; changing the mechanics of the stream is an escape, even though both are
+modifications of the same object.
 
 [#ignored-stratum-boundary]
-=== The stratum boundary, by example
+=== What is not an escape
 
-The ignored stratum is closed under two operations that look like modifications but are not escapes:
+Two operations look like modifications, but stay inside the ignored part:
 
-. _writing into the stratum_ -- appending to a log, putting into a metadata store;
-. _referencing accessible content from the stratum_ -- storing a reference to an (immutable) accessible object
-inside the ignored object.
+. _writing into it_: appending to a log, putting into a metadata store;
+. _referring to accessible content from it_: storing a reference to an accessible object inside the ignored object,
+as in the first callout above.
 
-The canonical case is an analyzer that reads an immutable syntax structure and records its findings in a
-per-node property overlay, held on each node behind an {ignoreModifications} `analysis()` store.
-The analyzer writes that overlay constantly -- that is its whole purpose -- and the overlay holds references
-back into the structure (an "assigned to field _f_" finding references the field _f_).
-Neither escapes:
+The example closest to home is the analyzer itself.
+It reads an immutable syntax tree, and records what it finds in a property map held on each node:
+
+.Example {counter:example}, analysis results as the ignored part of an immutable node
+[source,java]
+----
+@ImmutableContainer(hc=true)
+class FieldNode {
+    private final String name;
+    private final TypeNode type;
+
+    @IgnoreModifications
+    private final Map<String, Object> analysis = new HashMap<>();
+
+    ...
+
+    @NotModified
+    public void record(String property, Object value) {
+        analysis.put(property, value); // <1>
+    }
+}
+
+...
+fieldNode.record("assignedIn", methodNode); // <2>
+----
+
+<1> Writing into the ignored part.
+<2> The value refers back into the tree.
+
+The analyzer writes these maps constantly; that is its whole purpose.
+Neither callout is an escape:
 
 ****
-Writing into the ignored stratum, and referencing accessible content from it, are confined and permitted.
-The guard fires only on an _escape_: a modification, reached _through_ the stratum, of accessible or global
-state -- for instance `node.analysis().someMutableThing().mutate()` where the mutation lands on accessible
-content.
+Writing into the ignored part, and referring to accessible content from it, are confined and permitted.
+The guard fires only on an _escape_: a modification, reached _through_ the ignored part, of accessible or global
+state.
 ****
 
-This is why bringing the analyzer's own sources into scope does not trip the guard: filling the overlay is a
-client mutating hidden content, always permitted; storing structural references in it is confinement, not
-escape.
-The only way the guard could fire is if the analyzer reached through the overlay and mutated a _committed_
-accessible field -- which would be a genuine violation of the structure's stated immutability, exactly the bug
-the guard exists to surface.
-Confinement thus degrades gracefully: an unverifiable assumption at the boundary when the mutating code is out
-of scope, a checked theorem once the region is closed.
+The guard would fire if the analyzer took a node out of the map and modified one of its proper fields, such as `name`
+or `type`: a genuine violation of the tree's immutability, and exactly what the guard exists to show.
+
+Confinement can only be checked on code that is visible.
+When the code modifying the ignored part is out of sight, the annotation is an assumption; once all of it is in
+sight, it is a verified property.
 
 [#sse-global-escape]
-=== Static side effects are the global-escape arm
+=== Static side effects are the global escape
 
-<<static-side-effects>> is not made redundant by this equivalence -- it _is_ one branch of the confinement
+The static side effects of <<static-side-effects>> fit in this picture: they are one branch of the confinement
 guard, met earlier.
-The two annotations partition the space by _ownership_:
+The two annotations divide the work by who _holds_ the state:
 
-* {ignoreModifications} / hidden content governs content the type _holds_ through one of its own fields;
-* {sse} governs state the type does _not_ hold at all -- a reach-out modification of another type's static or
-global state, which cannot be reclassified as _your_ hidden content because it is not your field.
+* {ignoreModifications} governs content the type holds through one of its own fields;
+* {sse} governs state the type does not hold at all: a modification of another type's static state, which cannot
+be declared _your_ hidden content because it is not your field.
 
-The guard's two landing sites carry different consequences, and this is the whole distinction:
+Where an escape lands determines its consequence:
 
 [cols="2,3"]
 |===
 | the escape lands on... | consequence
 
 | the type's own _accessible_ content
-| *reported* as a confinement warning (`ignore-modifications-not-confined`, the separation check): unsound to ignore, and left to the designer; the analyzer does not cap the verdict
+| a warning: it is unsound to ignore the modification. The decision is left to the designer, and the immutability
+verdict stands as contracted
 
 | _global / static_ state you do not own
-| does *not* cap immutability (it inspects only your fields) -- but is a real outward effect, flagged {sse}
+| no effect on immutability, which looks at your fields only; but a real outward effect, marked {sse}
 |===
 
-So {sse} covers precisely what the manual-hidden-content reading cannot: an effect that does not corrupt _your_
-immutability -- it is not your field -- yet is a genuine outward effect the designer should see.
-And the two compose: {ignoreModifications} on the _target_ global field is what downgrades an {sse} from
-"un-accounted outward effect" to "disclaimed" -- which, from the target owner's perspective, is that field
-becoming hidden content.
-This is the `System.out` story above, read from the field's owner: without the {ignoreModifications} we would
-add, `println` is {sse}; with it, the effect is sanctioned hidden content.
+So {sse} covers precisely what the reading as manual hidden content cannot: an effect that does not touch _your_
+immutability, yet is a genuine outward effect that the designer should see.
+And the two compose: {ignoreModifications} on the _target_ field turns a {sse} from an unaccounted outward effect
+into a disclaimed one.
+This is the `System.out` story of the previous section, read from the side of the field's owner: without the
+{ignoreModifications} on `System.out`, `println` is a {sse}; with it, printing is a modification of sanctioned hidden
+content.
 
 [#sse-safe-surface]
-=== Recognising an invisible escape: the safe-surface contract
+=== Escapes that cannot be seen
 
-For a source method the analyzer _computes_ the {sse}: it sees the assignment to, or the modifying call on,
-another type's static field, and the static state its callees modify.
-But the sharpest escape is invisible from source.
-`System.setOut(other)` replaces the process-wide `System.out`; nothing in the JDK source the analyzer can reach
-says so, and its own body is empty to us.
+In source code, a static side effect is visible: an assignment to, or a modifying call on, another type's static
+field, directly or through the methods called.
+But the sharpest escapes are not in source code.
+`System.setOut(other)` replaces the process-wide `System.out`, and nothing in what can be seen of the JDK says so.
 The same holds for `logger.addAppender(a)` reconfiguring a logging framework.
 
-An invisible escape is recorded the only way it can be -- as a _contract_ on the library's safe surface, a
-declaration in the annotated API:
+An invisible escape is recorded in the only way it can be: as a _contract_ in the annotated API of the library.
 
-.Example {counter:example}, a static side effect contracted on the safe surface
+.Example {counter:example}, a static side effect contracted in the annotated API
 [source,java]
 ----
 class System$ {                                   // annotated-API stand-in for java.lang.System
@@ -1073,12 +1136,11 @@ class System$ {                                   // annotated-API stand-in for 
 ----
 
 A caller of a {sse} method _inherits_ the static side effect, transitively.
-This is the mechanism that lets the confinement guard tell "reconfiguring the mechanics of the stream" from
-"just using it": `sink.reconfigure()` on an {ignoreModifications} field, where `reconfigure()` calls
-`System.setOut`, propagates {sse} up to `reconfigure()`, and the guard flags the call as leaving the ignored
-stratum -- whereas `sink.println(x)`, calling only the confined `println`, passes.
-As with {ignoreModifications}, this annotation is _contracted_ on a library surface (never computed onto the
-library method itself), and on a source method it is _computed_, never trusted from an annotation.
+This is how the confinement guard tells reconfiguring a stream from using it: `sink.reconfigure()` on an
+{ignoreModifications} field, where `reconfigure()` calls `System.setOut`, receives {sse}, and the guard flags the call
+as leaving the ignored part; `sink.println(x)`, calling only the confined `println`, passes.
+As with {ignoreModifications}, the annotation is a contract on a library method, and is computed, never trusted, on a
+method with source.
 
 [#value-based-classes]
 == Value-based classes
@@ -1178,7 +1240,7 @@ That verdict is correct and not very informative: {finalFields} does not say whe
 rule 3 did, and the difference is exactly what matters to anyone holding the view.
 A `Bag` with an `add` method is {finalFields} too.
 
-So the analyzer records the weaker fact on its own, beside immutability and never derived from it:
+So we give the weaker fact a name of its own, beside immutability and never derived from it:
 
 ****
 *Definition*: a type is *unmodifiable* when nothing is added to or removed from an instance through any
@@ -1195,7 +1257,7 @@ The annotation says nothing about {container} either.
 The name follows JetBrains' annotation of the same meaning.
 
 On a method without a body, {unmodifiableView} is a contract.
-The annotated JDK carries it on the eleven `Collections.unmodifiable*` factories.
+In the JDK, the `Collections.unmodifiable*` factories carry it.
 On a method with a body, the analyzer computes it from the values the method returns: a call to a method
 with the property, an instance of an unmodifiable type, a value that is at least {immutableHC}, a field
 proven to hold one, or `null`.

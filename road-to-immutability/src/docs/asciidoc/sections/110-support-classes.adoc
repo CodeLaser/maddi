@@ -105,7 +105,7 @@ public class SetOnce<T> {
 ----
 
 <1> Computed fully {independent}, stronger than the {independentHC} one would write by hand for a method that may
-return the hidden content; `TestBookIndependenceOfSupportTypes` pins the verdict.
+return the hidden content.
 
 The analyzer relies heavily on this type.
 
@@ -401,15 +401,7 @@ accessed, and are content-less: rule 4 should not be affected.
 In combination with effective finality, this allows the eventual "blanking out" of modifiable fields in
 immutable types.
 
-NOTE: *Not implemented.* The two `@Independent(hc=true)` annotations that this argument arrives at — on the
-field `supplier`, and on the constructor parameter it travels from — are not computed today: the analyzer
-concludes `@Dependent` at both positions.
-The two `@NotNull(content=true)` beside them are not in the shipped source either; the listing shows the intended
-annotations.
-It does so whether or not `supplier` is emptied, so the augmented rule 2 is not what is stopping it.
-`get()` is annotated as printed.
-The measurement is in `TestBookIndependenceOfSupportTypes`, which runs this listing beside the shipped code and
-prints both verdicts.
+The listing shows the annotations this argument arrives at; <<analyzer-today-gaps>> has what is computed.
 
 [#support-firstthen]
 == FirstThen
