@@ -184,7 +184,9 @@ import java.nio.file.Files
  */
 internal interface MemberConverter {
     fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol)
-    fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo
+    /** A member function of the anonymous type [owner]; its body captures [outerLocals], the enclosing method's. */
+    fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
+                                  outerLocals: Map<String, Variable>): MethodInfo
 
     /** Convert the property initializers and `init` blocks of the anonymous type [owner] while it is still open. */
     fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: org.jetbrains.kotlin.psi.KtClassOrObject)
@@ -5708,7 +5710,9 @@ internal class KotlinBodyConverter(
      * Convert an anonymous `object : Super { … }` expression to a CST [ConstructorCall] of a synthetic
      * anonymous type (the JVM model — like a lambda's type, but with arbitrary members and supertypes).
      * The supertypes are split into a parent class + implemented interfaces; the members become the
-     * anonymous type's members. (Captured outer variables in member bodies are a later refinement.)
+     * anonymous type's members. A member function's body captures the enclosing method's [locals] (parameters and
+     * locals), as a Java anonymous class's does: before, `child.sup = x` read `child` as an unresolved reference and
+     * the modification of the captured parameter was lost (fernflower's NestedClassProcessor, maddi-mod#145).
      */
     private fun KaSession.convertObjectLiteral(expression: KtObjectLiteralExpression, method: MethodInfo,
                                                locals: Map<String, Variable>): Expression =
@@ -5737,10 +5741,13 @@ internal class KotlinBodyConverter(
         interfaces.forEach { builder.addInterfaceImplemented(it) }
         val concreteReturnType = parentClass ?: interfaces.firstOrNull() ?: runtime.objectParameterizedType()
 
+        // as a local class captures ([convertLocalType]): the enclosing method's parameters, which are not in
+        // `locals`, and its locals
+        val captured = method.parameters().associateBy { it.name() } + locals
         symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaPropertySymbol>()
             ?.forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
         symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()
-            ?.forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function) }) }
+            ?.forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function, captured) }) }
         with(memberConverter) { finishAnonMembers(anon, expression.objectDeclaration) }
         builder.commit()
 
@@ -7105,7 +7112,7 @@ internal class KotlinBodyConverter(
             initializer.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>()
                 .forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
             initializer.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>()
-                .forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function) }) }
+                .forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function, emptyMap()) }) }
             with(memberConverter) { finishAnonMembers(anon, entry) }
             anon.builder().commit()
             anon
