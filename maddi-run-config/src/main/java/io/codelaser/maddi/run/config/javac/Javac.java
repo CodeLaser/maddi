@@ -1,6 +1,8 @@
 package io.codelaser.maddi.run.config.javac;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -84,7 +86,7 @@ public record Javac(int sourceRelease,
     }
 
     public static Javac parse(String line) {
-        String[] split = line.split("\\s+");
+        String[] split = rejoinPathsWithSpaces(line.split("\\s+"));
         int i = 0;
         Builder builder = new Builder();
 
@@ -181,6 +183,63 @@ public record Javac(int sourceRelease,
     }
 
     // FileSystem.getSeparator()
+    /**
+     * Maven's -X logs javac's arguments UNQUOTED, so a path with a space in it ("integration-tests/simple with
+     * space", quarkus's own test of exactly that) arrived as several tokens: `-d .../simple` then two unknown words,
+     * and main and test both wrote to ".../simple". The log alone cannot tell; the file system can. A token that
+     * looks like an absolute path and whose last path element does not exist is joined with the following words
+     * (none an option) when the joined element does exist. A path that exists, or a log read away from the build
+     * (where nothing exists), is left as it was.
+     */
+    static String[] rejoinPathsWithSpaces(String[] tokens) {
+        List<String> result = new ArrayList<>(tokens.length);
+        for (int i = 0; i < tokens.length; i++) {
+            String t = tokens[i];
+            int joined = 0;
+            if (looksLikeMissingAbsolutePath(t)) {
+                StringBuilder candidate = new StringBuilder(t);
+                String prefix = lastElement(t); // the split path so far
+                for (int k = 1; k <= 8 && i + k < tokens.length && !tokens[i + k].startsWith("-"); k++) {
+                    String word = tokens[i + k];
+                    candidate.append(' ').append(word);
+                    int c = word.indexOf(File.pathSeparatorChar);
+                    String path = prefix + " " + (c < 0 ? word : word.substring(0, c));
+                    if (exists(path)) {
+                        joined = k;
+                        t = candidate.toString();
+                        break;
+                    }
+                    if (c >= 0) break; // the path ended at the separator without existing
+                    prefix = path;
+                }
+            }
+            result.add(t);
+            i += joined;
+        }
+        return result.toArray(String[]::new);
+    }
+
+    private static boolean looksLikeMissingAbsolutePath(String token) {
+        if (token.startsWith("-")) return false;
+        String last = lastElement(token);
+        if (!last.startsWith("/")) return false;
+        return !exists(last);
+    }
+
+    /** The last element of a path list ("a.jar:/x/simple" -> "/x/simple"). */
+    private static String lastElement(String token) {
+        int c = token.lastIndexOf(File.pathSeparatorChar);
+        return c < 0 ? token : token.substring(c + 1);
+    }
+
+    private static boolean exists(String path) {
+        try {
+            return Files.exists(Path.of(path));
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     private static List<String> splitPath(String path) {
         if ("\"\"".equals(path)) return List.of();
         return Arrays.stream(path.split(File.pathSeparator)).filter(s -> !s.isBlank()).toList();
