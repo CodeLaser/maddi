@@ -67,6 +67,7 @@ import org.jetbrains.kotlin.analysis.api.resolution.KaImplicitReceiverValue
 import org.jetbrains.kotlin.analysis.api.resolution.KaReceiverValue
 import org.jetbrains.kotlin.analysis.api.resolution.successfulCallOrNull
 import org.jetbrains.kotlin.analysis.api.resolution.KaSmartCastedReceiverValue
+import org.jetbrains.kotlin.analysis.api.resolution.KaFunctionCall
 import org.jetbrains.kotlin.analysis.api.resolution.singleFunctionCallOrNull
 import org.jetbrains.kotlin.analysis.api.resolution.successfulVariableAccessCall
 import org.jetbrains.kotlin.analysis.api.resolution.symbol
@@ -1552,20 +1553,8 @@ internal class KotlinBodyConverter(
     private fun KaSession.forEachLowering(statement: KtExpression, method: MethodInfo,
                                           locals: MutableMap<String, Variable>, index: String): List<Statement>? {
         val qualified = statement as? KtDotQualifiedExpression ?: return null
-        val call = qualified.selectorExpression as? KtCallExpression ?: return null
-        if (call.calleeExpression?.text != "forEach") return null
-        val resolved = call.resolveToCall()?.singleFunctionCallOrNull() ?: return null
-        val id = resolved.symbol.callableId ?: return null
-        if (id.packageName.asString() != "kotlin.collections" || id.className != null) return null
-        val receiverClass = (resolved.symbol.receiverParameter?.returnType as? KaClassType)?.classId?.asString()
-            ?: return null
-        if (receiverClass != "kotlin/collections/Iterable" && !receiverClass.endsWith("Array")) return null
-        val lambda = call.valueArguments.singleOrNull()?.getArgumentExpression() as? KtLambdaExpression
-            ?: call.lambdaArguments.singleOrNull()?.getLambdaExpression() ?: return null
-        if (call.valueArguments.size != 1) return null
-        val literal = lambda.functionLiteral
+        val (resolved, literal) = loweredForEach(qualified) ?: return null
         val parameter = literal.valueParameters.singleOrNull()
-        if (literal.valueParameters.size > 1 || parameter?.destructuringDeclaration != null) return null
         val name = parameter?.name ?: "it"
         val elementType = (resolved.partiallyAppliedSymbol.signature.valueParameters.singleOrNull()?.returnType
             as? KaFunctionType)?.parameterTypes?.singleOrNull()?.let { mapType(it, method.typeInfo()) }
@@ -1585,6 +1574,35 @@ internal class KotlinBodyConverter(
             loopLiterals.remove(literal)
         }
         return listOf(loop)
+    }
+
+    /**
+     * [qualified] as a forEach [forEachLowering] lowers: the resolved call and its literal; null otherwise. Shared with
+     * the `Ref` decision ([isAssignedInACapture]): a literal lowered into a loop captures nothing, as kotlinc inlines
+     * it, so a `var` it assigns stays a plain local.
+     */
+    private fun KaSession.loweredForEach(qualified: KtDotQualifiedExpression): Pair<KaFunctionCall<*>, KtFunctionLiteral>? {
+        val call = qualified.selectorExpression as? KtCallExpression ?: return null
+        if (call.calleeExpression?.text != "forEach") return null
+        val resolved = call.resolveToCall()?.singleFunctionCallOrNull() ?: return null
+        val id = resolved.symbol.callableId ?: return null
+        if (id.packageName.asString() != "kotlin.collections" || id.className != null) return null
+        val receiverClass = (resolved.symbol.receiverParameter?.returnType as? KaClassType)?.classId?.asString()
+            ?: return null
+        if (receiverClass != "kotlin/collections/Iterable" && !receiverClass.endsWith("Array")) return null
+        if (call.valueArguments.size != 1) return null
+        val lambda = call.valueArguments.single().getArgumentExpression() as? KtLambdaExpression ?: return null
+        val literal = lambda.functionLiteral
+        if (literal.valueParameters.size > 1 || literal.valueParameters.singleOrNull()?.destructuringDeclaration != null) return null
+        return resolved to literal
+    }
+
+    /** Whether [literal] is a statement-level forEach's, lowered into a loop: no capture. */
+    private fun KaSession.isLoweredForEachLiteral(literal: KtFunctionLiteral): Boolean {
+        val call = PsiTreeUtil.getParentOfType(literal, KtCallExpression::class.java, true) ?: return false
+        val qualified = call.parent as? KtDotQualifiedExpression ?: return false
+        if (qualified.selectorExpression !== call || qualified.parent !is KtBlockExpression) return false
+        return loweredForEach(qualified)?.second === literal
     }
 
     /** A statement that IS a scope call, its value discarded (`sb.apply { … }`, `x?.let { f(it) }`): the inlined body alone. */
@@ -7114,7 +7132,7 @@ internal class KotlinBodyConverter(
         val name = statement.name ?: return@getOrPut false
         val symbol = statement.symbol
         PsiTreeUtil.collectElementsOfType(scope, KtNameReferenceExpression::class.java).any { reference ->
-            reference.getReferencedName() == name && isAssignmentTarget(reference) && crossesACapture(reference, scope)
+            reference.getReferencedName() == name && isAssignmentTarget(reference) && crossesACapture(reference, scope) { isLoweredForEachLiteral(it) }
                 && reference.mainReference.resolveToSymbol() == symbol
         }
     }
@@ -7127,9 +7145,10 @@ internal class KotlinBodyConverter(
             else -> false
         }
 
-    private fun crossesACapture(reference: KtExpression, scope: com.intellij.psi.PsiElement): Boolean =
+    private fun crossesACapture(reference: KtExpression, scope: com.intellij.psi.PsiElement,
+                                lowered: (KtFunctionLiteral) -> Boolean): Boolean =
         generateSequence(reference.parent) { it.parent }.takeWhile { it !== scope }
-            .any { it is KtFunctionLiteral || it is KtNamedFunction || it is KtClassOrObject }
+            .any { it is KtFunctionLiteral && !lowered(it) || it is KtNamedFunction || it is KtClassOrObject }
 
     /**
      * `kotlin.jvm.internal.Ref.IntRef` (and the other primitives') or `Ref.ObjectRef<T>` for a local of [type], with

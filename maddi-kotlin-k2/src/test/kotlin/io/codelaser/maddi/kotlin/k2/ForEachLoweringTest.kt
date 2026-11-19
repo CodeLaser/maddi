@@ -23,6 +23,8 @@ class ForEachLoweringTest : KotlinScanTestBase() {
                 fun nested(xs: List<StringBuilder>, ys: List<String>) { xs.forEach { for (y in ys) { if (y.isEmpty()) return@forEach; it.append(y) } } }
                 fun leave(xs: List<StringBuilder>): Int { xs.forEach { if (it.isEmpty()) return 1 }; return 0 }
                 fun map(m: Map<String, StringBuilder>) { m.forEach { (k, v) -> v.append(k) } }
+                fun count(xs: List<String>): Int { var n = 0; xs.forEach { if (it.isEmpty()) n++ }; return n }
+                fun countSeq(xs: List<String>): Int { var n = 0; xs.asSequence().forEach { if (it.isEmpty()) n++ }; return n }
             }
             """.trimIndent())
     }
@@ -45,5 +47,12 @@ class ForEachLoweringTest : KotlinScanTestBase() {
             leave: ${'$'}forEach5: for(StringBuilder it:xs){if(it.length()==0){return 1;}} return 0;
             map: MapsKt.forEach(m,${'$'}dstr0->{String k=MapsKt.component1(${'$'}dstr0),v=MapsKt.component2(${'$'}dstr0);v.append(k);});
             """.trimIndent(), names.joinToString("\n") { "$it: ${body(it)}" })
+    }
+
+    // a var assigned in a lowered literal is a plain local, as in kotlinc's inlined loop; a lambda left a call still holds it in a Ref
+    @Test
+    fun aVarAssignedInALoweredLiteralIsNoRef() {
+        assertEquals("int n=0; \$forEach6: for(String it:xs){if(StringsKt.isEmpty(it)){n++;}} return n;", body("count"))
+        assert(body("countSeq").startsWith("IntRef n=new IntRef();")) { body("countSeq") }
     }
 }
