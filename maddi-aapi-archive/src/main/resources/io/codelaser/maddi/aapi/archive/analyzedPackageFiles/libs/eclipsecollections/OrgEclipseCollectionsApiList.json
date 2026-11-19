@@ -160,7 +160,7 @@
  {"name": "MflatCollectWith(22,org.eclipse.collections.api.block.function.Function2,P)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pfunction(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pparameter(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "MforEachInBoth(23,org.eclipse.collections.api.list.ListIterable,org.eclipse.collections.api.block.procedure.Procedure2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachInBoth(23,org.eclipse.collections.api.list.ListIterable,org.eclipse.collections.api.block.procedure.Procedure2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pother(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pprocedure(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "Mget(24,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -252,9 +252,9 @@
   {"name": "Pelement(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MwithAll(19,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MwithReadLockAndDelegate(20,org.eclipse.collections.api.block.procedure.Procedure)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MwithReadLockAndDelegate(20,org.eclipse.collections.api.block.procedure.Procedure)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MwithWriteLockAndDelegate(21,org.eclipse.collections.api.block.procedure.Procedure)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MwithWriteLockAndDelegate(21,org.eclipse.collections.api.block.procedure.Procedure)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mwithout(22,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Pelement(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},

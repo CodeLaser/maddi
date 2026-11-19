@@ -56,7 +56,7 @@
  {"name": "McollectValues(2,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mflip(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MforEachKeyImmutableBag(4,org.eclipse.collections.api.block.procedure.Procedure2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MforEachKeyImmutableBag(4,org.eclipse.collections.api.block.procedure.Procedure2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mget(5,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
@@ -127,7 +127,7 @@
  {"name": "McollectValues(3,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mflip(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MforEachKeyMutableBag(5,org.eclipse.collections.api.block.procedure.Procedure2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MforEachKeyMutableBag(5,org.eclipse.collections.api.block.procedure.Procedure2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mget(6,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
@@ -135,7 +135,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MnewEmpty(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["delegate","hashingStrategy"],"nonModifyingMethod":0}},
- {"name": "MputOccurrences(9,K,V,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MputOccurrences(9,K,V,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},

@@ -51,8 +51,8 @@
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
   {"name": "Mshould(3,org.mockito.verification.VerificationMode)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
-  {"name": "MshouldHaveNoInteractions(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
-  {"name": "MshouldHaveNoMoreInteractions(5)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}]},
+  {"name": "MshouldHaveNoInteractions(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}},
+  {"name": "MshouldHaveNoMoreInteractions(5)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}}]},
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mgiven(0,T)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PmethodCall(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
@@ -83,14 +83,14 @@
  {"name": "Mverify(1,T,org.mockito.verification.VerificationMode)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
- {"name": "Mverify(2,org.mockito.MockedStatic,org.mockito.MockedStatic.Verification)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mverify(2,org.mockito.MockedStatic,org.mockito.MockedStatic.Verification)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PmockedStatic(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "Pverification(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Mverify(3,org.mockito.MockedStatic,org.mockito.MockedStatic.Verification,org.mockito.verification.VerificationMode)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mverify(3,org.mockito.MockedStatic,org.mockito.MockedStatic.Verification,org.mockito.verification.VerificationMode)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "MverifyNoMoreInteractions(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}]},
+ {"name": "MverifyNoMoreInteractions(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}}]},
 
 {"name": "Torg.mockito.Mockito", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FCALLS_REAL_METHODS(0)", "data":{"finalField":1}},
@@ -110,8 +110,8 @@
  {"name": "MatMostOnce(5)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mcalls(6,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PwantedNumberOfInvocations(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MclearAllCaches(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MclearInvocations(8,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MclearAllCaches(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MclearInvocations(8,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmocks(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mdescription(9,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -233,7 +233,7 @@
  {"name": "MmockitoSession(54)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mnever(55)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Monly(56)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "Mreset(57,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreset(57,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmocks(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mspy(58,java.lang.Class)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PclassToSpy(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -245,15 +245,15 @@
   {"name": "Pmillis(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mtimes(62,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PwantedNumberOfInvocations(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MvalidateMockitoUsage(63)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MvalidateMockitoUsage(63)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mverify(64,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmock(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mverify(65,T,org.mockito.verification.VerificationMode)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pmock(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pmode(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
- {"name": "MverifyNoInteractions(66,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MverifyNoInteractions(66,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmocks(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "MverifyNoMoreInteractions(67,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MverifyNoMoreInteractions(67,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmocks(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mwhen(68,T)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PmethodCall(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},

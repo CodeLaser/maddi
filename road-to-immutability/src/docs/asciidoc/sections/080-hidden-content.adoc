@@ -319,8 +319,10 @@ static String useLocal(@Modified Node input) {
 
 <1> `c` may be `input`: a co-element of a modified element is modified.
 
-The analyzer counts this as a deep modification of `input` only; its structural verdict stays unmodified, although
-the write is to `input`'s own field (CodeLaser/maddi-mod#130).
+The modification of `input` is of the same kind as that of the element: `clear()` writes the element's own field, and
+when the element is `input`, that is `input`'s own state, so `input` is modified structurally too, not only in its
+hidden content. An element modified only in its hidden content makes the co-element modified in its hidden content only
+(CodeLaser/maddi-mod#130).
 
 ****
 The example shows that the introduction of {independent} only gets us so far: from the concrete, modifying implementation, to the parameter (or field).

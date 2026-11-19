@@ -106,7 +106,7 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mdelete(12,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Mdelete(12,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MdeleteIfExists(13,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},

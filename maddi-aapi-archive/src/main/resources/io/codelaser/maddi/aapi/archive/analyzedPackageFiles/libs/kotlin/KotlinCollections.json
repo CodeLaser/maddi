@@ -10,7 +10,7 @@
   {"name": "Pelements(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "Madd(1,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "Madd(2,int,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Madd(2,int,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MaddAll(3,int,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
@@ -18,11 +18,11 @@
   {"name": "Pelements(1)", "data":{"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MaddAll(4,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Pelements(0)", "data":{"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MaddFirst(5,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MaddFirst(5,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MaddLast(6,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MaddLast(6,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mclear(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "Mclear(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mcontains(8,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
  {"name": "Mfirst(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
@@ -32,7 +32,7 @@
  {"name": "MgetSize(12)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "MindexOf(13,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MinternalStructure$kotlin_stdlib(14,kotlin.jvm.functions.Function2)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MinternalStructure$kotlin_stdlib(14,kotlin.jvm.functions.Function2)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pstructure(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MisEmpty(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mlast(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
@@ -54,7 +54,7 @@
  {"name": "Mset(28,int,E)", "data":{"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",true,true,0],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MtestRemoveRange$kotlin_stdlib(29,int,int)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MtestRemoveRange$kotlin_stdlib(29,int,int)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PfromIndex(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MtestToArray$kotlin_stdlib(30)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0}},
@@ -71,7 +71,7 @@
   {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "McontentDeepHashCode(1,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$contentDeepHashCodeImpl(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "McopyOfRangeToIndexCheck(2,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "McopyOfRangeToIndexCheck(2,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PtoIndex(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}]},
 
@@ -231,47 +231,47 @@
   {"name": "P$this$copyOfRangeImpl(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfill(36,T[],T,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mfill(36,T[],T,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$fill(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfill(37,boolean[],boolean,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mfill(37,boolean[],boolean,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$fill(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfill(38,byte[],byte,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mfill(38,byte[],byte,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$fill(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfill(39,char[],char,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mfill(39,char[],char,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$fill(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfill(40,double[],double,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mfill(40,double[],double,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$fill(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfill(41,float[],float,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mfill(41,float[],float,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$fill(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfill(42,int[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mfill(42,int[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$fill(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfill(43,long[],long,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mfill(43,long[],long,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$fill(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfill(44,short[],short,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mfill(44,short[],short,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$fill(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
@@ -364,62 +364,62 @@
  {"name": "Mplus(73,short[],short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$plus(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelements(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Msort(74,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Msort(74,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msort(75,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Msort(75,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Msort(76,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Msort(76,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msort(77,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Msort(77,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Msort(78,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Msort(78,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msort(79,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Msort(79,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Msort(80,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Msort(80,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msort(81,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Msort(81,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Msort(82,double[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Msort(82,double[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msort(83,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Msort(83,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Msort(84,float[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Msort(84,float[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msort(85,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Msort(85,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Msort(86,int[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Msort(86,int[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msort(87,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Msort(87,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Msort(88,long[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Msort(88,long[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msort(89,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Msort(89,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Msort(90,short[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Msort(90,short[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sort(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsortWith(91,T[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortWith(91,T[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortWith(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MsortWith(92,T[],java.util.Comparator,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortWith(92,T[],java.util.Comparator,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortWith(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
@@ -1509,58 +1509,58 @@
   {"name": "P$this$foldRightIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(331,T[],kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(331,T[],kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
   {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(332,boolean[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(332,boolean[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(333,byte[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(333,byte[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(334,char[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(334,char[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(335,double[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(335,double[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(336,float[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(336,float[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(337,int[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(337,int[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(338,long[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(338,long[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(339,short[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(339,short[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(340,T[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(340,T[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(341,boolean[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(341,boolean[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(342,byte[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(342,byte[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(343,char[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(343,char[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(344,double[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(344,double[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(345,float[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(345,float[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(346,int[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(346,int[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(347,long[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(347,long[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(348,short[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(348,short[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MgetIndices(349,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
@@ -3036,57 +3036,57 @@
   {"name": "Poperation(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MrequireNoNulls(822,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$requireNoNulls(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(823,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(823,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(824,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mreverse(824,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mreverse(825,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(825,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(826,boolean[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mreverse(826,boolean[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mreverse(827,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(827,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(828,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mreverse(828,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mreverse(829,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(829,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(830,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mreverse(830,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mreverse(831,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(831,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(832,double[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mreverse(832,double[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mreverse(833,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(833,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(834,float[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mreverse(834,float[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mreverse(835,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(835,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(836,int[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mreverse(836,int[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mreverse(837,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(837,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(838,long[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mreverse(838,long[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mreverse(839,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(839,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mreverse(840,short[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mreverse(840,short[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
@@ -3148,49 +3148,49 @@
   {"name": "P$this$scanIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(865,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mshuffle(865,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mshuffle(866,T[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(866,T[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(867,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mshuffle(867,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mshuffle(868,boolean[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(868,boolean[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(869,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mshuffle(869,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mshuffle(870,byte[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(870,byte[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(871,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mshuffle(871,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mshuffle(872,char[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(872,char[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(873,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mshuffle(873,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mshuffle(874,double[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(874,double[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(875,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mshuffle(875,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mshuffle(876,float[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(876,float[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(877,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mshuffle(877,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mshuffle(878,int[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(878,int[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(879,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mshuffle(879,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mshuffle(880,long[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(880,long[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(881,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mshuffle(881,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mshuffle(882,short[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(882,short[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
  {"name": "Msingle(883,T[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -3391,57 +3391,57 @@
  {"name": "MsliceArray(954,short[],kotlin.ranges.IntRange)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sliceArray(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pindices(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "MsortBy(955,T[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortBy(955,T[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortBy(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MsortByDescending(956,T[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortByDescending(956,T[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortByDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MsortDescending(957,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsortDescending(957,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MsortDescending(958,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortDescending(958,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsortDescending(959,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsortDescending(959,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MsortDescending(960,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortDescending(960,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsortDescending(961,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsortDescending(961,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MsortDescending(962,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortDescending(962,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsortDescending(963,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsortDescending(963,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MsortDescending(964,double[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortDescending(964,double[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsortDescending(965,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsortDescending(965,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MsortDescending(966,float[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortDescending(966,float[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsortDescending(967,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsortDescending(967,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MsortDescending(968,int[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortDescending(968,int[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsortDescending(969,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsortDescending(969,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MsortDescending(970,long[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortDescending(970,long[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsortDescending(971,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsortDescending(971,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MsortDescending(972,short[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortDescending(972,short[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
@@ -4240,8 +4240,8 @@
  {"name": "Mshuffled(16,java.lang.Iterable,kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffled(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "MthrowCountOverflow(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MthrowIndexOverflow(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}]},
+ {"name": "MthrowCountOverflow(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MthrowIndexOverflow(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}}]},
 
 {"name": "Tkotlin.collections.CollectionsKt__IterablesKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
@@ -4316,7 +4316,7 @@
   {"name": "P$this$filterIsInstanceTo(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pdestination(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pklass(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mreverse(2,java.util.List)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mreverse(2,java.util.List)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$reverse(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MtoSortedSet(3,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$toSortedSet(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
@@ -4490,10 +4490,10 @@
   {"name": "P$this$foldRightIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(54,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(54,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEachIndexed(55,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEachIndexed(55,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MgetOrNull(56,java.util.List,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
@@ -4779,7 +4779,7 @@
   {"name": "P$this$scanIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Mshuffle(150,java.util.List,kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mshuffle(150,java.util.List,kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$shuffle(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Prandom(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
  {"name": "Msingle(151,java.lang.Iterable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
@@ -4802,13 +4802,13 @@
  {"name": "Mslice(158,java.util.List,kotlin.ranges.IntRange)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$slice(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pindices(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "MsortBy(159,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortBy(159,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortBy(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MsortByDescending(160,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsortByDescending(160,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortByDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MsortDescending(161,java.util.List)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsortDescending(161,java.util.List)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$sortDescending(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "Msorted(162,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$sorted(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
@@ -5061,13 +5061,13 @@
  {"name": "Mplus(28,java.util.Map,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$plus(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Ppairs(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MputAll(29,java.util.Map,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MputAll(29,java.util.Map,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$putAll(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Ppairs(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MputAll(30,java.util.Map,kotlin.Pair[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MputAll(30,java.util.Map,kotlin.Pair[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$putAll(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Ppairs(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MputAll(31,java.util.Map,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MputAll(31,java.util.Map,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$putAll(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Ppairs(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MtoMap(32,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
@@ -5122,7 +5122,7 @@
   {"name": "P$this$flatMapTo(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pdestination(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MforEach(9,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MforEach(9,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mmap(10,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[

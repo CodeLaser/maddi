@@ -55,7 +55,8 @@ chapter only when detail is missing here. Last checked against the code and the 
     another non-static field of a compatible type (assignable either way; `Object` counts, a type-parameter field
     does not): then it is structural (maddi-mod#117, `Util.hiddenAliasOwner`; book example `Node.first`, test
     `TestBook080Elements`). The step back from a modified container to its elements is computed within one method
-    (maddi-mod#113: a co-element of a modified element is modified, deep only), not through a call
+    (maddi-mod#113: a co-element of a modified element is modified, in the element's mode: structurally when the
+    element's own state is written, maddi-mod#130), not through a call
     (`useAddNewLine`).
 - **Unmodifiable views** (2026-10-15, CodeLaser/maddi-mod#52; book §050 "Unmodifiable views"): a fact beside
   immutability, never derived from it. `UNMODIFIABLE_TYPE`: rule 0 + the structural rule 1, decided BEFORE the rule-3

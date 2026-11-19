@@ -274,8 +274,30 @@ public class InfoByFqn {
             }
         }
         if (present != null) return present;
+        /*
+         ⛔ A DISPLACED COPY IS STILL THE ONE OF ITS JAR. Jar 1's type, overwritten by jar 2's while another source set
+         was scanned, and then read again from jar 1: the re-read must get the copy it had, not a third object. The
+         code parsed before the overwrite calls that copy, and a fresh one with the same (FQN, source set) took its
+         place in allTypes, so analysis results never reached it (nacos: slf4j-api 2.0.13 and 1.7.26, nacos-common's
+         Logger calls left without a summary after a load, TestInfoByFqnAllTypes).
+         */
+        TypeInfo displaced = displacedFromSameOrigin(fqn, typeInfo);
+        if (displaced != null) {
+            put(fqn, displaced, sourceSetOfCurrentTask);
+            displacedLibraryTypesByFqn.computeIfPresent(fqn, (k, list) -> {
+                List<TypeInfo> rest = list.stream().filter(t -> t != displaced).toList();
+                return rest.isEmpty() ? null : rest;
+            });
+            return displaced;
+        }
         put(fqn, typeInfo, sourceSetOfCurrentTask);
         return typeInfo;
+    }
+
+    private TypeInfo displacedFromSameOrigin(String fqn, TypeInfo typeInfo) {
+        List<TypeInfo> displaced = displacedLibraryTypesByFqn.get(fqn);
+        if (displaced == null) return null;
+        return displaced.stream().map(d -> sameOrigin(d, typeInfo)).filter(Objects::nonNull).findFirst().orElse(null);
     }
 
     private static TypeInfo sameOrigin(TypeInfo present, TypeInfo typeInfo) {

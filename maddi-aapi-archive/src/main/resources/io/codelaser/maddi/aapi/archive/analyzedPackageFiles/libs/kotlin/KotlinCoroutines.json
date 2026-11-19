@@ -3,7 +3,7 @@
 
 {"name": "Tkotlin.coroutines.Continuation", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MgetContext(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MresumeWith(1,java.lang.Object)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MresumeWith(1,java.lang.Object)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}}]},
 
 {"name": "Tkotlin.coroutines.CoroutineContext", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[

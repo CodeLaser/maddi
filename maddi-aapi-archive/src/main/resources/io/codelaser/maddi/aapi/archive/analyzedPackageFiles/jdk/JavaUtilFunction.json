@@ -2,7 +2,7 @@
 {"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tjava.util.function.BiConsumer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
- {"name": "Maccept(0,T,U)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Maccept(0,T,U)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MandThen(1,java.util.function.BiConsumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
@@ -35,7 +35,7 @@
  {"name": "MgetAsBoolean(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}}},
 
 {"name": "Tjava.util.function.Consumer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
- {"name": "Maccept(0,T)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Maccept(0,T)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MandThen(1,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}}]},
@@ -46,7 +46,7 @@
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}},
 
 {"name": "Tjava.util.function.DoubleConsumer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
- {"name": "Maccept(0,double)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Maccept(0,double)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MandThen(1,java.util.function.DoubleConsumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}}]},
@@ -99,7 +99,7 @@
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}},
 
 {"name": "Tjava.util.function.IntConsumer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
- {"name": "Maccept(0,int)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Maccept(0,int)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MandThen(1,java.util.function.IntConsumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}}]},
@@ -143,7 +143,7 @@
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}},
 
 {"name": "Tjava.util.function.LongConsumer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
- {"name": "Maccept(0,long)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Maccept(0,long)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MandThen(1,java.util.function.LongConsumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}}]},
@@ -182,17 +182,17 @@
  {"name": "Midentity(3)", "data":{"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}}]},
 
 {"name": "Tjava.util.function.ObjDoubleConsumer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "sub":
- {"name": "Maccept(0,T,double)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Maccept(0,T,double)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}},
 
 {"name": "Tjava.util.function.ObjIntConsumer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "sub":
- {"name": "Maccept(0,T,int)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Maccept(0,T,int)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}},
 
 {"name": "Tjava.util.function.ObjLongConsumer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "sub":
- {"name": "Maccept(0,T,long)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Maccept(0,T,long)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}},
 

@@ -323,7 +323,10 @@ public abstract class ValueImpl implements Value {
 
         @Override
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-            if (value <= 0) return null;
+            // only the default (0) is left out: NO_VALUE (-1) is a value, which some readers tell apart from an absent
+            // one (getOrNull(IMMUTABLE_METHOD)), and 'from' reads it back. '<= 0' dropped it silently, so a restored
+            // run lacked what the cold one had (hibernate-core's SqlAstNode.accept: immutableMethod).
+            if (value == 0) return null;
             return codec.encodeInt(context, value);
         }
 

@@ -52,7 +52,7 @@
 
 {"name": "Tkotlin.uuid.UuidKt__UuidJVMKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MformatBytesInto(0,long,byte[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MformatBytesInto(0,long,byte[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$formatBytesInto(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Pdst(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "PdstOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
@@ -75,11 +75,11 @@
   {"name": "Puuid(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
  {"name": "MreverseBytes(6,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$reverseBytes(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MsecureRandomBytes(7,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MsecureRandomBytes(7,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pdestination(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MserializedUuid(8,kotlin.uuid.Uuid)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Puuid(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
- {"name": "MsetLongAt(9,byte[],int,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MsetLongAt(9,byte[],int,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$setLongAt(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Pvalue(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},

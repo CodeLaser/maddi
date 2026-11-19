@@ -19,7 +19,7 @@
  {"name": "FRFC_1123_DATE_TIME(14)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
  {"name": "Mformat(0,java.time.temporal.TemporalAccessor)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MformatTo(1,java.time.temporal.TemporalAccessor,java.lang.Appendable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MformatTo(1,java.time.temporal.TemporalAccessor,java.lang.Appendable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MgetChronology(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},

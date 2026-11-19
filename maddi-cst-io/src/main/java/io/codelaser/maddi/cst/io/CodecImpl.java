@@ -630,6 +630,16 @@ public class CodecImpl implements Codec {
                 nt = findTypeOrLocalType(context, fqn.substring(1));
             } else if ('?' == first) {
                 return runtime.parameterizedTypeWildcard();
+            } else if ("X".equals(fqn)) {
+                /*
+                 ⛔ NEITHER A TYPE NOR A TYPE PARAMETER, YET MORE THAN THE SIMPLE "X". encodeType writes "X" for a type
+                 with no type and no type parameter that is not the unbound wildcard: a wildcard whose bound is gone,
+                 '? extends' over nothing. It takes the long form once the wildcard is written, ["X",0,[],"E"], and
+                 that was read as a type parameter "M"/"P" plus an index: NumberFormatException on "" and the whole
+                 file lost (hibernate-core's ParameterCollector, the type of a virtual field
+                 List<SqmCaseSearched.WhenFragment<? extends ...>[]>). A bound over nothing bounds nothing: '?'.
+                 */
+                return runtime.parameterizedTypeWildcard();
             } else {
                 int index = Integer.parseInt(fqn.substring(1));
                 boolean ownerNotInContext = !(list.get(i) instanceof D(Node s1) && s1 instanceof NumberLiteral);
