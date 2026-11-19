@@ -174,6 +174,11 @@ public class JsonStreaming {
             JsonNode jvmTargetNode = node.get("jvmTarget");
             int jvmTarget = jvmTargetNode == null ? 0 : jvmTargetNode.asInt(0);
             String jdkHome = getString(node, "jdkHome", null);
+            List<String> kotlinPluginOptions = new ArrayList<>();
+            JsonNode kotlinPluginOptionsNode = node.get("kotlinPluginOptions");
+            if (kotlinPluginOptionsNode != null) {
+                for (JsonNode o : kotlinPluginOptionsNode) kotlinPluginOptions.add(o.asText());
+            }
             SourceSet ssi = new SourceSetImpl.Builder().setName(name)
                     .setBuildUnit(buildUnit)
                     .setSourceDirectories(sourceDirectories)
@@ -194,6 +199,7 @@ public class JsonStreaming {
                     .setKotlinApiVersion(kotlinApiVersion)
                     .setJvmTarget(jvmTarget)
                     .setJdkHome(jdkHome)
+                    .setKotlinPluginOptions(List.copyOf(kotlinPluginOptions))
                     .build();
             String fingerPrintToString = getString(node, "fingerPrint", "");
             if (!fingerPrintToString.isBlank()) {
@@ -249,6 +255,11 @@ public class JsonStreaming {
             if (value.kotlinApiVersion() != null) gen.writeStringField("kotlinApiVersion", value.kotlinApiVersion());
             if (value.jvmTarget() > 0) gen.writeNumberField("jvmTarget", value.jvmTarget());
             if (value.jdkHome() != null) gen.writeStringField("jdkHome", value.jdkHome());
+            if (!value.kotlinPluginOptions().isEmpty()) {
+                gen.writeArrayFieldStart("kotlinPluginOptions");
+                for (String o : value.kotlinPluginOptions()) gen.writeString(o);
+                gen.writeEndArray();
+            }
             if (!value.warningFlags().isEmpty()) {
                 gen.writeArrayFieldStart("warningFlags");
                 for (String f : value.warningFlags()) gen.writeString(f);

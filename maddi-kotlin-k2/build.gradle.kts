@@ -69,6 +69,11 @@ dependencies {
         implementation("org.jetbrains.kotlin:$a:$analysisApiVersion") { isTransitive = false }
     }
 
+    // The compiler plugins a build's kotlinc applied, applied to the analysis too (CompilerPlugins): Gradle's kotlin-dsl
+    // compiles build logic with these two. The NON-embeddable builds, like kotlin-compiler above.
+    implementation("org.jetbrains.kotlin:kotlin-sam-with-receiver-compiler-plugin:$analysisApiVersion") { isTransitive = false }
+    implementation("org.jetbrains.kotlin:kotlin-assignment-compiler-plugin:$analysisApiVersion") { isTransitive = false }
+
     // Runtime deps the standalone session needs but the stripped '*-for-ide' artifacts don't carry.
     // Discovered empirically in M0 by following NoClassDefFoundError chains.
     runtimeOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")

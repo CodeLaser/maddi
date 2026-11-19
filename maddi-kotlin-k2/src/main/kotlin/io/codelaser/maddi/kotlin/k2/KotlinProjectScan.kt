@@ -107,6 +107,9 @@ class KotlinProjectScan(
         // a source set is one K2 module, or -- a Kotlin-multiplatform target's fragments -- a dependsOn chain of them
         private val modulesBySourceSet = LinkedHashMap<SourceSet, List<KaSourceModule>>()
         private val session = buildStandaloneAnalysisAPISession(disposable) {
+            // the compiler plugins the build applied (Gradle's kotlin-dsl: sam-with-receiver, assignment)
+            CompilerPlugins.configuration(orderedSourceSets.flatMap { it.kotlinPluginOptions() })
+                ?.let { registerCompilerPluginServices(it) }
             val jvm = JvmPlatforms.defaultJvmPlatform
             buildKtModuleProvider {
                 platform = jvm

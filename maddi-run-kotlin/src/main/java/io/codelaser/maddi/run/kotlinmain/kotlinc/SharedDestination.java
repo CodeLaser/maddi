@@ -127,6 +127,11 @@ record SharedDestination(Kotlinc kotlinc, CompileInvocation javac) implements Co
     }
 
     @Override
+    public List<String> kotlinPluginOptions() {
+        return kotlinc.kotlinPluginOptions();
+    }
+
+    @Override
     public int jvmTarget() {
         return kotlinc.jvmTarget();
     }

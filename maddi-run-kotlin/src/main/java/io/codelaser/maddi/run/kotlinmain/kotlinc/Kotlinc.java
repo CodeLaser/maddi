@@ -34,7 +34,8 @@ public record Kotlinc(int jvmTarget,
                       List<String> sourcePath, // source directories (Maven gives these directly; Gradle: empty)
                       List<String> sourceFiles,
                       List<String> friendPaths,
-                      String encoding) implements CompileInvocation {
+                      String encoding,
+                      List<String> pluginOptions) implements CompileInvocation { // -P plugin:<id>:<key>=<value>, one each
 
     @Override
     public List<String> modulePath() {
@@ -51,13 +52,18 @@ public record Kotlinc(int jvmTarget,
         return apiVersion;
     }
 
+    @Override
+    public List<String> kotlinPluginOptions() {
+        return pluginOptions == null ? List.of() : pluginOptions;
+    }
+
     /**
      * Build a {@link Kotlinc} from the labelled DEBUG lines the kotlin-maven-plugin emits (which give source
      * <i>directories</i> and put the main output on the test classpath rather than using {@code -Xfriend-paths}).
      */
     public static Kotlinc mavenBlock(String destination, List<String> sourceDirs, List<String> classpath, String moduleName) {
         return new Kotlinc(0, null, null, destination, moduleName, null, classpath, List.copyOf(sourceDirs),
-                List.of(), List.of(), null);
+                List.of(), List.of(), null, List.of());
     }
 
     public static class Builder {
@@ -71,10 +77,11 @@ public record Kotlinc(int jvmTarget,
         final List<String> sourceFiles = new LinkedList<>();
         List<String> friendPaths = List.of();
         String encoding;
+        final List<String> pluginOptions = new ArrayList<>();
 
         public Kotlinc build() {
             return new Kotlinc(jvmTarget, apiVersion, languageVersion, destination, moduleName, jdkHome,
-                    classpath, List.of(), List.copyOf(sourceFiles), friendPaths, encoding);
+                    classpath, List.of(), List.copyOf(sourceFiles), friendPaths, encoding, List.copyOf(pluginOptions));
         }
     }
 
@@ -122,7 +129,11 @@ public record Kotlinc(int jvmTarget,
                     case "-api-version" -> builder.apiVersion = next;
                     case "-language-version" -> builder.languageVersion = next;
                     case "-jdk-home" -> builder.jdkHome = next;
-                    default -> LOGGER.debug("Ignoring option {} with value", option); // -P, -kotlin-home, …
+                    // which compiler plugins the build applied, and how: Gradle's kotlin-dsl passes its two as ONE
+                    // value, `plugin:…samWithReceiver:annotation=…,plugin:…assignment:annotation=…`. The jars
+                    // (-Xplugin=) are not kept: they are the build's Kotlin version; the analyzer brings its own.
+                    case "-P" -> builder.pluginOptions.addAll(pluginOptions(next));
+                    default -> LOGGER.debug("Ignoring option {} with value", option); // -kotlin-home, …
                 }
             } else {
                 LOGGER.debug("Ignoring {}", option); // param-less (-no-stdlib, -verbose, …) or unknown: no value
@@ -130,6 +141,11 @@ public record Kotlinc(int jvmTarget,
             ++i;
         }
         return builder.destination == null ? null : builder.build();
+    }
+
+    /** One {@code -P} value as its options: split before each {@code plugin:}, so a value's own commas stay put. */
+    static List<String> pluginOptions(String value) {
+        return Arrays.stream(value.split(",(?=plugin:)")).map(String::trim).filter(o -> o.startsWith("plugin:")).toList();
     }
 
     /** Replace any {@code @argfile} token with the whitespace-split tokens of that file (one level). */

@@ -399,6 +399,7 @@ class KotlinScan(
      */
     private fun buildSession(disposable: Disposable, srcRoot: java.nio.file.Path) =
         buildStandaloneAnalysisAPISession(disposable) {
+        CompilerPlugins.configuration(sourceSet.kotlinPluginOptions())?.let { registerCompilerPluginServices(it) }
         buildKtModuleProvider {
             val jvm = JvmPlatforms.defaultJvmPlatform
             platform = jvm

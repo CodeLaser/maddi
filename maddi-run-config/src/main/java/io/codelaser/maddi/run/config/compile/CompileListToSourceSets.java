@@ -825,6 +825,7 @@ public class CompileListToSourceSets {
                 .setEnablePreview(inv.enablePreview())
                 .setKotlinLanguageVersion(inv.kotlinLanguageVersion())
                 .setKotlinApiVersion(inv.kotlinApiVersion())
+                .setKotlinPluginOptions(inv.kotlinPluginOptions())
                 .setJvmTarget(inv.jvmTarget())
                 .setJdkHome(inv.jdkHome())
                 .build();
