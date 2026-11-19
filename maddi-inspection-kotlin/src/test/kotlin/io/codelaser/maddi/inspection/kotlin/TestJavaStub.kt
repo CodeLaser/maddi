@@ -72,6 +72,42 @@ class TestJavaStub {
     }
 
     /**
+     * What fernflower's Java tests call on its Kotlin translation: `@JvmStatic` companion functions (static methods of
+     * the OUTER class on the JVM: `ConstExprent.trimFloat`, `InterpreterUtil.getBytes`) and a `fun interface`
+     * implemented by a lambda (`IBytecodeProvider`). Missing from the stubs, javac dropped the four test types that use
+     * them (maddi-mod#146), and with them the modifications they make (maddi-mod#145).
+     */
+    @Test
+    fun jvmStaticCompanionFunctionsAndAFunInterfaceAreJava() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("k").setUri(URI.create("file:/")).build()
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Util.kt",
+            "package a.b\n" +
+                "fun interface Provider { fun get(path: String, inner: String?): ByteArray }\n" +
+                "class Util {\n" +
+                "    companion object {\n" +
+                "        @JvmStatic fun trim(value: String, start: Float): String = value\n" +
+                "        @JvmStatic fun put(key: String, value: Any?) {}\n" +
+                "        fun notStatic(): Int = 1\n" +
+                "    }\n" +
+                "}\n"
+        )
+        val stubs = types.filter { it.simpleName() == "Provider" || it.simpleName() == "Util" }
+            .associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it) }
+        val use = """
+            package a.b;
+            public class Use {
+                public Provider p() { return (path, inner) -> new byte[0]; }
+                public String t() { Util.put("k", "v"); return Util.trim("x", 1.0f) + Util.Companion.notStatic(); }
+            }
+        """.trimIndent()
+
+        val errors = attribute(stubs + ("a.b.Use" to use))
+        assertTrue(errors.isEmpty(), stubs.values.joinToString("\n") + "\n--- errors ---\n" + errors.joinToString("\n"))
+    }
+
+    /**
      * An override of a Java collection method has the Java method's signature, as kotlinc compiles it:
      * `remove(element: E)` in an `ArrayList<E>` is `remove(Object)`, `addAll(c: Collection<E>)` is
      * `addAll(Collection<? extends E>)`. Stubbed with the Kotlin types, javac saw a second method of the same erasure

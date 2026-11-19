@@ -311,7 +311,10 @@ object JavaStubGenerator {
         val isStatic = m.isStatic
         // a Kotlin interface method WITH an implementation is a Java `default` method (javac needs the keyword,
         // else a Java class relying on it is forced to implement it); one without a body stays abstract.
-        val interfaceDefault = ownerIsInterface && !isStatic && hints.hasBody(m)
+        // ⚠ an abstract method is never a default, whatever hasBody says: a `fun interface`'s single method carries an
+        // empty body block, and stubbed `default` it left the interface without an abstract method -- "not a
+        // functional interface" for every Java lambda (fernflower's IBytecodeProvider, maddi-mod#146)
+        val interfaceDefault = ownerIsInterface && !isStatic && !m.isAbstract && hints.hasBody(m)
         val delegated = if (m.isConstructor) hints.delegation(m) else null
         run {
             val signature = (if (m.isConstructor) "<init>" else m.name()) +
