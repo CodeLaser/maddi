@@ -1605,6 +1605,51 @@ internal class KotlinBodyConverter(
         return loweredForEach(qualified)?.second === literal
     }
 
+    /**
+     * `e.also { v = it }`, v a local `var`: the literal [alsoAssignment] lowers into Java's assignment expression; null
+     * otherwise. It is J2K's translation of `(v = e)`, typically in a loop condition, and kotlinc inlines it: as a call
+     * with a lambda, v became a `Ref` holder and what e's call did to v's earlier value no longer reached where that
+     * value came from (fernflower's `getMaxBreakLift`, maddi-mod#145).
+     */
+    private fun KaSession.alsoAssignmentLiteral(qualified: KtDotQualifiedExpression): KtFunctionLiteral? {
+        val call = qualified.selectorExpression as? KtCallExpression ?: return null
+        if (call.calleeExpression?.text != "also" || call.valueArguments.size != 1) return null
+        val lambda = call.valueArguments.single().getArgumentExpression() as? KtLambdaExpression ?: return null
+        val literal = lambda.functionLiteral
+        val parameter = literal.valueParameters.singleOrNull()
+        if (literal.valueParameters.size > 1 || parameter?.destructuringDeclaration != null) return null
+        val assignment = literal.bodyExpression?.statements?.singleOrNull() as? KtBinaryExpression ?: return null
+        if (assignment.operationToken != KtTokens.EQ) return null
+        val target = assignment.left as? KtNameReferenceExpression ?: return null
+        val value = assignment.right as? KtNameReferenceExpression ?: return null
+        if (value.getReferencedName() != (parameter?.name ?: "it")) return null
+        if (target.mainReference.resolveToSymbol() !is KaLocalVariableSymbol) return null
+        val id = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol?.callableId ?: return null
+        if (id.packageName.asString() != "kotlin" || id.className != null) return null
+        return literal
+    }
+
+    /** [qualified] as Java's assignment expression `(v = e)`, when [alsoAssignmentLiteral] recognises it. */
+    private fun KaSession.alsoAssignment(qualified: KtDotQualifiedExpression, method: MethodInfo,
+                                         locals: Map<String, Variable>): Expression? {
+        val literal = alsoAssignmentLiteral(qualified) ?: return null
+        val name = ((literal.bodyExpression!!.statements.single() as KtBinaryExpression).left as KtNameReferenceExpression)
+            .getReferencedName()
+        val variable = locals[name] ?: return null
+        val value = convertExpression(qualified.receiverExpression, method, locals)
+        return runtime.newAssignmentBuilder()
+            .setTarget(runtime.newVariableExpressionBuilder().setVariable(variable).setSource(runtime.noSource()).build())
+            .setValue(value).setSource(source(qualified, "-")).build()
+    }
+
+    /** Whether [literal] is lowered: a statement-level forEach's (a loop) or an `also` assignment's. No capture. */
+    private fun KaSession.isLoweredLiteral(literal: KtFunctionLiteral): Boolean {
+        if (isLoweredForEachLiteral(literal)) return true
+        val call = PsiTreeUtil.getParentOfType(literal, KtCallExpression::class.java, true) ?: return false
+        val qualified = call.parent as? KtDotQualifiedExpression ?: return false
+        return qualified.selectorExpression === call && alsoAssignmentLiteral(qualified) === literal
+    }
+
     /** A statement that IS a scope call, its value discarded (`sb.apply { … }`, `x?.let { f(it) }`): the inlined body alone. */
     private fun KaSession.scopeCallStatementLowering(statement: KtExpression, method: MethodInfo,
                                                      locals: MutableMap<String, Variable>, index: String): List<Statement>? {
@@ -3950,6 +3995,7 @@ internal class KotlinBodyConverter(
     private fun KaSession.convertQualified(expression: KtQualifiedExpression, method: MethodInfo,
                                            locals: Map<String, Variable>): Expression {
         lateinitCheck(expression, method, locals)?.let { return it }
+        (expression as? KtDotQualifiedExpression)?.let { alsoAssignment(it, method, locals) }?.let { return it }
         // static / companion / nested-object member access `Type.member` (the receiver is a type, not a
         // value): `Color.RED`, `Point.ORIGIN`, `Event.Close`. Value receivers resolve to a variable symbol
         // (not a class) and fall through to the normal `obj.member` handling below.
@@ -7132,7 +7178,7 @@ internal class KotlinBodyConverter(
         val name = statement.name ?: return@getOrPut false
         val symbol = statement.symbol
         PsiTreeUtil.collectElementsOfType(scope, KtNameReferenceExpression::class.java).any { reference ->
-            reference.getReferencedName() == name && isAssignmentTarget(reference) && crossesACapture(reference, scope) { isLoweredForEachLiteral(it) }
+            reference.getReferencedName() == name && isAssignmentTarget(reference) && crossesACapture(reference, scope) { isLoweredLiteral(it) }
                 && reference.mainReference.resolveToSymbol() == symbol
         }
     }
