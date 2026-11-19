@@ -72,6 +72,41 @@ class TestJavaStub {
     }
 
     /**
+     * An override of a Java collection method has the Java method's signature, as kotlinc compiles it:
+     * `remove(element: E)` in an `ArrayList<E>` is `remove(Object)`, `addAll(c: Collection<E>)` is
+     * `addAll(Collection<? extends E>)`. Stubbed with the Kotlin types, javac saw a second method of the same erasure
+     * and refused the stub ("name clash"), and with it fernflower's whole mixed parse (VBStyleCollection).
+     */
+    @Test
+    fun anOverrideOfAJavaCollectionMethodHasItsJavaSignature() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("k").setUri(URI.create("file:/")).build()
+        val bag = KotlinScan(runtime, sourceSet).parse(
+            "Bag.kt",
+            "package a.b\n" +
+                "open class Bag<E, K> : java.util.ArrayList<E> {\n" +
+                "    constructor() : super()\n" +
+                "    constructor(initialCapacity: Int) : super(initialCapacity)\n" +
+                "    override fun remove(element: E): Boolean = super.remove(element)\n" +
+                "    override fun removeAt(index: Int): E = super.removeAt(index)\n" +
+                "    override fun addAll(elements: Collection<E>): Boolean = super.addAll(elements)\n" +
+                "    fun keep(e: E): Boolean = true\n" +
+                "}\n"
+        ).first { it.simpleName() == "Bag" }
+
+        val stub = JavaStubGenerator.stub(bag)
+        val useBag = """
+            package a.b;
+            public class UseBag {
+                public boolean use(Bag<String, Integer> b, java.util.List<String> l) { return b.remove("x") && b.addAll(l) && b.keep("y"); }
+            }
+        """.trimIndent()
+
+        val errors = attribute(mapOf("a.b.Bag" to stub, "a.b.UseBag" to useBag))
+        assertTrue(errors.isEmpty(), "--- stub ---\n$stub\n--- errors ---\n" + errors.joinToString("\n"))
+    }
+
+    /**
      * A `vararg` that is NOT the last parameter is a plain array on the JVM (kotlinc marks only a trailing one
      * ACC_VARARGS), and `T...` anywhere but last does not compile: Exposed's
      * `fun create(vararg tables: Table, inBatch: Boolean = false)` failed the mixed parse's stub compilation 108 times

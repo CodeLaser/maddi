@@ -128,9 +128,60 @@ object JavaStubGenerator {
         name.isNotEmpty() && name !in JAVA_KEYWORDS
                 && Character.isJavaIdentifierStart(name[0]) && name.all { Character.isJavaIdentifierPart(it) }
 
-    /** Positional parameter names: javac resolves a call by argument types, never by parameter name. */
-    private fun parameterList(m: MethodInfo): String =
-        m.parameters().withIndex().joinToString(", ") { (i, p) ->
+    /**
+     * The Java method a GENERIC [m] overrides, whose erased signature the stub must print: kotlinc compiles `override
+     * fun remove(element: E)` in an `ArrayList<E>` as `remove(Object)`, and `override fun addAll(c: Collection<E>)` as
+     * `addAll(Collection<? extends E>)`. Written as in Kotlin, the stub declares a second method of the same erasure,
+     * and javac refuses it ("name clash", fernflower's VBStyleCollection). Erased, it overrides (JLS 8.4.2) whatever the
+     * Kotlin-mapped types said. A Kotlin method is stubbed by the same rules as [m], and a non-generic one already
+     * matches. The overridden method's own parameter types cannot be compared: maddi records `ArrayList.remove`'s as `E`,
+     * Kotlin's `MutableCollection` view.
+     */
+    private fun javaOverridden(m: MethodInfo): MethodInfo? {
+        if (m.isConstructor || m.isStatic) return null
+        if (m.parameters().none { javaType(it.parameterizedType()) != erasure(it.parameterizedType()) }) return null
+        fun isJava(t: TypeInfo) = t.compilationUnit()?.uri()?.toString()?.endsWith(".kt") != true
+        return runCatching { m.overrides() }.getOrDefault(emptySet()).firstOrNull { o ->
+            o.parameters().size == m.parameters().size && isJava(o.typeInfo())
+        } ?: sameErasureInJavaSupertype(m, m.typeInfo(), ::isJava, HashSet())
+    }
+
+    /**
+     * [m]'s override in a Java supertype, found by erasure. `overrides()` substitutes type variables and misses what
+     * Kotlin maps as `E` and a bytecode-loaded JDK declares `Object`: `remove(element: E)` against `ArrayList`'s
+     * `remove(Object)` (also `contains`, `indexOf`, `Map.get`). Equal erasures are exactly javac's name clash.
+     */
+    private fun sameErasureInJavaSupertype(m: MethodInfo, type: TypeInfo, isJava: (TypeInfo) -> Boolean,
+                                           seen: MutableSet<TypeInfo>): MethodInfo? {
+        val own = m.parameters().map { erasure(it.parameterizedType()) }
+        for (st in listOfNotNull(type.parentClass()) + type.interfacesImplemented()) {
+            val t = st.typeInfo() ?: continue
+            if (!seen.add(t)) continue
+            if (isJava(t)) t.methods().firstOrNull { o ->
+                !o.isStatic && o.name() == m.name() && o.parameters().size == own.size
+                    && o.parameters().map { erasure(it.parameterizedType()) } == own
+            }?.let { return it }
+            sameErasureInJavaSupertype(m, t, isJava, seen)?.let { return it }
+        }
+        return null
+    }
+
+    /** The JLS erasure: a type variable is its leftmost bound's erasure, `Object` when unbounded. */
+    private fun erasure(pt: ParameterizedType): String {
+        val tp = pt.typeParameter() ?: return rawType(pt)
+        val bound = tp.typeBounds().firstOrNull { it.typeParameter() != tp }
+        return (bound?.let { erasure(it) } ?: "java.lang.Object") + "[]".repeat(pt.arrays())
+    }
+
+    /**
+     * Positional parameter names: javac resolves a call by argument types, never by parameter name. An override of a
+     * Java method whose types differ ([javaOverridden]) takes that method's ERASED signature, all of it: a signature
+     * that is the erasure of the overridden one overrides it (JLS 8.4.2), a partly erased one does not.
+     */
+    private fun parameterList(m: MethodInfo): String {
+        val overridden = javaOverridden(m)
+        return m.parameters().withIndex().joinToString(", ") { (i, p) ->
+            if (overridden != null) return@joinToString erasure(overridden.parameters()[i].parameterizedType()) + " p$i"
             val type = javaType(p.parameterizedType())
             // a `vararg` is `T...`: as `T[]`, a Java call passing the elements does not resolve. Only a TRAILING one:
             // anywhere else it is a plain array on the JVM, and `T...` does not compile (Exposed's
@@ -138,6 +189,7 @@ object JavaStubGenerator {
             val trailing = i == m.parameters().lastIndex
             (if (p.isVarArgs && trailing && type.endsWith("[]")) type.dropLast(2) + "..." else type) + " p$i"
         }
+    }
 
     /**
      * An interface field is implicitly `static final`, so javac demands an initializer ("= expected").
@@ -263,7 +315,8 @@ object JavaStubGenerator {
         val delegated = if (m.isConstructor) hints.delegation(m) else null
         run {
             val signature = (if (m.isConstructor) "<init>" else m.name()) +
-                    m.parameters().joinToString(",", "(", ")") { rawType(it.parameterizedType()) }
+                    (javaOverridden(m)?.parameters()?.joinToString(",", "(", ")") { erasure(it.parameterizedType()) }
+                        ?: m.parameters().joinToString(",", "(", ")") { rawType(it.parameterizedType()) })
             if (!emitted.add(signature)) return@run
             sb.append(indent).append("public ")
             if (isStatic) sb.append("static ")

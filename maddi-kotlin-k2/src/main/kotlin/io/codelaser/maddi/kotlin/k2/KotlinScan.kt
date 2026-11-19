@@ -1376,12 +1376,16 @@ class KotlinScan(
         val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner)
             ?.let { typeMapper.withMembers(it) } // a class-file parent may be a shell: see KotlinTypeMapper.withMembers
             ?: return unboundInvocation("k2-super-call-no-parent")
-        val ordered = (call.resolveSymbol() as? KaConstructorSymbol)
-            ?.let { s -> inBody { with(bodyConverter) { callArguments(call, s, constructor, emptyMap()) } } }
+        val symbol = call.resolveSymbol() as? KaConstructorSymbol
+        val ordered = symbol?.let { s -> inBody { with(bodyConverter) { callArguments(call, s, constructor, emptyMap()) } } }
         val argExpressions = ordered?.expressions ?: call.valueArguments
             .mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor, emptyMap()) } }
-        // else resolve the target constructor by arity (refine to full overload resolution later)
+        // the constructor K2 resolved, by its parameter types: by ARITY alone, `constructor(t: Int, o: Exprent?) :
+        // this(t, listOf(o))` bound to ITSELF when the class had two two-parameter constructors -- a cycle in the CST,
+        // and javac's "recursive constructor invocation" in the stub of fernflower's FunctionExprent
         val target = ordered?.defaults
+            ?: symbol?.let { s -> with(bodyConverter) { constructorOf(s, targetType, constructor) } }
+            // else by arity: a Java class's generated default constructor is synthetic, which constructorOf leaves out
             // not kotlinc's overloads (synthetic, and only Java's to call) -- but a Java class's GENERATED default
             // constructor is synthetic too, and it is the one `class D : V()` calls when V declares none
             ?: targetType.constructors().firstOrNull {

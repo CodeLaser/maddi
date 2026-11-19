@@ -70,6 +70,12 @@ class SecondaryConstructorBodyTest : KotlinScanTestBase() {
                 }
                 constructor() : this(0) {}
             }
+            class Overloads {
+                constructor(t: Int, o: String?) : this(t, listOf(o ?: ""))
+                constructor(t: Int, os: List<String>) : this(t, os, false)
+                constructor(t: Int, os: List<String>, b: Boolean)
+                private constructor(t: Int, os: List<String>, x: String?) : this(t, os)
+            }
             """.trimIndent() + "\n")
     }
 
@@ -142,5 +148,18 @@ class SecondaryConstructorBodyTest : KotlinScanTestBase() {
         assertSame(constructor, anonymous.enclosingMethod())
         assertEquals(setOf(type("Greeter").methods().single { it.name() == "hi" }), hi.overrides())
         assertEquals(1, constructor.source().detailedSources().references(hi).size)
+    }
+
+    /** `this(...)` binds the constructor K2 resolved, by its parameter types, not the first with as many parameters. */
+    @Test
+    fun aDelegationBindsTheOverloadOfItsArgumentTypes() {
+        val delegations = type("Overloads").constructors().mapNotNull { c ->
+            val target = (c.methodBody().statements().firstOrNull() as? ExplicitConstructorInvocation)?.methodInfo()
+                ?: return@mapNotNull null
+            c.parameters().joinToString(",") { it.parameterizedType().typeInfo()?.simpleName() ?: it.parameterizedType().toString() } + " -> " +
+                target.parameters().joinToString(",") { it.parameterizedType().typeInfo()?.simpleName() ?: it.parameterizedType().toString() }
+        }
+        assertEquals(listOf("int,String -> int,List", "int,List -> int,List,boolean", "int,List,String -> int,List"),
+            delegations)
     }
 }
