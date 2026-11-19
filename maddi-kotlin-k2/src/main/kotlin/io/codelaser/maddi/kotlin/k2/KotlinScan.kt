@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinCompilerPluginsProvider
 import io.codelaser.maddi.cst.api.element.Element
 import io.codelaser.maddi.kotlin.api.ConstructorDelegation
 import io.codelaser.maddi.kotlin.api.KotlinSourceScan
@@ -399,7 +400,9 @@ class KotlinScan(
      */
     private fun buildSession(disposable: Disposable, srcRoot: java.nio.file.Path) =
         buildStandaloneAnalysisAPISession(disposable) {
-        CompilerPlugins.configuration(sourceSet.kotlinPluginOptions())?.let { registerCompilerPluginServices(it) }
+        val plugins = CompilerPlugins()
+        @OptIn(org.jetbrains.kotlin.analysis.api.KaPlatformInterface::class)
+        registerProjectService(KotlinCompilerPluginsProvider::class.java, plugins)
         buildKtModuleProvider {
             val jvm = JvmPlatforms.defaultJvmPlatform
             platform = jvm
@@ -425,7 +428,7 @@ class KotlinScan(
                 addSourceRoot(srcRoot)
                 addRegularDependency(jdk)
                 addRegularDependency(classpath)
-            })
+            }.also { plugins.register(it, sourceSet.kotlinPluginOptions()) })
         }
     }
 
