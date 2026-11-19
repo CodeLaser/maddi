@@ -4200,7 +4200,7 @@ internal class KotlinBodyConverter(
     }
 
     /** [resolvedConstructor] for a constructor symbol K2 has already resolved (a call's, or a `::Foo` reference's). */
-    private fun KaSession.constructorOf(symbol: KaConstructorSymbol, type: TypeInfo, method: MethodInfo): MethodInfo? {
+    internal fun KaSession.constructorOf(symbol: KaConstructorSymbol, type: TypeInfo, method: MethodInfo): MethodInfo? {
         val candidates = type.constructors().filter { !it.isSynthetic && it.parameters().size == symbol.valueParameters.size }
         if (candidates.size <= 1) return candidates.singleOrNull()
         // a vararg parameter is typed as its element (a Kotlin symbol) or already as the array (a Java one): either
