@@ -93,9 +93,21 @@ public class RunMixedPrepAnalyzer {
      * {@code kotlinmain.Main}), so this list grows with the options the mixed pipeline learns to honour —
      * and an option it does NOT honour is refused there by name, never quietly dropped.
      */
+    /**
+     * @param reachability the reachability pass (MODREACH) after the fixpoint, as the analysis engine's environment
+     *                     gates and the IDE daemon run it; it also records culprits when Culprits.ENABLED. Off here by
+     *                     default: the Kotlin runner's verdicts so far are the fixpoint's.
+     */
     public record Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
                           boolean warnNearMisses, String analysisResultsTargetDir, boolean ownership,
-                          boolean closedWorld) {
+                          boolean closedWorld, boolean reachability) {
+        public Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
+                       boolean warnNearMisses, String analysisResultsTargetDir, boolean ownership,
+                       boolean closedWorld) {
+            this(modification, analysisResultsDirs, parallel, warnNearMisses, analysisResultsTargetDir, ownership,
+                    closedWorld, false);
+        }
+
         public Options(boolean modification, List<String> analysisResultsDirs) {
             this(modification, analysisResultsDirs, false, false, null);
         }
@@ -210,7 +222,9 @@ public class RunMixedPrepAnalyzer {
             LOGGER.info("Starting modification analysis over {} element(s)", order.size());
             ModificationOptions modificationOptions = new ModificationOptions(
                     30, // safety net; the loop exits on convergence/certification/plateau
-                    true, null, null,
+                    true,
+                    options.reachability() ? Boolean.TRUE : null, // the reachability pass needs object creations
+                    options.reachability() ? Boolean.TRUE : null,
                     true, // isolate a crash on one element rather than abort the run
                     options.warnNearMisses(), false, false)
                     .withOwnership(options.ownership(), options.closedWorld());
