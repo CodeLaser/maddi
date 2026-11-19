@@ -63,7 +63,7 @@ class JavalinWitnessShapesTest : KotlinScanTestBase() {
     fun theShapes() {
         // `this` in a receiver lambda is the lambda's receiver (it was K's `this`: a read of the wrong object)
         assertEquals("""
-            run: Function1<Runnable[],Object> runConcurrently=tasks->ArraysKt.forEach(tasks,it->it.run()); runConcurrently.invoke(new Runnable[]{()->a.run(),()->b.run()});
+            run: Function1<Runnable[],Object> runConcurrently=tasks->{${'$'}forEach0: for(Runnable it:tasks){it.run();}}; runConcurrently.invoke(new Runnable[]{()->a.run(),()->b.run()});
             connect: Server ${'$'}this${'$'}apply=new Server(); {CollectionsKt.forEach(names,${'$'}this${'$'}apply::addConnector);} return ${'$'}this${'$'}apply;
             attach: if(h instanceof Wrapper){((Wrapper)h).handler=inner;}
             attachUnwrapped: {Handler ${'$'}safe0=JwKt.unwrap(h);if(${'$'}safe0 instanceof Wrapper){((Wrapper)${'$'}safe0).handler=inner;}}

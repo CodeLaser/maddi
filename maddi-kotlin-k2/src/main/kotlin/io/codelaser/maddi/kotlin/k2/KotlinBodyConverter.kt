@@ -1536,6 +1536,57 @@ internal class KotlinBodyConverter(
         }
     }
 
+    /** Function literals lowered into a loop body ([forEachLowering]), with that loop's label. */
+    private val loopLiterals: java.util.IdentityHashMap<KtFunctionLiteral, String> = java.util.IdentityHashMap()
+    private var forEachLoops = 0
+
+    /**
+     * `xs.forEach { x -> body }` (kotlin.collections, an Iterable or an array) -> `$forEach0: for (x : xs) body`, as
+     * kotlinc compiles the inline function. ⛔ As a CALL with a lambda, the lambda's modification of its parameter did
+     * not reach the collection's elements: `parts.forEach { it.bump() }` left `parts` unmodified while the `for` loop
+     * and Java's `forEach` both modify it (fernflower's ExprProcessor.popNestedTypeAnnotation, maddi-mod#145). A bare
+     * `return` in the literal already leaves the enclosing function, as from the loop; `return@forEach` is the next
+     * element, `continue $forEach0` (labelled, so a loop inside the body does not take it). Not lowered: a literal
+     * not written in place, a destructured parameter, a Map or a Sequence receiver, a safe call.
+     */
+    private fun KaSession.forEachLowering(statement: KtExpression, method: MethodInfo,
+                                          locals: MutableMap<String, Variable>, index: String): List<Statement>? {
+        val qualified = statement as? KtDotQualifiedExpression ?: return null
+        val call = qualified.selectorExpression as? KtCallExpression ?: return null
+        if (call.calleeExpression?.text != "forEach") return null
+        val resolved = call.resolveToCall()?.singleFunctionCallOrNull() ?: return null
+        val id = resolved.symbol.callableId ?: return null
+        if (id.packageName.asString() != "kotlin.collections" || id.className != null) return null
+        val receiverClass = (resolved.symbol.receiverParameter?.returnType as? KaClassType)?.classId?.asString()
+            ?: return null
+        if (receiverClass != "kotlin/collections/Iterable" && !receiverClass.endsWith("Array")) return null
+        val lambda = call.valueArguments.singleOrNull()?.getArgumentExpression() as? KtLambdaExpression
+            ?: call.lambdaArguments.singleOrNull()?.getLambdaExpression() ?: return null
+        if (call.valueArguments.size != 1) return null
+        val literal = lambda.functionLiteral
+        val parameter = literal.valueParameters.singleOrNull()
+        if (literal.valueParameters.size > 1 || parameter?.destructuringDeclaration != null) return null
+        val name = parameter?.name ?: "it"
+        val elementType = (resolved.partiallyAppliedSymbol.signature.valueParameters.singleOrNull()?.returnType
+            as? KaFunctionType)?.parameterTypes?.singleOrNull()?.let { mapType(it, method.typeInfo()) }
+            ?: runtime.objectParameterizedType()
+        val loopVariable = runtime.newLocalVariable(name, elementType, runtime.newEmptyExpression())
+        parameter?.let { localDeclared(it, loopVariable) }
+        val label = "\$forEach${forEachLoops++}"
+        loopLiterals[literal] = label
+        val loop = try {
+            runtime.newForEachBuilder()
+                .setInitializer(runtime.newLocalVariableCreation(loopVariable))
+                .setExpression(convertExpression(qualified.receiverExpression, method, locals))
+                .setBlock(convertBlock(literal.bodyExpression, method, locals + (name to loopVariable), "$index.0"))
+                .setLabel(label)
+                .setSource(source(statement, index)).build()
+        } finally {
+            loopLiterals.remove(literal)
+        }
+        return listOf(loop)
+    }
+
     /** A statement that IS a scope call, its value discarded (`sb.apply { … }`, `x?.let { f(it) }`): the inlined body alone. */
     private fun KaSession.scopeCallStatementLowering(statement: KtExpression, method: MethodInfo,
                                                      locals: MutableMap<String, Variable>, index: String): List<Statement>? {
@@ -1683,6 +1734,7 @@ internal class KotlinBodyConverter(
             ?: destructuringLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
             ?: scopeCallStatementLowering(s, method, locals, index)
+            ?: forEachLowering(s, method, locals, index)
             ?: safeCallAsStatementLowering(s, method, locals, index))
             ?.let { withRefInit(s, it, index) }
     }
@@ -2044,6 +2096,10 @@ internal class KotlinBodyConverter(
      * A label that names nothing this walk can find keeps a counted placeholder rather than a guess.
      */
     private fun returnStatement(statement: KtReturnExpression, value: Expression): Statement {
+        // `return@forEach` in a lowered forEach ([forEachLowering]): the next element, i.e. `continue` its loop
+        returnedLiteral(statement)?.let { loopLiterals[it] }?.let { loopLabel ->
+            return runtime.newContinueBuilder().setGoToLabel(loopLabel).setSource(runtime.noSource()).build()
+        }
         inlinedReturn(statement, value)?.let { return it }
         val levels = returnExitLevels(statement)
             ?: return runtime.newExpressionAsStatement(placeholder("k2-return-target-unresolved", statement))
@@ -2064,7 +2120,7 @@ internal class KotlinBodyConverter(
         while (element != null) {
             when (element) {
                 // an INLINED literal (#88) is no lambda in the CST: a return inside it leaves none
-                is KtFunctionLiteral -> if (element !in inlinedLiterals) {
+                is KtFunctionLiteral -> if (element !in inlinedLiterals && element !in loopLiterals) {
                     if (label != null && label in lambdaLabels(element)) return levels
                     levels++
                 }
