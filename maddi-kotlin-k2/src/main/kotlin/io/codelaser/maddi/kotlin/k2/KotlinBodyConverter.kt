@@ -2179,6 +2179,12 @@ internal class KotlinBodyConverter(
     /** `target = value` / `target op= value`, [value] already converted (the control-flow elvis lowering passes its own). */
     private fun KaSession.assignmentStatement(statement: KtBinaryExpression, value: Expression, method: MethodInfo,
                                               locals: MutableMap<String, Variable>, index: String = ""): Statement {
+        // `p = v` under the assignment compiler plugin (Gradle's kotlin-dsl, a `Property`): the call `p.assign(v)` it
+        // resolves to, member or extension (CompilerPlugins)
+        if (isPluginAssignment(statement)) statement.left?.let { target ->
+            return runtime.newExpressionAsStatement(
+                operatorFunctionCall(statement, convertExpression(target, method, locals), value, method))
+        }
         // `x = v` on a local `var x by d`: `x$delegate.setValue(null, null, v)`
         if (statement.operationToken == KtTokens.EQ) {
             (statement.left?.let { KtPsiUtil.safeDeparenthesize(it) } as? KtNameReferenceExpression)
@@ -6705,9 +6711,25 @@ internal class KotlinBodyConverter(
      * (`a + b` → `a.plus(b)`) or a named infix call (`a foo b` → `a.foo(b)`). The Kotlin operator-function
      * name is fixed per token; an infix call uses the reference name. Resolved on the left operand's type.
      */
+    /**
+     * `p = v` that the assignment compiler plugin resolved to a call of `assign`, not a write. ⚠ The plugin rewrites
+     * the FIR, so `resolveToCall` on the PSI finds no call at all; the `=` itself resolves to the `assign` function.
+     */
+    private fun KaSession.isPluginAssignment(statement: KtBinaryExpression): Boolean =
+        statement.operationToken == KtTokens.EQ && pluginAssign(statement) != null
+
+    private fun KaSession.pluginAssign(statement: KtBinaryExpression): KaNamedFunctionSymbol? =
+        statement.operationReference.mainReference?.resolveToSymbols()?.singleOrNull()
+            ?.let { it as? KaNamedFunctionSymbol }?.takeIf { it.name.asString() == "assign" }
+
+    /** The function a binary operator calls: what the expression resolves to, or the plugin's `assign`. */
+    private fun KaSession.operatorSymbol(expression: KtBinaryExpression): KaFunctionSymbol? =
+        expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+            ?: if (expression.operationToken == KtTokens.EQ) pluginAssign(expression) else null
+
     private fun KaSession.operatorFunctionCall(expression: KtBinaryExpression, left: Expression, right: Expression,
                                                method: MethodInfo): Expression {
-        val symbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+        val symbol = operatorSymbol(expression)
         return withJvmName(symbol?.callableId?.callableName?.asString(), symbol) {
             resolvedOperatorFunctionCall(expression, left, right, method)
         }
@@ -6722,6 +6744,7 @@ internal class KotlinBodyConverter(
             KtTokens.DIV -> "div"
             KtTokens.PERC -> "rem"
             KtTokens.IDENTIFIER -> unaliased(expression.operationReference.getReferencedName(), expression) // infix
+            KtTokens.EQ -> "assign".takeIf { isPluginAssignment(expression) } // the assignment compiler plugin's
             else -> null
         } ?: return placeholder("k2-unsupported-operator:${expression.operationToken}", expression)
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
@@ -6782,8 +6805,7 @@ internal class KotlinBodyConverter(
     private fun KaSession.extensionOperatorCall(expression: KtBinaryExpression, functionName: String,
                                                 left: Expression, right: Expression,
                                                 returnType: ParameterizedType?): Expression? {
-        val symbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol
-            as? KaNamedFunctionSymbol ?: return null
+        val symbol = operatorSymbol(expression) as? KaNamedFunctionSymbol ?: return null
         if (symbol.receiverParameter == null) return null
         val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
         val facadeArgs = listOf(left, right)

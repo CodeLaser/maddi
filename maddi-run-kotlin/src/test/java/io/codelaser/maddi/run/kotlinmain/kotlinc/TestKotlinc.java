@@ -79,6 +79,36 @@ public class TestKotlinc {
         assertTrue(k.sourceFiles().getFirst().endsWith("A.kt"));
     }
 
+    /**
+     * Gradle's kotlin-dsl passes its two compiler plugins' options as ONE {@code -P} value; each is kept, and carried
+     * to the source set, so the analyzer can apply the plugins the build applied.
+     */
+    @Test
+    public void keepsCompilerPluginOptionsOnTheSourceSet() throws IOException {
+        String args = "-Xplugin=/g/kotlin-sam-with-receiver-compiler-plugin-embeddable-2.0.21.jar,/g/kotlin-assignment.jar "
+                + "-P plugin:org.jetbrains.kotlin.samWithReceiver:annotation=org.gradle.api.HasImplicitReceiver,"
+                + "plugin:org.jetbrains.kotlin.assignment:annotation=org.gradle.api.SupportsKotlinAssignmentOverloading "
+                + "-P plugin:org.jetbrains.kotlin.samWithReceiver:preset=x "
+                + "-d /proj/b/build/classes/kotlin/main /proj/b/src/main/kotlin/A.kt";
+        Kotlinc k = Kotlinc.parse(args);
+        assertNotNull(k);
+        List<String> expected = List.of(
+                "plugin:org.jetbrains.kotlin.samWithReceiver:annotation=org.gradle.api.HasImplicitReceiver",
+                "plugin:org.jetbrains.kotlin.assignment:annotation=org.gradle.api.SupportsKotlinAssignmentOverloading",
+                "plugin:org.jetbrains.kotlin.samWithReceiver:preset=x");
+        assertEquals(expected, k.kotlinPluginOptions());
+        assertEquals(List.of("/proj/b/src/main/kotlin/A.kt"), k.sourceFiles());
+
+        Path tmp = Files.createTempDirectory(tempRoot, "k-plugin");
+        Path a = tmp.resolve("b/src/main/kotlin/A.kt");
+        Files.createDirectories(a.getParent());
+        Files.writeString(a, "class A\n");
+        Kotlinc main = new Kotlinc(17, null, null, tmp.resolve("b/build/classes/kotlin/main").toString(), "b_main",
+                null, List.of(), List.of(), List.of(a.toString()), List.of(), null, expected);
+        SourceSet set = new CompileListToSourceSets().compute(List.of(main)).jSourceSets().getFirst().sourceSet();
+        assertEquals(expected, set.kotlinPluginOptions());
+    }
+
     @Test
     public void engineLinksTestToMainViaFriendPaths() throws IOException {
         Path tmp = Files.createTempDirectory(tempRoot, "k-link");
@@ -91,9 +121,9 @@ public class TestKotlinc {
         String mainOut = tmp.resolve("maddi-x/build/classes/kotlin/main").toString();
 
         Kotlinc main = new Kotlinc(17, "2.0", "2.0", mainOut,
-                "maddi-x_main", null, List.of(), List.of(), List.of(mainSrc.toString()), List.of(), null);
+                "maddi-x_main", null, List.of(), List.of(), List.of(mainSrc.toString()), List.of(), null, List.of());
         Kotlinc test = new Kotlinc(17, "2.0", "2.0", tmp.resolve("maddi-x/build/classes/kotlin/test").toString(),
-                "maddi-x_test", null, List.of(mainOut), List.of(), List.of(testSrc.toString()), List.of(mainOut), null);
+                "maddi-x_test", null, List.of(mainOut), List.of(), List.of(testSrc.toString()), List.of(mainOut), null, List.of());
 
         CompileListToSourceSets.Result result = new CompileListToSourceSets().compute(List.of(main, test));
         assertEquals(2, result.jSourceSets().size());
@@ -120,7 +150,7 @@ public class TestKotlinc {
 
         Kotlinc main = new Kotlinc(17, "2.0", "2.0",
                 tmp.resolve("proj/build/classes/kotlin/main").toString(),
-                "proj_main", null, List.of(), List.of(), List.of(foo.toString()), List.of(), null);
+                "proj_main", null, List.of(), List.of(), List.of(foo.toString()), List.of(), null, List.of());
 
         CompileListToSourceSets.Result result = new CompileListToSourceSets().compute(List.of(main));
         SourceSet set = result.jSourceSets().getFirst().sourceSet();
