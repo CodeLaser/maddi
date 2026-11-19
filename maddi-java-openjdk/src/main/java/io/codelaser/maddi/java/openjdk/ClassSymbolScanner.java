@@ -1932,6 +1932,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     // under a canonical FQN; resolve it through the element stack instead of asserting.
                     owner = methodLocalType(typeVar.tsym.owner);
                 }
+                if (owner == null && typeVar.tsym.owner instanceof Symbol.ClassSymbol ownerCs
+                    && ownerCs.type instanceof Type.ClassType ownerCt) {
+                    /*
+                     not registered (any more): load it as a reference to the type would be. Two versions of one
+                     library on two class paths overwrite each other in the registry, and an overwrite drops the
+                     nested types by name prefix, while javac's symbols still name them: quarkus' protobuf-java 3 and
+                     4, "Cannot find owner com.google.protobuf.GeneratedMessage.Builder of type variable BuilderT"
+                     985 times (TestSameFqnInUnrelatedSourceSets.twoVersionsOfALibrary).
+                     */
+                    owner = classTypeInfo(ownerCt);
+                }
                 assert owner != null : "Cannot find owner " + fullyQualifiedName
                         + " of type variable " + typeParameterName;
                 typeParameter = findTypeParameter(owner, typeParameterName);

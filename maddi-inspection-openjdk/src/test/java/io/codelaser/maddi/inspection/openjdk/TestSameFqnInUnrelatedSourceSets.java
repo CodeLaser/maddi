@@ -174,6 +174,78 @@ public class TestSameFqnInUnrelatedSourceSets {
         assertEquals(UNRELATED, sourceSet(primary(summary, "Dummy", UNRELATED)));
     }
 
+    /** protobuf-java, reduced: a generic nested Builder whose type variable its methods use. Version 1. */
+    @Language("java")
+    private static final String GEN_V1 = """
+            package p;
+            public abstract class Gen {
+                public abstract static class Builder<B extends Builder<B>> {
+                    @SuppressWarnings("unchecked")
+                    public B self() { return (B) this; }
+                }
+            }
+            """;
+
+    /** Version 2: one more method, as protobuf 4 has over 3. */
+    @Language("java")
+    private static final String GEN_V2 = """
+            package p;
+            public abstract class Gen {
+                public abstract static class Builder<B extends Builder<B>> {
+                    @SuppressWarnings("unchecked")
+                    public B self() { return (B) this; }
+                    public B clear() { return self(); }
+                }
+            }
+            """;
+
+    /** Generated code, one copy per module, against that module's protobuf. */
+    @Language("java")
+    private static final String GENERATED = """
+            package examples;
+            public class Reply extends p.Gen {
+                public static final class Builder extends p.Gen.Builder<Builder> {
+                    public Builder copy() { return self(); }
+                }
+            }
+            """;
+
+    /**
+     * Two versions of one library, each on the class path of another source set: quarkus has protobuf-java 3.25.5 and
+     * 4.35.1. Each class-file load of one version overwrote the other in the registry, and the overwrite dropped the
+     * nested types by name prefix; a type variable owned by the nested type ('BuilderT' of GeneratedMessage.Builder)
+     * then had no owner: "Cannot find owner com.google.protobuf.GeneratedMessage.Builder of type variable BuilderT",
+     * 985 times, every generated message builder of the second set dropped.
+     */
+    @DisplayName("two versions of a library: a nested type's type variable keeps its owner")
+    @Test
+    public void twoVersionsOfALibrary() throws Exception {
+        Path tmp = Files.createTempDirectory("two-versions-");
+        try {
+            Path v1 = compile(tmp, "gen-v1", Map.of("p.Gen", GEN_V1));
+            Path v2 = compile(tmp, "gen-v2", Map.of("p.Gen", GEN_V2));
+            SourceSet javaBase = SourceSetImpl.javaBase();
+            SourceSet lib1 = new SourceSetImpl.Builder().setName("gen-v1").setUri(v1.toUri())
+                    .setLibrary(true).setExternalLibrary(true).setDependencies(List.of(javaBase)).build();
+            SourceSet lib2 = new SourceSetImpl.Builder().setName("gen-v2").setUri(v2.toUri())
+                    .setLibrary(true).setExternalLibrary(true).setDependencies(List.of(javaBase)).build();
+            // the versions alternate, set after set, as quarkus' grpc modules do
+            Map<SourceSet, Map<String, String>> sources = new LinkedHashMap<>();
+            for (int i = 0; i < 4; i++) {
+                SourceSet set = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "G" + i)
+                        .setUri(URI.create("file:/grpc" + i + "/"))
+                        .setDependencies(List.of(javaBase, i % 2 == 0 ? lib1 : lib2)).build();
+                sources.put(set, Map.of("examples.Reply", GENERATED));
+            }
+            Summary summary = parse(List.of(javaBase, lib1, lib2), sources);
+
+            assertFalse(summary.haveErrors(), "the parse succeeds: " + summary.parseExceptions());
+            for (SourceSet set : sources.keySet()) assertNotNull(primary(summary, "examples.Reply", set.name()));
+        } finally {
+            delete(tmp);
+        }
+    }
+
     private static Summary parse(List<SourceSet> classPath, Map<SourceSet, Map<String, String>> sources)
             throws Exception {
         InputConfiguration ic = new InputConfigurationImpl.Builder()
