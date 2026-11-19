@@ -530,7 +530,7 @@ instead of skipping it, but only for tests that go through that locator.
 | `MADDI_DIST_REPO` | `../maddi-dist` | the CLI launchers and build plugins |
 | `MADDI_PLUGIN_VERSION` | maddi-dist's `version=` | the plugin version the plugin routes ask for |
 | `JAVA_HOME` | ambient | the JDK maddi runs on (26 or newer) |
-| `MADDI_EXPORTS` | set by the Taskfile | the five `--add-exports jdk.compiler/...` maddi's javac front end needs |
+| `MADDI_EXPORTS` | set by the Taskfile | the six `--add-exports jdk.compiler/...` maddi's javac front end needs |
 
 `task corpus:init` writes `TEST_OSS_ROOT` and `JAVA_HOME` into `corpus/.env`, which is not
 committed. Invoking `corpus/Taskfile.yml` directly (`task -d corpus ...`) does not load `.env`, so
