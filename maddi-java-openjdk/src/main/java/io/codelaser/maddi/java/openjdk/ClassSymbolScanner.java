@@ -57,6 +57,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Elements elements;
     private final Types types;
     private final SourceSet sourceSetOfCurrentTask;
+    // the source sets this (Java) inspector scans; another front-end's (Kotlin's) are not among them
+    private final Set<SourceSet> scannedSourceSets;
     /**
      * The shared-JDK loader: resolves and COMMITS a platform type on the task the shared {@code java.*} model is
      * built on (the preload pass's, at the run's shared release), so that a platform type first touched lazily by
@@ -162,6 +164,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.infoByFqn = Objects.requireNonNull(infoByFqn);
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
+        this.scannedSourceSets = Set.copyOf(inputConfiguration.sourceSets());
         this.diagnosticCollector = maddiDiagnosticCollector;
         this.parameterNameIndex = parameterNameIndex;
         this.jdkInternals = jdkInternals;
@@ -2655,9 +2658,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 .toList();
     }
 
+    /*
+     ⛔ ONLY A SET THIS INSPECTOR SCANS (see getType for the rule). A type another front-end registered is shared on
+     purpose: the mixed inspector (maddi-inspection-mixed) replaces a Java set's Kotlin-set dependencies by the stub
+     directory, so the Kotlin set is no dependency here, yet the K2 TypeInfo IS the type javac sees through its stub.
+     Refusing it loaded the stub's class file as a second TypeInfo (gate 2026-11-19: TestMixedProjectInspector, six
+     tests on TypeInfo identity; maddi-mod TestMixedBoundaryVerdicts, a Java caller bound to the stub copy).
+     */
     private boolean unreachableSourceCopy(TypeInfo typeInfo) {
         SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
         return sourceSet != null && !sourceSet.externalLibrary() && !sourceSet.partOfJdk()
+               && scannedSourceSets.contains(sourceSet)
                && !infoByFqn.reaches(sourceSetOfCurrentTask, sourceSet);
     }
 
