@@ -29,7 +29,10 @@ import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.Cast;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -137,15 +140,40 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
         if (scopeVariable != null) {
             scopeFqn = scopeVariable.fullyQualifiedName();
         } else {
-            String suffix;
-            if (scope.source() != null) {
-                suffix = scope.source().compact2();
-            } else {
-                suffix = "" + Math.abs(scope.hashCode());
-            }
-            scopeFqn = "scope" + suffix;
+            scopeFqn = "scope" + position(scope) + content(scope);
         }
         return fieldInfo.fullyQualifiedName() + "#" + scopeFqn;
+    }
+
+    private static String position(Expression scope) {
+        return scope.source() != null ? scope.source().compact2() : "" + Math.abs(scope.hashCode());
+    }
+
+    /**
+     * What the scope IS, after where it is: its shape, the methods it calls, the constructors it invokes and the types it
+     * casts to, without its variables. ⛔ The position alone names no file and no method, and {@code equals} compares
+     * fully qualified names only, so two field references whose non-variable scopes started at the same line:col in two
+     * different methods were ONE variable. A dedup run's two synthetic loop-body methods each read
+     * {@code ((List<…>) ld).variables} at the same position, one cast to {@code List<Expression>}, the other to
+     * {@code List<?>}, and an equals-keyed map handed one method the other's field reference, its foreign cast
+     * included, depending on the order of analysis (hibernate, cold against hot).
+     * <p>⛔ NOT THE VARIABLES. The analysis rewrites a scope's variables and keeps its position, and the rewritten field
+     * reference must remain the same variable: 'parent.self().data' is rebuilt as '$__sv_$__rv0.self().data', and with
+     * the variables in the name the modification no longer reached 'parent' (TestModificationThroughCallResult).
+     */
+    private static String content(Expression scope) {
+        StringBuilder sb = new StringBuilder();
+        scope.visit((Element e) -> {
+            String part = switch (e) {
+                case MethodCall mc -> mc.methodInfo().fullyQualifiedName();
+                case ConstructorCall cc -> cc.constructor() == null ? null : cc.constructor().fullyQualifiedName();
+                case Cast c -> "(" + c.parameterizedType().detailedString() + ")";
+                default -> null;
+            };
+            if (part != null) sb.append(sb.isEmpty() ? "<" : ";").append(part);
+            return true;
+        });
+        return sb.isEmpty() ? "" : sb.append('>').toString();
     }
 
     @Override
