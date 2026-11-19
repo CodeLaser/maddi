@@ -15,7 +15,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Cast;
+import io.codelaser.maddi.cst.api.expression.EnclosedExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
@@ -84,6 +88,35 @@ public class TestFieldReferenceScopeIdentity {
         assertEquals(inA.scope().source().compact2(), inB.scope().source().compact2(), "the premise: one position");
         assertNotEquals(inA.fullyQualifiedName(), inB.fullyQualifiedName());
         assertNotEquals(inA, inB);
+    }
+
+    /*
+     Synthetic code has no source: every scope is at 0-0:0-0, and two generated loop bodies over the same element type
+     cast the same way, so position and shape were equal (hibernate's visitOverLoopBody0 and
+     visitSelfRenderingExpressionLoopBody0). Such a scope's name carries the methods whose parameters it reads.
+     */
+    @Test
+    public void sameShapeWithoutSourceInTwoMethodsIsTwoVariables() {
+        ParseResult parseResult = javaInspector.parseMultiSourceSet(
+                Map.of(sourceSet, Map.of("a.b.L", L, "a.b.A", A, "a.b.B", B)), JavaInspectorImpl.DETAILED_SOURCES).parseResult();
+        Runtime runtime = javaInspector.runtime();
+        FieldReference inA = fieldReference(parseResult.findType("a.b.A"));
+        Cast castInA = (Cast) (inA.scope() instanceof EnclosedExpression ee ? ee.inner() : inA.scope());
+        FieldReference synthA = synthetic(runtime, inA, castInA, parseResult.findType("a.b.A").findUniqueMethod("read", 1));
+        FieldReference synthB = synthetic(runtime, inA, castInA, parseResult.findType("a.b.B").findUniqueMethod("read", 1));
+        assertEquals(synthA.scope().source().compact2(), synthB.scope().source().compact2(), "the premise: one position");
+        assertNotEquals(synthA.fullyQualifiedName(), synthB.fullyQualifiedName());
+        assertNotEquals(synthA, synthB);
+        // a second build in the same method is the same variable
+        assertEquals(synthA, synthetic(runtime, inA, castInA, parseResult.findType("a.b.A").findUniqueMethod("read", 1)));
+    }
+
+    /** `((L<Integer>) ld).variables`, ld the method's parameter, without a source. */
+    private static FieldReference synthetic(Runtime runtime, FieldReference model, Cast cast, MethodInfo method) {
+        Cast scope = runtime.newCastBuilder().setSource(runtime.noSource())
+                .setExpression(runtime.newVariableExpression(method.parameters().getFirst()))
+                .setParameterizedType(cast.parameterizedType()).build();
+        return runtime.newFieldReference(model.fieldInfo(), scope, model.parameterizedType());
     }
 
     private static FieldReference fieldReference(TypeInfo typeInfo) {
