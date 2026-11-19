@@ -491,12 +491,30 @@ public class CompileListToSourceSets {
         return classPath;
     }
 
+    /**
+     * `file:` + [path], as before for an ordinary path; a path with characters a URI may not hold (quarkus's
+     * "integration-tests/simple with space", rejoined by Javac.parse) is percent-encoded instead of aborting the
+     * derivation ("Illegal character in path"). Not Path.toUri(): it would add `//` and, for an existing directory,
+     * a trailing slash, and these URIs are compared with others built here.
+     */
+    static URI fileUri(String path) {
+        try {
+            return URI.create("file:" + path);
+        } catch (IllegalArgumentException e) {
+            try {
+                return new URI("file", null, path, null);
+            } catch (java.net.URISyntaxException e2) {
+                throw new IllegalArgumentException("Cannot make a file URI of " + path, e2);
+            }
+        }
+    }
+
     private static void handleDirectoryInClasspath(Map<String, SourceSet> sourceSetsByPath,
                                                    String part,
                                                    Map<String, SourceSet> classPath) {
         SourceSet inMap = sourceSetsByPath.get(part);
         if (inMap == null) {
-            URI uri = URI.create("file:" + part);
+            URI uri = fileUri(part);
             SourceSet sourceSet = new SourceSetImpl.Builder()
                     .setName(part)
                     .setSourceDirectories(List.of())
@@ -518,7 +536,7 @@ public class CompileListToSourceSets {
         if (sourceSetsByPath.containsKey(part)) return;
         String lastPart = lastPart(part);
         SourceSet inMap = classPath.get(lastPart);
-        URI uri = URI.create("file:" + part);
+        URI uri = fileUri(part);
         String name = lastPart;
         if (inMap != null) {
             if (uri.equals(inMap.uri())) return;
@@ -719,7 +737,7 @@ public class CompileListToSourceSets {
                                       Map<String, Integer> duplicateNamePrevention) {
         String destination = inv.destination();
         ComputeNameResult result = computeName(buildRoot, buildUnitByDestination, destination);
-        URI uri = URI.create("file:" + inv.destination());
+        URI uri = fileUri(inv.destination());
         // sourcePath() may be null (javac with no -sourcepath); source dirs are then inferred from source files
         List<String> sourcePath = inv.sourcePath();
         List<Path> sourceDirs = new ArrayList<>(sourcePath == null ? List.of()
