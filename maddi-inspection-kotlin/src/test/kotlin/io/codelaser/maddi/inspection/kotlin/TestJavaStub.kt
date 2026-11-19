@@ -21,6 +21,7 @@ import com.sun.source.util.JavacTask
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl
 import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import io.codelaser.maddi.kotlin.k2.KotlinScan
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -74,7 +75,8 @@ class TestJavaStub {
     /**
      * What fernflower's Java tests call on its Kotlin translation: `@JvmStatic` companion functions (static methods of
      * the OUTER class on the JVM: `ConstExprent.trimFloat`, `InterpreterUtil.getBytes`) and a `fun interface`
-     * implemented by a lambda (`IBytecodeProvider`). Missing from the stubs, javac dropped the four test types that use
+     * implemented by a lambda (`IBytecodeProvider`), and a `@JvmRecord data class` (no Java class may extend
+     * java.lang.Record, its parent). Missing from the stubs, javac dropped the four test types that use
      * them (maddi-mod#146), and with them the modifications they make (maddi-mod#145).
      */
     @Test
@@ -91,20 +93,53 @@ class TestJavaStub {
                 "        @JvmStatic fun put(key: String, value: Any?) {}\n" +
                 "        fun notStatic(): Int = 1\n" +
                 "    }\n" +
-                "}\n"
+                "}\n" +
+                "@JvmRecord data class Pair(val first: Int, val second: Int)\n"
         )
-        val stubs = types.filter { it.simpleName() == "Provider" || it.simpleName() == "Util" }
+        assertEquals("java.lang.Record", types.first { it.simpleName() == "Pair" }.parentClass()?.typeInfo()?.fullyQualifiedName(),
+            "the premise: @JvmRecord resolved")
+        val stubs = types.filter { it.simpleName() in setOf("Provider", "Util", "Pair") }
             .associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it) }
         val use = """
             package a.b;
             public class Use {
                 public Provider p() { return (path, inner) -> new byte[0]; }
                 public String t() { Util.put("k", "v"); return Util.trim("x", 1.0f) + Util.Companion.notStatic(); }
+                public Object pair() { return new Pair(1, 2); }
             }
         """.trimIndent()
 
         val errors = attribute(stubs + ("a.b.Use" to use))
         assertTrue(errors.isEmpty(), stubs.values.joinToString("\n") + "\n--- errors ---\n" + errors.joinToString("\n"))
+    }
+
+    /**
+     * An override of a Java method whose parameter is a TYPE VARIABLE of its class: erased as inherited, not as
+     * declared. Quarkus's `override fun list(query: PanacheQuery<*>)` in a `MongoOperations<PanacheQuery<*>, …>` was
+     * stubbed `list(Object)`, a name clash with the inherited `list(PanacheQuery<?>)`; `Consumer<List<*>>` is the
+     * same shape with a JDK type.
+     */
+    @Test
+    fun anOverrideOfATypeVariableParameterIsErasedAsInherited() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("k").setUri(URI.create("file:/")).build()
+        val sink = KotlinScan(runtime, sourceSet).parse(
+            "Sink.kt",
+            "package a.b\n" +
+                "class Sink : java.util.function.Consumer<List<*>> {\n" +
+                "    override fun accept(t: List<*>) {}\n" +
+                "}\n"
+        ).first { it.simpleName() == "Sink" }
+        val stub = JavaStubGenerator.stub(sink)
+        assertTrue(stub.contains("accept(java.util.List p0)"), stub)
+        val use = """
+            package a.b;
+            public class UseSink {
+                public void use(Sink s, java.util.List<String> l) { s.accept(l); java.util.function.Consumer<java.util.List<?>> c = s; }
+            }
+        """.trimIndent()
+        val errors = attribute(mapOf("a.b.Sink" to stub, "a.b.UseSink" to use))
+        assertTrue(errors.isEmpty(), "--- stub ---\n$stub\n--- errors ---\n" + errors.joinToString("\n"))
     }
 
     /**
