@@ -63,6 +63,12 @@ public class ExpressionCodec {
         map.put(LongConstant.NAME, new NumberConstantCodec());
         map.put(DoubleConstant.NAME, new NumberConstantCodec());
         map.put(FloatConstant.NAME, new NumberConstantCodec());
+        // a byte or short constant as a marker's value (guava UnsignedBytes.saturatedCast, CodeLaser/maddi-mod#110)
+        map.put(ByteConstant.NAME, new NumberConstantCodec());
+        map.put(ShortConstant.NAME, new NumberConstantCodec());
+        // the absent dimension of an array creation with an initializer ('new Integer[] { 1 }')
+        map.put(EmptyExpression.NAME, new EmptyExpressionCodec());
+        map.put(ArrayInitializer.NAME, new ArrayInitializerCodec());
         map.put(BinaryOperator.NAME, new BinaryOperatorCodec());
         map.put(UnaryOperator.NAME, new UnaryOperatorCodec());
         map.put(InlineConditional.NAME, new InlineConditionalCodec());
@@ -202,11 +208,19 @@ public class ExpressionCodec {
     }
 
     class ConstructorCallCodec implements ECodec {
+        private static final String ARRAY_CONSTRUCTOR = "[]";
 
         @Override
         public List<Codec.EncodedValue> encode(Expression e) {
             ConstructorCall cc = (ConstructorCall) e;
-            return List.of(codec.encodeInfoOutOfContext(context, cc.constructor()),
+            // an array creation's constructor is synthetic, no member of any type: written as ["[]", array type],
+            // where a member's list starts with its tagged name (guava MutableTypeToInstanceMapTest,
+            // CodeLaser/maddi-mod#110)
+            Codec.EncodedValue constructor = cc.constructor() != null && cc.constructor().isSyntheticArrayConstructor()
+                    ? codec.encodeList(context, List.of(codec.encodeString(context, ARRAY_CONSTRUCTOR),
+                    codec.encodeType(context, cc.constructor().returnType())))
+                    : codec.encodeInfoOutOfContext(context, cc.constructor());
+            return List.of(constructor,
                     encodeDiamond(cc.diamond()),
                     codec.encodeType(context, cc.parameterizedType()),
                     codec.encodeExpression(context, cc.object()),
@@ -218,7 +232,11 @@ public class ExpressionCodec {
         @Override
         public Expression decode(List<Codec.EncodedValue> list) {
             String source = codec.decodeString(context, list.get(1));
-            MethodInfo constructor = (MethodInfo) codec.decodeInfoOutOfContext(context, list.get(2));
+            List<Codec.EncodedValue> constructorList = codec.decodeList(context, list.get(2));
+            MethodInfo constructor = constructorList.size() == 2
+                                     && ARRAY_CONSTRUCTOR.equals(codec.decodeString(context, constructorList.getFirst()))
+                    ? runtime.newArrayCreationConstructor(codec.decodeType(context, constructorList.get(1)))
+                    : (MethodInfo) codec.decodeInfoOutOfContext(context, list.get(2));
             Diamond diamond = decodeDiamond(list.get(3));
             ParameterizedType concreteReturnType = codec.decodeType(context, list.get(4));
             Expression object = codec.decodeExpression(context, list.get(5));
@@ -253,6 +271,44 @@ public class ExpressionCodec {
                 case "A" -> runtime.diamondShowAll();
                 default -> throw new UnsupportedOperationException();
             };
+        }
+    }
+
+    class ArrayInitializerCodec implements ECodec {
+
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            ArrayInitializer ai = (ArrayInitializer) e;
+            return List.of(codec.encodeType(context, ai.parameterizedType()),
+                    codec.encodeList(context, ai.expressions().stream()
+                            .map(ExpressionCodec.this::encodeExpression).toList()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            List<Expression> expressions = codec.decodeList(context, list.get(3)).stream()
+                    .map(ev -> codec.decodeExpression(context, ev)).toList();
+            // written as the array's type, which is the common type with one dimension more
+            ParameterizedType arrayType = codec.decodeType(context, list.get(2));
+            return runtime.newArrayInitializerBuilder()
+                    .setSource(source(list.get(1)))
+                    .setCommonType(arrayType.copyWithArrays(arrayType.arrays() - 1))
+                    .setExpressions(expressions)
+                    .build();
+        }
+    }
+
+    // equal by its message, which is all it carries
+    class EmptyExpressionCodec implements ECodec {
+
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            return List.of(codec.encodeString(context, ((EmptyExpression) e).msg()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            return runtime.newEmptyExpression(codec.decodeString(context, list.get(2)));
         }
     }
 
@@ -405,6 +461,8 @@ public class ExpressionCodec {
                 case LongConstant.NAME -> runtime.newLong(List.of(), source, Long.parseLong(value));
                 case DoubleConstant.NAME -> runtime.newDouble(List.of(), source, Double.parseDouble(value));
                 case FloatConstant.NAME -> runtime.newFloat(List.of(), source, Float.parseFloat(value));
+                case ByteConstant.NAME -> runtime.newByte(List.of(), source, Byte.parseByte(value));
+                case ShortConstant.NAME -> runtime.newShort(List.of(), source, Short.parseShort(value));
                 default -> throw new UnsupportedOperationException(name);
             };
         }
