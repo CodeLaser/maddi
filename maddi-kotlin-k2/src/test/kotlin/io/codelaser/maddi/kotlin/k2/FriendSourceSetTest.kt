@@ -88,4 +88,25 @@ class FriendSourceSetTest : KotlinScanTestBase() {
         val census = PlaceholderCensus.of(tests)
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
     }
+
+    /**
+     * quarkus's grpc-kotlin-coroutine: kotlin-maven-plugin lists `target/generated-sources` AND
+     * `target/generated-sources/grpc` as the set's sources. K2 read the inner root's files twice and the second
+     * registration aborted the parse ("Duplicating type examples.HelloReplyKt"); each file is read once now.
+     */
+    @Test
+    fun aRootInsideAnotherIsReadOnce(@TempDir root: Path) {
+        val generated = root.resolve("target/generated-sources")
+        Files.createDirectories(generated.resolve("grpc/examples")).resolve("HelloReplyKt.kt").let {
+            Files.writeString(it, "package examples\nobject HelloReplyKt { fun reply(): String = \"hi\" }\n")
+        }
+        Files.createDirectories(root.resolve("src/main/kotlin/p")).resolve("Use.kt").let {
+            Files.writeString(it, "package p\nclass Use { fun go(): String = examples.HelloReplyKt.reply() }\n")
+        }
+        val main = SourceSetImpl.Builder().setName("main").setUri(root.toUri())
+            .setSourceDirectories(listOf(root.resolve("src/main/kotlin"), generated, generated.resolve("grpc"))).build()
+        val parsed = KotlinProjectScan(runtime, InfoByFqn())
+            .parse(listOf(main), emptyList(), Paths.get(System.getProperty("java.home")), emptyList(), listOf())
+        assertEquals(listOf("HelloReplyKt", "Use"), parsed.getValue(main).map { it.simpleName() }.sorted())
+    }
 }

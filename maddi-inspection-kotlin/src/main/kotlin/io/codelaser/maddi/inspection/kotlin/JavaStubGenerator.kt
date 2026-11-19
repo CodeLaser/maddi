@@ -166,6 +166,42 @@ object JavaStubGenerator {
         return null
     }
 
+    /**
+     * The erasure of [overridden]'s parameter [index] AS [sub] INHERITS IT: a type variable of the overridden method's
+     * class is first replaced by the argument [sub]'s supertype chain gives it. ⛔ The declared erasure alone made
+     * quarkus's `override fun list(query: PanacheQuery<*>)` in a `MongoOperations<PanacheQuery<*>, …>` into
+     * `list(Object)`, a name clash with the inherited `list(PanacheQuery<?>)`; erased as inherited it is
+     * `list(PanacheQuery)`, which overrides it. ArrayList's `remove(Object)` and `addAll(Collection<? extends E>)` are
+     * unchanged by this: no top-level type variable.
+     */
+    private fun inheritedErasure(sub: TypeInfo, overridden: MethodInfo, index: Int): String {
+        val declared = overridden.parameters()[index].parameterizedType()
+        val tp = declared.typeParameter() ?: return erasure(declared)
+        val path = supertypePath(sub, overridden.typeInfo(), HashSet()) ?: return erasure(declared)
+        // walk down from the overridden class: its type parameter -> the argument one level below, and so on
+        var current: ParameterizedType = declared
+        for (step in path.asReversed()) {
+            val variable = current.typeParameter() ?: break
+            val position = step.typeInfo()?.typeParameters()?.indexOfFirst { it == variable } ?: -1
+            if (position < 0 || position >= step.parameters().size) break
+            current = step.parameters()[position]
+        }
+        val arrays = declared.arrays()
+        val erased = erasure(current)
+        return if (current === declared || arrays == 0) erased else erased + "[]".repeat(arrays)
+    }
+
+    /** The supertypes from [from] up to [target], [from]'s own first; null when [target] is not a supertype. */
+    private fun supertypePath(from: TypeInfo, target: TypeInfo, seen: MutableSet<TypeInfo>): List<ParameterizedType>? {
+        if (!seen.add(from)) return null
+        for (st in listOfNotNull(from.parentClass()) + from.interfacesImplemented()) {
+            val t = st.typeInfo() ?: continue
+            if (t == target) return listOf(st)
+            supertypePath(t, target, seen)?.let { return listOf(st) + it }
+        }
+        return null
+    }
+
     /** The JLS erasure: a type variable is its leftmost bound's erasure, `Object` when unbounded. */
     private fun erasure(pt: ParameterizedType): String {
         val tp = pt.typeParameter() ?: return rawType(pt)
@@ -181,7 +217,7 @@ object JavaStubGenerator {
     private fun parameterList(m: MethodInfo): String {
         val overridden = javaOverridden(m)
         return m.parameters().withIndex().joinToString(", ") { (i, p) ->
-            if (overridden != null) return@joinToString erasure(overridden.parameters()[i].parameterizedType()) + " p$i"
+            if (overridden != null) return@joinToString inheritedErasure(m.typeInfo(), overridden, i) + " p$i"
             val type = javaType(p.parameterizedType())
             // a `vararg` is `T...`: as `T[]`, a Java call passing the elements does not resolve. Only a TRAILING one:
             // anywhere else it is a plain array on the JVM, and `T...` does not compile (Exposed's
@@ -237,7 +273,10 @@ object JavaStubGenerator {
             typeInfo.interfacesImplemented().takeIf { it.isNotEmpty() }
                 ?.let { sb.append(" extends ").append(it.joinToString(", ", transform = ::javaSupertype)) }
         } else {
-            typeInfo.parentClass()?.takeUnless { isJavaLangObject(it) }
+            // a `@JvmRecord data class` has java.lang.Record for parent, which only a Java `record` may extend ("classes
+            // cannot directly extend java.lang.Record"): a plain class stands in for it. Resolved only with
+            // kotlin-stdlib on the class path, which fernflower's J2K measurement lacked until maddi-mod#146
+            typeInfo.parentClass()?.takeUnless { isJavaLangObject(it) || it.typeInfo()?.fullyQualifiedName() == "java.lang.Record" }
                 ?.let { sb.append(" extends ").append(javaSupertype(it)) }
             typeInfo.interfacesImplemented().takeIf { it.isNotEmpty() }
                 ?.let { sb.append(" implements ").append(it.joinToString(", ", transform = ::javaSupertype)) }
@@ -311,11 +350,14 @@ object JavaStubGenerator {
         val isStatic = m.isStatic
         // a Kotlin interface method WITH an implementation is a Java `default` method (javac needs the keyword,
         // else a Java class relying on it is forced to implement it); one without a body stays abstract.
-        val interfaceDefault = ownerIsInterface && !isStatic && hints.hasBody(m)
+        // ⚠ an abstract method is never a default, whatever hasBody says: a `fun interface`'s single method carries an
+        // empty body block, and stubbed `default` it left the interface without an abstract method -- "not a
+        // functional interface" for every Java lambda (fernflower's IBytecodeProvider, maddi-mod#146)
+        val interfaceDefault = ownerIsInterface && !isStatic && !m.isAbstract && hints.hasBody(m)
         val delegated = if (m.isConstructor) hints.delegation(m) else null
         run {
             val signature = (if (m.isConstructor) "<init>" else m.name()) +
-                    (javaOverridden(m)?.parameters()?.joinToString(",", "(", ")") { erasure(it.parameterizedType()) }
+                    (javaOverridden(m)?.let { o -> o.parameters().indices.joinToString(",", "(", ")") { inheritedErasure(m.typeInfo(), o, it) } }
                         ?: m.parameters().joinToString(",", "(", ")") { rawType(it.parameterizedType()) })
             if (!emitted.add(signature)) return@run
             sb.append(indent).append("public ")

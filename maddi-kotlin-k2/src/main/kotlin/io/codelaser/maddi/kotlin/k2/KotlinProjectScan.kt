@@ -141,7 +141,7 @@ class KotlinProjectScan(
                 javaModule?.let { addModule(it) }
                 // dependency order => a dependent finds its already-built upstream module in the map
                 orderedSourceSets.forEach { ss ->
-                    val directories = ss.sourceDirectories().filter { Files.exists(it) }
+                    val directories = outermostRoots(ss.sourceDirectories().filter { Files.exists(it) })
                     val fragments = multiplatformFragments(directories)
                     val modules = ArrayList<KaSourceModule>()
                     (fragments?.map { listOf(it) } ?: listOf(directories)).forEachIndexed { i, roots ->
@@ -181,6 +181,18 @@ class KotlinProjectScan(
 
         /** The converted types per source set, in the order the sets completed. */
         override val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
+
+        /**
+         * The roots, without one that lies inside another. kotlin-maven-plugin can list a directory and directories
+         * within it as the same set's sources (quarkus's grpc-kotlin-coroutine: `target/generated-sources` and
+         * `target/generated-sources/grpc`). K2 then read every file below the inner root twice, and the second
+         * registration of its types aborted the parse ("Duplicating type examples.HelloReplyKt"). kotlinc compiles
+         * each file once.
+         */
+        private fun outermostRoots(roots: List<Path>): List<Path> {
+            val normalized = roots.map { it.toAbsolutePath().normalize() }.distinct()
+            return normalized.filter { root -> normalized.none { other -> other != root && root.startsWith(other) } }
+        }
 
         private fun ktFiles(ss: SourceSet): List<KtFile> {
             val modules = checkNotNull(modulesBySourceSet[ss]) { "source set ${ss.name()} is not in this session" }
