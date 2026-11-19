@@ -37,6 +37,7 @@ import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -140,7 +141,7 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
         if (scopeVariable != null) {
             scopeFqn = scopeVariable.fullyQualifiedName();
         } else {
-            scopeFqn = "scope" + position(scope) + content(scope);
+            scopeFqn = "scope" + position(scope) + content(scope) + owner(scope);
         }
         return fieldInfo.fullyQualifiedName() + "#" + scopeFqn;
     }
@@ -174,6 +175,25 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
             return true;
         });
         return sb.isEmpty() ? "" : sb.append('>').toString();
+    }
+
+    /**
+     * For a scope WITHOUT a source position only: the methods whose parameters it reads. ⛔ Synthetic code (a dedup run's
+     * extracted loop bodies, every generated method) is all at 0-0:0-0, so two loop bodies over the same element type,
+     * `((List<X>) c.variables[0])` in one and `((List<X>) ld0.variables[0])` in another, had one name, and one method
+     * was handed the other's parameter (hibernate, visitOverLoopBody0 / visitSelfRenderingExpressionLoopBody0).
+     * Real source keeps its name: there the position separates the methods, and the variables stay out (see content).
+     */
+    private static String owner(Expression scope) {
+        if (scope.source() != null && !SourceImpl.NO_SOURCE.compact2().equals(scope.source().compact2())) return "";
+        java.util.TreeSet<String> methods = new java.util.TreeSet<>();
+        scope.visit((Element e) -> {
+            if (e instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi && pi.methodInfo() != null) {
+                methods.add(pi.methodInfo().fullyQualifiedName());
+            }
+            return true;
+        });
+        return methods.isEmpty() ? "" : "@" + String.join(";", methods);
     }
 
     @Override
