@@ -4115,7 +4115,7 @@ internal class KotlinBodyConverter(
                             ?: resolveAccessor(t, name, selector.expressionType?.let { mapType(it, method.typeInfo()) }
                                 ?.takeIf { it.typeInfo() != null && it.typeParameter() == null }?.erasedForFQN()?.fullyQualifiedName()) }?.let { getter ->
                         accessorCall(receiver, getter, selector.expressionType?.let { mapType(it, method.typeInfo()) }
-                            ?.takeIf { getter.returnType().typeParameter() != null }) }
+                            ?.takeIf { useSiteReturnType(getter, it) }) }
                         // an EXTENSION property is not a member of the receiver's type, so neither lookup
                         // above can find it: `o.doubled` failed for a property declared in the same file,
                         // and `c.java`/`s.lastIndex` for every library one. It compiles to a static getter
@@ -5050,6 +5050,20 @@ internal class KotlinBodyConverter(
 
     /** [type], with its members if it is a class-file shell the Java front end has not completed yet. */
     private fun members(type: TypeInfo): TypeInfo = typeMapper.withMembers(type)
+
+    /**
+     * Whether a getter call takes the USE-SITE type [useSite] rather than the getter's declared return type: when that
+     * is a type parameter (`lazy.value`, a `T`), or a parameterized type of the same class (`m.values`, declared
+     * `Collection<V>`). With the declared `Collection<V>`, the call's elements were not the map's `U` values, and a
+     * modification through them did not reach the map: `for (u in units.values) u.save()` left `units` unmodified,
+     * as Java's `units.values()` does not (fernflower's StructContext.saveContext, maddi-mod#145).
+     */
+    private fun useSiteReturnType(getter: MethodInfo, useSite: ParameterizedType): Boolean {
+        val declared = getter.returnType()
+        return declared.typeParameter() != null
+            || declared.parameters().isNotEmpty() && useSite.typeInfo() != null && useSite.typeInfo() == declared.typeInfo()
+            && useSite.arrays() == declared.arrays()
+    }
 
     /** A no-arg getter call `receiver.getter()` (the desugaring of a property idiom). */
     private fun accessorCall(receiver: Expression, getter: MethodInfo, concrete: ParameterizedType? = null): Expression =
