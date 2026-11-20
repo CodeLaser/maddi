@@ -184,7 +184,9 @@ import java.nio.file.Files
  */
 internal interface MemberConverter {
     fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol)
-    fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo
+    /** A member function of the anonymous type [owner]; its body captures [outerLocals], the enclosing method's. */
+    fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
+                                  outerLocals: Map<String, Variable>): MethodInfo
 
     /** Convert the property initializers and `init` blocks of the anonymous type [owner] while it is still open. */
     fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: org.jetbrains.kotlin.psi.KtClassOrObject)
@@ -1605,6 +1607,104 @@ internal class KotlinBodyConverter(
         return loweredForEach(qualified)?.second === literal
     }
 
+    /**
+     * `e.also { v = it }`, v a local `var`: the literal [alsoAssignment] lowers into Java's assignment expression; null
+     * otherwise. It is J2K's translation of `(v = e)`, typically in a loop condition, and kotlinc inlines it: as a call
+     * with a lambda, v became a `Ref` holder and what e's call did to v's earlier value no longer reached where that
+     * value came from (fernflower's `getMaxBreakLift`, maddi-mod#145).
+     */
+    private fun KaSession.alsoAssignmentLiteral(qualified: KtDotQualifiedExpression): KtFunctionLiteral? {
+        val call = qualified.selectorExpression as? KtCallExpression ?: return null
+        if (call.calleeExpression?.text != "also" || call.valueArguments.size != 1) return null
+        val lambda = call.valueArguments.single().getArgumentExpression() as? KtLambdaExpression ?: return null
+        val literal = lambda.functionLiteral
+        val parameter = literal.valueParameters.singleOrNull()
+        if (literal.valueParameters.size > 1 || parameter?.destructuringDeclaration != null) return null
+        val assignment = literal.bodyExpression?.statements?.singleOrNull() as? KtBinaryExpression ?: return null
+        if (assignment.operationToken != KtTokens.EQ) return null
+        val target = assignment.left as? KtNameReferenceExpression ?: return null
+        val value = assignment.right as? KtNameReferenceExpression ?: return null
+        if (value.getReferencedName() != (parameter?.name ?: "it")) return null
+        if (target.mainReference.resolveToSymbol() !is KaLocalVariableSymbol) return null
+        val id = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol?.callableId ?: return null
+        if (id.packageName.asString() != "kotlin" || id.className != null) return null
+        return literal
+    }
+
+    /** [qualified] as Java's assignment expression `(v = e)`, when [alsoAssignmentLiteral] recognises it. */
+    private fun KaSession.alsoAssignment(qualified: KtDotQualifiedExpression, method: MethodInfo,
+                                         locals: Map<String, Variable>): Expression? {
+        val literal = alsoAssignmentLiteral(qualified) ?: return null
+        val name = ((literal.bodyExpression!!.statements.single() as KtBinaryExpression).left as KtNameReferenceExpression)
+            .getReferencedName()
+        val variable = locals[name] ?: return null
+        val value = convertExpression(qualified.receiverExpression, method, locals)
+        return runtime.newAssignmentBuilder()
+            .setTarget(runtime.newVariableExpressionBuilder().setVariable(variable).setSource(runtime.noSource()).build())
+            .setValue(value).setSource(source(qualified, "-")).build()
+    }
+
+    /** Function literals lowered into a labelled block ([runBlockLowering]), with that block's label. */
+    private val blockLiterals: java.util.IdentityHashMap<KtFunctionLiteral, String> = java.util.IdentityHashMap()
+    private var runBlocks = 0
+
+    /**
+     * `run sw@ { … return@sw … }` as a statement, its value discarded -> the labelled block `sw: { … break sw; … }`, as
+     * kotlinc inlines `run`. It is J2K's translation of a `switch` whose case `break`s out of it, the `return@sw` deep
+     * in a `when` branch where [structuredScopeBody] cannot move the rest. ⛔ As a CALL with a lambda, what the lambda
+     * did to a captured local did not reach where that local came from: fernflower's ExprProcessor.processBlock
+     * pushes onto `data.getStack()` inside `run switch1@ { when (opcode) { … } }`, and `data` stayed unmodified in
+     * Kotlin only (maddi-mod#145). A bare `return` inside still leaves the enclosing function. `T.run` with no explicit
+     * receiver (inside a class, what `run { }` resolves to) has the enclosing `this` as its receiver: the same
+     * program. Not lowered: a `return@sw v` with a value, a literal with parameters, an explicit receiver.
+     */
+    private fun KaSession.runBlockLowering(statement: KtExpression, method: MethodInfo,
+                                           locals: MutableMap<String, Variable>, index: String): List<Statement>? {
+        val (literal, sourceLabel) = runBlockLiteral(statement) ?: return null
+        val label = sourceLabel ?: "\$run${runBlocks++}"
+        blockLiterals[literal] = label
+        val body = try {
+            convertBlock(literal.bodyExpression, method, locals, index)
+        } finally {
+            blockLiterals.remove(literal)
+        }
+        return listOf(runtime.newBlockBuilder().addStatements(body.statements()).setLabel(label)
+            .setSource(source(statement, index)).build())
+    }
+
+    /** [statement] as [runBlockLowering] lowers it: the literal and its explicit label (null: none); null otherwise. */
+    private fun KaSession.runBlockLiteral(statement: KtExpression): Pair<KtFunctionLiteral, String?>? {
+        val call = statement as? KtCallExpression ?: return null
+        if (call.calleeExpression?.text != "run" || call.valueArguments.size != 1) return null
+        val argument = call.valueArguments.single().getArgumentExpression() ?: return null
+        val labelled = argument as? KtLabeledExpression
+        val lambda = (labelled?.baseExpression ?: argument) as? KtLambdaExpression ?: return null
+        val literal = lambda.functionLiteral
+        if (literal.valueParameters.isNotEmpty() || literal.hasParameterSpecification()) return null
+        val symbol = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol ?: return null
+        val id = symbol.callableId ?: return null
+        if (id.packageName.asString() != "kotlin" || id.className != null) return null
+        val returns = PsiTreeUtil.findChildrenOfType(literal, KtReturnExpression::class.java)
+            .filter { returnedLiteral(it) === literal }
+        if (returns.any { it.returnedExpression != null }) return null
+        return literal to labelled?.getLabelName()
+    }
+
+    /** Whether [literal] is a statement-level `run`'s, lowered into a labelled block: no capture. */
+    private fun KaSession.isRunBlockLiteral(literal: KtFunctionLiteral): Boolean {
+        val call = PsiTreeUtil.getParentOfType(literal, KtCallExpression::class.java, true) ?: return false
+        if (call.parent !is KtBlockExpression) return false
+        return runBlockLiteral(call)?.first === literal
+    }
+
+    /** Whether [literal] is lowered: a statement-level forEach's (a loop), an `also` assignment's, a `run` block's. No capture. */
+    private fun KaSession.isLoweredLiteral(literal: KtFunctionLiteral): Boolean {
+        if (isLoweredForEachLiteral(literal) || isRunBlockLiteral(literal)) return true
+        val call = PsiTreeUtil.getParentOfType(literal, KtCallExpression::class.java, true) ?: return false
+        val qualified = call.parent as? KtDotQualifiedExpression ?: return false
+        return qualified.selectorExpression === call && alsoAssignmentLiteral(qualified) === literal
+    }
+
     /** A statement that IS a scope call, its value discarded (`sb.apply { … }`, `x?.let { f(it) }`): the inlined body alone. */
     private fun KaSession.scopeCallStatementLowering(statement: KtExpression, method: MethodInfo,
                                                      locals: MutableMap<String, Variable>, index: String): List<Statement>? {
@@ -1753,6 +1853,7 @@ internal class KotlinBodyConverter(
             ?: statementAsValueLowering(s, method, locals, index)
             ?: scopeCallStatementLowering(s, method, locals, index)
             ?: forEachLowering(s, method, locals, index)
+            ?: runBlockLowering(s, method, locals, index)
             ?: safeCallAsStatementLowering(s, method, locals, index))
             ?.let { withRefInit(s, it, index) }
     }
@@ -2118,6 +2219,10 @@ internal class KotlinBodyConverter(
         returnedLiteral(statement)?.let { loopLiterals[it] }?.let { loopLabel ->
             return runtime.newContinueBuilder().setGoToLabel(loopLabel).setSource(runtime.noSource()).build()
         }
+        // `return@sw` in a lowered `run` ([runBlockLowering]): out of its block
+        returnedLiteral(statement)?.let { blockLiterals[it] }?.let { blockLabel ->
+            return runtime.newBreakBuilder().setGoToLabel(blockLabel).setSource(runtime.noSource()).build()
+        }
         inlinedReturn(statement, value)?.let { return it }
         val levels = returnExitLevels(statement)
             ?: return runtime.newExpressionAsStatement(placeholder("k2-return-target-unresolved", statement))
@@ -2138,7 +2243,8 @@ internal class KotlinBodyConverter(
         while (element != null) {
             when (element) {
                 // an INLINED literal (#88) is no lambda in the CST: a return inside it leaves none
-                is KtFunctionLiteral -> if (element !in inlinedLiterals && element !in loopLiterals) {
+                is KtFunctionLiteral -> if (element !in inlinedLiterals && element !in loopLiterals
+                    && element !in blockLiterals) {
                     if (label != null && label in lambdaLabels(element)) return levels
                     levels++
                 }
@@ -3950,6 +4056,7 @@ internal class KotlinBodyConverter(
     private fun KaSession.convertQualified(expression: KtQualifiedExpression, method: MethodInfo,
                                            locals: Map<String, Variable>): Expression {
         lateinitCheck(expression, method, locals)?.let { return it }
+        (expression as? KtDotQualifiedExpression)?.let { alsoAssignment(it, method, locals) }?.let { return it }
         // static / companion / nested-object member access `Type.member` (the receiver is a type, not a
         // value): `Color.RED`, `Point.ORIGIN`, `Event.Close`. Value receivers resolve to a variable symbol
         // (not a class) and fall through to the normal `obj.member` handling below.
@@ -4008,7 +4115,7 @@ internal class KotlinBodyConverter(
                             ?: resolveAccessor(t, name, selector.expressionType?.let { mapType(it, method.typeInfo()) }
                                 ?.takeIf { it.typeInfo() != null && it.typeParameter() == null }?.erasedForFQN()?.fullyQualifiedName()) }?.let { getter ->
                         accessorCall(receiver, getter, selector.expressionType?.let { mapType(it, method.typeInfo()) }
-                            ?.takeIf { getter.returnType().typeParameter() != null }) }
+                            ?.takeIf { useSiteReturnType(getter, it) }) }
                         // an EXTENSION property is not a member of the receiver's type, so neither lookup
                         // above can find it: `o.doubled` failed for a property declared in the same file,
                         // and `c.java`/`s.lastIndex` for every library one. It compiles to a static getter
@@ -4944,6 +5051,20 @@ internal class KotlinBodyConverter(
     /** [type], with its members if it is a class-file shell the Java front end has not completed yet. */
     private fun members(type: TypeInfo): TypeInfo = typeMapper.withMembers(type)
 
+    /**
+     * Whether a getter call takes the USE-SITE type [useSite] rather than the getter's declared return type: when that
+     * is a type parameter (`lazy.value`, a `T`), or a parameterized type of the same class (`m.values`, declared
+     * `Collection<V>`). With the declared `Collection<V>`, the call's elements were not the map's `U` values, and a
+     * modification through them did not reach the map: `for (u in units.values) u.save()` left `units` unmodified,
+     * as Java's `units.values()` does not (fernflower's StructContext.saveContext, maddi-mod#145).
+     */
+    private fun useSiteReturnType(getter: MethodInfo, useSite: ParameterizedType): Boolean {
+        val declared = getter.returnType()
+        return declared.typeParameter() != null
+            || declared.parameters().isNotEmpty() && useSite.typeInfo() != null && useSite.typeInfo() == declared.typeInfo()
+            && useSite.arrays() == declared.arrays()
+    }
+
     /** A no-arg getter call `receiver.getter()` (the desugaring of a property idiom). */
     private fun accessorCall(receiver: Expression, getter: MethodInfo, concrete: ParameterizedType? = null): Expression =
         runtime.newMethodCallBuilder().setObject(receiver).setObjectIsImplicit(false).setMethodInfo(getter)
@@ -5662,7 +5783,9 @@ internal class KotlinBodyConverter(
      * Convert an anonymous `object : Super { … }` expression to a CST [ConstructorCall] of a synthetic
      * anonymous type (the JVM model — like a lambda's type, but with arbitrary members and supertypes).
      * The supertypes are split into a parent class + implemented interfaces; the members become the
-     * anonymous type's members. (Captured outer variables in member bodies are a later refinement.)
+     * anonymous type's members. A member function's body captures the enclosing method's [locals] (parameters and
+     * locals), as a Java anonymous class's does: before, `child.sup = x` read `child` as an unresolved reference and
+     * the modification of the captured parameter was lost (fernflower's NestedClassProcessor, maddi-mod#145).
      */
     private fun KaSession.convertObjectLiteral(expression: KtObjectLiteralExpression, method: MethodInfo,
                                                locals: Map<String, Variable>): Expression =
@@ -5691,10 +5814,13 @@ internal class KotlinBodyConverter(
         interfaces.forEach { builder.addInterfaceImplemented(it) }
         val concreteReturnType = parentClass ?: interfaces.firstOrNull() ?: runtime.objectParameterizedType()
 
+        // as a local class captures ([convertLocalType]): the enclosing method's parameters, which are not in
+        // `locals`, and its locals
+        val captured = method.parameters().associateBy { it.name() } + locals
         symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaPropertySymbol>()
             ?.forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
         symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()
-            ?.forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function) }) }
+            ?.forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function, captured) }) }
         with(memberConverter) { finishAnonMembers(anon, expression.objectDeclaration) }
         builder.commit()
 
@@ -7059,7 +7185,7 @@ internal class KotlinBodyConverter(
             initializer.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>()
                 .forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
             initializer.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>()
-                .forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function) }) }
+                .forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function, emptyMap()) }) }
             with(memberConverter) { finishAnonMembers(anon, entry) }
             anon.builder().commit()
             anon
@@ -7132,7 +7258,7 @@ internal class KotlinBodyConverter(
         val name = statement.name ?: return@getOrPut false
         val symbol = statement.symbol
         PsiTreeUtil.collectElementsOfType(scope, KtNameReferenceExpression::class.java).any { reference ->
-            reference.getReferencedName() == name && isAssignmentTarget(reference) && crossesACapture(reference, scope) { isLoweredForEachLiteral(it) }
+            reference.getReferencedName() == name && isAssignmentTarget(reference) && crossesACapture(reference, scope) { isLoweredLiteral(it) }
                 && reference.mainReference.resolveToSymbol() == symbol
         }
     }

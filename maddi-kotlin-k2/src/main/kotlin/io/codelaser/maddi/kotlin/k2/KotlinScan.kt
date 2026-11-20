@@ -289,8 +289,9 @@ class KotlinScan(
     override fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol) =
         convertProperty(owner, property)
 
-    override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo =
-        convertMethod(owner, function)
+    override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
+                                           outerLocals: Map<String, Variable>): MethodInfo =
+        convertMethod(owner, function, outerLocals = outerLocals)
 
     override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtClassOrObject) {
         convertInitializers(owner)
@@ -2209,9 +2210,10 @@ class KotlinScan(
      * [static] marks top-level functions, which the JVM emits as static members of the file facade.
      */
     private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                        static: Boolean = false): MethodInfo {
+                                        static: Boolean = false,
+                                        outerLocals: Map<String, Variable> = emptyMap()): MethodInfo {
         val method = convertMethodSignature(owner, function, static)
-        finishMethodBody(function, method)
+        finishMethodBody(function, method, outerLocals)
         return method
     }
 
