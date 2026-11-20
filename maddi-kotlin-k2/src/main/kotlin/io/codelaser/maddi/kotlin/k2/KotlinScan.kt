@@ -289,9 +289,13 @@ class KotlinScan(
     override fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol) =
         convertProperty(owner, property)
 
-    override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                           outerLocals: Map<String, Variable>): MethodInfo =
-        convertMethod(owner, function, outerLocals = outerLocals)
+    // signatures first, as convertMembers does: one at a time, `return r(e)` in an `object : I { … }` reached a later
+    // sibling `r` before it existed, and the call, the value with it, was lost (maddi-mod#145)
+    override fun KaSession.buildAnonMethods(owner: TypeInfo, functions: List<KaNamedFunctionSymbol>,
+                                            outerLocals: Map<String, Variable>) {
+        functions.map { function -> convertMethodSignature(owner, function, false).also { owner.builder().addMethod(it) } to function }
+            .forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
+    }
 
     override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtClassOrObject) {
         convertInitializers(owner)
@@ -2209,14 +2213,6 @@ class KotlinScan(
      * Convert one declared function symbol into a committed CST method (with parameters and body).
      * [static] marks top-level functions, which the JVM emits as static members of the file facade.
      */
-    private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                        static: Boolean = false,
-                                        outerLocals: Map<String, Variable> = emptyMap()): MethodInfo {
-        val method = convertMethodSignature(owner, function, static)
-        finishMethodBody(function, method, outerLocals)
-        return method
-    }
-
     /** The method's body, then commit; call after the signature exists (so forward/self calls resolve). */
     private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
                                            outerLocals: Map<String, Variable> = emptyMap()) {

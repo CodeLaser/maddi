@@ -184,9 +184,13 @@ import java.nio.file.Files
  */
 internal interface MemberConverter {
     fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol)
-    /** A member function of the anonymous type [owner]; its body captures [outerLocals], the enclosing method's. */
-    fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                  outerLocals: Map<String, Variable>): MethodInfo
+    /**
+     * The member functions of the anonymous type [owner], added to it; their bodies capture [outerLocals], the
+     * enclosing method's. Every signature exists before the first body is converted, as for a class's members, so a
+     * body can call a sibling declared after it, or itself.
+     */
+    fun KaSession.buildAnonMethods(owner: TypeInfo, functions: List<KaNamedFunctionSymbol>,
+                                   outerLocals: Map<String, Variable>)
 
     /** Convert the property initializers and `init` blocks of the anonymous type [owner] while it is still open. */
     fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: org.jetbrains.kotlin.psi.KtClassOrObject)
@@ -5819,8 +5823,8 @@ internal class KotlinBodyConverter(
         val captured = method.parameters().associateBy { it.name() } + locals
         symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaPropertySymbol>()
             ?.forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
-        symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()
-            ?.forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function, captured) }) }
+        symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()?.toList()
+            ?.let { functions -> with(memberConverter) { buildAnonMethods(anon, functions, captured) } }
         with(memberConverter) { finishAnonMembers(anon, expression.objectDeclaration) }
         builder.commit()
 
@@ -7184,8 +7188,10 @@ internal class KotlinBodyConverter(
                 .setEnclosingMethod(context).setParentClass(owner.asParameterizedType())
             initializer.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>()
                 .forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
-            initializer.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>()
-                .forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function, emptyMap()) }) }
+            with(memberConverter) {
+                buildAnonMethods(anon, initializer.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>().toList(),
+                    emptyMap())
+            }
             with(memberConverter) { finishAnonMembers(anon, entry) }
             anon.builder().commit()
             anon
