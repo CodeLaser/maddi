@@ -365,20 +365,52 @@ public class InfoByFqn {
     private final Map<SourceSet, Set<SourceSet>> reachableSourceSets = new HashMap<>();
 
     /**
-     * Whether {@code from} depends on {@code to}, directly or not, or is it. The transitive closure is computed once
+     * Whether {@code from} depends on {@code to}, directly or not, or is it; or depends on the class directory
+     * {@code to}'s sources compile into (see {@link #holdsClassOutputOf}). The transitive closure is computed once
      * per source set.
      */
     public synchronized boolean reaches(SourceSet from, SourceSet to) {
         if (from.equals(to)) return true;
-        return reachableSourceSets.computeIfAbsent(from, f -> {
-            Set<SourceSet> closure = new HashSet<>();
+        Set<SourceSet> closure = reachableSourceSets.computeIfAbsent(from, f -> {
+            Set<SourceSet> c = new HashSet<>();
             java.util.ArrayDeque<SourceSet> todo = new java.util.ArrayDeque<>(f.dependencies());
             while (!todo.isEmpty()) {
                 SourceSet s = todo.poll();
-                if (closure.add(s)) todo.addAll(s.dependencies());
+                if (c.add(s)) todo.addAll(s.dependencies());
             }
-            return closure;
-        }).contains(to);
+            return c;
+        });
+        if (closure.contains(to)) return true;
+        if (NO_CLASS_OUTPUT_REACH) return false;
+        for (SourceSet d : closure) {
+            if (holdsClassOutputOf(d, to)) return true;
+        }
+        return false;
+    }
+
+    /*
+     ⛔ A DEPENDENCY ON A SET'S CLASS OUTPUT IS A DEPENDENCY ON THAT SET (CodeLaser/maddi-mod#151). A configuration
+     may describe a module's sources and its class directory as two sets: guava's 'guava/9' holds guava/src (its URI
+     is target/classes/META-INF/versions/9, the multi-release set), while 'guava/main' is target/classes as an
+     external library, and guava-tests and guava-testlib depend on 'guava/main' only. javac compiles them against
+     the class files of exactly those sources, so the source types are the ones they see. Without this, every guava
+     type was an "unreachable source copy" for the test sets (1607 refusals), their calls bound to a second TypeInfo
+     loaded from the class file, and the link computation of six InvokableTest methods crashed on a null primary.
+     The dependency must hold the set's class directory itself or a directory containing it; the JDK never counts
+     (a 'file:/' URI contains every directory). Gate NOCLASSOUTPUTREACH (environment).
+     */
+    private static final boolean NO_CLASS_OUTPUT_REACH = System.getenv("NOCLASSOUTPUTREACH") != null;
+
+    static boolean holdsClassOutputOf(SourceSet dependency, SourceSet to) {
+        if (dependency.partOfJdk() || to.partOfJdk() || to.externalLibrary()) return false;
+        java.net.URI d = dependency.uri();
+        java.net.URI t = to.uri();
+        if (d == null || t == null || !"file".equals(d.getScheme()) || !"file".equals(t.getScheme())) return false;
+        String dp = d.getPath();
+        String tp = t.getPath();
+        if (dp == null || tp == null || dp.length() <= 1) return false;
+        String dir = dp.endsWith("/") ? dp : dp + "/";
+        return tp.equals(dp) || (tp.endsWith("/") ? tp : tp + "/").startsWith(dir);
     }
 
     public synchronized TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {
