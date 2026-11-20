@@ -1723,8 +1723,10 @@ class KotlinScan(
         // Getter: a `const val` (inlined static-final field) and a `private` property have no getter method on
         // the JVM -- only the backing field -- and a synthetic one clashes with an explicitly-declared getX()
         // of the same signature (DoubleCompanionObject.getMIN_VALUE; ParameterizedTypeImpl.getOwnerType, a
-        // private val overriding a Java interface method). Setter: kept for every `var` (incl. private) -- the
-        // finality analysis models a var's field-demoting setter (see TestFinalFieldBranchAssignment).
+        // private val overriding a Java interface method). Nor a setter, for the same reason: kotlinc emits none for a
+        // private `var` with a default one. A synthesized one assigned the field outside construction, so every private
+        // `var` read as non-final, and a lazily cached `hashCode` as modifying, where Java's twin is neither
+        // (fernflower's VarVersion.hashCode, maddi-mod#145; TestFinalFieldBranchAssignment).
         // @JvmField: the field is the JVM surface, with no accessor either. One made anyway was named what K2 reports
         // for it -- the property's own name -- and collided with a written `fun sessionId()` (javalin's WsContext)
         val isConst = (property as? KaKotlinPropertySymbol)?.isConst == true
@@ -1748,7 +1750,7 @@ class KotlinScan(
         }
         if (hasSetter && customSetter != null) {
             owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customSetter))
-        } else if (hasSetter) {
+        } else if (hasSetter && !isPrivate) {
             owner.builder().addMethod(buildSetter(owner, field, type, property, static))
         }
     }
