@@ -17,8 +17,9 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -39,18 +40,81 @@ object as well — same monitor.
  */
 public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRecorder.Owner {
     /*
-    Null until the first write. Most maps are never written: on closed-core, preparation left 57M of them, 51M empty;
-    an empty HashMap is 40 bytes each, about 2 GB of heap. Every access holds the monitor, so creating it is safe.
+    Null until the first write, then a packed array of alternating keys and values (at most ARRAY_MAX entries),
+    then a HashMap. Most maps are never written: on closed-core, preparation left 57M of them, 51M empty. In the
+    modification phase most written maps hold 2-3 properties: a HashMap with its 16-slot table and nodes was ~185
+    bytes each, 48M of them ~9 GB; the array is 32-48 bytes. One field, not two: a second reference would add 8
+    bytes to each of the 57M maps.
+    The array iterates in insertion order. The HashMap's order came from PropertyImpl's identity hash, so it
+    already differed between runs: nothing can depend on it. Every access holds the monitor.
      */
-    private Map<Property, Value> map;
+    private static final int ARRAY_MAX = 8;
+    private Object data;
 
-    private Map<Property, Value> read() {
-        return map == null ? Collections.emptyMap() : map;
+    private static int arraySize(Object[] kv) {
+        int n = 0;
+        while (2 * n < kv.length && kv[2 * n] != null) n++;
+        return n;
     }
 
-    private Map<Property, Value> write() {
-        if (map == null) map = new HashMap<>();
-        return map;
+    private Value get(Object property) {
+        if (data == null) return null;
+        if (data instanceof Object[] kv) {
+            for (int i = 0; i < kv.length && kv[i] != null; i += 2) {
+                if (kv[i].equals(property)) return (Value) kv[i + 1];
+            }
+            return null;
+        }
+        return asMap().get(property);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Property, Value> asMap() {
+        return (Map<Property, Value>) data;
+    }
+
+    /** put, returning the previous value or null */
+    private Value put(Property property, Value value) {
+        if (data == null) {
+            data = new Object[]{property, value, null, null};
+            return null;
+        }
+        if (data instanceof Object[] kv) {
+            int n = arraySize(kv);
+            for (int i = 0; i < 2 * n; i += 2) {
+                if (kv[i].equals(property)) {
+                    Value prev = (Value) kv[i + 1];
+                    kv[i + 1] = value;
+                    return prev;
+                }
+            }
+            if (n == ARRAY_MAX) {
+                Map<Property, Value> map = new HashMap<>();
+                forEach(map::put);
+                map.put(property, value);
+                data = map;
+                return null;
+            }
+            Object[] target = kv;
+            if (2 * n == kv.length) {
+                target = new Object[kv.length + 4];
+                System.arraycopy(kv, 0, target, 0, kv.length);
+                data = target;
+            }
+            target[2 * n] = property;
+            target[2 * n + 1] = value;
+            return null;
+        }
+        return asMap().put(property, value);
+    }
+
+    private void forEach(java.util.function.BiConsumer<Property, Value> consumer) {
+        if (data == null) return;
+        if (data instanceof Object[] kv) {
+            for (int i = 0; i < kv.length && kv[i] != null; i += 2) consumer.accept((Property) kv[i], (Value) kv[i + 1]);
+        } else {
+            asMap().forEach(consumer);
+        }
     }
 
     /**
@@ -72,7 +136,7 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
     @Override
     public synchronized PropertyValueMap rewire(InfoMapView infoMap, Predicate<Property> filter) {
         PropertyValueMapImpl rewiredMap = new PropertyValueMapImpl();
-        read().forEach((key, value) -> {
+        forEach((key, value) -> {
             if (filter.test(key)) rewiredMap.set(key, value.rewire(infoMap));
         });
         return rewiredMap;
@@ -82,40 +146,45 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
     public synchronized Stream<PropertyValue> propertyValueStream() {
         // snapshot under the lock; the returned stream is safe to consume without it
         if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.readAll();
-        return read().entrySet().stream().map(e -> new PropertyValue(e.getKey(), e.getValue())).toList().stream();
+        List<PropertyValue> list = new ArrayList<>();
+        forEach((key, value) -> list.add(new PropertyValue(key, value)));
+        return list.stream();
     }
 
     @Override
     public synchronized boolean haveAnalyzedValueFor(Property property) {
-        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, read().get(property));
-        return read().containsKey(property);
+        Value v = get(property);
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, v);
+        return v != null;
     }
 
     /** the current value, without recording the access (AnalysisAccessRecorder's validation) */
     @Override
     public synchronized Value peek(Object property) {
-        return read().get(property);
+        return get(property);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public synchronized <V extends Value> V getOrDefault(Property property, V defaultValue) {
         assert defaultValue != null;
-        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, read().get(property));
-        return (V) read().getOrDefault(property, defaultValue);
+        Value v = get(property);
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, v);
+        return v == null ? defaultValue : (V) v;
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public synchronized <V extends Value> V getOrNull(Property property, Class<? extends V> clazz) {
-        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, read().get(property));
-        return (V) read().get(property);
+        Value v = get(property);
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, v);
+        return (V) v;
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public synchronized <V extends Value> V getOrCreate(Property property, Supplier<V> computeValue) {
-        V v = (V) read().get(property);
+        V v = (V) get(property);
         if (v != null) {
             if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, v);
             return v;
@@ -123,7 +192,7 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
         V vv = computeValue.get();
         if (vv != null) {
             if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
-            write().put(property, vv);
+            put(property, vv);
         }
         return vv;
     }
@@ -134,7 +203,7 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
 
         assert property.classOfValue().isAssignableFrom(value.getClass());
         if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
-        if (write().put(property, value) != null) {
+        if (put(property, value) != null) {
             throw new IllegalArgumentException("Trying to overwrite a value for property " + property);
         }
     }
@@ -143,17 +212,17 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
     @Override
     public synchronized <V extends Value> boolean setAllowControlledOverwrite(Property property, V value) {
         assert value != null : "Not allowed to write null";
-        V current = (V) read().get(property);
+        V current = (V) get(property);
         if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, current);
         if (current == null) {
             if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
-            write().put(property, value);
+            put(property, value);
             return true;
         }
         if (!current.equals(value)) {
             if (current.overwriteAllowed(value)) {
                 if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
-                write().put(property, value);
+                put(property, value);
                 return true;
             }
             throw new UnsupportedOperationException("Trying to overwrite " + current + " with "
@@ -167,7 +236,7 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
         assert value != null : "Not allowed to write null";
         assert property.classOfValue().isAssignableFrom(value.getClass());
         if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
-        Value prev = write().put(property, value);
+        Value prev = put(property, value);
         return !value.equals(prev);
     }
 
@@ -178,21 +247,32 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
 
     @Override
     public synchronized void removeIf(Predicate<Property> filter) {
-        if (map == null) return;
-        if (AnalysisAccessRecorder.active()) {
-            map.keySet().removeIf(p -> {
-                boolean remove = filter.test(p);
-                if (remove) AnalysisAccessRecorder.write(this, p);
-                return remove;
-            });
-            return;
+        if (data == null) return;
+        Predicate<Property> f = AnalysisAccessRecorder.active() ? p -> {
+            boolean remove = filter.test(p);
+            if (remove) AnalysisAccessRecorder.write(this, p);
+            return remove;
+        } : filter;
+        if (data instanceof Object[] kv) {
+            // compacting keeps the survivors in insertion order
+            int w = 0;
+            for (int r = 0; r < kv.length && kv[r] != null; r += 2) {
+                if (!f.test((Property) kv[r])) {
+                    kv[w] = kv[r];
+                    kv[w + 1] = kv[r + 1];
+                    w += 2;
+                }
+            }
+            for (int i = w; i < kv.length; i++) kv[i] = null;
+            if (w == 0) data = null;
+        } else {
+            asMap().keySet().removeIf(f);
         }
-        map.keySet().removeIf(filter);
     }
 
     @Override
     public synchronized boolean isEmpty() {
         if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.readAll();
-        return read().isEmpty();
+        return data == null || data instanceof Map<?, ?> m && m.isEmpty();
     }
 }
