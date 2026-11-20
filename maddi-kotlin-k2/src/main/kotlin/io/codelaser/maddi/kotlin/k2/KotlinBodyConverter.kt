@@ -6063,7 +6063,7 @@ internal class KotlinBodyConverter(
             }
         }
         // a companion call `Outer.member(args)` routes through the singleton: `Outer.Companion.member(args)`
-        companionCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
+        companionCall(name, calleeSymbol, arguments, call, method, defaults, implicit = receiver == null)?.let { return it }
         // a qualified call on a named object `Object.member(args)` routes through `Object.INSTANCE`
         if (receiver != null) objectCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
         // a top-level function `f(args)` called from another type -> the file facade's static `<File>Kt.f(args)`
@@ -6380,6 +6380,11 @@ internal class KotlinBodyConverter(
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
+    /** Whether [method] is a member of [type] or of a type nested in it. */
+    private fun insideType(method: MethodInfo, type: TypeInfo): Boolean =
+        generateSequence(method.typeInfo()) { t -> t.compilationUnitOrEnclosingType().let { if (it.isRight) it.right else null } }
+            .any { it == type }
+
     private fun KaSession.objectDispatch(dispatch: KaReceiverValue, method: MethodInfo): Pair<Expression, TypeInfo>? {
         val symbol = (dispatch.type as? KaClassType)?.symbol as? KaNamedClassSymbol ?: return null
         if (symbol.classKind != KaClassKind.OBJECT && symbol.classKind != KaClassKind.COMPANION_OBJECT) return null
@@ -6396,7 +6401,8 @@ internal class KotlinBodyConverter(
      * callee isn't a companion member or its types aren't in this compilation.
      */
     private fun KaSession.companionCall(name: String, calleeSymbol: KaNamedFunctionSymbol?, arguments: List<Expression>,
-                                        call: KtCallExpression, method: MethodInfo, defaults: MethodInfo?): Expression? {
+                                        call: KtCallExpression, method: MethodInfo, defaults: MethodInfo?,
+                                        implicit: Boolean = false): Expression? {
         val companionDecl = (calleeSymbol?.psi as? KtNamedFunction)?.containingClassOrObject as? KtObjectDeclaration ?: return null
         if (!companionDecl.isCompanion()) return null
         val enclosingFqn = (companionDecl.containingClassOrObject?.symbol as? KaNamedClassSymbol)?.classId?.asFqNameString()
@@ -6404,6 +6410,11 @@ internal class KotlinBodyConverter(
         val enclosing = infoByFqn.getType(enclosingFqn, sourceSet) ?: return null
         val companionName = companionDecl.name ?: "Companion"
         val companion = enclosing.subTypes().firstOrNull { it.simpleName() == companionName } ?: return null
+        // written inside the companion (or a type nested in it) with no receiver: its own `this`, the default path, as
+        // kotlinc compiles it and as [objectDispatch] leaves a named object's. Through `Outer.Companion` a call to a
+        // modifying member was a modification of the outer type's own static state: fernflower's IfHelper, whose
+        // companion calls an abandoned reorderIf, read every @JvmStatic facade as modifying (maddi-mod#145)
+        if (implicit && insideType(method, companion)) return null
         val companionField = enclosing.fields().firstOrNull { it.name() == companionName } ?: return null
         val callee = defaults ?: resolveCallee(companion, name, arguments, callReturnFqn(call, method)) ?: return null
         return singletonMemberCall(enclosing, companionField, callee, arguments, call, method)
