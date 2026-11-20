@@ -115,6 +115,26 @@ public class Main {
                 return EXIT_OK;
             }
 
+            return run(configuration);
+        } catch (ParseException parseException) {
+            LOGGER.error("Parse exception: ", parseException);
+            return ExitCode.INTERNAL_EXCEPTION;
+        } catch (IOException ioException) {
+            ErrorReport.report(null, ioException);
+            return ExitCode.IO_EXCEPTION;
+        } catch (RuntimeException runtimeException) {
+            ErrorReport.report(null, runtimeException);
+            return ExitCode.ANALYZER_ERROR;
+        }
+    }
+
+    /**
+     * Analyze a configuration however it was made -- from this command line, or computed by a build plugin
+     * ({@link RunConfigurationFile}): Java alone when there is no Kotlin source or {@code skipKotlinSources} asks for
+     * it, else the mixed analysis with the Kotlin front end in its realm.
+     */
+    public static int run(Configuration configuration) {
+        try {
             InputConfiguration inputConfiguration = configuration.inputConfiguration();
             DetectKotlinSources kotlinSources = DetectKotlinSources.in(inputConfiguration);
             if (!kotlinSources.found()) {
@@ -139,9 +159,6 @@ public class Main {
             // is on it). Installed only on the path that needs it: a Java-only run never builds a realm.
             K2Realm.install();
             return runMixed(configuration);
-        } catch (ParseException parseException) {
-            LOGGER.error("Parse exception: ", parseException);
-            return ExitCode.INTERNAL_EXCEPTION;
         } catch (IOException ioException) {
             ErrorReport.report(null, ioException);
             return ExitCode.IO_EXCEPTION;
