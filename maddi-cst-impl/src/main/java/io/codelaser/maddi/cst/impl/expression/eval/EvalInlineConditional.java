@@ -294,13 +294,15 @@ public class EvalInlineConditional {
         // a ? b : true --> !a || b
         // a ? b : false --> a && b
         // a ? false: b --> !a && b
-        if (ifTrue.isBooleanConstant()) {
+        // ... only when the other branch is a primitive boolean: 'c ? null : false', a Boolean, is no '&&' (an
+        // assertion in And: hibernate-orm's BaseSqmToSqlAstConverter.stackMatchHelper)
+        if (ifTrue.isBooleanConstant() && ifFalse.parameterizedType().isBoolean()) {
             if (ifTrue.isBoolValueTrue()) {
                 return runtime.or(condition, ifFalse);
             }
             return runtime.and(runtime.negate(condition), ifFalse);
         }
-        if (ifFalse.isBooleanConstant()) {
+        if (ifFalse.isBooleanConstant() && ifTrue.parameterizedType().isBoolean()) {
             if (ifFalse.isBoolValueTrue()) {
                 return runtime.or(runtime.negate(condition), ifTrue);
             }
