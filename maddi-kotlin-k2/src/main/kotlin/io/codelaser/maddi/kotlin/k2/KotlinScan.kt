@@ -297,7 +297,9 @@ class KotlinScan(
             .forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
     }
 
-    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtClassOrObject) {
+    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtClassOrObject,
+                                             outerLocals: Map<String, Variable>) {
+        if (outerLocals.isNotEmpty()) outerLocalsOf[owner] = outerLocals
         convertInitializers(owner)
         convertInitBlocks(declaration, owner)
     }
@@ -315,7 +317,7 @@ class KotlinScan(
         inBody { with(bodyConverter) { convertExpression(expression, method, locals) } }
 
     private fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String) =
-        inBody { with(bodyConverter) { convertInitBlock(init, method, index) } }
+        inBody { with(bodyConverter) { convertInitBlock(init, method, index, outerLocalsOf[method.typeInfo()].orEmpty()) } }
 
     private fun KaSession.convertConstructorBody(body: KtBlockExpression, method: MethodInfo, index: String) =
         inBody { with(bodyConverter) { convertConstructorBody(body, method, index) } }
@@ -762,6 +764,13 @@ class KotlinScan(
     // them; with every body waiting for complete() it held all of a source set's initializers at once, and copying
     // and scanning it per type made the kotlin-stdlib parse quadratic: 26 s became 189 s and then a heap failure.
     private val pendingInitializers = java.util.IdentityHashMap<TypeInfo, MutableList<PendingInitializer>>()
+
+    // the enclosing method's locals an `object :` expression captures, by its type: its property initializers and init
+    // blocks read them as its methods do. Without them `object : … { val v = e }`, `e` a local, was an unresolved
+    // reference, and the object linked to nothing (fernflower's SFormsFastMapDirect.entryList, maddi-mod#145).
+    // ⛔ Not yet a local class's: its constructor parameters are resolved by name too, and a captured local of the
+    // same name would shadow them.
+    private val outerLocalsOf = java.util.IdentityHashMap<TypeInfo, Map<String, Variable>>()
     private class PendingInitializer(val owner: TypeInfo, val field: FieldInfo, val expression: KtExpression,
                                      val static: Boolean) {
         var converted = false
@@ -1341,7 +1350,7 @@ class KotlinScan(
             val index = bodyConverter.pad(prefix + j, total)
             if (init is KtAnonymousInitializer) convertInitBlock(init, ctor, index)
             else properties.first { it.expression === init }.let { p ->
-                inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, ctor, index) } }
+                inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, ctor, index, outerLocalsOf[owner].orEmpty()) } }
                     ?: runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-property-initializer"))
             }
         }
@@ -1930,12 +1939,14 @@ class KotlinScan(
             if (!p.static) return@forEach
             val block = initializerContext(p.owner, true)
             val statements = blocks.getOrPut(block) { mutableListOf() }
-            inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, block, bodyConverter.pad(statements.size, 10)) } }
+            inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, block, bodyConverter.pad(statements.size, 10),
+                outerLocalsOf[owner].orEmpty()) } }
                 ?.let { statements += it; p.converted = true }
         }
         pending.forEach { p ->
             if (p.converted || statementInitializersOf[owner]?.contains(p) == true) return@forEach
-            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(p.owner, p.static), emptyMap()))
+            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(p.owner, p.static),
+                outerLocalsOf[owner].orEmpty()))
         }
         blocks.forEach { (method, statements) ->
             if (statements.isEmpty()) return@forEach

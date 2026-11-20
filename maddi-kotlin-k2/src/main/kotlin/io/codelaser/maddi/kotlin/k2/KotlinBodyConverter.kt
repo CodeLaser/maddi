@@ -192,8 +192,12 @@ internal interface MemberConverter {
     fun KaSession.buildAnonMethods(owner: TypeInfo, functions: List<KaNamedFunctionSymbol>,
                                    outerLocals: Map<String, Variable>)
 
-    /** Convert the property initializers and `init` blocks of the anonymous type [owner] while it is still open. */
-    fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: org.jetbrains.kotlin.psi.KtClassOrObject)
+    /**
+     * Convert the property initializers and `init` blocks of the anonymous type [owner] while it is still open; they
+     * capture [outerLocals], as its methods do.
+     */
+    fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: org.jetbrains.kotlin.psi.KtClassOrObject,
+                                    outerLocals: Map<String, Variable>)
 
     /** Build a method-local type declaration (`class C : A { … }`) as a full source type, capturing [outerLocals]. */
     fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
@@ -3841,19 +3845,19 @@ internal class KotlinBodyConverter(
     }
 
     internal fun KaSession.statementInitializer(initializer: KtExpression, field: FieldInfo, method: MethodInfo,
-                                                index: String): Statement? {
+                                                index: String, outerLocals: Map<String, Variable> = emptyMap()): Statement? {
         val value = unannotated(initializer)
         val target = runtime.newFieldReference(field)
         return when {
             value is KtIfExpression && value.needsStatementForm() ->
-                convertValueIf(value, method, mutableMapOf(), index, returning = false, assignTo = target)
+                convertValueIf(value, method, outerLocals.toMutableMap(), index, returning = false, assignTo = target)
             value is KtTryExpression ->
-                convertTry(value, method, mutableMapOf(), index, assignTo = target).withSource(source(value, index))
+                convertTry(value, method, outerLocals.toMutableMap(), index, assignTo = target).withSource(source(value, index))
             // any other initializer moved into the constructor (one reading a constructor parameter, #85): the
             // assignment `this.field = value`, converted in the constructor's scope, where the parameter resolves;
             // after the statements its value needs, if any (#98), all in one block
             else -> {
-                val locals = mutableMapOf<String, Variable>()
+                val locals = outerLocals.toMutableMap()
                 // `Array(n) { c }` itself keeps its expression form, `Collections.nCopies` (sameElementArray)
                 val (hoisted, tailIndex) = if (value is KtCallExpression && isArrayInit(value)) listOf<Statement>() to index
                     else hoistBefore(value, method, locals, index, anyRootElvis = true)
@@ -3872,8 +3876,9 @@ internal class KotlinBodyConverter(
     }
 
     /** An `init { … }` block, as a nested [Block] at [index] in [method]'s body, with a scope of its own. */
-    internal fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String): Block =
-        convertBlock(init.body, method, emptyMap(), index)
+    internal fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String,
+                                            outerLocals: Map<String, Variable> = emptyMap()): Block =
+        convertBlock(init.body, method, outerLocals, index)
 
     /** A secondary constructor's own `{ … }` body, as a nested [Block] at [index] in [method]'s body. */
     internal fun KaSession.convertConstructorBody(body: KtBlockExpression, method: MethodInfo, index: String): Block =
@@ -5825,7 +5830,7 @@ internal class KotlinBodyConverter(
             ?.forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
         symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()?.toList()
             ?.let { functions -> with(memberConverter) { buildAnonMethods(anon, functions, captured) } }
-        with(memberConverter) { finishAnonMembers(anon, expression.objectDeclaration) }
+        with(memberConverter) { finishAnonMembers(anon, expression.objectDeclaration, captured) }
         builder.commit()
 
         // `object : Point(6) { … }`: the superclass constructor that runs, with its arguments, as the Java front end
@@ -7192,7 +7197,7 @@ internal class KotlinBodyConverter(
                 buildAnonMethods(anon, initializer.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>().toList(),
                     emptyMap())
             }
-            with(memberConverter) { finishAnonMembers(anon, entry) }
+            with(memberConverter) { finishAnonMembers(anon, entry, emptyMap()) }
             anon.builder().commit()
             anon
         }
