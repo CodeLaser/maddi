@@ -289,11 +289,17 @@ class KotlinScan(
     override fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol) =
         convertProperty(owner, property)
 
-    override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                           outerLocals: Map<String, Variable>): MethodInfo =
-        convertMethod(owner, function, outerLocals = outerLocals)
+    // signatures first, as convertMembers does: one at a time, `return r(e)` in an `object : I { … }` reached a later
+    // sibling `r` before it existed, and the call, the value with it, was lost (maddi-mod#145)
+    override fun KaSession.buildAnonMethods(owner: TypeInfo, functions: List<KaNamedFunctionSymbol>,
+                                            outerLocals: Map<String, Variable>) {
+        functions.map { function -> convertMethodSignature(owner, function, false).also { owner.builder().addMethod(it) } to function }
+            .forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
+    }
 
-    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtClassOrObject) {
+    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtClassOrObject,
+                                             outerLocals: Map<String, Variable>) {
+        if (outerLocals.isNotEmpty()) outerLocalsOf[owner] = outerLocals
         convertInitializers(owner)
         convertInitBlocks(declaration, owner)
     }
@@ -311,7 +317,7 @@ class KotlinScan(
         inBody { with(bodyConverter) { convertExpression(expression, method, locals) } }
 
     private fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String) =
-        inBody { with(bodyConverter) { convertInitBlock(init, method, index) } }
+        inBody { with(bodyConverter) { convertInitBlock(init, method, index, outerLocalsOf[method.typeInfo()].orEmpty()) } }
 
     private fun KaSession.convertConstructorBody(body: KtBlockExpression, method: MethodInfo, index: String) =
         inBody { with(bodyConverter) { convertConstructorBody(body, method, index) } }
@@ -758,6 +764,13 @@ class KotlinScan(
     // them; with every body waiting for complete() it held all of a source set's initializers at once, and copying
     // and scanning it per type made the kotlin-stdlib parse quadratic: 26 s became 189 s and then a heap failure.
     private val pendingInitializers = java.util.IdentityHashMap<TypeInfo, MutableList<PendingInitializer>>()
+
+    // the enclosing method's locals an `object :` expression captures, by its type: its property initializers and init
+    // blocks read them as its methods do. Without them `object : … { val v = e }`, `e` a local, was an unresolved
+    // reference, and the object linked to nothing (fernflower's SFormsFastMapDirect.entryList, maddi-mod#145).
+    // ⛔ Not yet a local class's: its constructor parameters are resolved by name too, and a captured local of the
+    // same name would shadow them.
+    private val outerLocalsOf = java.util.IdentityHashMap<TypeInfo, Map<String, Variable>>()
     private class PendingInitializer(val owner: TypeInfo, val field: FieldInfo, val expression: KtExpression,
                                      val static: Boolean) {
         var converted = false
@@ -1337,7 +1350,7 @@ class KotlinScan(
             val index = bodyConverter.pad(prefix + j, total)
             if (init is KtAnonymousInitializer) convertInitBlock(init, ctor, index)
             else properties.first { it.expression === init }.let { p ->
-                inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, ctor, index) } }
+                inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, ctor, index, outerLocalsOf[owner].orEmpty()) } }
                     ?: runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-property-initializer"))
             }
         }
@@ -1710,8 +1723,10 @@ class KotlinScan(
         // Getter: a `const val` (inlined static-final field) and a `private` property have no getter method on
         // the JVM -- only the backing field -- and a synthetic one clashes with an explicitly-declared getX()
         // of the same signature (DoubleCompanionObject.getMIN_VALUE; ParameterizedTypeImpl.getOwnerType, a
-        // private val overriding a Java interface method). Setter: kept for every `var` (incl. private) -- the
-        // finality analysis models a var's field-demoting setter (see TestFinalFieldBranchAssignment).
+        // private val overriding a Java interface method). Nor a setter, for the same reason: kotlinc emits none for a
+        // private `var` with a default one. A synthesized one assigned the field outside construction, so every private
+        // `var` read as non-final, and a lazily cached `hashCode` as modifying, where Java's twin is neither
+        // (fernflower's VarVersion.hashCode, maddi-mod#145; TestFinalFieldBranchAssignment).
         // @JvmField: the field is the JVM surface, with no accessor either. One made anyway was named what K2 reports
         // for it -- the property's own name -- and collided with a written `fun sessionId()` (javalin's WsContext)
         val isConst = (property as? KaKotlinPropertySymbol)?.isConst == true
@@ -1735,7 +1750,7 @@ class KotlinScan(
         }
         if (hasSetter && customSetter != null) {
             owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customSetter))
-        } else if (hasSetter) {
+        } else if (hasSetter && !isPrivate) {
             owner.builder().addMethod(buildSetter(owner, field, type, property, static))
         }
     }
@@ -1926,12 +1941,14 @@ class KotlinScan(
             if (!p.static) return@forEach
             val block = initializerContext(p.owner, true)
             val statements = blocks.getOrPut(block) { mutableListOf() }
-            inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, block, bodyConverter.pad(statements.size, 10)) } }
+            inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, block, bodyConverter.pad(statements.size, 10),
+                outerLocalsOf[owner].orEmpty()) } }
                 ?.let { statements += it; p.converted = true }
         }
         pending.forEach { p ->
             if (p.converted || statementInitializersOf[owner]?.contains(p) == true) return@forEach
-            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(p.owner, p.static), emptyMap()))
+            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(p.owner, p.static),
+                outerLocalsOf[owner].orEmpty()))
         }
         blocks.forEach { (method, statements) ->
             if (statements.isEmpty()) return@forEach
@@ -2209,14 +2226,6 @@ class KotlinScan(
      * Convert one declared function symbol into a committed CST method (with parameters and body).
      * [static] marks top-level functions, which the JVM emits as static members of the file facade.
      */
-    private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                        static: Boolean = false,
-                                        outerLocals: Map<String, Variable> = emptyMap()): MethodInfo {
-        val method = convertMethodSignature(owner, function, static)
-        finishMethodBody(function, method, outerLocals)
-        return method
-    }
-
     /** The method's body, then commit; call after the signature exists (so forward/self calls resolve). */
     private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
                                            outerLocals: Map<String, Variable> = emptyMap()) {

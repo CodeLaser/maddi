@@ -67,6 +67,7 @@ import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
 import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
 import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
+import io.codelaser.maddi.inspection.resource.ParseResultImpl;
 import io.codelaser.maddi.inspection.resource.ResolveModuleDirectives;
 import io.codelaser.maddi.inspection.resource.SummaryImpl;
 import io.codelaser.maddi.java.openjdk.ClassSymbolScanner;
@@ -601,6 +602,11 @@ public class JavaInspectorImpl implements JavaInspector {
             LOGGER.info("{} {} source set(s), {} primary type(s) in {} ms; {} error(s), {} warning(s) (the run carries"
                         + " on over warnings); first: {}{}", what, linearization.size(), summary.types().size(), ms,
                     errors, warnings, describe(first), more == 0 ? "" : " (and " + more + " more)");
+        }
+        // the census of #224: a name declared in several source sets is one a by-name refactoring must not resolve blindly
+        int duplicates = ParseResultImpl.duplicatePrimaryTypes(summary.types()).size();
+        if (duplicates > 0) {
+            LOGGER.info("{}: {} fully qualified name(s) declared in more than one source set", what, duplicates);
         }
         LOGGER.debug("{}: {} source-set disambiguation(s)", what, disambiguations() - disambiguationsBefore);
     }

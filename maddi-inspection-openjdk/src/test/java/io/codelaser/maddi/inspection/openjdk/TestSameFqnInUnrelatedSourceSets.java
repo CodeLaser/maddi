@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -40,9 +41,11 @@ import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.ParseResultImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
@@ -172,6 +175,53 @@ public class TestSameFqnInUnrelatedSourceSets {
         assertNotNull(parserTest.methods().stream().filter(m -> "test".equals(m.name())).findFirst().orElseThrow()
                 .methodBody(), "test() is parsed");
         assertEquals(UNRELATED, sourceSet(primary(summary, "Dummy", UNRELATED)));
+    }
+
+    @Language("java")
+    private static final String MOCK = """
+            package m;
+            public class MockEventServer {
+            }
+            """;
+
+    /**
+     * quarkus's {@code MockEventServer}, declared by three amazon-lambda modules that never see each other
+     * (CodeLaser/maddi#224). A refactor verb resolved the name to the first copy {@code typeByFullyQualifiedName}
+     * listed, and that was a different one from run to run: the list followed the order the types were added to a
+     * HashSet in which all three share a hash code. Now the list is by source-set name whatever the arrival order,
+     * and the census names the duplicate.
+     */
+    @DisplayName("a name declared by three unrelated sets: a fixed order, and a census")
+    @Test
+    public void duplicatesAreListedInAFixedOrderAndCounted() throws Exception {
+        SourceSet javaBase = SourceSetImpl.javaBase();
+        Map<SourceSet, Map<String, String>> sources = new LinkedHashMap<>();
+        // declared, so scanned and added, in the order c, a, b
+        for (String name : List.of("c", "a", "b")) {
+            SourceSet set = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + name)
+                    .setUri(URI.create("file:/lambda-" + name + "/")).setDependencies(List.of(javaBase)).build();
+            sources.put(set, Map.of("m.MockEventServer", MOCK));
+        }
+        Summary summary = parse(List.of(javaBase), sources);
+        assertFalse(summary.haveErrors(), "the parse succeeds: " + summary.parseExceptions());
+
+        List<String> expected = List.of(TEST_PROTOCOL + "a", TEST_PROTOCOL + "b", TEST_PROTOCOL + "c");
+        ParseResult parseResult = summary.parseResult();
+        assertEquals(expected, parseResult.typeByFullyQualifiedName("m.MockEventServer").stream()
+                .map(TestSameFqnInUnrelatedSourceSets::sourceSet).toList());
+        assertEquals(List.of("m.MockEventServer"), List.copyOf(parseResult.duplicatePrimaryTypes().keySet()));
+        assertEquals(expected, parseResult.duplicatePrimaryTypes().get("m.MockEventServer").stream()
+                .map(TestSameFqnInUnrelatedSourceSets::sourceSet).toList());
+
+        // and the same for every arrival order: built from the types reversed
+        List<TypeInfo> arrival = new ArrayList<>(parseResult.primaryTypes());
+        for (List<TypeInfo> order : List.of(arrival, arrival.reversed())) {
+            ParseResult rebuilt = new ParseResultImpl(new LinkedHashSet<>(order), Map.of(), Map.of());
+            assertEquals(expected, rebuilt.typeByFullyQualifiedName("m.MockEventServer").stream()
+                    .map(TestSameFqnInUnrelatedSourceSets::sourceSet).toList());
+            assertEquals(expected, rebuilt.findMostLikelyType("MockEventServer").stream()
+                    .map(TestSameFqnInUnrelatedSourceSets::sourceSet).toList());
+        }
     }
 
     /** protobuf-java, reduced: a generic nested Builder whose type variable its methods use. Version 1. */

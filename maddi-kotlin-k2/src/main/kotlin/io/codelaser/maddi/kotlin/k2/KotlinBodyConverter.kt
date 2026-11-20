@@ -184,12 +184,20 @@ import java.nio.file.Files
  */
 internal interface MemberConverter {
     fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol)
-    /** A member function of the anonymous type [owner]; its body captures [outerLocals], the enclosing method's. */
-    fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                  outerLocals: Map<String, Variable>): MethodInfo
+    /**
+     * The member functions of the anonymous type [owner], added to it; their bodies capture [outerLocals], the
+     * enclosing method's. Every signature exists before the first body is converted, as for a class's members, so a
+     * body can call a sibling declared after it, or itself.
+     */
+    fun KaSession.buildAnonMethods(owner: TypeInfo, functions: List<KaNamedFunctionSymbol>,
+                                   outerLocals: Map<String, Variable>)
 
-    /** Convert the property initializers and `init` blocks of the anonymous type [owner] while it is still open. */
-    fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: org.jetbrains.kotlin.psi.KtClassOrObject)
+    /**
+     * Convert the property initializers and `init` blocks of the anonymous type [owner] while it is still open; they
+     * capture [outerLocals], as its methods do.
+     */
+    fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: org.jetbrains.kotlin.psi.KtClassOrObject,
+                                    outerLocals: Map<String, Variable>)
 
     /** Build a method-local type declaration (`class C : A { … }`) as a full source type, capturing [outerLocals]. */
     fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
@@ -3837,19 +3845,19 @@ internal class KotlinBodyConverter(
     }
 
     internal fun KaSession.statementInitializer(initializer: KtExpression, field: FieldInfo, method: MethodInfo,
-                                                index: String): Statement? {
+                                                index: String, outerLocals: Map<String, Variable> = emptyMap()): Statement? {
         val value = unannotated(initializer)
         val target = runtime.newFieldReference(field)
         return when {
             value is KtIfExpression && value.needsStatementForm() ->
-                convertValueIf(value, method, mutableMapOf(), index, returning = false, assignTo = target)
+                convertValueIf(value, method, outerLocals.toMutableMap(), index, returning = false, assignTo = target)
             value is KtTryExpression ->
-                convertTry(value, method, mutableMapOf(), index, assignTo = target).withSource(source(value, index))
+                convertTry(value, method, outerLocals.toMutableMap(), index, assignTo = target).withSource(source(value, index))
             // any other initializer moved into the constructor (one reading a constructor parameter, #85): the
             // assignment `this.field = value`, converted in the constructor's scope, where the parameter resolves;
             // after the statements its value needs, if any (#98), all in one block
             else -> {
-                val locals = mutableMapOf<String, Variable>()
+                val locals = outerLocals.toMutableMap()
                 // `Array(n) { c }` itself keeps its expression form, `Collections.nCopies` (sameElementArray)
                 val (hoisted, tailIndex) = if (value is KtCallExpression && isArrayInit(value)) listOf<Statement>() to index
                     else hoistBefore(value, method, locals, index, anyRootElvis = true)
@@ -3868,8 +3876,9 @@ internal class KotlinBodyConverter(
     }
 
     /** An `init { … }` block, as a nested [Block] at [index] in [method]'s body, with a scope of its own. */
-    internal fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String): Block =
-        convertBlock(init.body, method, emptyMap(), index)
+    internal fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String,
+                                            outerLocals: Map<String, Variable> = emptyMap()): Block =
+        convertBlock(init.body, method, outerLocals, index)
 
     /** A secondary constructor's own `{ … }` body, as a nested [Block] at [index] in [method]'s body. */
     internal fun KaSession.convertConstructorBody(body: KtBlockExpression, method: MethodInfo, index: String): Block =
@@ -3969,7 +3978,7 @@ internal class KotlinBodyConverter(
                         ?: runtime.newEmptyExpression("k2-delegate-read:${delegate.simpleName()}") }
                 ?: (if (readsAReceiverMember(expression)) implicitMemberAccess(expression, method, locals) else null)
                 ?: receiverLambdaMember(expression, method, locals)
-                ?: resolveReference(expression.getReferencedName(), method, locals)
+                ?: resolveReference(expression.getReferencedName(), method, locals, fieldFirst = readAsInheritedField(expression))
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
                 ?: classAsValue(expression)
@@ -5819,9 +5828,9 @@ internal class KotlinBodyConverter(
         val captured = method.parameters().associateBy { it.name() } + locals
         symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaPropertySymbol>()
             ?.forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
-        symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()
-            ?.forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function, captured) }) }
-        with(memberConverter) { finishAnonMembers(anon, expression.objectDeclaration) }
+        symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()?.toList()
+            ?.let { functions -> with(memberConverter) { buildAnonMethods(anon, functions, captured) } }
+        with(memberConverter) { finishAnonMembers(anon, expression.objectDeclaration, captured) }
         builder.commit()
 
         // `object : Point(6) { … }`: the superclass constructor that runs, with its arguments, as the Java front end
@@ -6054,7 +6063,7 @@ internal class KotlinBodyConverter(
             }
         }
         // a companion call `Outer.member(args)` routes through the singleton: `Outer.Companion.member(args)`
-        companionCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
+        companionCall(name, calleeSymbol, arguments, call, method, defaults, implicit = receiver == null)?.let { return it }
         // a qualified call on a named object `Object.member(args)` routes through `Object.INSTANCE`
         if (receiver != null) objectCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
         // a top-level function `f(args)` called from another type -> the file facade's static `<File>Kt.f(args)`
@@ -6371,6 +6380,11 @@ internal class KotlinBodyConverter(
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
+    /** Whether [method] is a member of [type] or of a type nested in it. */
+    private fun insideType(method: MethodInfo, type: TypeInfo): Boolean =
+        generateSequence(method.typeInfo()) { t -> t.compilationUnitOrEnclosingType().let { if (it.isRight) it.right else null } }
+            .any { it == type }
+
     private fun KaSession.objectDispatch(dispatch: KaReceiverValue, method: MethodInfo): Pair<Expression, TypeInfo>? {
         val symbol = (dispatch.type as? KaClassType)?.symbol as? KaNamedClassSymbol ?: return null
         if (symbol.classKind != KaClassKind.OBJECT && symbol.classKind != KaClassKind.COMPANION_OBJECT) return null
@@ -6387,7 +6401,8 @@ internal class KotlinBodyConverter(
      * callee isn't a companion member or its types aren't in this compilation.
      */
     private fun KaSession.companionCall(name: String, calleeSymbol: KaNamedFunctionSymbol?, arguments: List<Expression>,
-                                        call: KtCallExpression, method: MethodInfo, defaults: MethodInfo?): Expression? {
+                                        call: KtCallExpression, method: MethodInfo, defaults: MethodInfo?,
+                                        implicit: Boolean = false): Expression? {
         val companionDecl = (calleeSymbol?.psi as? KtNamedFunction)?.containingClassOrObject as? KtObjectDeclaration ?: return null
         if (!companionDecl.isCompanion()) return null
         val enclosingFqn = (companionDecl.containingClassOrObject?.symbol as? KaNamedClassSymbol)?.classId?.asFqNameString()
@@ -6395,6 +6410,11 @@ internal class KotlinBodyConverter(
         val enclosing = infoByFqn.getType(enclosingFqn, sourceSet) ?: return null
         val companionName = companionDecl.name ?: "Companion"
         val companion = enclosing.subTypes().firstOrNull { it.simpleName() == companionName } ?: return null
+        // written inside the companion (or a type nested in it) with no receiver: its own `this`, the default path, as
+        // kotlinc compiles it and as [objectDispatch] leaves a named object's. Through `Outer.Companion` a call to a
+        // modifying member was a modification of the outer type's own static state: fernflower's IfHelper, whose
+        // companion calls an abandoned reorderIf, read every @JvmStatic facade as modifying (maddi-mod#145)
+        if (implicit && insideType(method, companion)) return null
         val companionField = enclosing.fields().firstOrNull { it.name() == companionName } ?: return null
         val callee = defaults ?: resolveCallee(companion, name, arguments, callReturnFqn(call, method)) ?: return null
         return singletonMemberCall(enclosing, companionField, callee, arguments, call, method)
@@ -7032,7 +7052,18 @@ internal class KotlinBodyConverter(
         return implicit.symbol is KaReceiverParameterSymbol
     }
 
-    private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, Variable>): Expression? {
+    /**
+     * Whether the bare name [reference] reads a PROPERTY through its field (a @JvmField, a `const`): an inherited one is
+     * the superclass's field, even when a method of the getter's name exists. fernflower's `@JvmField var first` beside
+     * an explicit `fun getFirst() { checkCanceled(); return first }`: `lst.add(first)` in a subclass read as
+     * `this.getFirst()`, and every getSequentialObjects() as modifying (maddi-mod#145).
+     */
+    private fun KaSession.readAsInheritedField(reference: KtNameReferenceExpression): Boolean =
+        reference.mainReference.resolveToSymbol() is KaPropertySymbol && readAsField(reference)
+
+    /** [fieldFirst]: an inherited field before a getter, see [readAsInheritedField]. */
+    private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, Variable>,
+                                 fieldFirst: Boolean = false): Expression? {
         locals[name]?.let { return variableExpression(it) }
         method.parameters().firstOrNull { it.name() == name }?.let { return variableExpression(it) }
         method.typeInfo().fields().firstOrNull { it.name() == name }?.let { field ->
@@ -7059,6 +7090,9 @@ internal class KotlinBodyConverter(
                 return variableExpression(runtime.newFieldReference(field, outerThis, field.type()))
             }
             enclosing = outer.compilationUnitOrEnclosingType()
+        }
+        if (fieldFirst && !method.isStatic) inheritedField(method.typeInfo(), name)?.let { field ->
+            return variableExpression(runtime.newFieldReference(field, self(method), field.type()))
         }
         // a property with no backing field (interface/abstract/computed) accessed unqualified: `name` in a
         // default method means `this.getName()` -- resolve the accessor on the enclosing type via `this`
@@ -7184,9 +7218,11 @@ internal class KotlinBodyConverter(
                 .setEnclosingMethod(context).setParentClass(owner.asParameterizedType())
             initializer.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>()
                 .forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
-            initializer.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>()
-                .forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function, emptyMap()) }) }
-            with(memberConverter) { finishAnonMembers(anon, entry) }
+            with(memberConverter) {
+                buildAnonMethods(anon, initializer.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>().toList(),
+                    emptyMap())
+            }
+            with(memberConverter) { finishAnonMembers(anon, entry, emptyMap()) }
             anon.builder().commit()
             anon
         }
