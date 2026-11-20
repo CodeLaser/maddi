@@ -158,4 +158,18 @@ public class TestLazyLoaderSourceSet {
         assertNotNull(impl.compiledTypesManager().type(THIRD_SLF4J_TYPE, f.withSlf4j),
                 "strict mode must not cost a set the types it can see itself");
     }
+
+    /**
+     * After {@link JavaInspectorImpl#releaseScanTask()} (a batch run, once its parse is done) the last scan's task is
+     * gone; every set must still resolve its own class path, through source-free tasks, and a miss stays a miss.
+     */
+    @Test
+    public void afterReleasingTheScanTaskLoadsGoThroughLoaderTasks() throws IOException {
+        Fixture f = parse();
+        ((JavaInspectorImpl) f.javaInspector).releaseScanTask();
+        assertNotNull(f.javaInspector.compiledTypesManager().type(OPENTEST4J_TYPE, f.withOpentest4j));
+        assertNotNull(f.javaInspector.compiledTypesManager().type(THIRD_SLF4J_TYPE, f.withSlf4j));
+        assertNotNull(f.javaInspector.compiledTypesManager().type("java.util.Map", f.withOpentest4j));
+        assertNull(f.javaInspector.compiledTypesManager().type(OTHER_SLF4J_TYPE, f.withOpentest4j));
+    }
 }

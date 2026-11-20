@@ -281,6 +281,9 @@ public class RunAnalyzer implements Runnable {
         ComputeCallGraph ccg;
 
         boolean rewireTests = analysisSteps.contains(Main.AS_REWIRE_TESTS);
+        // nothing parses again unless the rewire tests run: let javac's trees go before prep (1.7 GB on a 22k-type
+        // corpus); compiled types load through a source-free task from here on
+        if (!rewireTests && javaInspector instanceof JavaInspectorImpl jii) jii.releaseScanTask();
         boolean prep = modification || rewireTests || analysisSteps.contains(Main.AS_PREP);
         if (prep) {
             ParseResult parseResult = summary.parseResult();
