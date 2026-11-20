@@ -3978,7 +3978,7 @@ internal class KotlinBodyConverter(
                         ?: runtime.newEmptyExpression("k2-delegate-read:${delegate.simpleName()}") }
                 ?: (if (readsAReceiverMember(expression)) implicitMemberAccess(expression, method, locals) else null)
                 ?: receiverLambdaMember(expression, method, locals)
-                ?: resolveReference(expression.getReferencedName(), method, locals)
+                ?: resolveReference(expression.getReferencedName(), method, locals, fieldFirst = readAsInheritedField(expression))
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
                 ?: classAsValue(expression)
@@ -7041,7 +7041,18 @@ internal class KotlinBodyConverter(
         return implicit.symbol is KaReceiverParameterSymbol
     }
 
-    private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, Variable>): Expression? {
+    /**
+     * Whether the bare name [reference] reads a PROPERTY through its field (a @JvmField, a `const`): an inherited one is
+     * the superclass's field, even when a method of the getter's name exists. fernflower's `@JvmField var first` beside
+     * an explicit `fun getFirst() { checkCanceled(); return first }`: `lst.add(first)` in a subclass read as
+     * `this.getFirst()`, and every getSequentialObjects() as modifying (maddi-mod#145).
+     */
+    private fun KaSession.readAsInheritedField(reference: KtNameReferenceExpression): Boolean =
+        reference.mainReference.resolveToSymbol() is KaPropertySymbol && readAsField(reference)
+
+    /** [fieldFirst]: an inherited field before a getter, see [readAsInheritedField]. */
+    private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, Variable>,
+                                 fieldFirst: Boolean = false): Expression? {
         locals[name]?.let { return variableExpression(it) }
         method.parameters().firstOrNull { it.name() == name }?.let { return variableExpression(it) }
         method.typeInfo().fields().firstOrNull { it.name() == name }?.let { field ->
@@ -7068,6 +7079,9 @@ internal class KotlinBodyConverter(
                 return variableExpression(runtime.newFieldReference(field, outerThis, field.type()))
             }
             enclosing = outer.compilationUnitOrEnclosingType()
+        }
+        if (fieldFirst && !method.isStatic) inheritedField(method.typeInfo(), name)?.let { field ->
+            return variableExpression(runtime.newFieldReference(field, self(method), field.type()))
         }
         // a property with no backing field (interface/abstract/computed) accessed unqualified: `name` in a
         // default method means `this.getName()` -- resolve the accessor on the enclosing type via `this`
