@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.impl.variable;
 
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
@@ -24,7 +27,6 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.element.Visitor;
 import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -36,9 +38,6 @@ import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.QualificationImpl;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
-
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class DependentVariableImpl extends VariableImpl implements DependentVariable {
     @NotNull

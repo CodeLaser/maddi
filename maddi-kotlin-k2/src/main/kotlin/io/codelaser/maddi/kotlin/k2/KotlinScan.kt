@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinCompilerPluginsProvider
 import io.codelaser.maddi.cst.api.element.Element
 import io.codelaser.maddi.kotlin.api.ConstructorDelegation
 import io.codelaser.maddi.kotlin.api.KotlinSourceScan
@@ -288,10 +289,17 @@ class KotlinScan(
     override fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol) =
         convertProperty(owner, property)
 
-    override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo =
-        convertMethod(owner, function)
+    // signatures first, as convertMembers does: one at a time, `return r(e)` in an `object : I { … }` reached a later
+    // sibling `r` before it existed, and the call, the value with it, was lost (maddi-mod#145)
+    override fun KaSession.buildAnonMethods(owner: TypeInfo, functions: List<KaNamedFunctionSymbol>,
+                                            outerLocals: Map<String, Variable>) {
+        functions.map { function -> convertMethodSignature(owner, function, false).also { owner.builder().addMethod(it) } to function }
+            .forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
+    }
 
-    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtClassOrObject) {
+    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtClassOrObject,
+                                             outerLocals: Map<String, Variable>) {
+        if (outerLocals.isNotEmpty()) outerLocalsOf[owner] = outerLocals
         convertInitializers(owner)
         convertInitBlocks(declaration, owner)
     }
@@ -309,7 +317,7 @@ class KotlinScan(
         inBody { with(bodyConverter) { convertExpression(expression, method, locals) } }
 
     private fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String) =
-        inBody { with(bodyConverter) { convertInitBlock(init, method, index) } }
+        inBody { with(bodyConverter) { convertInitBlock(init, method, index, outerLocalsOf[method.typeInfo()].orEmpty()) } }
 
     private fun KaSession.convertConstructorBody(body: KtBlockExpression, method: MethodInfo, index: String) =
         inBody { with(bodyConverter) { convertConstructorBody(body, method, index) } }
@@ -399,6 +407,9 @@ class KotlinScan(
      */
     private fun buildSession(disposable: Disposable, srcRoot: java.nio.file.Path) =
         buildStandaloneAnalysisAPISession(disposable) {
+        val plugins = CompilerPlugins()
+        @OptIn(org.jetbrains.kotlin.analysis.api.KaPlatformInterface::class)
+        registerProjectService(KotlinCompilerPluginsProvider::class.java, plugins)
         buildKtModuleProvider {
             val jvm = JvmPlatforms.defaultJvmPlatform
             platform = jvm
@@ -424,7 +435,7 @@ class KotlinScan(
                 addSourceRoot(srcRoot)
                 addRegularDependency(jdk)
                 addRegularDependency(classpath)
-            })
+            }.also { plugins.register(it, sourceSet.kotlinPluginOptions()) })
         }
     }
 
@@ -753,6 +764,13 @@ class KotlinScan(
     // them; with every body waiting for complete() it held all of a source set's initializers at once, and copying
     // and scanning it per type made the kotlin-stdlib parse quadratic: 26 s became 189 s and then a heap failure.
     private val pendingInitializers = java.util.IdentityHashMap<TypeInfo, MutableList<PendingInitializer>>()
+
+    // the enclosing method's locals an `object :` expression captures, by its type: its property initializers and init
+    // blocks read them as its methods do. Without them `object : … { val v = e }`, `e` a local, was an unresolved
+    // reference, and the object linked to nothing (fernflower's SFormsFastMapDirect.entryList, maddi-mod#145).
+    // ⛔ Not yet a local class's: its constructor parameters are resolved by name too, and a captured local of the
+    // same name would shadow them.
+    private val outerLocalsOf = java.util.IdentityHashMap<TypeInfo, Map<String, Variable>>()
     private class PendingInitializer(val owner: TypeInfo, val field: FieldInfo, val expression: KtExpression,
                                      val static: Boolean) {
         var converted = false
@@ -828,7 +846,7 @@ class KotlinScan(
         annotate(typeInfo.builder(), classSymbol, typeInfo)
         typeInfo.builder().computeAccess() // eventual type access, needed before members' computeAccess()
         // ...and before its companion's, which a class nested in the companion needs in ITS prepareType, next
-        registeredCompanions[typeInfo]?.let { setUpCompanion(it) }
+        registeredCompanions[typeInfo]?.let { setUpCompanion(it, classSymbol.companionObject) }
         // declaration source (nature is set now): name keyed by simpleName(), keyword by typeNature(), and
         // each supertype reference keyed by its TypeInfo (the `: Base(), Iface` clause) -- mirroring Java
         val superTypeDetails = declaration.superTypeListEntries.mapNotNull { entry ->
@@ -864,7 +882,7 @@ class KotlinScan(
         declared.forEach { (ctor, constructor) ->
             defaultsConstructor(typeInfo, ctor, constructor)?.let { overloadConstructors(typeInfo, ctor, constructor, it) }
         }
-        if (bodyDepth == 0) declared.forEach { (ctor, constructor) -> recordDelegation(declaration, ctor, constructor) }
+        if (bodyDepth == 0) declared.forEach { (ctor, constructor) -> recordDelegation(declaration, ctor.psi, constructor) }
         // an overload's `this(...)` is into its target, and throws what the target's own delegation throws
         if (bodyDepth == 0) overloadTargets.forEach { (overload, target) ->
             if (overload.typeInfo() === typeInfo) delegationOf[overload] = ConstructorDelegation(false,
@@ -1015,7 +1033,7 @@ class KotlinScan(
         val companion = registeredCompanions.remove(enclosing) ?: runtime.newTypeInfo(enclosing, name).also {
             enclosing.builder().addSubType(it)
             infoByFqn.put(it.fullyQualifiedName(), it, sourceSet)
-            setUpCompanion(it)
+            setUpCompanion(it, companionSymbol)
         }
         references.target(companionSymbol.psi, companion)
         // the private constructor kotlinc gives it, called once, from the enclosing class's static initializer. The
@@ -1029,6 +1047,10 @@ class KotlinScan(
             .setSynthetic(true).setSource(runtime.noSource()).commitParameters().computeAccess()
         companion.builder().addConstructor(constructor)
         runsInitOf[companion] = constructor
+        // `companion object : DialectNameProvider("H2")`: the private constructor calls the supertype's, as a class's
+        // primary constructor does -- for the Java stub before any body exists, and as statement "0" of the body
+        val companionDeclaration = companionSymbol.psi as? KtObjectDeclaration
+        if (bodyDepth == 0) companionDeclaration?.let { recordDelegation(it, null, constructor) }
         commitOrDefer(constructor, null) { constructor.builder().commit() }
 
         recordWrittenSignatures(companion, companionSymbol)
@@ -1058,7 +1080,11 @@ class KotlinScan(
             convertInitializers(companion)
             companionPsi?.let { declaration ->
                 convertInitBlocks(declaration, companion)
-                initBlocksOf.remove(constructor)?.let { constructor.builder().setMethodBody(bodyConverter.normalizeIndices(constructorBody(listOf(), it))) }
+            }
+            val superCall = companionDeclaration?.let { explicitConstructorInvocation(companion, it, null, constructor) }
+            val planned = initBlocksOf.remove(constructor)
+            if (superCall != null || planned != null) {
+                constructor.builder().setMethodBody(bodyConverter.normalizeIndices(constructorBody(listOfNotNull(superCall), planned)))
             }
             companion.builder().commit()
         }
@@ -1069,10 +1095,22 @@ class KotlinScan(
         addCompanionStatics(enclosing, companion, companionField, companionSymbol)
     }
 
-    private fun setUpCompanion(companion: TypeInfo) {
+    /**
+     * The companion's declared supertypes are its own, as a class's are: `companion object : DialectNameProvider("H2")`
+     * makes `H2.dialectName` a read of the inherited property. With `Object` as the parent, nothing inherited
+     * could be found (Exposed: 74 placeholders, the corpus's largest kind).
+     */
+    private fun KaSession.setUpCompanion(companion: TypeInfo, symbol: KaClassSymbol?) {
+        var parentClass: ParameterizedType? = null
+        symbol?.superTypes?.forEach { superType ->
+            val pt = mapType(superType, companion)
+            if (pt.isJavaLangObject) return@forEach
+            val superKind = ((superType as? KaClassType)?.symbol as? KaClassSymbol)?.classKind
+            if (superKind == KaClassKind.INTERFACE) companion.builder().addInterfaceImplemented(pt) else parentClass = pt
+        }
         companion.builder()
             .setTypeNature(runtime.typeNatureClass())
-            .setParentClass(runtime.objectParameterizedType())
+            .setParentClass(parentClass ?: runtime.objectParameterizedType())
             .addTypeModifier(runtime.typeModifierPublic())
             .addTypeModifier(runtime.typeModifierStatic()) // a nested object is a static nested class on the JVM
             .addTypeModifier(runtime.typeModifierFinal())
@@ -1211,7 +1249,7 @@ class KotlinScan(
         val ctorSymbols = classSymbol.declaredMemberScope.declarations.filterIsInstance<KaConstructorSymbol>().toList()
         ctorSymbols.zip(typeInfo.constructors()).forEach { (sym, cst) ->
             val statements = mutableListOf<Statement>()
-            explicitConstructorInvocation(typeInfo, declaration, sym, cst)?.let { statements.add(it) } // index "0"
+            explicitConstructorInvocation(typeInfo, declaration, sym.psi, cst)?.let { statements.add(it) } // index "0"
             propertyParameters(declaration, sym.isPrimary, cst, typeInfo).forEach { (param, field) ->
                 statements.add(assignFieldFromParam(typeInfo, field, param, false))
             }
@@ -1303,7 +1341,8 @@ class KotlinScan(
         }
         val symbol = (declaration.symbol as? KaNamedClassSymbol)?.declaredMemberScope?.declarations
             ?.filterIsInstance<KaConstructorSymbol>()?.toList()?.getOrNull(owner.constructors().indexOf(ctor))
-        val invocation = if (symbol != null && hasExplicitInvocation(declaration, symbol)) 1 else 0
+        // a companion's synthetic constructor may have no symbol: its declaration still says whether it calls super
+        val invocation = if (hasExplicitInvocation(declaration, symbol?.psi)) 1 else 0
         // an unresolved symbol counts as primary: a slot planned too many stays empty (constructorBody)
         val prefix = invocation + propertyParameters(declaration, symbol?.isPrimary ?: true, ctor, owner).size
         val total = prefix + inits.size
@@ -1311,7 +1350,7 @@ class KotlinScan(
             val index = bodyConverter.pad(prefix + j, total)
             if (init is KtAnonymousInitializer) convertInitBlock(init, ctor, index)
             else properties.first { it.expression === init }.let { p ->
-                inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, ctor, index) } }
+                inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, ctor, index, outerLocalsOf[owner].orEmpty()) } }
                     ?: runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-property-initializer"))
             }
         }
@@ -1319,8 +1358,8 @@ class KotlinScan(
     }
 
     /** Whether [ctor] is written with a `this(...)`/`super(...)` call, resolved or not: see [explicitConstructorInvocation]. */
-    private fun hasExplicitInvocation(declaration: KtClassOrObject, ctor: KaConstructorSymbol): Boolean =
-        when (val psi = ctor.psi) {
+    private fun hasExplicitInvocation(declaration: KtClassOrObject, ctorPsi: PsiElement?): Boolean =
+        when (val psi = ctorPsi) {
             is KtSecondaryConstructor -> !psi.getDelegationCall().isImplicit
             else -> declaration.superTypeListEntries.any { it is KtSuperTypeCallEntry }
         }
@@ -1332,9 +1371,9 @@ class KotlinScan(
      */
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
     private fun KaSession.explicitConstructorInvocation(
-        owner: TypeInfo, declaration: KtClassOrObject, ctor: KaConstructorSymbol, constructor: MethodInfo,
+        owner: TypeInfo, declaration: KtClassOrObject, ctorPsi: PsiElement?, constructor: MethodInfo,
     ): Statement? {
-        val (isSuper, call) = when (val psi = ctor.psi) {
+        val (isSuper, call) = when (val psi = ctorPsi) {
             is KtSecondaryConstructor -> {
                 val delegation = psi.getDelegationCall()
                 if (delegation.isImplicit) return null // implicit super() — not represented
@@ -1351,12 +1390,16 @@ class KotlinScan(
         val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner)
             ?.let { typeMapper.withMembers(it) } // a class-file parent may be a shell: see KotlinTypeMapper.withMembers
             ?: return unboundInvocation("k2-super-call-no-parent")
-        val ordered = (call.resolveSymbol() as? KaConstructorSymbol)
-            ?.let { s -> inBody { with(bodyConverter) { callArguments(call, s, constructor, emptyMap()) } } }
+        val symbol = call.resolveSymbol() as? KaConstructorSymbol
+        val ordered = symbol?.let { s -> inBody { with(bodyConverter) { callArguments(call, s, constructor, emptyMap()) } } }
         val argExpressions = ordered?.expressions ?: call.valueArguments
             .mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor, emptyMap()) } }
-        // else resolve the target constructor by arity (refine to full overload resolution later)
+        // the constructor K2 resolved, by its parameter types: by ARITY alone, `constructor(t: Int, o: Exprent?) :
+        // this(t, listOf(o))` bound to ITSELF when the class had two two-parameter constructors -- a cycle in the CST,
+        // and javac's "recursive constructor invocation" in the stub of fernflower's FunctionExprent
         val target = ordered?.defaults
+            ?: symbol?.let { s -> with(bodyConverter) { constructorOf(s, targetType, constructor) } }
+            // else by arity: a Java class's generated default constructor is synthetic, which constructorOf leaves out
             // not kotlinc's overloads (synthetic, and only Java's to call) -- but a Java class's GENERATED default
             // constructor is synthetic too, and it is the one `class D : V()` calls when V declares none
             ?: targetType.constructors().firstOrNull {
@@ -1407,8 +1450,8 @@ class KotlinScan(
     }
 
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
-    private fun KaSession.recordDelegation(declaration: KtClassOrObject, ctor: KaConstructorSymbol, constructor: MethodInfo) {
-        val (isSuper, call) = when (val psi = ctor.psi) {
+    private fun KaSession.recordDelegation(declaration: KtClassOrObject, ctorPsi: PsiElement?, constructor: MethodInfo) {
+        val (isSuper, call) = when (val psi = ctorPsi) {
             is KtSecondaryConstructor -> {
                 val delegation = psi.getDelegationCall()
                 if (delegation.isImplicit) return
@@ -1680,8 +1723,10 @@ class KotlinScan(
         // Getter: a `const val` (inlined static-final field) and a `private` property have no getter method on
         // the JVM -- only the backing field -- and a synthetic one clashes with an explicitly-declared getX()
         // of the same signature (DoubleCompanionObject.getMIN_VALUE; ParameterizedTypeImpl.getOwnerType, a
-        // private val overriding a Java interface method). Setter: kept for every `var` (incl. private) -- the
-        // finality analysis models a var's field-demoting setter (see TestFinalFieldBranchAssignment).
+        // private val overriding a Java interface method). Nor a setter, for the same reason: kotlinc emits none for a
+        // private `var` with a default one. A synthesized one assigned the field outside construction, so every private
+        // `var` read as non-final, and a lazily cached `hashCode` as modifying, where Java's twin is neither
+        // (fernflower's VarVersion.hashCode, maddi-mod#145; TestFinalFieldBranchAssignment).
         // @JvmField: the field is the JVM surface, with no accessor either. One made anyway was named what K2 reports
         // for it -- the property's own name -- and collided with a written `fun sessionId()` (javalin's WsContext)
         val isConst = (property as? KaKotlinPropertySymbol)?.isConst == true
@@ -1705,7 +1750,7 @@ class KotlinScan(
         }
         if (hasSetter && customSetter != null) {
             owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customSetter))
-        } else if (hasSetter) {
+        } else if (hasSetter && !isPrivate) {
             owner.builder().addMethod(buildSetter(owner, field, type, property, static))
         }
     }
@@ -1887,7 +1932,7 @@ class KotlinScan(
         pending.forEach { p ->
             // ... and one that reads a primary-constructor parameter: kotlinc runs every initializer in the
             // constructor, and a field initializer cannot see the parameter -- it read as @Independent (#85)
-            if (!bodyConverter.needsStatementInitializer(p.expression)
+            if (!with(bodyConverter) { needsStatementInitializer(p.expression, initializerContext(p.owner, p.static)) }
                 && !(!p.static && runsInitOf[owner] != null && readsAConstructorParameter(p.expression))) return@forEach
             if (!p.static && runsInitOf[owner] != null) {
                 statementInitializersOf.getOrPut(owner) { mutableListOf() } += p
@@ -1896,12 +1941,14 @@ class KotlinScan(
             if (!p.static) return@forEach
             val block = initializerContext(p.owner, true)
             val statements = blocks.getOrPut(block) { mutableListOf() }
-            inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, block, bodyConverter.pad(statements.size, 10)) } }
+            inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, block, bodyConverter.pad(statements.size, 10),
+                outerLocalsOf[owner].orEmpty()) } }
                 ?.let { statements += it; p.converted = true }
         }
         pending.forEach { p ->
             if (p.converted || statementInitializersOf[owner]?.contains(p) == true) return@forEach
-            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(p.owner, p.static), emptyMap()))
+            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(p.owner, p.static),
+                outerLocalsOf[owner].orEmpty()))
         }
         blocks.forEach { (method, statements) ->
             if (statements.isEmpty()) return@forEach
@@ -2179,13 +2226,6 @@ class KotlinScan(
      * Convert one declared function symbol into a committed CST method (with parameters and body).
      * [static] marks top-level functions, which the JVM emits as static members of the file facade.
      */
-    private fun KaSession.convertMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                        static: Boolean = false): MethodInfo {
-        val method = convertMethodSignature(owner, function, static)
-        finishMethodBody(function, method)
-        return method
-    }
-
     /** The method's body, then commit; call after the signature exists (so forward/self calls resolve). */
     private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
                                            outerLocals: Map<String, Variable> = emptyMap()) {

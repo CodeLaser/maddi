@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.api.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
 
 /**
  * An array initialiser, the brace-enclosed element list {@code { e0, e1, ... }} (as in

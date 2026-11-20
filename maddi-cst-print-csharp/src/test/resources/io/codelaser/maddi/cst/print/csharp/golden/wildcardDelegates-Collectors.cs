@@ -6,7 +6,7 @@ internal sealed class Collectors {
     internal static List<string> Names(List<string> items) => new Group<string, List<string>>(Collectors.toList<string>())
         .Collect(items);
 
-    internal interface ICollector<A, ResultContainer_, Result_> : ICollector<A, Result_> {
+    internal interface ICollector<in A, ResultContainer_, out Result_> : ICollector<A, Result_> {
         Func<ResultContainer_> Supplier();
         Func<ResultContainer_, A, Action> Accumulator();
         Func<ResultContainer_, Result_> Finisher();
@@ -14,7 +14,7 @@ internal sealed class Collectors {
         Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }
         Func<object, Result_> ICollector<A, Result_>.Finisher() { var f = Finisher(); return x0_ => f((ResultContainer_) x0_); }
     }
-    internal interface ICollector<A, Result_> {
+    internal interface ICollector<in A, out Result_> {
         Func<object> Supplier();
         Func<object, A, Action> Accumulator();
         Func<object, Result_> Finisher();

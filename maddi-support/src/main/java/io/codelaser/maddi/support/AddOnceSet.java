@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.support;
 
-import io.codelaser.maddi.annotation.*;
-import io.codelaser.maddi.annotation.eventual.Only;
-
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.eventual.Only;
 
 /**
  * Example of a freezable set, which disallows both removal and attempts to write an object a second time.

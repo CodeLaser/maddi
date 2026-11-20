@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.element;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.*;
 import io.codelaser.maddi.annotation.eventual.BeforeMark;
 import io.codelaser.maddi.annotation.eventual.Mark;
@@ -33,12 +39,6 @@ import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.impl.expression.AnnotationExpressionImpl;
 import io.codelaser.maddi.cst.impl.info.TypeInfoImpl;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Stream;
 
 public class MaddiAnnotationsImpl {
     public final static String IMPLIED = "implied";
@@ -58,6 +58,7 @@ public class MaddiAnnotationsImpl {
 
     public final AnnotationExpression allowsInterrupt = create(AllowsInterrupt.class);
     public final AnnotationExpression beforeMark = create(BeforeMark.class);
+    public final AnnotationExpression borrowed = create(Borrowed.class);
     public final AnnotationExpression commutable = create(Commutable.class);
     public final AnnotationExpression container = create(Container.class);
     public final AnnotationExpression extensionClass = create(ExtensionClass.class);
@@ -65,6 +66,7 @@ public class MaddiAnnotationsImpl {
     public final AnnotationExpression finalFields = create(FinalFields.class);
     public final AnnotationExpression finalizer = create(Finalizer.class);
     public final AnnotationExpression fluent = create(Fluent.class);
+    public final AnnotationExpression fresh = create(Fresh.class);
     public final AnnotationExpression getSet = create(GetSet.class);
     public final AnnotationExpression identity = create(Identity.class);
     public final AnnotationExpression ignoreModifications = create(IgnoreModifications.class);
@@ -77,6 +79,7 @@ public class MaddiAnnotationsImpl {
     public final AnnotationExpression notNull = create(NotNull.class);
     public final AnnotationExpression nullable = create(Nullable.class);
     public final AnnotationExpression only = create(Only.class);
+    public final AnnotationExpression owned = create(Owned.class);
     public final AnnotationExpression singleton = create(Singleton.class);
     public final AnnotationExpression testMark = create(TestMark.class);
     public final AnnotationExpression unmodifiableView = create(UnmodifiableView.class);
@@ -91,6 +94,7 @@ public class MaddiAnnotationsImpl {
                 immutableContainer, extensionClass, finalFields, getSet, immutable,
                 effectivelyFinal, fluent, finalizer, identity, ignoreModifications, mark, modified);
         add(builder, notModified, notNull, nullable, only, singleton, testMark, unmodifiableView, utilityClass);
+        add(builder, borrowed, fresh, owned);
         annotationTypes = Map.copyOf(builder);
     }
 

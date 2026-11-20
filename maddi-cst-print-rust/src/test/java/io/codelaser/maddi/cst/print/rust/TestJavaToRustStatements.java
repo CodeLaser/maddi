@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 /** Statements and expressions beyond the basics: switch, enum, StringBuilder, streams, equals and hashCode. */
 public class TestJavaToRustStatements extends CommonJavaToRust {
@@ -237,6 +238,112 @@ public class TestJavaToRustStatements extends CommonJavaToRust {
         contains(rust, "{ let v = self.counts.get(key).copied().unwrap_or(0) + 1; self.counts.insert(key.to_string(), v) }");
         contains(rust, "self.data.insert(key.to_string(), Box::new(value));");
         contains(rust, "return *self.data.get(key).unwrap().downcast_ref::<i32>().unwrap();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String WRITTEN_THROUGH = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.Set;
+            public class W {
+                public static class Item {
+                    private int n;
+                    public void touch() { n++; }
+                }
+                private final Map<String, List<Map<String, String>>> versions = new HashMap<>();
+                public void labelVersion(String id, int n, String label) {
+                    List<Map<String, String>> vlist = versions.get(id);
+                    if (vlist != null && n > 0 && n <= vlist.size()) vlist.get(n - 1).put("label", label);
+                }
+                @SuppressWarnings("unchecked")
+                public static boolean setAdd(Object object, String s) {
+                    Set<String> set = (Set<String>) object;
+                    return set.add(s);
+                }
+                public static void touchNested(List<List<Item>> lists) {
+                    for (List<Item> l : lists) {
+                        for (Item i : l) i.touch();
+                    }
+                }
+                public static void clearAll(Map<String, List<String>> m) {
+                    for (Map.Entry<String, List<String>> e : m.entrySet()) e.getValue().clear();
+                }
+            }
+            """;
+
+    @DisplayName("a local written through holds its object exclusively: get_mut, downcast_mut, iter_mut")
+    @Test
+    public void writtenThroughLocals() throws Exception {
+        List<TypeInfo> types = parse(WRITTEN_THROUGH);
+        TypeInfo w = types.getFirst();
+        modifying(w, "labelVersion");
+        exclusive(method(w, "setAdd").parameters().getFirst());
+        exclusive(method(w, "touchNested").parameters().getFirst());
+        exclusive(method(w, "clearAll").parameters().getFirst());
+
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // the list in the map, an element of which is modified: the mutable lookup (was get, E0596)
+        contains(rust, "let mut vlist = self.versions.get_mut(");
+        // a cast of an Object that is modified (was downcast_ref, E0596)
+        contains(rust, "downcast_mut::<HashSet<String>>()");
+        // the outer loop of a nested loop that modifies the elements (was iter, E0596)
+        contains(rust, "for l in lists.iter_mut() {");
+        // a map's entries, a value modified through getValue() (was iter, E0596)
+        contains(rust, "for e in m.iter_mut() {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String FOR_EACH_CHANGES = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.Optional;
+            public class F {
+                public static class H {
+                    private final List<String> paths = new ArrayList<>();
+                    public List<String> getPaths() { return paths; }
+                    public void touch() { paths.add("x"); }
+                    public int size() { return paths.size(); }
+                }
+                public static void viaForEachGetter(List<H> hs) { hs.forEach(h -> h.getPaths().add("x")); }
+                public static void viaForEachRef(List<H> hs) { hs.forEach(H::touch); }
+                public static void viaLoopGetter(List<H> hs) { for (H h : hs) h.getPaths().add("x"); }
+                public static void viaMapForEach(Map<String, H> hs) { hs.forEach((k, h) -> h.touch()); }
+                public static void viaIfPresent(Optional<H> hs) { hs.ifPresent(H::touch); }
+                public static void reads(List<H> hs) { hs.forEach(h -> System.out.println(h.size())); }
+            }
+            """;
+
+    @DisplayName("forEach, ifPresent and a loop whose function changes the elements iterate mutably (maddi-mod#99)")
+    @Test
+    public void elementsChangedByForEach() throws Exception {
+        List<TypeInfo> types = parse(FOR_EACH_CHANGES);
+        TypeInfo f = types.getFirst();
+        TypeInfo h = f.findSubType("H");
+        nonModifying(h, "getPaths", "size");
+        dependentResult(h, "getPaths");
+        modifying(h, "touch");
+        for (String m : List.of("viaForEachGetter", "viaForEachRef", "viaLoopGetter", "viaMapForEach", "viaIfPresent")) {
+            exclusive(method(f, m).parameters().getFirst());
+        }
+        borrowed(method(f, "reads").parameters().getFirst());
+
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // each was iter(), and rustc's E0596 against the printer once the verdict was right
+        contains(rust, "hs.iter_mut().for_each(|h| { h.get_paths_mut().push(\"x\".to_string()); });");
+        contains(rust, "hs.iter().for_each(|h| { println!(");
+        contains(rust, "hs.iter_mut().for_each(|x| x.touch());");
+        contains(rust, "for h in hs.iter_mut() {");
+        contains(rust, "hs.iter_mut().for_each(|(k, h)| { h.touch(); });");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

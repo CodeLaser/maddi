@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.analysis.api;
 
-import io.codelaser.maddi.cst.api.analysis.Message;
-import io.codelaser.maddi.cst.api.info.Info;
-
 import java.util.List;
 import java.util.Set;
+
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.Info;
 
 /**
  * @param fingerprintedSourceSets the number of source sets whose fingerprint was stored; 0 unless asked for

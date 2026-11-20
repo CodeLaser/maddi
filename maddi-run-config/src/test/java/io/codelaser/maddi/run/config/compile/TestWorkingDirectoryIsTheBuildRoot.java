@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.run.config.compile;
 
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 
 /**
  * ⛔⛔ <b>THE ANALYSED TREE MUST NOT BE FOREIGN TO ITSELF.</b> An {@code InputConfiguration}'s working

@@ -18,10 +18,20 @@
 package io.codelaser.maddi.inspection.api.integration;
 
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -31,15 +41,6 @@ import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
-
-import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
 
 /*
 Unless you have very good reasons not to, please use the openjdk implementation of the JavaInspector.
@@ -91,6 +92,73 @@ public interface JavaInspector {
 
     @FunctionalInterface
     interface Invalidated extends Function<TypeInfo, InvalidationState> {
+        /**
+         * Whether a re-parse may rewire the {@code REWIRE} types although the declarations of a re-parsed type
+         * changed ({@link DeclarationsChangedException}). False, unless the caller knows that the edit cannot change
+         * how javac resolves a name in the dependents: see {@link #acrossDeclarationChanges}.
+         */
+        default boolean rewireAcrossDeclarationChanges() {
+            return false;
+        }
+
+        /** {@code invalidated}, without the declaration check: for a caller that vouches for the edit. */
+        static Invalidated acrossDeclarationChanges(Invalidated invalidated) {
+            return new Invalidated() {
+                @Override
+                public InvalidationState apply(TypeInfo typeInfo) {
+                    return invalidated.apply(typeInfo);
+                }
+
+                @Override
+                public boolean rewireAcrossDeclarationChanges() {
+                    return true;
+                }
+            };
+        }
+    }
+
+    /**
+     * A re-parse found that the declarations of a re-parsed type changed
+     * ({@link io.codelaser.maddi.inspection.api.util.DeclarationSignature}) while types that depend on them
+     * ({@link io.codelaser.maddi.inspection.api.util.DeclarationDependencies}) were to be rewired onto it: those are
+     * {@link #affected()}. A {@code REWIRE} type that does not depend on a changed declaration is rewired as usual,
+     * and does not raise this. Rewiring copies a dependent with every reference re-pointed at the object of the same name, which is
+     * only right when javac would resolve the dependent's names as before; after an added overload, an override of
+     * an inherited method, a changed supertype or constant it would not, and a member that is gone cannot be
+     * re-pointed at all. Thrown after the changed types were scanned and before anything was rewired: the changed
+     * types are live as their new objects, the {@code REWIRE} types still as their old ones. The caller parses again
+     * with the affected types {@code INVALID}, the other {@code REWIRE} types {@code REWIRE} again and the changed
+     * types {@code REWIRE}, which is what {@code ReparseWithDependents} (maddi-callgraph) does, or starts from a cold
+     * parse. That parse can raise this again: a re-parsed dependent's own declarations may move (a constant computed
+     * from a changed one).
+     */
+    class DeclarationsChangedException extends RuntimeException {
+        private final Set<String> types;
+        private final Set<TypeInfo> affected;
+
+        public DeclarationsChangedException(Set<String> types) {
+            this(types, Set.of());
+        }
+
+        public DeclarationsChangedException(Set<String> types, Set<TypeInfo> affected) {
+            super("The declarations of " + types + " changed: " + affected.size()
+                  + " dependent type(s) must be parsed again, not rewired");
+            this.types = Set.copyOf(types);
+            this.affected = Set.copyOf(affected);
+        }
+
+        /**
+         * The {@code REWIRE} types of the re-parse that depend on a changed declaration, as the objects that re-parse
+         * was handed (it rewired nothing): they must be parsed again.
+         */
+        public Set<TypeInfo> affected() {
+            return affected;
+        }
+
+        /** The fully qualified names of the primary types whose declarations changed. */
+        public Set<String> types() {
+            return types;
+        }
     }
 
     Invalidated INVALIDATED_ALL = t -> InvalidationState.INVALID;
@@ -354,7 +422,7 @@ public interface JavaInspector {
      * type's analysis onto its new object <em>outside</em> the reload, via the {@code rewire(InfoMapView, …)} path —
      * see {@code docs/design/analysis-rewiring.md}. Valid until the next parse.
      */
-    default io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
+    default InfoMapView lastRewireInfoMap() {
         return null;
     }
 }

@@ -17,18 +17,20 @@
 
 package io.codelaser.maddi.cst.io;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.analysis.Codec;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.Set;
-import java.util.stream.StreamSupport;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * #30: a decoded {@code SetOfMethodInfo} is a registry like any other. Prep's addImplementation adds to it when a
@@ -55,10 +57,10 @@ public class TestCodecSetOfMethodInfo extends CommonTest {
 
         Value.SetOfMethodInfo decoded = ValueImpl.SetOfMethodInfoImpl.from(codec, context, encoded);
         assertEquals(Set.of(alpha), StreamSupport.stream(decoded.methodInfoSet().spliterator(), false)
-                .collect(java.util.stream.Collectors.toSet()));
+                .collect(Collectors.toSet()));
         // the add that used to throw
         assertTrue(decoded.add(beta));
         assertEquals(Set.of(alpha, beta), StreamSupport.stream(decoded.methodInfoSet().spliterator(), false)
-                .collect(java.util.stream.Collectors.toSet()));
+                .collect(Collectors.toSet()));
     }
 }

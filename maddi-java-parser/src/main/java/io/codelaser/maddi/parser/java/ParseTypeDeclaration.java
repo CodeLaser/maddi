@@ -17,6 +17,20 @@
 
 package io.codelaser.maddi.parser.java;
 
+import static io.codelaser.maddi.inspection.api.parser.TypeContext.*;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
@@ -37,19 +51,6 @@ import io.codelaser.maddi.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import io.codelaser.maddi.inspection.api.util.EnumSynthetics;
 import io.codelaser.maddi.inspection.api.util.RecordSynthetics;
 import io.codelaser.maddi.support.Either;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Function;
-
-import static io.codelaser.maddi.inspection.api.parser.TypeContext.*;
 
 public class ParseTypeDeclaration extends CommonParse {
     private static final Logger LOGGER = LoggerFactory.getLogger(ParseTypeDeclaration.class);

@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.bytecode.java.asm;
 
+import static org.objectweb.asm.Opcodes.ASM9;
+
+import java.util.Arrays;
+
+import org.objectweb.asm.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.bytecode.java.ExpressionFactory;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.SourceSet;
@@ -30,13 +38,6 @@ import io.codelaser.maddi.cst.api.type.TypeNature;
 import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.util.CreateSyntheticFieldsForGetSet;
-import org.objectweb.asm.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Arrays;
-
-import static org.objectweb.asm.Opcodes.ASM9;
 
 public class MyClassVisitor extends ClassVisitor {
     private static final Logger LOGGER = LoggerFactory.getLogger(MyClassVisitor.class);

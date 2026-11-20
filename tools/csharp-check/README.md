@@ -2,16 +2,31 @@
 
 The judge of maddi's Java → C# translation (`maddi-cst-print-csharp`, #115). `JavaToCSharpRatchet` in
 `maddi-run-openjdk` builds it with `dotnet build` and runs it on the translated files. The tool parses each file on
-its own for syntax errors, then compiles the syntax-clean files together against the BCL of the running .NET with
-Roslyn (the `Microsoft.CodeAnalysis.CSharp` package). It also compiles against the assemblies the argument file names
+its own for syntax errors, then compiles the syntax-clean files together against the BCL of the target framework
+(`net10.0`'s reference assemblies, which the build lists in `framework-references.txt` beside the tool) with Roslyn (the `Microsoft.CodeAnalysis.CSharp` package). It also compiles against the assemblies the argument file names
 with `-r:`: the NuGet packages of the translation's library mappings, which the ratchet restores. With the line
 `-nullable` it enables C#'s nullable reference types and also reports the nullable warnings. It writes one
 tab-separated line per error or warning; `Program.cs` describes the format.
 
 It is a .NET project, so it is not part of the Gradle build: it needs a .NET SDK (10 or later) on the `PATH`, and
-NuGet access the first time it is built. Its build output goes to `build/`, beside the sources.
+NuGet access the first time it is built (an SDK 11 restores `net10.0`'s reference pack from NuGet). It runs on .NET 10
+where it is installed and on the next major .NET otherwise (`RollForward=Major`); the verdicts do not depend on which,
+as it judges against `net10.0`'s reference assemblies, not the running .NET's. Its build output goes to `build/`, beside the sources.
 
 ```
 dotnet build tools/csharp-check -c Release
 dotnet tools/csharp-check/build/bin/Release/net10.0/csharp-check.dll <argument file>
+dotnet tools/csharp-check/build/bin/Release/net10.0/csharp-check.dll -serve
 ```
+
+`diff.py <before.out> <after.out> [E|S|N]` compares two runs' `csharp-check.out`: the totals, the codes that moved,
+and each file and code that moved.
+
+With `-serve` it reads an argument file per line of standard input and answers each with its lines, the `F` line
+last, keeping the BCL's references for the next one: `maddi-cst-print-csharp`'s unit tests judge every sample
+through one such process (`CSharpCheck`).
+
+With a line `-run:<type>` in the argument file, a compilation without errors is also run: the tool loads it in
+memory, calls the static `Main` of the type of that simple name (at most ten seconds), and writes what it printed
+(`O` lines) and the exception it ended with (an `X` line). The unit tests' behavioural check
+(`CommonJavaToCSharp.behaves`, `TestJavaToCSharpBehaviour`) compares that with the Java sample's own run.

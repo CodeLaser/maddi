@@ -1,10 +1,10 @@
 [[overview]]
 = Overview
 
-{maddi} is a whole-program static analyzer for Java. It reads your source code and its compile
-classpath, works out how each
-type behaves — is it modified, is it immutable, does it leak its internals — and records the result as
-a set of annotations (`@Immutable`, `@Container`, `@NotModified`, `@Independent`, …) together with a
+{maddi} is a whole-program static analyzer for Java, and for Kotlin in mixed projects. It reads your source code
+and its compile classpath, works out how each
+type behaves — is it modified, is it immutable, does it leak its internals, where can `null` turn up — and records
+the result as a set of annotations (`@Immutable`, `@Container`, `@NotModified`, `@Independent`, …) together with a
 machine-readable *analysis result* per package.
 
 This manual is about *operating* the tool. The meaning of the annotations, and the theory that produces
@@ -14,43 +14,77 @@ them, are described in the companion document _The Road to Immutability_.
 
 Given a set of source directories and a classpath, a {maddi} run performs, in order:
 
-. *parse* — build a concrete syntax tree (CST) of your sources;
+. *parse* — build a syntax tree of your sources;
 . *prep* — resolve the types, build the call graph, and compute the analysis order;
 . *modification analysis* — the actual immutability / modification computation (iterative);
-. *write results* — one analysis-result `.json` file per package, under the results directory
-  (default `<build>/maddi`).
+. *write results* — one analysis-result `.json` file per package, under the results directory.
 
 You can stop after any step with the `analysis-steps` option (see <<command-line>>); running `prep`
 only is a fast way to check that a project parses and resolves cleanly.
+A run can also <<translation,translate>> the project instead of writing results.
 
-== The three ways to run it
+== The ways to run it
 
-There is one analysis engine, reached through three front doors:
+There is one analysis engine, reached through several front doors:
 
 [cols="1,3",options="header"]
 |===
 | Entry point | Use when
+
+| <<command-line>>
+| You want to drive the analyzer directly — from a captured build log (`--compile-log`), a saved
+  input configuration, or explicit source/classpath flags. Works for any build system, and is the only way to
+  analyse Kotlin or to translate.
 
 | <<gradle-plugin>>
 | Your project builds with Gradle. The plugin derives the source sets and classpath from the Gradle
   model for you and runs the analyzer as a task.
 
 | <<maven-plugin>>
-| Your project builds with Maven. Mojos derive the input from the Maven project model.
+| Your project builds with Maven. Goals derive the input from the Maven project model.
 
-| <<command-line>>
-| You want to drive the analyzer directly — from a captured build log (`--compile-log`), a saved
-  input configuration, or explicit source/classpath flags. Works for any build system.
+| <<agents-and-ides,MCP server>>
+| A coding agent should configure the project, run the analysis, and ask for the verdicts and the reasons
+  behind them.
+
+| <<agents-and-ides,IDE plugins>>
+| You want the computed annotations in the editor. Not published yet: build them from source.
 |===
 
-All three assemble the same object — an *input configuration* (source sets + classpath + JDK modules)
+All of them assemble the same object — an *input configuration* (source sets + classpath + JDK modules)
 — and hand it to the analyzer. That object is the subject of <<input-configuration>>.
+
+== Where to get it
+
+[cols="1,3",options="header"]
+|===
+| What | Where
+
+| The command line
+| Two zips on the https://github.com/CodeLaser/maddi/releases/latest[GitHub release]:
+  `maddi-<version>.zip` (Java) and `maddi-kotlin-<version>.zip` (Java and Kotlin).
+
+| The Gradle plugin
+| `io.codelaser.maddi.analyzer` on the Gradle Plugin Portal.
+
+| The Maven plugin
+| `io.codelaser:maddi-mvnplugin` on Maven Central.
+
+| The MCP server
+| `brew install codelaser/tap/maddi-mcp`, or `maddi-mcp-<version>.zip` on the GitHub release.
+
+| The annotations and support classes
+| `io.codelaser:maddi-annotation` and `io.codelaser:maddi-support` on Maven Central.
+|===
+
+The sources are in three repositories: `maddi` (the base: syntax tree, parsers, annotations), `maddi-mod` (the
+modification analysis) and `maddi-dist` (the command line, the build plugins, the IDE plugins and the MCP server).
 
 == Prerequisites
 
-* *A recent JDK.* {maddi} is built and run on current Java (the modules target Java 25/26). Run it on a
-  JDK at least as new as the one that built it.
-* *`--add-exports` for the openjdk front-end.* The default (openjdk) parser reaches into
+* *JDK 25 or later* to run the analyzer; the Kotlin distribution needs *JDK 26 or later*. This is the JDK that
+  runs {maddi}, not the one your project targets.
+* *`--add-exports` for javac.* The parser reaches into
   `jdk.compiler`'s `com.sun.tools.javac.*` internals, so the JVM that runs the analyzer must be started
   with:
 +
@@ -63,8 +97,8 @@ All three assemble the same object — an *input configuration* (source sets + c
 --add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
 ----
 +
-The Gradle plugin injects these into a forked worker automatically. For the Maven plugin and the CLI
-you supply them yourself (see the relevant sections).
+The command-line launchers carry these flags, and the Gradle plugin injects them into a forked worker. Only for
+the Maven plugin do you supply them yourself (see <<maven-plugin>>).
 
 NOTE: {maddi} deliberately analyzes with a _partial_ classpath — it does not need every transitive
 dependency to be present. Types it cannot resolve are reported as *warnings*, not fatal errors (see

@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.api.output.TypeNameRequired;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.TypeNameRequired;
 import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;

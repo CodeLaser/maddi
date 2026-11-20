@@ -17,15 +17,16 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
 /**
  * The printer's messages ({@link CSharpPrintCode}): code, severity, type and line, as the ratchets' reports and a
@@ -57,7 +58,7 @@ public class TestJavaToCSharpMessages extends CommonJavaToCSharp {
                 static class Stack extends ArrayList<String> { @Override public boolean add(String s) { return super.add(s); } }
                 static int match(Object o) { return switch (o) { case R(int a) -> a; default -> 0; }; }
                 static Object type() { return Optional.class; }
-                static int[][] grid(int a, int b) { return new int[a][b]; }
+                static int[][][][][] grid(int a, int b) { return new int[a][b][a][b][a]; }
                 static Object sw(Object o) {
                     return switch (o) { case String s when s.isEmpty() -> 0; default -> { yield 1; } };
                 }
@@ -98,6 +99,29 @@ public class TestJavaToCSharpMessages extends CommonJavaToCSharp {
         // the record pattern and the switch expression's block arm are C#'s, without a message
         assertNull(byCode.get(CSharpPrintCode.SWITCH_FORM), all);
         assertNull(byCode.get(CSharpPrintCode.JAVA_FALLBACK), all);
+    }
+
+    /**
+     * A type used with a wildcard that gets no wildcard interface says why: {@code Box<?>} passed where a generic
+     * method declares {@code Box<T>}, which the interface, without {@code T}, could not go into (CS0411).
+     */
+    @Test
+    public void noWildcardInterface() {
+        List<PrintMessage<CSharpPrintCode>> messages = messages("""
+                package a;
+                class W {
+                    interface Box<T> { T get(); void put(T t); }
+                    static <T> void take(Box<T> b) { }
+                    static Box<?> box;
+                    static void use() { take(box); }
+                }
+                """);
+        String all = messages.stream().map(PrintMessage::toString).collect(Collectors.joining("\n"));
+        PrintMessage<CSharpPrintCode> m = messages.stream().filter(x -> x.code() == CSharpPrintCode.NO_WILDCARD_INTERFACE)
+                .findFirst().orElse(null);
+        assertNotNull(m, all);
+        assertEquals("a.W", m.type(), all);
+        assertTrue(m.detail().startsWith("a.W.Box: passed as "), all);
     }
 
     private static void at(Map<CSharpPrintCode, List<PrintMessage<CSharpPrintCode>>> byCode, CSharpPrintCode code,

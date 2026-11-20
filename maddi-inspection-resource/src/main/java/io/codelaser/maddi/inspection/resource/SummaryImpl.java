@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.inspection.resource;
 
+import java.util.*;
+
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.parser.Summary;
-
-import java.util.*;
 
 public class SummaryImpl implements Summary {
     private final Set<TypeInfo> types = new HashSet<>();

@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.project.config;
 
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /*
  A real Maven build, captured twice: a main and a test source set from the -X log, the pom hashed, and the capture run
@@ -76,7 +77,7 @@ public class MavenCaptureTest {
     }
 
     private static boolean onPath(String tool) {
-        for (String dir : System.getenv().getOrDefault("PATH", "").split(java.io.File.pathSeparator)) {
+        for (String dir : System.getenv().getOrDefault("PATH", "").split(File.pathSeparator)) {
             if (Files.isExecutable(Path.of(dir, tool))) return true;
         }
         return false;

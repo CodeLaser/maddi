@@ -1,3 +1,4 @@
+using Maddi.JavaCompat;
 using System;
 namespace Org.Example.Phasescopes;
 public sealed class PhaseScopes {
@@ -16,19 +17,28 @@ public sealed class PhaseScopes {
         return best.Raw;
     }
     internal interface IAcceptor { }
-    public interface IDirector<Solution_, Score_> : IDirector<Solution_> where Score_ : IScore<Score_> {
+    internal sealed class Decider<Solution_> {
+        internal void DoMove(PhaseScope<Solution_> scope) {
+            IInner best = scope.GetBest();
+            if (best.Zero()) { scope.GetDirector().Reset(); }
+        }
+        internal void Step(PhaseScope<Solution_> scope) { DoMove(scope); }
+    }
+
+    public interface IDirector<in Solution_, out Score_> : IDirector<Solution_> where Score_ : IScore<Score_> {
         Score_ Calculate(Solution_ solution);
         void Reset();
         IScore IDirector<Solution_>.Calculate(Solution_ solution) => Calculate(solution);
         void IDirector<Solution_>.Reset() => Reset();
     }
-    public interface IDirector<Solution_> {
+    public interface IDirector<in Solution_> {
         IScore Calculate(Solution_ solution);
         void Reset();
     }
 
     public sealed record Inner<Score_>(Score_ Raw) : IInner where Score_ : IScore<Score_> {
         internal bool Zero() => Raw.IsZero();
+        public override string ToString() => "Inner[raw=" + JavaString.ValueOf(Raw) + "]";
         IScore IInner.Raw => Raw;
         bool IInner.Zero() => Zero();
     }
@@ -45,11 +55,16 @@ public sealed class PhaseScopes {
 
     public interface IScore<Score_> : IScore where Score_ : IScore<Score_> {
         bool IsZero();
-        public sealed class Lambda(Func<bool> f) : IScore<Score_> { public bool IsZero() => f(); }
         bool IScore.IsZero() => IsZero();
     }
     public interface IScore { bool IsZero(); }
-    public sealed record SimpleScore(int Value) : IScore<SimpleScore> { public bool IsZero() => Value == 0; }
+    public sealed class ScoreLambda<Score_>(Func<bool> f) : IScore<Score_> where Score_ : IScore<Score_> { public bool IsZero() => f(); }
+
+    public readonly record struct SimpleScore(int Value) : IScore<SimpleScore> {
+        public bool IsZero() => Value == 0;
+        public override string ToString() => "SimpleScore[value=" + JavaString.ValueOf(Value) + "]";
+    }
+
     internal sealed class SolverScope<Solution_> {
         private IInner best;
         private IDirector<Solution_> director;

@@ -9,7 +9,7 @@ internal sealed class Groups {
     internal static IConstructor<List<string>> ByLambda(string key) => GroupBy<string, List<string>>(
         key,
         (k, i, next) => new Node<string, List<string>>(k, i, next));
-    internal delegate object Builder<K, T>(K key, int index, ILifecycle<T> next);
+    internal delegate object Builder<in K, T>(K key, int index, ILifecycle<T> next);
     internal interface IConstructor<T> { }
     internal interface ILifecycle<T> { }
     internal sealed class Node<K, T> { internal Node(K key, int index, ILifecycle<T> next) { } }

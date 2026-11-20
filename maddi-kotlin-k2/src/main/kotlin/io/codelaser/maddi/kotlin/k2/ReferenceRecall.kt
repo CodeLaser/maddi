@@ -366,7 +366,7 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) : K2ParseObserver(), 
             fun referenceName(element: Element): String? = when (element) {
                 is VariableExpression -> element.variable().simpleName()
                 is MethodCall -> element.methodInfo().name()
-                is ConstructorCall -> element.constructor()?.typeInfo()?.simpleName()
+                is ConstructorCall -> (if (element.callsConstructorOfCreatedType()) element.constructor().typeInfo().simpleName() else null)
                     ?: element.parameterizedType()?.typeInfo()?.simpleName()
                 is MethodReference -> element.methodInfo().name()
                 is TypeExpression -> element.parameterizedType().typeInfo()?.simpleName()

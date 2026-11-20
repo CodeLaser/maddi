@@ -133,6 +133,13 @@ public class PropertyImpl implements Property {
      * fixpoint, only when a run asks for culprits; absent otherwise.
      */
     public static final Property CONTAINER_CULPRIT = new PropertyImpl("containerCulprit", ValueImpl.CulpritImpl.EMPTY);
+    /**
+     * Why a method is not {@code @Fresh}, a parameter not {@code @Borrowed}, a field not {@code @Owned}
+     * (road-to-immutability §055): one step at the element, the first rule of the ownership pass it fails ("callee
+     * X is not fresh", "kept: ..."). Written by the ownership pass, only when a run asks for culprits; absent
+     * otherwise, and absent on a positive verdict.
+     */
+    public static final Property OWNERSHIP_CULPRIT = new PropertyImpl("ownershipCulprit", ValueImpl.CulpritImpl.EMPTY);
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
@@ -150,6 +157,13 @@ public class PropertyImpl implements Property {
     // the early-cutoff carry copies analyzer output onto a rewired type -- carried both ways, the second write threw
     public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
+    /**
+     * {@code @Fresh}: every object the method returns was created during the call (or is {@code null}), and nothing
+     * outside the call holds it when the method returns. A call through the method may dispatch to an override, so
+     * the verdict holds for every implementation. Written by the ownership pass (maddi-mod
+     * {@code OwnershipPass}, docs/roadmap/ownership.md), only when it runs; absent means not computed.
+     */
+    public static final Property FRESH_METHOD = new PropertyImpl("freshMethod");
     /**
      * The nullability of the return value, and of each type argument (maddi-mod docs/design/nullability.md B2):
      * from a null annotation (a contract: maddi's {@code @NotNull}/{@code @Nullable}, Lombok's {@code @NonNull}),
@@ -213,6 +227,22 @@ public class PropertyImpl implements Property {
 
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
+    /**
+     * {@code @Borrowed}: nothing that outlives the call holds the argument's object afterwards; the method may read and
+     * modify it, and keep its contents ({@code list.addAll(p)} borrows {@code p}). Unlike independence, sharing an
+     * immutable object counts: a stored {@code String} is not borrowed. A call through the method may dispatch to an
+     * override, so the verdict holds for every implementation. Written by the ownership pass (maddi-mod
+     * {@code OwnershipPass}, docs/roadmap/ownership.md), only when it runs; absent means not computed.
+     */
+    public static final Property BORROWED_PARAMETER = new PropertyImpl("borrowedParameter");
+    /**
+     * The owned field a parameter is handed over into: every caller hands its argument over and the method keeps it
+     * only in that field, so the parameter is no dependence (the ownership round's feed, maddi-mod
+     * {@code OwnershipFeed}, docs/roadmap/ownership.md "Fed into the fixpoint"). Written once the analysis is done, and
+     * read back by an incremental run, which starts its feed from it. Empty: not handed over, or not computed.
+     */
+    public static final Property HANDED_OVER_PARAMETER = new PropertyImpl("handedOverParameter",
+            ValueImpl.AssignedToFieldImpl.EMPTY);
     /**
      * The structural twin of {@link #UNMODIFIED_PARAMETER}, see {@link #STRUCTURALLY_NON_MODIFYING_METHOD}: the
      * argument's object is not modified by the method, its elements may be. {@code Collection<Query> queries}, read
@@ -279,6 +309,27 @@ public class PropertyImpl implements Property {
     public static final Property IMMUTABLE_FIELD = new PropertyImpl("immutableField"
             , ValueImpl.ImmutableImpl.MUTABLE);
     public static final Property CONTAINER_FIELD = new PropertyImpl("containerField");
+    /**
+     * {@code @Owned}: the object the field holds can only be reached through the object holding the field, so it dies
+     * with it. Every value assigned to the field is created for it (or null), nothing outside the owner holds it, and
+     * the field is private. Written by the ownership pass (maddi-mod {@code OwnershipPass},
+     * docs/roadmap/ownership.md), only when it runs; absent means not computed. See {@link #SHARED_IMMUTABLE_FIELD}.
+     */
+    public static final Property OWNED_FIELD = new PropertyImpl("ownedField");
+    /**
+     * Not {@link #OWNED_FIELD} only because its object, which is immutable, is also held elsewhere: several holders,
+     * nobody modifies it, and no cycle is possible (Rust's {@code Rc}). Written by the ownership pass, only when it
+     * runs.
+     */
+    public static final Property SHARED_IMMUTABLE_FIELD = new PropertyImpl("sharedImmutableField");
+    /**
+     * The elements of an {@link #OWNED_FIELD} collection or map are owned too: each element's object is reachable only
+     * through the collection, so only through the object holding the field. Every element arrives created for it (or
+     * handed over by every caller), and none leaves: not returned, not shared with another collection, not kept by a
+     * callee. Immutable elements (a map's {@code String} keys) are not judged. Written by the ownership pass (maddi-mod
+     * {@code OwnershipPass}, docs/roadmap/ownership.md), only when it runs; absent means not computed.
+     */
+    public static final Property OWNED_ELEMENTS_FIELD = new PropertyImpl("ownedElementsField");
     public static final Property INDEPENDENT_FIELD = new PropertyImpl("independentField",
             ValueImpl.IndependentImpl.DEPENDENT);
     //public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);

@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.api.info;
 
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * The read-only lookup facet of a completed rewire (see {@link InfoMap}, which extends it). Every {@code rewire(...)}
@@ -86,7 +87,7 @@ public interface InfoMapView {
      * such lookup misses on the rewired type, and the old keys keep the previous generation reachable (found by the
      * rewire driver on fernflower; docs/design/incremental-and-overlay.md).
      */
-    <T> T rewired(T original, java.util.function.Supplier<T> rewire);
+    <T> T rewired(T original, Supplier<T> rewire);
 
     /**
      * The copy this rewire made of {@code original} through {@link #rewired}, or {@code null} when it made none. A
@@ -95,6 +96,14 @@ public interface InfoMapView {
      */
     default <T> T rewiredIfPresent(T original) {
         return null;
+    }
+
+    /**
+     * Drop the memo of {@link #rewired}: the copies are made, and the memo holds this generation's originals for as
+     * long as the map lives. Call it once whatever reads {@link #rewiredIfPresent} (the carry of a seeded analysis's
+     * derived values onto the variable data of a rewired type) is done; a re-parse also drops the map wholesale.
+     */
+    default void releaseRewireMemo() {
     }
 
     /**

@@ -38,9 +38,9 @@ public static class Streams {
     internal static ISet<T> IdentitySet<T>() => FromMap(new Dictionary<T, bool>());
     internal static Slot<R, R> MinSlot<R>() where R : IComparable<R> => new Slot<R, R>(
         true,
-        new SortedDictionary<R, R>());
+        new SortedDictionary<R, R>(JavaComparer<R>.Natural));
     internal static Func<L, R, Pair<L, R>> Pairing<L, R>() => (p0, p1) => new Pair<L, R>(p0, p1);
-    internal static Func<int, ISet<V>> Sets<V>() => p0 => new HashSet<V>(p0);
+    internal static Func<int, ISet<V>> Sets<V>() => p0 => new JavaLinkedHashSet<V>(p0);
     internal static List<R> Empty<R>() => new List<R>();
     internal static Func<List<R>> EmptySupplier<R>() => Streams.Empty<R>;
     internal static R Max<T, R>(Func<T, R> mapping, T t) => mapping(t);
@@ -49,13 +49,15 @@ public static class Streams {
 internal sealed class Bridge<A> : IStream<A> { internal Bridge(IStreams parent) { } }
 internal sealed class Bridge2<A, B> : IStream<B> { internal Bridge2(IStreams parent) { } }
 internal abstract class Builder { internal abstract S Build<S>(S s) where S : IStream; }
-internal sealed record Duo<K, V>(K Key, V Value);
-internal interface IFolding<A, C, R> : IFolding<A, R> {
+internal readonly record struct Duo<K, V>(K Key, V Value) {
+    public override string ToString() => "Duo[key=" + JavaString.ValueOf(Key) + ", value=" + JavaString.ValueOf(Value) + "]";
+}
+internal interface IFolding<A, C, out R> : IFolding<A, R> {
     R Finish(C c);
     C Start();
     object IFolding<A, R>.Start() => Start();
 }
-internal interface IFolding<A, R> { object Start(); }
+internal interface IFolding<A, out R> { object Start(); }
 internal sealed class Folds<A, R> {
     private readonly IFolding<A, R> folding;
     internal Folds(IFolding<A, R> folding) { this.folding = folding; }
@@ -67,7 +69,9 @@ internal sealed class Joined<A, B> : IStream<B> { internal void SetBridge(Bridge
 internal sealed class MapStream<A, NewA> : IStream<NewA> {
     internal MapStream(Streams<A> parent, Func<A, NewA> mapping) { }
 }
-internal sealed record Pair<L, R>(L Left, R Right);
+internal readonly record struct Pair<L, R>(L Left, R Right) {
+    public override string ToString() => "Pair[left=" + JavaString.ValueOf(Left) + ", right=" + JavaString.ValueOf(Right) + "]";
+}
 internal sealed class SimpleBuilder : Builder { internal override S Build<S>(S s) => s; }
 internal sealed class Slot<R, P> { internal Slot(bool min, SortedDictionary<P, R> map) { } }
 internal interface IStream<T> : IStream { }

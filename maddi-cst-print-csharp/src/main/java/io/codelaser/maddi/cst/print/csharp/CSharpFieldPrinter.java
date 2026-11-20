@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldPrinter;
@@ -28,8 +30,6 @@ import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
-import java.util.List;
-
 /**
  * Prints a {@link FieldInfo} as a C# field: {@code [access] [static] [const|readonly] [volatile] Type name [= init];}.
  * A static final primitive or String with a constant initializer is a {@code const}; another final field is
@@ -39,7 +39,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     @Override
     public OutputBuilder print(Qualification q, boolean asParameterInRecordDeclaration) {
-        String type = CSharpTypeName.declared(fieldInfo.type(), false,
+        String type = CSharpTypeName.declared(fieldInfo.type(), CSharpContext.program().readOnly(fieldInfo),
                 CSharpContext.program().facts().nullable(fieldInfo), q);
         String name = CSharpNames.field(fieldInfo);
         if (asParameterInRecordDeclaration) return new OutputBuilderImpl().add(new TextImpl(type + " " + name));
@@ -111,7 +111,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         // a getter that code outside the program may override, as the policy has it: a virtual property
         String inheritance = CSharpModifiers.inheritance(property.getter(), f.owner());
         String modifiers = inheritance == null ? access : access + " " + inheritance;
-        b.add(new TextImpl(modifiers + " " + CSharpTypeName.declared(f.type(), false,
+        b.add(new TextImpl(modifiers + " " + CSharpTypeName.declared(f.type(), CSharpContext.program().readOnly(f),
                         CSharpContext.program().facts().nullable(f), q))).add(SpaceEnum.ONE)
                 .add(new TextImpl(property.name() + " " + accessors));
         if (f.initializer() != null && !f.initializer().isEmpty() && (f.isStatic() || !CSharpInner.initializedInConstructor(f.owner()))) {
@@ -138,7 +138,9 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     /** Final as Java has it: an interface's field is implicitly static and final. */
     static boolean isFinal(FieldInfo fieldInfo) {
-        return fieldInfo.isFinal() || fieldInfo.owner().isInterface();
+        // a readonly struct's fields are readonly: the struct's are assigned in its constructors only (CSharpStructs)
+        return fieldInfo.isFinal() || fieldInfo.owner().isInterface()
+               || !fieldInfo.isStatic() && CSharpContext.program().struct(fieldInfo.owner());
     }
 
     /** A static final primitive or String with a constant initializer. */

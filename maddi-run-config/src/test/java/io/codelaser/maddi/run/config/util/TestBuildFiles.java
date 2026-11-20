@@ -17,20 +17,23 @@
 
 package io.codelaser.maddi.run.config.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.codelaser.maddi.inspection.api.resource.BuildFiles;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 
 /** The build files an input configuration declares, hashed at capture time, and their JSON ({@link BuildFiles}). */
 public class TestBuildFiles {
@@ -74,7 +77,7 @@ public class TestBuildFiles {
         assertNotEquals(first.sha256().get("a/build.gradle.kts"), third.sha256().get("a/build.gradle.kts"));
         assertEquals(first.sha256().get("settings.gradle.kts"), third.sha256().get("settings.gradle.kts"));
         assertEquals(root.toAbsolutePath().normalize().toString(), third.root());
-        assertNotNull(java.time.Instant.parse(third.capturedAt()));
+        assertNotNull(Instant.parse(third.capturedAt()));
     }
 
     @Test

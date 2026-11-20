@@ -21,6 +21,7 @@ import com.sun.source.util.JavacTask
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl
 import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import io.codelaser.maddi.kotlin.k2.KotlinScan
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -69,6 +70,111 @@ class TestJavaStub {
         assertTrue(errors.isEmpty(),
             "javac must resolve UseWidget against the Kotlin-derived stub.\n--- stub ---\n$stub\n--- errors ---\n" +
                 errors.joinToString("\n"))
+    }
+
+    /**
+     * What fernflower's Java tests call on its Kotlin translation: `@JvmStatic` companion functions (static methods of
+     * the OUTER class on the JVM: `ConstExprent.trimFloat`, `InterpreterUtil.getBytes`) and a `fun interface`
+     * implemented by a lambda (`IBytecodeProvider`), and a `@JvmRecord data class` (no Java class may extend
+     * java.lang.Record, its parent). Missing from the stubs, javac dropped the four test types that use
+     * them (maddi-mod#146), and with them the modifications they make (maddi-mod#145).
+     */
+    @Test
+    fun jvmStaticCompanionFunctionsAndAFunInterfaceAreJava() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("k").setUri(URI.create("file:/")).build()
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Util.kt",
+            "package a.b\n" +
+                "fun interface Provider { fun get(path: String, inner: String?): ByteArray }\n" +
+                "class Util {\n" +
+                "    companion object {\n" +
+                "        @JvmStatic fun trim(value: String, start: Float): String = value\n" +
+                "        @JvmStatic fun put(key: String, value: Any?) {}\n" +
+                "        fun notStatic(): Int = 1\n" +
+                "    }\n" +
+                "}\n" +
+                "@JvmRecord data class Pair(val first: Int, val second: Int)\n"
+        )
+        assertEquals("java.lang.Record", types.first { it.simpleName() == "Pair" }.parentClass()?.typeInfo()?.fullyQualifiedName(),
+            "the premise: @JvmRecord resolved")
+        val stubs = types.filter { it.simpleName() in setOf("Provider", "Util", "Pair") }
+            .associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it) }
+        val use = """
+            package a.b;
+            public class Use {
+                public Provider p() { return (path, inner) -> new byte[0]; }
+                public String t() { Util.put("k", "v"); return Util.trim("x", 1.0f) + Util.Companion.notStatic(); }
+                public Object pair() { return new Pair(1, 2); }
+            }
+        """.trimIndent()
+
+        val errors = attribute(stubs + ("a.b.Use" to use))
+        assertTrue(errors.isEmpty(), stubs.values.joinToString("\n") + "\n--- errors ---\n" + errors.joinToString("\n"))
+    }
+
+    /**
+     * An override of a Java method whose parameter is a TYPE VARIABLE of its class: erased as inherited, not as
+     * declared. Quarkus's `override fun list(query: PanacheQuery<*>)` in a `MongoOperations<PanacheQuery<*>, …>` was
+     * stubbed `list(Object)`, a name clash with the inherited `list(PanacheQuery<?>)`; `Consumer<List<*>>` is the
+     * same shape with a JDK type.
+     */
+    @Test
+    fun anOverrideOfATypeVariableParameterIsErasedAsInherited() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("k").setUri(URI.create("file:/")).build()
+        val sink = KotlinScan(runtime, sourceSet).parse(
+            "Sink.kt",
+            "package a.b\n" +
+                "class Sink : java.util.function.Consumer<List<*>> {\n" +
+                "    override fun accept(t: List<*>) {}\n" +
+                "}\n"
+        ).first { it.simpleName() == "Sink" }
+        val stub = JavaStubGenerator.stub(sink)
+        assertTrue(stub.contains("accept(java.util.List p0)"), stub)
+        val use = """
+            package a.b;
+            public class UseSink {
+                public void use(Sink s, java.util.List<String> l) { s.accept(l); java.util.function.Consumer<java.util.List<?>> c = s; }
+            }
+        """.trimIndent()
+        val errors = attribute(mapOf("a.b.Sink" to stub, "a.b.UseSink" to use))
+        assertTrue(errors.isEmpty(), "--- stub ---\n$stub\n--- errors ---\n" + errors.joinToString("\n"))
+    }
+
+    /**
+     * An override of a Java collection method has the Java method's signature, as kotlinc compiles it:
+     * `remove(element: E)` in an `ArrayList<E>` is `remove(Object)`, `addAll(c: Collection<E>)` is
+     * `addAll(Collection<? extends E>)`. Stubbed with the Kotlin types, javac saw a second method of the same erasure
+     * and refused the stub ("name clash"), and with it fernflower's whole mixed parse (VBStyleCollection).
+     */
+    @Test
+    fun anOverrideOfAJavaCollectionMethodHasItsJavaSignature() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("k").setUri(URI.create("file:/")).build()
+        val bag = KotlinScan(runtime, sourceSet).parse(
+            "Bag.kt",
+            "package a.b\n" +
+                "open class Bag<E, K> : java.util.ArrayList<E> {\n" +
+                "    constructor() : super()\n" +
+                "    constructor(initialCapacity: Int) : super(initialCapacity)\n" +
+                "    override fun remove(element: E): Boolean = super.remove(element)\n" +
+                "    override fun removeAt(index: Int): E = super.removeAt(index)\n" +
+                "    override fun addAll(elements: Collection<E>): Boolean = super.addAll(elements)\n" +
+                "    fun keep(e: E): Boolean = true\n" +
+                "}\n"
+        ).first { it.simpleName() == "Bag" }
+
+        val stub = JavaStubGenerator.stub(bag)
+        val useBag = """
+            package a.b;
+            public class UseBag {
+                public boolean use(Bag<String, Integer> b, java.util.List<String> l) { return b.remove("x") && b.addAll(l) && b.keep("y"); }
+            }
+        """.trimIndent()
+
+        val errors = attribute(mapOf("a.b.Bag" to stub, "a.b.UseBag" to useBag))
+        assertTrue(errors.isEmpty(), "--- stub ---\n$stub\n--- errors ---\n" + errors.joinToString("\n"))
     }
 
     /**

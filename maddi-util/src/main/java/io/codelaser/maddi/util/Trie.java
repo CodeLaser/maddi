@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.util;
 
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
 import io.codelaser.maddi.annotation.FinalFields;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.support.Freezable;
-
-import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 /*
 to make this class @ImmutableContainer, we have to secure the get() methods

@@ -17,6 +17,16 @@
 
 package io.codelaser.maddi.parser.java;
 
+import static org.parsers.java.Token.TokenType.UNDERSCORE;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -26,16 +36,6 @@ import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.inspection.api.parser.Context;
-import io.codelaser.maddi.inspection.api.parser.GenericsHelper;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.*;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import static org.parsers.java.Token.TokenType.UNDERSCORE;
 
 public class ParseRecordPattern extends CommonParse {
     protected ParseRecordPattern(Runtime runtime, Parsers parsers) {

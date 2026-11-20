@@ -1,5 +1,19 @@
 package io.codelaser.maddi.inspection.openjdk;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -10,18 +24,6 @@ import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.net.URI;
-import java.util.List;
-import java.util.Map;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * The three prerequisites for reloading + rewiring on the openjdk inspector: the {@code sourceFiles} map that
@@ -72,7 +74,7 @@ public class TestReloadPrerequisites {
         ParseResult pr = parse();
         assertEquals(2, pr.primaryTypes().size());
 
-        java.util.Set<SourceFile> files = javaInspector.sourceFiles();
+        Set<SourceFile> files = javaInspector.sourceFiles();
         assertEquals(2, files.size(), "expected one SourceFile per compilation unit, have: " + files);
         for (SourceFile sf : files) {
             assertSame(sourceSet, sf.sourceSet());
@@ -113,8 +115,8 @@ public class TestReloadPrerequisites {
 
         // exactly as the parse does it: newInfoMap over the types to rewire, rewireAll, then register every type the
         // map built -- setRewiredType registers the one type it is given, and the map is what knows the full list
-        InfoMap infoMap = javaInspector.runtime().newInfoMap(java.util.Set.of(x));
-        java.util.Set<TypeInfo> rewiredSet = infoMap.rewireAll();
+        InfoMap infoMap = javaInspector.runtime().newInfoMap(Set.of(x));
+        Set<TypeInfo> rewiredSet = infoMap.rewireAll();
         assertEquals(1, rewiredSet.size(), "rewireAll returns the primary types");
         TypeInfo rewired = rewiredSet.iterator().next();
         assertNotSame(x, rewired);

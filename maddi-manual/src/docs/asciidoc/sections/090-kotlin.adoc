@@ -5,33 +5,36 @@
 Java and Kotlin over one shared core, so a cross-language reference (a Java class using a Kotlin type,
 or vice versa) resolves to a single type.
 
-== What works today
+== How to run it
 
-* *Source-set collection.* The Gradle plugin recognizes Kotlin source directories and can emit a mixed
-  input configuration (see <<gradle-plugin>>).
-* *Mixed input-configuration derivation.* The compile-log path reconstructs a mixed configuration from a
-  build log containing both `javac` and `kotlinc` invocations (see <<command-line>>).
-* *Prep analysis.* The `run-kotlin` runner parses a mixed project (each type placed in its own source
-  set, honouring the classpath) and runs the *prep* analysis — call graph and analysis order — over the
-  combined Java+Kotlin types.
+Kotlin support ships in one form only: `maddi-kotlin-<version>.zip`, with the launcher `bin/maddi-kotlin`. It
+depends on JetBrains artifacts that are not on Maven Central, which is why the build plugins do not carry it.
+It needs *JDK 26 or later*.
+
+`bin/maddi-kotlin` takes the same command line as `bin/maddi` (<<command-line>>) and does strictly more: on a
+project with no `.kt` file it runs the Java analyzer and behaves identically.
 
 [source,console]
 ----
-$ ./gradlew :maddi-cli-kotlin:run --args="--compile-log mixed-build.log"
+# mixed-build.log: a build log with both the javac and the kotlinc invocations
+$ maddi-kotlin --compile-log mixed-build.log --analysis-steps modification
 ----
+
+The compile-log path reconstructs one mixed configuration from a build log that contains both `javac` and
+`kotlinc` invocations. The Gradle plugin recognizes Kotlin source directories too, so its task
+`maddi-write-input-configuration` writes a mixed configuration that `maddi-kotlin --input-configuration` reads.
 
 == Current limits
 
 [CAUTION]
 ====
-Kotlin/mixed support is *prep-only* for now:
-
-* the *modification* analysis is not yet run on mixed projects;
-* the Gradle `maddi-analyzer` task drives only the Java (openjdk) analyzer, so it does not yet analyze
-  `.kt` (Kotlin sources are recorded in the configuration but skipped by that task);
-* the mixed inspector's cross-language scope has known follow-ups (some Java↔Java and both-direction
-  cross-language cases);
-* the Kotlin front-end's own language coverage is still growing.
+* An option that the mixed pipeline cannot honour yet is *refused by name*, with exit code 7, and never run as a
+  no-op. Writing analysis results, incremental analysis and the hints compiler are among those options.
+  `--translate` is one too: a project with Kotlin sources has no single Java program to translate.
+* The Java-only tools — `bin/maddi`, the Gradle task `maddi-analyzer`, the Maven goals — refuse a project in which
+  they meet Kotlin sources (exit code 6). `--skip-kotlin-sources` (`skipKotlinSources` in Gradle) makes them analyse
+  the Java part alone, with an incomplete result: whatever the Kotlin code does to the Java objects is not seen.
+* The Kotlin front-end's own language coverage is still growing.
 ====
 
-This section will grow as the Kotlin/mixed pipeline moves beyond prep.
+The IntelliJ plugin analyses Kotlin too; it downloads the Kotlin front-end on demand (<<agents-and-ides>>).

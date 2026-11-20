@@ -17,13 +17,16 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
-import io.codelaser.maddi.cst.api.expression.Expression;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOr;
 
 public class TestAndOr extends CommonTest {
 
@@ -134,8 +137,8 @@ public class TestAndOr extends CommonTest {
     @Test
     public void tooComplexOrOfOne() {
         // complexity 1: every disjunction is 'too complex', and only the trivial step (4b) runs
-        io.codelaser.maddi.cst.impl.expression.eval.EvalOr evalOr = new io.codelaser.maddi.cst.impl.expression.eval.EvalOr(r,
-                new io.codelaser.maddi.cst.impl.expression.eval.EvalOptions(1));
+        EvalOr evalOr = new EvalOr(r,
+                new EvalOptions(1));
         Expression x1 = r.equals(r.newChar('!'), x);
         assertEquals(x1, evalOr.eval(List.of(x1, FALSE)), "the false is removed, one term is left");
         assertEquals(x1, evalOr.eval(List.of(x1, x1)), "A || A, one term is left");

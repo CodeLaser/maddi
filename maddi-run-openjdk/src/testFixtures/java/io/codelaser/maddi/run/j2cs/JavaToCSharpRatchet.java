@@ -17,27 +17,31 @@
 
 package io.codelaser.maddi.run.j2cs;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.print.csharp.CSharpCompat;
-import io.codelaser.maddi.cst.print.csharp.CSharpTranslator;
-import io.codelaser.maddi.cst.print.csharp.CSharpLibraries;
-import io.codelaser.maddi.cst.print.csharp.LibraryMapping;
-import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
-import io.codelaser.maddi.cst.print.csharp.CSharpPrintCode;
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.print.csharp.CSharpCompat;
+import io.codelaser.maddi.cst.print.csharp.CSharpLibraries;
+import io.codelaser.maddi.cst.print.csharp.CSharpMappingFile;
+import io.codelaser.maddi.cst.print.csharp.CSharpPrintCode;
+import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
+import io.codelaser.maddi.cst.print.csharp.CSharpTranslator;
+import io.codelaser.maddi.cst.print.csharp.LibraryMapping;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 
 /**
  * ⛔ THE RATCHET FOR JAVA → C# TRANSLATION: a corpus's main sources, parsed by the openjdk front end, printed by
@@ -49,8 +53,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  * {@code tools/csharp-check}, a .NET tool on Roslyn, built here with {@code dotnet build} (a .NET SDK must be on the
  * PATH; the test JVM gets the tool's directory as {@code -Dmaddi.test.csharpCheck}). It parses every file on its own,
  * for the syntax errors, then compiles the syntax-clean files together against the BCL. A file that has no error in
- * that compilation counts as compiling. The error total is reported, not ratcheted: as the BCL mapping lets the
- * compiler bind more, it gets to report errors it could not see before.
+ * that compilation counts as compiling. The error total is ratcheted too, since 2026-11-05: when the BCL mapping lets
+ * the compiler bind more and it reports errors it could not see before, the higher number is written with a note
+ * that says so. {@code tools/csharp-check/diff.py} tells two runs' {@code csharp-check.out} apart, file by file.
  * <h2>The libraries</h2>
  * The policy's library mappings decide what goes with the translation: their sources (the compatibility library) are
  * compiled with it, not counted; their NuGet packages are restored into {@code deps/} and referenced. The output has a
@@ -82,11 +87,11 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
     public JavaToCSharpRatchet withMapping(String resource) {
         try (var in = JavaToCSharpRatchet.class.getResourceAsStream(resource)) {
             if (in == null) throw new IllegalStateException("no " + resource + " beside " + JavaToCSharpRatchet.class);
-            var mapping = io.codelaser.maddi.cst.print.csharp.CSharpMappingFile.parse(
-                    new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), resource);
+            var mapping = CSharpMappingFile.parse(
+                    new String(in.readAllBytes(), StandardCharsets.UTF_8), resource);
             return new JavaToCSharpRatchet(name, ratchetFile, policy.withLibraries(policy.libraries().withFirst(mapping)));
         } catch (IOException e) {
-            throw new java.io.UncheckedIOException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -100,6 +105,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         DIRECTION.put("syntaxCleanFiles", ">=");
         DIRECTION.put("compilingFiles", ">=");
         DIRECTION.put("unmappedJdkUses", "<=");
+        DIRECTION.put("errors", "<=");
         DIRECTION.put("nullableWarnings", "<="); // with the facts of a nullability analysis only
     }
 
@@ -130,6 +136,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         measured.put("syntaxCleanFiles", (long) (printed.files.size() - withSyntaxErrors.size()));
         measured.put("compilingFiles", compiling);
         measured.put("unmappedJdkUses", (long) unmapped.size());
+        measured.put("errors", (long) judged.errors.size());
         if (nullable()) measured.put("nullableWarnings", (long) judged.nullableWarnings.size());
 
         long excluded = corpus.types().stream().filter(policy.libraries()::excludes).count();
@@ -174,7 +181,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         Path buildLog = out.resolve("csharp-check-build.log");
         int built = new ProcessBuilder("dotnet", "build", toolDir.toString(), "-c", "Release", "-nologo", "-v", "q")
                 .redirectErrorStream(true).redirectOutput(buildLog.toFile()).start().waitFor();
-        if (built != 0) fail("building " + toolDir + " failed (is a .NET 10 SDK on the PATH?); see " + buildLog);
+        if (built != 0) fail("building " + toolDir + " failed (is a .NET 10+ SDK on the PATH?); see " + buildLog);
 
         Path argFile = out.resolve("csharp-check.args");
         List<String> arguments = new ArrayList<>(files.stream().map(Path::toString).toList());
@@ -236,7 +243,6 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
                           List<PrintMessage<CSharpPrintCode>> unmapped, List<Path> sources, long excluded) {
         StringBuilder sb = new StringBuilder("Java -> C#, " + name + "\n\n");
         measured.forEach((k, v) -> sb.append(String.format("  %-18s %6d%n", k, v)));
-        sb.append(String.format("  %-18s %6d   (reported, not ratcheted)%n", "errors", judged.errors.size()));
         if (excluded > 0) sb.append(String.format("  %-18s %6d   (types a mapping leaves out, not printed)%n", "excluded", excluded));
         if (!judged.nullableWarnings.isEmpty()) {
             sb.append("\nnullable warnings by code:\n").append(counted(judged.nullableWarnings.stream().map(d -> d.code

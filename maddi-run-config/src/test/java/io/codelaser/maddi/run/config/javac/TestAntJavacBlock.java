@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.run.config.javac;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * The <b>fourth</b> build tool, and the only one whose compile invocation does not fit on a line.
@@ -113,7 +114,7 @@ public class TestAntJavacBlock {
     @DisplayName("control: two blocks in one log are two invocations, and the lines between them survive")
     @Test
     public void twoBlocks() {
-        List<String> two = new java.util.ArrayList<>(LOG);
+        List<String> two = new ArrayList<>(LOG);
         two.addAll(LOG);
         List<String> folded = ParseJavacList.foldAntBlocks(two);
         assertEquals(2, folded.stream().filter(l -> l.startsWith("javac ")).count(), () -> folded.toString());

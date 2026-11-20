@@ -18,6 +18,11 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -27,11 +32,11 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.statement.ForEachStatement;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 /**
  * A getter handing out part of the object prints as {@code fn items(&self) -> &T}; a caller that modifies what it
@@ -82,7 +87,7 @@ final class RustGetters {
         for (MethodInfo m : Set.copyOf(out)) {
             m.overrides().stream().filter(RustGetters::abstractGetter).forEach(out::add);
         }
-        List<MethodInfo> all = new java.util.ArrayList<>();
+        List<MethodInfo> all = new ArrayList<>();
         for (TypeInfo type : types) collect(type, all);
         for (MethodInfo a : Set.copyOf(out)) {
             if (!abstractGetter(a)) continue;
@@ -105,14 +110,48 @@ final class RustGetters {
     private static void visit(TypeInfo type, RustFacts facts, Set<MethodInfo> out) {
         type.constructorAndMethodStream().filter(m -> m.methodBody() != null).forEach(m -> m.methodBody().visit(e -> {
             switch (e) {
-                case MethodCall mc when mc.object() != null && modifying(mc, facts) -> through(mc.object(), facts, out);
+                case MethodCall mc -> {
+                    if (mc.object() != null && modifying(mc, facts)) through(mc.object(), facts, out);
+                    // an argument a source callee modifies: 'first.removeSuccessor(stat.getIfEdge())'
+                    MethodInfo callee = mc.methodInfo();
+                    if (!callee.typeInfo().compilationUnit().externalLibrary()) {
+                        for (int i = 0; i < mc.parameterExpressions().size() && i < callee.parameters().size(); i++) {
+                            if (facts.passing(callee.parameters().get(i)) == RustFacts.Passing.EXCLUSIVE) {
+                                through(mc.parameterExpressions().get(i), facts, out);
+                            }
+                        }
+                    }
+                }
                 case Assignment a when a.variableTarget() instanceof FieldReference fr && fr.scope() != null ->
                         through(fr.scope(), facts, out);
+                // 'for (ExceptionHandler h : extable.getHandlers()) h.setHandler(…)': the elements, modified through
+                // the loop variable, are the getter's list's
+                case ForEachStatement fe when fe.initializer().localVariable() != null
+                                               && modifiesThrough(fe.block(), fe.initializer().localVariable(), facts) ->
+                        through(fe.expression(), facts, out);
                 default -> { }
             }
             return true;
         }));
         type.subTypes().forEach(sub -> visit(sub, facts, out));
+    }
+
+    // a call that modifies, or a field assignment, on the variable itself
+    private static boolean modifiesThrough(Element body, Variable v, RustFacts facts) {
+        boolean[] found = {false};
+        body.visit(e -> {
+            if (found[0]) return false;
+            if (e instanceof MethodCall mc && mc.object() != null
+                && CstQueries.unwrap(mc.object()) instanceof VariableExpression ve && v.equals(ve.variable())
+                && modifying(mc, facts)) {
+                found[0] = true;
+            } else if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr && fr.scope() != null
+                       && CstQueries.unwrap(fr.scope()) instanceof VariableExpression ve && v.equals(ve.variable())) {
+                found[0] = true;
+            }
+            return !found[0];
+        });
+        return found[0];
     }
 
     private static boolean modifying(MethodCall mc, RustFacts facts) {
@@ -126,6 +165,13 @@ final class RustGetters {
         Expression e = CstQueries.unwrap(place);
         while (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.scope() != null) {
             e = CstQueries.unwrap(fr.scope());
+        }
+        // a local the getter's result is held in ('List<Exprent> exprList = data.getExpressions(); pushEx(…,
+        // exprList, …)'): modified through it, the local is the getter's exclusive twin (RustBodyPrinter.local)
+        if (e instanceof VariableExpression ve && ve.variable() instanceof LocalVariable lv
+            && lv.assignmentExpression() != null
+            && CstQueries.unwrap(lv.assignmentExpression()) instanceof MethodCall init) {
+            e = init;
         }
         if (e instanceof MethodCall g && getter(g.methodInfo()) && !RustTypes.isCopy(g.methodInfo().returnType())
             && out.add(g.methodInfo()) && g.object() != null) {

@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.impl.expression.eval;
 
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Product;
 import io.codelaser.maddi.cst.api.expression.Sum;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.expression.ProductImpl;
-
-import java.util.stream.Stream;
 
 public class EvalProduct {
 

@@ -253,15 +253,16 @@ public class JavaLangReflect {
         @NotModified int getInt(@Nullable java.lang.Object p0) { return 0; }
         @NotModified long getLong(@Nullable java.lang.Object p0) { return 0; }
         @NotModified short getShort(@Nullable java.lang.Object p0) { return 0; }
-        @Modified void set(@Nullable java.lang.Object p0, @Nullable java.lang.Object p1) { }
-        @Modified void setBoolean(@Nullable java.lang.Object p0, boolean p1) { }
-        @Modified void setByte(@Nullable java.lang.Object p0, byte p1) { }
-        @Modified void setChar(@Nullable java.lang.Object p0, char p1) { }
-        @Modified void setDouble(@Nullable java.lang.Object p0, double p1) { }
-        @Modified void setFloat(@Nullable java.lang.Object p0, float p1) { }
-        @Modified void setInt(@Nullable java.lang.Object p0, int p1) { }
-        @Modified void setLong(@Nullable java.lang.Object p0, long p1) { }
-        @Modified void setShort(@Nullable java.lang.Object p0, short p1) { }
+        // set writes into its target p0 (none for a static field), not into the Field (CodeLaser/maddi#206)
+        @NotModified void set(@Nullable @Modified java.lang.Object p0, @Nullable java.lang.Object p1) { }
+        @NotModified void setBoolean(@Nullable @Modified java.lang.Object p0, boolean p1) { }
+        @NotModified void setByte(@Nullable @Modified java.lang.Object p0, byte p1) { }
+        @NotModified void setChar(@Nullable @Modified java.lang.Object p0, char p1) { }
+        @NotModified void setDouble(@Nullable @Modified java.lang.Object p0, double p1) { }
+        @NotModified void setFloat(@Nullable @Modified java.lang.Object p0, float p1) { }
+        @NotModified void setInt(@Nullable @Modified java.lang.Object p0, int p1) { }
+        @NotModified void setLong(@Nullable @Modified java.lang.Object p0, long p1) { }
+        @NotModified void setShort(@Nullable @Modified java.lang.Object p0, short p1) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setAccessible(boolean p0) { }
@@ -346,6 +347,26 @@ public class JavaLangReflect {
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified java.lang.reflect.Type[] getActualTypeArguments() { return null; }
         @NotModified java.lang.reflect.Type getRawType() { return null; }
+    }
+
+    // the other java.lang.reflect.Type subinterfaces: queries only, as ParameterizedType (CodeLaser/maddi#207)
+    //public java.lang.reflect.GenericArrayType
+    class GenericArrayType$ {
+        @NotModified java.lang.reflect.Type getGenericComponentType() { return null; }
+    }
+
+    //public java.lang.reflect.WildcardType
+    class WildcardType$ {
+        @NotModified java.lang.reflect.Type[] getUpperBounds() { return null; }
+        @NotModified java.lang.reflect.Type[] getLowerBounds() { return null; }
+    }
+
+    //public java.lang.reflect.TypeVariable<D extends GenericDeclaration>
+    class TypeVariable$<D extends java.lang.reflect.GenericDeclaration> {
+        @NotModified java.lang.reflect.Type[] getBounds() { return null; }
+        @NotModified D getGenericDeclaration() { return null; }
+        @NotModified java.lang.String getName() { return null; }
+        @NotModified java.lang.reflect.AnnotatedType[] getAnnotatedBounds() { return null; }
     }
 
     //public java.lang.reflect.Proxy (shadow created for its nullability, generated)

@@ -72,6 +72,11 @@ public interface CompileInvocation {
         return null;
     }
 
+    /** kotlinc's {@code -P plugin:<id>:<key>=<value>} options, one per entry, in order; empty for none, and for javac. */
+    default List<String> kotlinPluginOptions() {
+        return List.of();
+    }
+
     /** kotlinc's {@code -jvm-target}, as a feature release (8, 17); {@code <= 0} when not stated, and for javac. */
     default int jvmTarget() {
         return 0;

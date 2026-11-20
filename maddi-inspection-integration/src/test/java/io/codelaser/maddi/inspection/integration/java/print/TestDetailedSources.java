@@ -1,5 +1,12 @@
 package io.codelaser.maddi.inspection.integration.java.print;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.stream.Collectors;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -8,12 +15,6 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestDetailedSources extends CommonTest {
 

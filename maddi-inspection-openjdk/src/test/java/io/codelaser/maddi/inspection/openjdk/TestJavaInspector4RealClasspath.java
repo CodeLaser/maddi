@@ -1,16 +1,8 @@
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import io.codelaser.maddi.support.SetOnce;
-import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.sourceSetOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.URI;
@@ -20,9 +12,19 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import static io.codelaser.maddi.inspection.resource.SourceSetImpl.sourceSetOf;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnce;
 
 public class TestJavaInspector4RealClasspath {
 
@@ -34,7 +36,7 @@ public class TestJavaInspector4RealClasspath {
 
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
-        SourceSet maddiAnnotation = sourceSetOf(io.codelaser.maddi.annotation.Immutable.class, javaBase);
+        SourceSet maddiAnnotation = sourceSetOf(Immutable.class, javaBase);
         SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase, maddiAnnotation);
 
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");

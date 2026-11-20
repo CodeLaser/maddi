@@ -18,10 +18,10 @@
 package io.codelaser.maddi.cst.impl.expression.util;
 
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.GreaterThanZero;
-
-import java.util.List;
 
 public record Interval(double left, boolean leftIncluded, double right, boolean rightIncluded) {
 

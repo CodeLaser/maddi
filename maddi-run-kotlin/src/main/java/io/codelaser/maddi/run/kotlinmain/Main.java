@@ -17,15 +17,13 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.run.config.Configuration;
-import io.codelaser.maddi.run.config.report.ErrorReport;
-import io.codelaser.maddi.run.config.report.ExitCode;
-import io.codelaser.maddi.run.config.util.JsonStreaming;
-import io.codelaser.maddi.run.kotlinmain.kotlinc.ParseMixedList;
-import io.codelaser.maddi.run.openjdkmain.RunAnalyzer;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
-import io.codelaser.maddi.kotlin.realm.K2Realm;
+import static io.codelaser.maddi.run.openjdkmain.Main.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -34,12 +32,15 @@ import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
-import static io.codelaser.maddi.run.openjdkmain.Main.*;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.report.ErrorReport;
+import io.codelaser.maddi.run.config.report.ExitCode;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.run.kotlinmain.kotlinc.ParseMixedList;
+import io.codelaser.maddi.run.openjdkmain.RunAnalyzer;
 
 /**
  * <b>The mixed Java+Kotlin CLI — one entry point, not a second tool.</b> It takes the <i>same</i> command line
@@ -114,6 +115,26 @@ public class Main {
                 return EXIT_OK;
             }
 
+            return run(configuration);
+        } catch (ParseException parseException) {
+            LOGGER.error("Parse exception: ", parseException);
+            return ExitCode.INTERNAL_EXCEPTION;
+        } catch (IOException ioException) {
+            ErrorReport.report(null, ioException);
+            return ExitCode.IO_EXCEPTION;
+        } catch (RuntimeException runtimeException) {
+            ErrorReport.report(null, runtimeException);
+            return ExitCode.ANALYZER_ERROR;
+        }
+    }
+
+    /**
+     * Analyze a configuration however it was made -- from this command line, or computed by a build plugin
+     * ({@link RunConfigurationFile}): Java alone when there is no Kotlin source or {@code skipKotlinSources} asks for
+     * it, else the mixed analysis with the Kotlin front end in its realm.
+     */
+    public static int run(Configuration configuration) {
+        try {
             InputConfiguration inputConfiguration = configuration.inputConfiguration();
             DetectKotlinSources kotlinSources = DetectKotlinSources.in(inputConfiguration);
             if (!kotlinSources.found()) {
@@ -138,9 +159,6 @@ public class Main {
             // is on it). Installed only on the path that needs it: a Java-only run never builds a realm.
             K2Realm.install();
             return runMixed(configuration);
-        } catch (ParseException parseException) {
-            LOGGER.error("Parse exception: ", parseException);
-            return ExitCode.INTERNAL_EXCEPTION;
         } catch (IOException ioException) {
             ErrorReport.report(null, ioException);
             return ExitCode.IO_EXCEPTION;
@@ -182,7 +200,9 @@ public class Main {
                         : configuration.analysisHintsConfiguration().preloadAnalysisResultsDirs(),
                 configuration.generalConfiguration().parallel(),
                 configuration.generalConfiguration().warnNearMisses(),
-                configuration.generalConfiguration().analysisResultsDir());
+                configuration.generalConfiguration().analysisResultsDir(),
+                configuration.generalConfiguration().ownership(),
+                configuration.generalConfiguration().closedWorld());
         RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer()
                 .go(configuration.inputConfiguration(), options);
         // the placeholder count belongs on the SAME line as the type counts: a run that reports what it

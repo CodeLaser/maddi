@@ -17,11 +17,12 @@
 
 package io.codelaser.maddi.cst.api.runtime;
 
+import java.util.List;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-
-import java.util.stream.Stream;
 
 public interface Types {
 
@@ -43,8 +44,8 @@ public interface Types {
      * (CodeLaser/maddi-mod#37). Nothing is loaded. Empty when none is, and by default, which means "this runtime does
      * not tell copies apart; resolve with {@link #getFullyQualified(String, boolean, SourceSet)}".
      */
-    default java.util.List<TypeInfo> loadedCopies(String fullyQualifiedName) {
-        return java.util.List.of();
+    default List<TypeInfo> loadedCopies(String fullyQualifiedName) {
+        return List.of();
     }
 
     TypeInfo syntheticFunctionalType(int inputParameters, boolean hasReturnValue);

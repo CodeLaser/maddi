@@ -17,15 +17,17 @@
 
 package io.codelaser.maddi.inspection.integration.java.example;
 
+import static io.codelaser.maddi.inspection.integration.java.example.Annotations_2.XX;
+
+import java.util.TreeMap;
+
 import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resource;
 import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resources;
-
-import static io.codelaser.maddi.inspection.integration.java.example.Annotations_2.XX;
 
 // this file is here only to show that we can use a static import for XX!
 // see TestAnnotations, INPUT3
 @Resources({
-        @Resource(name = XX, lookup = "yy", type = java.util.TreeMap.class),
+        @Resource(name = XX, lookup = "yy", type = TreeMap.class),
         @Resource(name = Annotations_2.ZZ, type = Integer.class)
 })
 public class Annotations_2 {

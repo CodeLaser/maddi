@@ -22,9 +22,10 @@ An easy way to envisage the life cycle of an object is to assume that it consist
 We set out to show that there are different forms of immutability, from very strict deep immutability to weak guarantees of non-modification, that can be made visible in the code.
 We believe that code complexity can be greatly reduced when the software engineer is permanently aware of the modification state of objects.
 
-The machinery that computes modification — the _linking_ of the chapters on <<linking-dependence>> and <<hidden-content>>, which tracks where objects flow — answers a second question just as well: where can `null` turn up?
-The chapter on <<nullability>> is about that question.
-It is the first application of the engine beyond immutability, and the one that makes the translation of a Java program into Kotlin's or C#'s nullable type systems possible.
+Immutability is the answer to one question about an object: who can _modify_ it?
+To answer it, we will have to follow objects as they flow through the program, from parameters into fields, and from fields into return values; we call this _linking_.
+Knowing where objects flow answers two other questions as well: who _holds_ an object, the subject of the chapter on <<ownership>>, and where can `null` turn up, the subject of the chapter on <<nullability>>.
+Both matter in Java, and both become unavoidable when a Java program is translated into a language that has ownership (Rust) or nullability (Kotlin, C#) in its type system.
 
 The {maddi} project consists of a set of definitions, a static code analyzer to compute and enforce rules and definitions, and IDE support to visualize the results without cluttering.
 Using {maddi} in your project will help to maintain higher coding standards, the ultimate beneficiary being code that will survive longer.
@@ -33,6 +34,56 @@ A _lack of references to academic literature_ in this version of the document is
 Academically coming from the theory of machine learning, I spent two decades writing software and managing teams of software engineers.
 This work builds on that practical experience alone.
 I did not consult or research the literature, and I realize I may be duplicating quite a lot here.
+
+[#concept-map]
+== How the concepts build on each other
+
+The first part of this document is meant to be read in order; every chapter needs the ones before it.
+
+[cols="2,3,3"]
+|===
+|Chapter |Introduces |Builds on
+
+|<<finalfields>>
+|fields that are not assigned after construction
+|
+
+|<<modification>>
+|methods, parameters and fields that change an object graph
+|
+
+|<<containers>>
+|types that do not modify what they are given
+|modification of parameters
+
+|<<linking-dependence>>
+|objects that share a part, so that a modification of one is seen in the other; accessible and hidden content
+|modification, which travels along links
+
+|<<immutability>>
+|four rules: final fields, unmodified fields, and no exposure through fields, parameters or return values
+|final fields (rule 0), modification (rule 1), independence (rules 2 and 3)
+
+|<<ownership>>
+|objects with a single holder; finalizers
+|linking, read as 'who holds' instead of 'who can modify'
+
+|<<eventual-immutability>>
+|types that become immutable after a transition
+|immutability, and finalizers and ownership for the phase before the transition
+
+|<<modification-part2>>, <<hidden-content>>
+|how links are computed; modification of hidden content, and how it travels through functional interfaces
+|all of the above
+
+|<<nullability>>
+|where `null` can turn up
+|linking, with `null` as a value that flows
+|===
+
+The second part describes how the analyzer computes all this, and <<analyzer-today>> lists where it currently
+stands with respect to the definitions.
+The third part shows the concepts at work.
 
 [#assumptions]
 == Assumptions

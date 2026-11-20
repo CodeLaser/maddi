@@ -21,8 +21,6 @@
 */
 package org.parsers.java.ast;
 
-import org.parsers.java.*;
-import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
 
 public class SuperDotName extends BaseNode implements PrimaryExpression { 

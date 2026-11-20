@@ -16,6 +16,18 @@
  */
 package io.codelaser.maddi.run.kotlinmain;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 import io.codelaser.maddi.inspection.kotlin.KotlinInspector;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
@@ -24,17 +36,6 @@ import io.codelaser.maddi.kotlin.api.KotlinReferenceRecall;
 import io.codelaser.maddi.kotlin.realm.K2Realm;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.util.corpus.Corpora;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * How much of what a source editor must update is visible in detekt's Kotlin CST: every project reference K2 resolves,

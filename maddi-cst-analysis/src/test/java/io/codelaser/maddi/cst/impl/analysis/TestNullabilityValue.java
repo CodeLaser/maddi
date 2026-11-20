@@ -1,11 +1,12 @@
 package io.codelaser.maddi.cst.impl.analysis;
 
-import io.codelaser.maddi.cst.api.type.NullableState;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.type.NullableState;
 
 /** The encoded shape of {@link ValueImpl.NullabilityImpl}: what a results file holds. */
 public class TestNullabilityValue {

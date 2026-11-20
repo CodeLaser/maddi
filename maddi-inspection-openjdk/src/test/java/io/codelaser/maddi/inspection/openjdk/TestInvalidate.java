@@ -1,7 +1,30 @@
 package io.codelaser.maddi.inspection.openjdk;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
@@ -9,25 +32,6 @@ import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.JavaCompiler;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Re-parsing with an {@code Invalidated}, across source sets.
@@ -192,7 +196,7 @@ public class TestInvalidate {
         TypeInfo user2 = pr2.findType(USER_FQN);
         assertNotSame(user1, user2);
 
-        io.codelaser.maddi.cst.api.info.InfoMapView view = javaInspector.lastRewireInfoMap();
+        InfoMapView view = javaInspector.lastRewireInfoMap();
         assertNotNull(view, "User was rewired, so the reload must expose a view");
         assertSame(user2, view.typeInfo(user1), "the exposed view maps the old User to the rewired one");
         assertTrue(view.rewiredTypes().contains(user2), "rewiredTypes includes the rewired User");
@@ -220,7 +224,7 @@ public class TestInvalidate {
         TypeInfo base2 = pr2.findType(BASE_FQN);
         assertNotSame(base1, base2, "Base was re-scanned");
 
-        io.codelaser.maddi.cst.api.info.InfoMapView view = javaInspector.lastRewireInfoMap();
+        InfoMapView view = javaInspector.lastRewireInfoMap();
         assertNotNull(view, "a rescanned set exposes a view even with nothing to rewire");
         // the old rescanned type resolves to the new one by fqn+source-set equality (InfoMapImpl seeds rebuilt types)
         assertSame(base2, view.typeInfo(base1), "the view maps the old rescanned Base to the new one");
@@ -346,7 +350,7 @@ public class TestInvalidate {
 
     /** The anonymous class created inside {@code typeInfo}'s method {@code methodName}, or null. */
     private static TypeInfo anonymousClassIn(TypeInfo typeInfo, String methodName) {
-        java.util.concurrent.atomic.AtomicReference<TypeInfo> found = new java.util.concurrent.atomic.AtomicReference<>();
+        AtomicReference<TypeInfo> found = new AtomicReference<>();
         typeInfo.findUniqueMethod(methodName, 1).methodBody().visit(e -> {
             if (found.get() == null && e instanceof ConstructorCall cc && cc.anonymousClass() != null) {
                 found.set(cc.anonymousClass());

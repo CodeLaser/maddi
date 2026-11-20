@@ -11,12 +11,14 @@ analyses drive what makes the output idiomatic:
 
 - **Nullability** (`NullabilityPass`, maddi-mod) decides where `?` goes under `#nullable enable`, and where `!`
   asserts what the analysis knows (`CSharpFacts`, `CSharpNullability`).
-- **Modification** decides whether a collection parameter can be `IReadOnlyList<T>` (`CSharpReadOnly`).
+- **Modification** decides whether a collection parameter, a private collection field or a method's result can be
+  `IReadOnlyList<T>` (`CSharpReadOnly`, on `ModificationFacts`).
 - **The whole program** (`CSharpProgram`) decides what is open for extension, which functional interfaces are
-  delegates, which getters and setters are properties (`CSharpProperties`), and which type tokens are type arguments.
+  delegates, which getters and setters are properties (`CSharpProperties`), which type tokens are type arguments,
+  and which classes and records are structs (`CSharpStructs`, below).
 
 All of these are wired in; without facts from an analysis, the output follows from the Java and the whole program
-alone. Not yet: immutability making a class a `record` or a `readonly struct`, or a field `init`-only.
+alone. Not yet: immutability making a class a `record`, or a field `init`-only.
 
 ## The pluggable-printer seam
 
@@ -72,8 +74,23 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   `KeyValuePair<K, V>?` would cast every `e.Key` of a for-each over the map. Java's `var` of such a type is declared
   (`Kind? kind = Kind.Filter`), so that a later `kind = node.getKind()` fits. Where C# has the value type itself, the
   `X?` is cast: a template's operand (`BigDecimal.add`'s `((decimal) a) + ((decimal) b)`), a library's parameter of
-  the struct, an override of `T get()` (`decimal Get()`), a lambda's result; a method reference's typed parameters
+  the struct, an override of `T get()` (`decimal Get()`; of a library's `T` as the supertype's argument prints,
+  `long Next()` for `Iterator<Long>`'s `IJavaIterator<long>`, its boxed value cast: `(int) current!`), a lambda's
+  result; a method reference's typed parameters
   are the delegate's type arguments (`(decimal p0, decimal p1) => p0 + p1`).
+- A small value class of the program is a `readonly struct`, a record a `readonly record struct` (`CSharpStructs`).
+  maddi's shared detection (`ValueTypes`, in maddi-cst-analysis, which the Kotlin and Rust printers and the
+  refactorings can use too) finds the classes with no identity: final, no superclass, fields assigned in the
+  constructors only, never compared with `==` (`this == o` in its own `equals` excepted), locked, identity-hashed, or
+  given or compared with `null`. C# asks more: its own `equals` (a struct's default compares the fields, Java's
+  `Object.equals` the references), at most four fields, a constructor with parameters and none without nor with varargs (`new S()` is the default), no lambda,
+  method reference, anonymous or local class in its instance members (CS1673), not open, no bound, no delegate,
+  not self-bounded, no annotations, a member type, never an `Optional`'s value (whose `T?` would be `Nullable<T>`),
+  and no cycle through its fields (CS0523). A struct is never `X?`: nothing gives it null. Its fields are `readonly`,
+  its `protected` members `internal` (CS0666), a record struct's `Equals(R o)` without `?` (`R?` would be
+  `Nullable<R>`'s, another method), no `IComparable` bridge, and the `this == o` of its `equals` is `object.ReferenceEquals`,
+  false for a struct, which skips the shortcut. Where Java's empty value is null that the code does not see, an
+  array's element or an absent map value, C# has `default`.
 - In a pattern, a type has no `?`: `o instanceof Integer` becomes `o is int`.
 - C# has no wildcards. A collection of `? extends T` is C#'s covariant read-only interface, a collection of `?` its
   non-generic one, a parameter of a program type with wildcards is captured as Java does, and any other wildcard is
@@ -99,13 +116,33 @@ implements the interface.
     read-only interfaces, but `Map`, `Set` and `Collection` print as `IDictionary`, `ISet` and `ICollection`, which do
     not. Each argument must be of a class whose C# counterpart implements the read-only interface (`HashMap` →
     `Dictionary`, `TreeSet` → `SortedSet`, …), `null`, or a read-only parameter itself.
-  - Every method of an override family has the parameter read-only, or none does. Delegates, a functional interface's
+  - Every method of an override family has the parameter read-only, or none does. A superclass's method that
+    implements a subclass's interface method is of the interface method's family (`MethodFamilies`, shared with the
+    Kotlin printer), though Java's `overrides()` does not link them: `Scoring.collect` keeps the `ISet` that `Base.collect` adds to (CS0535 otherwise). The same
+    families make properties (below), so such a pair of parameterless methods is one property too. Delegates, a functional interface's
     method, records and a method that a method reference names keep Java's types.
+  - A private collection field no code adds to or removes from (`structurallyUnmodified`, the field's elements may
+    change) is read-only too, where its uses allow as a parameter's do, and every value it is given converts: a
+    `List<T>`, a copying constructor, a read-only parameter or field. One a method returns is read-only only where
+    that method's result is (C# cannot hand an `IReadOnlyList<T>` back as a `List<T>`), the property its getter made
+    too.
+  - A method's result is read-only where the method returns read-only fields and parameters, the results of other
+    such methods, or a library's value the archive says nothing is added to (`List.of`, `List.copyOf`,
+    `Collections.unmodifiableList`: `immutableResult`, `unmodifiableResult`), through a conditional's branches too,
+    at least one not `null`; each value converts as a field's does; and each call of it is a read as a parameter's use
+    is, a library's method on it being one the archive contracts as adding and removing nothing (no verdict on the
+    result says so otherwise). Only a class's method that overrides nothing and that nothing overrides: C#'s results
+    are invariant. Not a generic method (a call opener's result is the declared type), nor one a method reference
+    names. A fresh `new ArrayList<>(…)` keeps `List<T>`: no verdict says its callers add nothing.
+  - A view of a collection (`entrySet()`, `keySet()`, `iterator()`, `subList()`, …) is a read only where the view is
+    iterated, or a library method the archive contracts as not modifying reads it in turn; a removal through a
+    view (`map.entrySet().iterator().remove()`) is one the analysis may not see, so a view another view or a
+    program method takes keeps the collection as Java declares it.
   - The calls on a read-only collection are those of the read-only interface: `contains` uses LINQ, `indexOf` is
     `JavaCollections.IndexOf`, `subList` is `Skip`/`Take`, `get` on a map is `GetValueOrDefault` (or a `ContainsKey`
     test when the value is a value type).
 - A field, parameter or method return that the nullability analysis finds nullable has the type `T?`. Value types
-  (primitives, and `KeyValuePair`; a simple enum or a struct is `X?` already), a method's own type parameters and types that
+  (primitives, `KeyValuePair`, `BigInteger` and `MidpointRounding`; a simple enum or a struct is `X?` already), a method's own type parameters and types that
   already end in `?` are left alone: on a value type `?` would make it `Nullable<T>`, another type. A class's type
   parameter takes it, `T? held`: an unconstrained `T?` is `T` itself for a value type. So is a library type without a
   mapping (UNMAPPED_JDK): C# reads its `X?` as `Nullable<X>`, and every use of the variable becomes another error.
@@ -141,6 +178,10 @@ implements the interface.
   or of `null`, from a method the analysis does not find nullable, or from a lambda, whose result is a delegate's type
   argument; a write into an array's element, which C# prints without `?` (`arr[i] = null!`, `{ x, null! }`: the array
   holds the null, as Java's does); an assignment to a field the analysis finds non-null.
+- A delegate's parameter has the analysis's verdict, `object? entity`, where every method a method reference
+  converts to the delegate takes null there too (C# converts no method group of an `object` parameter to it,
+  CS8622; an unbound reference's receiver never is); a lambda with typed parameters (Java's own, a method
+  reference's, an anonymous class's) types them as the delegate does.
 - A reference cast of a value that may be null is to `T?`, `(Exprent?) o`: the cast lets the null through, in C# as
   in Java (CS8600). So is a cast of `null`, which picks an overload: `(AiMessage?) null`. A method's own type
   parameter has no `T?` there, and its operand is asserted instead: `(T) m.Get(k)!`.
@@ -205,7 +246,8 @@ implements the interface.
     not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
     methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep
     everything Java leaves open: a method that is not final, static or private is `virtual`, a class that is not
-    final is not `sealed`.
+    final is not `sealed`. A class that bounds a type parameter anywhere in the program (`R extends Defaults<R>`)
+    is never `sealed`: C# allows no sealed class as a constraint (CS0701).
   - An override of a class method becomes `override`, or `sealed override` when it is final. Implementing an
     interface method needs neither. An override and an explicit interface implementation inherit their constraints
     and do not repeat them.
@@ -277,7 +319,9 @@ implements the interface.
     reference to the field becomes a reference to the property.
   - A setter `this.name = name` becomes the property's `set`, and `x.setName(v)` becomes `x.Name = v`. A field
     assigned only in its class's constructors gets `{ get; }`, even when it isn't `final`. Any other field gets
-    `{ get; private set; }`, with the access the field's writes need.
+    `{ get; private set; }`, with the access the field's writes need. With the nullability analysis the property
+    has the field's verdict, `StatEdge? DefaultEdge`, and a read of it through the getter is asserted by that
+    verdict, not the getter's: `s.DefaultEdge!.GetDestination()`.
   - The property is as visible as its getter, and an accessor that is less visible says so. A getter that outside
     code may override, as the policy has it, makes the property `virtual`.
   - The getter's annotations move to the property. One whose attribute only applies to methods goes on the
@@ -312,7 +356,10 @@ implements the interface.
   the interface's method is implemented explicitly, `T IResult<T>.Response() => Response;`. A record's
   `equals(Object)` is `public bool Equals(Point? o)`: C# synthesizes `Equals(object)`, which may not be declared
   (CS0111), and it calls this one with the other record or null. A record with `equals` but no `hashCode` keeps
-  Java's hash of its components, `public override int GetHashCode() => HashCode.Combine(Name, N);` (CS8851).
+  Java's hash of its components, `public override int GetHashCode() => HashCode.Combine(Name, N);` (CS8851). One
+  without its own `toString` prints as Java's, `public override string ToString() => "Point[x=" +
+  JavaString.ValueOf(X) + ", y=" + JavaString.ValueOf(Y) + "]";`, not C#'s `Point { X = 1, Y = 2 }`; and `==` on
+  records is `object.ReferenceEquals`, as Java compares references where C# compares the components.
 - **Annotations.** An annotation type of the program is a sealed attribute class, `ToolAttribute : Attribute`
   (`CSharpAttributes`): its elements are properties with their defaults, a `value` element also the constructor's
   parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Its nested types are the attribute's,
@@ -322,17 +369,22 @@ implements the interface.
   those of other libraries are what their mapping makes of them, or dropped.
 - **Functional interfaces.** A translated functional interface is a C# `delegate` when the whole program allows it:
   one abstract method and nothing else, and no class or interface of the program implementing or extending it (an
-  anonymous class that becomes a lambda does not count). Its lambdas are plain lambdas, a call `f.apply(x)` is an
+  anonymous class that becomes a lambda does not count), nor bounding a type parameter (`<P extends
+  ConstraintProvider>`: C# constrains by no delegate, CS0701). Its lambdas are plain lambdas, a call `f.apply(x)` is an
   invocation `f(x)`, and a method reference `f::apply` is `f.Invoke`. `CSharpProgram` makes that decision once,
   over all the translated types, before the files are printed. Any other functional interface stays an interface
-  and gets a nested adapter, `public sealed class Lambda(Func<Exprent, int> f) : IExprentIterator { … }`, around its
-  lambdas and method references: `new IExprentIterator.Lambda(e => 0)`. With the nullability analysis, the adapter of
+  and gets an adapter class beside it, `public sealed class ExprentIteratorLambda(Func<Exprent, int> f) :
+  IExprentIterator { … }`, around its lambdas and method references: `new ExprentIteratorLambda(e => 0)`. Beside,
+  not nested: an interface with variance (below) may declare no nested class (CS8427), so the adapter repeats the
+  interface's type parameters and constraints. With the nullability analysis, the adapter of
   an interface's own method takes its verdicts: `string? GetBytecode(string externalPath, string? internalPath)` is
-  implemented as `Lambda(Func<string, string?, string?> f)` with the same signature, not the declared one (CS8767,
+  implemented as `ProviderLambda(Func<string, string?, string?> f)` with the same signature, not the declared one (CS8767,
   CS8766). Not where the declared type is a type parameter: a `Func<.., A?, ..>` would not take a method group of
   `A`, which moves the one mismatch at the adapter to every conversion (CS8622, CS8620). A class implementing `Comparable<Node>` whose `compareTo(Node o)` is non-null (it dereferences `o`) gets
   an explicit `int IComparable<Node>.CompareTo(Node? other) => CompareTo(other!);`, since C# declares the
-  interface's parameter nullable; Java's compareTo of null throws, as `other!` then does. The policy `FunctionalInterfaces.ADAPTER`,
+  interface's parameter nullable; Java's compareTo of null throws, as `other!` then does. The explicit member that bridges an
+  override with a covariant result to its interface's method returns that method's verdict as well,
+  `ISwitchOnCandidate? ISwitchRecognizer.Recognize(..) => Recognize(..);` (CS8603). The policy `FunctionalInterfaces.ADAPTER`,
   and a printer that is not given the program (`CSharpProgram.NONE`), use this form for all of them. The JDK's
   functional interfaces are the BCL's delegates (see the JDK mapping). One that extends a JDK functional interface,
   `MovableFilter<Solution_> extends BiPredicate<Solution_, Object>`, cannot extend the delegate: it declares the method
@@ -356,14 +408,22 @@ implements the interface.
   `new Upcoming(other)` for `other.new Upcoming()`, `p0 => new Stepped(this, p0)` for `Stepped::new`. Its instance
   fields' initializers move into the constructors, after `this.outer = outer;`, where Java runs them: a C# field
   initializer cannot use `outer`. So do a class's whose initializer uses `this`, explicitly or through an instance
-  member (`getLogger(getClass())`): Java runs them after `super(…)`, C# before the base constructor. Where no chain
-  of `outer` leads to the instance, `OUTER_THIS`.
+  member (`getLogger(getClass())`): Java runs them after `super(…)`, C# before the base constructor. And so do a
+  class's that extends one of the program's classes, where the order shows: an initializer calls one of the
+  program's methods (its side effects would come before the base constructor's), or a superclass constructor calls
+  an overridable method (which in Java sees the field's default; a final field of a constant excepted). Where no
+  chain of `outer` leads to the instance, `OUTER_THIS`.
 - **Nested types of generic types.** C# makes a nested type generic in its enclosing types' parameters, which a
   Java static nested type is not. A static nested type of a generic type is therefore printed beside its primary
   type, in the namespace, by its simple name; private members of the outer type it uses become `internal`. When
   another type of the namespace has that name too, the name is prefixed with its enclosing types' names
   (`EmbeddingStoreRequestContextAdd`), a whole-program fact of `CSharpProgram`. An inner (non-static) class of a
-  generic type is not translated (`NESTED_IN_GENERIC`): C# names it `Outer<E>.Inner`.
+  generic type stays nested (reported, `NESTED_IN_GENERIC`), and C# names it `Outer<E>.Inner`: Java's arguments of
+  `ElementAwareArrayList<T>.Entry` are the outer types' first, then its own, and each goes on its own segment, not
+  `ElementAwareArrayList.Entry<T>`. In the outer class's code its simple name is the outer type's own instance; out of
+  it the name is qualified. A qualified name written without the outer's arguments (Java's `DownstreamIterator` inside
+  its outer class, which a member hides) has the outer class's own type parameters, `Bag<T>.Cursor.Step`, and in a
+  subclass the superclass's arguments as it extends it, `FilteringValueSelector<Solution_>.JustInTimeFilteringValueIterator`.
 - **Static members of generic types.** C# reaches a generic class's static members through a constructed type,
   `Response<T>.From(x)`; Java through the class, `Response.from(x)`. Java's static members never use the type's
   parameters, so they are declared in a non-generic static class of the same name beside the generic type, the C#
@@ -375,18 +435,82 @@ implements the interface.
 
 ### Generics
 
+- **Declaration-site variance (`CSharpVariance`).** Java's wildcards are use-site variance; C# declares it on the
+  interface or delegate: `IMapper<in A, out R>`, `delegate R Mapper<in A, out R>(A a)`. A program interface's type
+  parameter is `out` when its instance members only produce it (a result, the element of an `IEnumerable<T>` or
+  `T[]` result, the result of a `Func`), `in` when they only consume it (a parameter, the argument of an `Action`
+  or `Func`), and neither in both, in an invariant position (a `List<T>`, a program class's argument, a method type
+  parameter's bound), or when the interface declares a nested type (CS8427). Positions compose through the library's
+  variant types (`Function`, `Supplier`, `Consumer`, `Predicate`, `Iterable`, `Iterator`, `Stream`, `Comparator`,
+  `Comparable`, `Optional`) and through the program's own interfaces, as one fixpoint over them; a delegate's
+  parameters are `in`, its result `out`; static members do not count. The wildcard interface of a type (below) has
+  the same variance on the parameters it keeps. The variance then takes a bounded wildcard as its bound without a
+  message: `Handler<? super Dog>` is `IHandler<Dog>`, and an `ISource<Dog>` is an `ISource<Animal>` without a cast.
+  Only between reference types: C#'s variance does not convert a value type or a type parameter, which is why an
+  unbound `?` stays the wildcard interface (`IScoreDirector` for `ScoreDirector<?>`, which an
+  `IInnerScoreDirector<Solution_, Score_>` is, where an `IScoreDirector<object>` is not), a method's wildcard
+  parameter stays captured (`CSharpWildcards`), and the lambda around a delegate variable (`x0_ => m(x0_)`) stays
+  where an argument becomes `object`. The fixpoint is optimistic first (a reference through a parameter not yet
+  decided restricts nothing: `ISource<T> Filter()` keeps `out T`), then strict (a parameter nothing decides is the
+  invariant one it prints as, and so is what takes it in a parameter).
+- **Raw types into a target.** Java converts a raw type unchecked; C# has no raw type, and {@code IMapper<object,
+  object>} converts to nothing. A raw local takes its initializer's type, `Mapper[] m = Arrays.copyOf(mappings, n)`
+  of a `Mapper<A, Object>[]` (`CSharpStatementPrinter.rawFromInitializer`), after which a diamond of it takes the
+  target's arguments; a generic call whose result Java infers raw, `newInstance(Class<? extends Filter>)` into a
+  `Filter<String, Integer>`, prints its type arguments from the target, `NewInstance<IFilter<string, int>>`
+  (`CSharpContext.callTarget`, set by `converted`). A type that gets no wildcard interface says why in a
+  `NO_WILDCARD_INTERFACE` message: the member reached through the wildcard that the interface could not declare,
+  or the generic parameter the wildcard goes into (with the method called and its caller); `messages.txt` of a corpus
+  run lists them, the work list of the wildcard design.
+- **Collections of a removed type parameter.** A wildcard interface's member whose result (or field, or record
+  component) is a JDK collection of a removed type parameter, `List<G> impacts()` of a self-bounded `G`, is C#'s
+  non-generic interface of it, `IList Impacts()`, which every `List<T>` is; the bridge casts, an `IList<G>` being no
+  `IList`. `Map` is `IDictionary`; `Iterable`, `Collection` and `Set` are `IEnumerable` (a hash set is no
+  `ICollection`, the cast would fail when it runs).
+- **Opening a wildcard into a generic creation.** `new AndThen<>(delegate, f)` of a `Collector<A, ?, I> delegate`:
+  Java names the `?` and creates an `AndThen<A, CAP#1, I, X>`, C# infers nothing from the wildcard interface. The
+  object names it (`CSharpOpeners`): the wildcard interface declares `TOpen_ Open_<TOpen_>(ICollectorOpener_<A, I,
+  TOpen_> o)`, which the type implements as `o.With<R>(this)`; the creation is `delegate.Open_(new
+  CollectorsAndThenOpener_<A, I, X>(f))`, and the opener class, the creating type's sibling, creates `new AndThen<A,
+  R, I, X>(delegate, f)` in `With<R>`. The opener interface's variance is the wildcard interface's reversed, as it
+  takes the type in. `Open_` returns the created class's supertype whose wildcard interface hides the fewest other
+  arguments (`ICollector<A, X>`, not `AndThen`'s own, which hides all four). Only a creation whose one wildcard
+  argument goes into bare, unbounded type parameters of the class, and which names the class's other arguments,
+  opens; a raw creation, or a type argument nothing passes stays "passed as". The argument may be a subtype of the
+  constructor's parameter type: `new SwapMoveProvider<>(entity)` of a `GenuineEntityMetaModel<S, ?>` where the
+  constructor takes a `PlanningEntityMetaModel<S, E>` opens the subtype, whose positions are matched with the
+  parameter's through how it implements the supertype (`CSharpOpeners.aligned`).
+- **Opening a wildcard into a generic method's call.** A `Score<?>` or a raw `Score` given to `<Score_ extends
+  Score<Score_>> boolean isTerminated(boolean b, Score_ score)` has no C# type argument (CS0311: `IScore` is no
+  `IScore<IScore>`), nor does C# infer `Score_` from the `IInnerScore` given to `setBestScore(InnerScore<Score_>)`
+  (CS0411). The value opens itself as for a creation (`CSharpCallOpeners`): `new IsTerminatedOpener_(this, b,
+  score).Call()` keeps the receiver (`this`, a value, none for a static) and the arguments, in Java's order, and its
+  `Call()` is `score.Open_(this)`, whose `With<Score_>(IScore<Score_> x) => target_.IsTerminated(b, (Score_) x)`
+  makes the call, casting the arguments whose formal names the opened type parameter to With's
+  (`(InnerScore<Score_>) (object) start`). The opener class is nested in the calling class, so it calls private
+  methods. What opens: a `?`, a `? extends B`, a raw
+  type, and the type parameter of a method C# erased that leaks into the call (`scope.getBestScore().raw()`, see
+  Self-bounded type parameters only a result mentions). A void method's With returns the opener (`object`). Not
+  opened: an argument a collection holds (`List<PhaseConfig>` into `List<Config_>`, `Map<String, Score>`), a
+  method type parameter no parameter mentions, a call in a companion or of an outer instance.
 - **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
   type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
   `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
   every call passes a `Class<X>` of a known `X` (not a `Class<?>`), no method reference names the method, and the
-  methods it overrides or that override it qualify as well. Otherwise the token stays a `Type` parameter.
+  methods it overrides or that override it qualify as well, and dropping the token does not make it a sibling
+  overload (`variable(String name, Class<V> type)` next to `variable(String name)`, both `Variable<V>(string name)`:
+  CS0111). Otherwise the token stays a `Type` parameter, and a call names the type argument C# cannot infer from a
+  `Type`: `Variable<V>(name, typeof(V))`, through an interface cast for a default method too.
 - **Generic methods overridden by erasure.** Java overrides `<J> J mapping()` with a method that is not generic,
   `TriFunction<…> mapping()`; C# does not. A class's method whose result is its own type parameter, overridden so,
   is printed with it erased to its bound, `object Mapping()`, and so are its generic overrides; the others override
   it with a covariant result, and a call through it casts the result to the type Java inferred.
 - **Self-bounded type parameters only a result mentions.** `<Score_ extends Score<Score_>> InnerScore<Score_>
   getScore()`, bounded by a program type (not `Comparable<? super R>`, whose type argument C# infers from a method
-  group's target): where Java infers a raw or captured `Score_`, no C# type argument satisfies the constraint. Such a
+  group's target): where Java infers a raw or captured `Score_`, no C# type argument satisfies the constraint. So too
+  one that only the body mentions, `<Score_ …> void doMove(MoveScope<Solution_> scope)`, from which C# infers nothing
+  at `doMove(scope)`: its body's `Score_` is the wildcard, and a member that takes `Score_` is not there (CS1061, where
+  the call had CS0411); a diamond that would take it (`new DiminishedReturnsTermination<>(…)`) has no type argument. Such a
   method, with all its overrides, is printed with the type parameter erased, a wildcard in its signature and body:
   `InnerScore<IScore> GetScore()`, `IInnerScoreDirector<Solution_> GetScoreDirector()` (the wildcard interface). A
   call where Java's type is writable casts to it through `object`,
@@ -399,7 +523,18 @@ implements the interface.
   nothing: `T` from a `Class<? extends Acceptor>` is `IAcceptor`, from a `Class<?>` its own bound. Nor does C# infer
   from an implicitly typed lambda's parameters: a type parameter that only parameters given a lambda or a method
   reference mention, `oneKeyGroupBy(key, Group1Mapping0CollectorUniNode::new)`'s `Tuple_`, gets them all too; so
-  does one only `null` gives, `ValueRangeItem.of(null, …)`'s `Entity_`.
+  does one only `null` gives, `ValueRangeItem.of(null, …)`'s `Entity_`. A wildcard use inside a type argument is the
+  wildcard interface: `getJustificationMapping()` into a `BiFunction<A, Score<?>, …>` is
+  `GetJustificationMapping<Func<A, IScore, …>>()`. A type parameter only a `Class<T>` mentions, C#'s `Type`, which
+  is not generic, gets its bound where Java's inference is not writable: `ResolveClass<object>(name, …)` into a
+  `Class<? extends SolutionPartitioner<?>>`.
+- **A library call's arguments of the library type's own type parameter** are converted as the receiver has it:
+  `joinerList.stream().reduce(NONE, DefaultBiJoiner::and)` of a raw `NONE` casts the seed, `(DefaultBiJoiner<A, B>)
+  (object) NONE`, as the `Stream<DefaultBiJoiner<A, B>>`'s `T` (C#'s `Aggregate` infers its seed type from both).
+  The helpers take Java's `? extends`: `PutAll` another map's own key and value types, `InsertAll` another
+  collection's element type, cast to the target's inside (`KeyValuePair` is a struct, and variance converts no value
+  type or type parameter; a constraint would say nothing of null, CS8631); `Get` and `GetOrDefault` have an `object` key, as Java's `get(Object)`, a key that is no
+  `K` being absent (an erasure adapter's key is not found: maddi#187).
   A variable arity parameter's type parameter comes from the array passed as such, or from elements of one type;
   elements of different types, and a type parameter nothing else gives, take its bound in the others: `buildMove(a,
   b)` of `<Solution_, Move_ extends Move<Solution_>>` is `BuildMove<Solution_, IMove<Solution_>>(a, b)`, where
@@ -430,7 +565,7 @@ implements the interface.
   constructor's `Function<A, P>[]` is C#'s `Func<A, object>[]`.
 - **Constant lambdas.** A raw static final field of a lambda, `private static final TriFunction TRI_PICK_FIRST =
   (a, b, c) -> a`, returned or passed as the type with arguments, `TriFunction<A, B, C, A>`, is the lambda itself,
-  `new ITriFunction<A, B, C, A>.Lambda((a, b, c) => a)`: C#'s field is of `object`, which converts to no
+  `new TriFunctionLambda<A, B, C, A>((a, b, c) => a)`: C#'s field is of `object`, which converts to no
   `ITriFunction<A, B, C, A>`. A lambda that captures nothing C# creates once per type arguments, as Java's field is
   one instance. `Function.identity()` too; not a lambda of `null`, which C# does not convert to a type parameter.
 - **Unchecked conversions.** Java's raw cast into a parameterized target, `weigh((Map) weights)` for a
@@ -439,7 +574,12 @@ implements the interface.
   method's or type's (not a super constructor's parameter, of the superclass's), and not of a lambda or a method
   reference, which take their delegate type exactly. An array of a type parameter where an `Object[]` is expected is
   cast through `object`, `(object[]) (object) values`: C#'s array covariance holds for a type it knows to be a
-  reference type, .NET's at run time for the one the type parameter is. A raw or wildcard use of a type with a
+  reference type, .NET's at run time for the one the type parameter is. Java's unchecked cast between two constructions of
+  one class C# has as a class, `(Holder<T>) holder` of a `Holder<U>`, goes through `object`, as does a cast from a
+  JDK interface C# has as a class (`List`) into a type of type parameters. A list's, `(List<Entity_>) entities` of a
+  `List<Object>`, is `JavaCollections.UncheckedList<Entity_>(entities)`: the list itself where it is a
+  `List<Entity_>`, as Java's cast holds; else a copy of its elements, since .NET's `List<object>` is no
+  `List<Entity_>` and the cast would throw (a change to the copy does not reach the list). A raw or wildcard use of a type with a
   wildcard interface, where the type is expected with arguments, is a cast too: `ScoreDefinition getScoreDefinition()`
   into a `ScoreDefinition<Score_>` is `(IScoreDefinition<Score_>) GetScoreDefinition()`. `m.keySet()` of a JDK map
   where a `Set` is expected is `m.KeySet()`, the compatibility library's live view of the keys (`Keys` is only an
@@ -458,7 +598,7 @@ implements the interface.
   `Take((int) (a - b))`.
 - **Constructor references.** A raw `Triple::new` creates the type Java inferred for its result,
   `(p0, p1, p2) => new Triple<A, B, C>(p0, p1, p2)`, also through a supertype the class passes its own type
-  parameters on to, directly or not: `LinkedHashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`. Where the result does not
+  parameters on to, directly or not: `LinkedHashSet::new` as an `IntFunction<Set<V>>` is `p0 => new JavaLinkedHashSet<V>(p0)`. Where the result does not
   say, the delegate's parameter types do: `Node::new` as a `Builder<String, List<String>>` of
   `(K key, int index, Lifecycle<T> next)` is `(p0, p1, p2) => new Node<string, List<string>>(p0, p1, p2)`.
   Where the called method infers a type parameter of its own from the reference's result, Java from the parameter it
@@ -500,6 +640,40 @@ implements the interface.
 C#'s statements, operators and precedence are mostly Java's, so most of the code prints as it does in Java. The
 differences:
 
+- **Constants.** Java wraps a constant's overflow and narrows a constant silently, C# rejects both (CS0220, CS0221):
+  `Integer.MAX_VALUE + 1` is `unchecked(int.MaxValue + 1)`, `(byte) 200` `unchecked((sbyte) 200)`. A constant
+  floating-point value cast to an integer is Java's saturated value, `(int) 3.9e10` `2147483647`, `(long) Double.NaN`
+  `0L`, where C#'s constant conversion is unspecified (`CSharpConstants`, which evaluates Java's constant expressions,
+  the JDK's static final fields by reflection). `Math.abs` of an int or a long is `JavaMath.Abs`: Java's abs of the
+  minimum is the minimum, C#'s throws.
+- **Narrowing compound assignments.** `c += 2` of a char, a byte or a short narrows in Java, not in C# (CS0266): of a
+  local, a parameter or a field of `this`, it is `c = (char) (c + 2)`.
+- **Anonymous classes of library delegates.** An anonymous class of a library interface C# has as a delegate,
+  `new Comparator<String>() { compare … }`, is a lambda, as one of the program's functional interfaces is: its
+  hoisted class would be no `Comparison<string>` (CS1503).
+- **Optional.** `get()` of an empty Optional throws as Java's does, `x ?? throw new InvalidOperationException("No
+  value present")`, where `x` alone would be null. A `null` given to a library method's own type parameter stays
+  `null` for the template (`Optional.ofNullable(null)`), not `default`, which has no type in `default != null`.
+- **Arrays of arrays.** `new int[a][b]` creates every row in Java; C#'s `new int[a][b]` is no expression (CS0178).
+  Up to four sized dimensions it is `JavaArrays.Jagged<int>(a, b)`, `new int[a][b][]` `JavaArrays.Jagged<int[]>(a,
+  b)`. `Arrays.deepToString` is `JavaArrays.DeepToString`.
+- **Results as statements.** A call whose C# is no call, `s.length();` as `s.Length`, is a discard, `_ = s.Length;`
+  (CS0201), which still evaluates it.
+- **Conditional types.** Java types `b ? c : 0`, a `char` and an `int` constant that fits it, as a `char` (JLS
+  15.25), and so a `byte` or a `short`; C# as an `int`. The constant is cast, `b ? c : (char) 0`.
+- **String conversion.** Where Java converts a value to a string by `String.valueOf`, implicitly, C#'s `ToString`
+  differs for some: a boolean is `True`, a double `1` or `∞` (Java `1.0`, `Infinity`), a collection its .NET type's
+  name (Java `[1, 2]`, `{a=1}`), `null` the empty string. Such an operand of a concatenation (`+`, `+=` on a String)
+  is `JavaString.ValueOf(x)`, the compatibility library's Java conversion, which formats the BCL's collections, maps
+  and entries as `AbstractCollection` and `AbstractMap` do: a boolean, a float or a double, boxed too, an Object, a
+  type parameter, a library type, a boxed value (an `Integer` is C#'s `int?`, whose null concatenates as the empty
+  string), a value that may be null. An integer, a char, an enum, an array, and a program
+  type's value known not to be null stay as they are, C#'s conversion being Java's there. A String the analysis
+  finds may be null is `(s ?? "null")`; without the analysis a String is taken not to be null, and a null one prints
+  as the empty string. `print`, `println` and `StringBuilder.append` of a boolean, double, float or Object, and
+  `Double.toString`/`Float.toString`, go through `JavaString.ValueOf` by their mappings. The behavioural check
+  (`TestJavaToCSharpBehaviour`) holds each of these to Java's output.
+
 - **Loops and statements.**
   - `for (T x : xs)` becomes `foreach (T x in xs)`. One whose body assigns the loop variable iterates over `vItem`
     and declares `v` as its copy: C#'s iteration variable is read-only.
@@ -529,15 +703,21 @@ differences:
 - **Local variables.** A local is declared `var` when Java says `var`, or when its initializer constructs exactly the
   declared type. Otherwise it keeps its type. Java's `var` of a conditional whose branches differ is their common
   supertype, which C#'s `var` does not infer (CS0173): it is declared, `Node<A> node = c ? new Indexed<A>() : new
-  Unindexed<A>()`, and C# types the conditional from it; not when C# cannot write that type, with a wildcard or as
-  `object` for an intersection of the program's types.
+  Unindexed<A>()`, and C# types the conditional from it. A common type with a wildcard is its wildcard interface,
+  `IExists<A> node = …` for an `Exists<A, ?>` (the wildcard analysis counts such a var); an intersection of the
+  program's types, `Named & Sized`, is the one of them that declares every method the code calls on the variable,
+  `INamed model = …`; otherwise the local stays `var`.
 - **Type tests.** `instanceof` becomes `is`, `x instanceof T t` becomes `x is T t`, and `!(x instanceof T)` becomes
   `x is not T`. A record pattern of the program's record is a property pattern, in a type test and in a `case` alike:
   `o instanceof Line(Point(var x1, var y1), Point to)` becomes `o is Line { From: Point { X: var x1, Y: var y1 }, To:
   var to }`. A component's own type is `var`, a narrower one a type test; `_` leaves the component out. A library's
   record has no such properties (`SWITCH_FORM`). C# cannot test against an open generic type, and
   `o is Pair<object, object>` does not match a `Pair<string, int>`: in the class itself, `o instanceof Pair<?, ?> p`
-  (its `equals`) becomes `o is Pair<A, B> p`, with the class's own type parameters.
+  (its `equals`) becomes `o is Pair<A, B> p`, with the class's own type parameters. A test against a raw generic
+  type takes the arguments the operand's type determines: `termination instanceof PhaseTermination p` of a
+  `SolverTermination<Solution_>` is `termination is IPhaseTermination<Solution_> p`, every object that passes Java's
+  test having them; a sibling's through the generic supertype both have (`Termination<Solution_>`: Java lets no class
+  have it twice). Those type parameters are `notnull` where the tested type's are (`CSharpNotNullKeys`).
 - **Reference identity.** `==` between two Strings is identity in Java and content equality in C#, so it becomes
   `object.ReferenceEquals(a, b)`. So does `==` on a type parameter's value, which C# does not allow (except against
   `null`).
@@ -574,7 +754,7 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
 
 - **Not translated:** a local class that captures (`LOCAL_CLASS`), an instance initializer (`INSTANCE_INITIALIZER`),
   an enum constant's body and an anonymous class that is neither a lambda nor hoisted (`ANONYMOUS_CLASS`),
-  `Outer.this` where no `outer` leads to it (`OUTER_THIS`), `new int[a][b]` (`MULTI_DIMENSIONAL_ARRAY`), a switch
+  `Outer.this` where no `outer` leads to it (`OUTER_THIS`), `new int[a][b][c][d][e]`, more than four sized dimensions (`MULTI_DIMENSIONAL_ARRAY`), a switch
   form C# cannot say (`SWITCH_FORM`), an inner class of a generic type (`NESTED_IN_GENERIC`), an annotation type
   that is not translated (`ANNOTATION_TYPE`), and every JDK type or member without a mapping (`UNMAPPED_JDK`, the
   mapping's work list).
@@ -714,17 +894,41 @@ The translated code uses the BCL, not a port of the JDK. The table follows fernf
 ratchet's report (see below) lists what is left. Its rows are a mapping file, `jdk-bcl.csmap` beside the printer's
 classes, in the format a client's `.csmap` has; `CSharpBcl` reads it, and asks its own choosers first, the rules
 that depend on the call: a receiver that is a read-only parameter or a subclass of `ArrayList`, a value type's absence
-from a map, a stream's collector.
+from a map, a stream's collector. A map of a value type (`Map<String, Integer>`, C#'s `IDictionary<string, int>`)
+answers `null` for an absent key as Java's does: `get` is `GetValueOrNull`, `put`, `remove` and `putIfAbsent` the
+compatibility library's `PutValue`, `RemoveValue` and `PutIfAbsentValue`, each an `int?` (the BCL's would be `0`).
 
+- **Hash order.** A `HashMap` or a `HashSet` iterates in an order neither Java nor .NET specifies, and
+  they differ: Java's follows the hash buckets, .NET's `Dictionary` the insertions (until a removal frees a slot),
+  the compatibility library's `JavaLinkedHashSet`, which a `HashSet` is, the insertions. The translation keeps
+  those (decided 9 Nov 2026, #188): emulating Java's would need Java's
+  `hashCode` for every key, which a String's randomized .NET hash, an object's identity hash and a record's
+  unspecified one do not give. Code whose output depends on that order (printing a map, taking a set's first
+  element) prints otherwise, as it could on another JDK. A `LinkedHashMap`, whose insertion order Java specifies,
+  keeps it (`OrderedDictionary`); so does a `LinkedHashSet` (and a `SequencedSet`), a `JavaLinkedHashSet`: the
+  BCL has no ordered set, and its `HashSet` reuses a removed element's slot. A `HashSet` is a `JavaLinkedHashSet`
+  too, so that a `LinkedHashSet` goes where Java's code has a `HashSet`, which it extends. A `HashMap` that holds a
+  `LinkedHashMap` stays a gap: `Dictionary` and `OrderedDictionary` are unrelated, and declaring it an
+  `IDictionary` loses `GetValueOrDefault` and the read-only interfaces (tried, fernflower 29 -> 86).
+- **Natural order.** Java orders Strings by UTF-16 code unit (`"B"` before `"a"`), .NET's default comparer for strings by
+  the culture (`"a"` before `"B"`). Where Java's natural order is implied (`Collections.sort`, `Arrays.sort`, `List.sort(null)`,
+  `sorted()`, `naturalOrder()`, `reverseOrder()`, `Comparator.comparing`, a priority queue), the compatibility library
+  compares with `JavaComparer<T>.Natural`: ordinal for a string, a value's `CompareTo` otherwise. `Arrays.sort` is
+  `JavaArrays.Sort`, stable as Java's sort of objects is (`Array.Sort` is not), with a comparator and a range too. A `TreeMap` or
+  `TreeSet` created without a comparator, whose keys may be Strings (a String, an Object, a CharSequence, a
+  Comparable, a type parameter), takes it as its comparer: `new SortedDictionary<string, int>(JavaComparer<string>
+  .Natural)`; one of numbers, enums or the program's types keeps the default, which is Java's order there.
+  `compareToIgnoreCase` is Java's (`JavaString.CompareToIgnoreCase`), as are `Integer.toString(i, radix)` and
+  `Long`'s, a sign and digits in any radix where `Convert.ToString` knows four and prints two's complement.
 - **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` becomes
   `IDictionary<K, V>` and `Set` becomes `ISet<T>`, because Java implements them with hash and tree collections
   alike. `HashMap` becomes `Dictionary<K, V>`, `LinkedHashMap` the insertion-ordered `OrderedDictionary<K, V>`,
-  `TreeMap` and `EnumMap` `SortedDictionary<K, V>`, and the hash sets `HashSet<T>`. Where the modification analysis
+  `TreeMap` and `EnumMap` `SortedDictionary<K, V>`, and the hash sets `JavaLinkedHashSet<T>` (see Hash order). Where the modification analysis
   proves a collection unmodified, a read-only interface (`IReadOnlyList<T>`) is the analysis's refinement. `Collection` becomes `ICollection<T>`, `Iterable` becomes `IEnumerable<T>`, and `Map.Entry`
   becomes `KeyValuePair<K, V>`.
 - **Navigable and sequenced collections.** `NavigableMap` and `NavigableSet` are their one implementation's,
   `SortedDictionary<K, V>` and `SortedSet<T>`; `SequencedMap` and `SequencedSet` are `OrderedDictionary<K, V>` and
-  `HashSet<T>`, an `EnumSet` a `HashSet<T>`. The navigation is the compatibility library's (`JavaNavigable`):
+  `JavaLinkedHashSet<T>`, an `EnumSet` a `HashSet<T>`. The navigation is the compatibility library's (`JavaNavigable`):
   `floorEntry`, `higherKey`, `subMap`, … on a `SortedDictionary`, `floor`, `higher`, … on a `SortedSet`. An entry it
   returns is a `JavaEntry`, null when there is none, and a local it initializes is `var` (a `KeyValuePair` cannot be
   null). Two differences: a `SortedDictionary` searches by order in a walk over its keys, not in log time, and a
@@ -735,7 +939,10 @@ from a map, a stream's collector.
   `IList`, `Collection<?>` and `Set<?>` are `ICollection`, `Iterable<?>` is `IEnumerable`, `Map<?, ?>` is
   `IDictionary`, `Comparable<?>` is `IComparable`. A method's parameter of a program type with wildcards, `Context<?> c`, is captured as Java does
   in the body: the method gets a type parameter of its own, `void OnRequest<TEmbedded>(Context<TEmbedded> c)`,
-  constrained by the wildcard's bound or the declared one (`CSharpWildcards`). Not in a constructor, a functional
+  constrained by the wildcard's bound or the declared one (`CSharpWildcards`), and `notnull` where the type's own
+  is a dictionary's key. A diamond whose argument is such a parameter takes the capture where Java infers it,
+  `new EqualIndexer<T, TKey_>(keyUnpacker, …)` of a `KeyUnpacker<?>` captured as `TKey_`, and a type parameter no
+  argument determines its bound with the capture in it (`ICollection<TKey_>`). Not in a constructor, a functional
   interface's method, an override of a library method, or when the bound is no valid C# constraint (string, a
   delegate, a sealed class, a type parameter). Any other `?` of a program type is the type's wildcard interface, as a
   self-bounded type's is (below): the type parameters the program declares with `?`, in a field, a constructor's
@@ -744,25 +951,56 @@ from a map, a stream's collector.
   `ITupleLifecycle<ITuple>` is not. A class's wildcard interface declares its internal members too, Java's
   package-private ones, and the overrides of a library's methods; a result C# writes without arguments (`Class<A>`'s
   `Type`) is kept, and the fields the code reads through the wildcard, as properties of the field's name
-  (`Type IMoveSelectorConfig.filterClass => filterClass;`). A result that is a delegate of a removed parameter,
-  each of its parameters and its result that parameter or not mentioning it, is the delegate with the parameter
-  erased, which the bridge adapts to by a lambda: a collector's `BiFunction<ResultContainer_, A, Runnable>
-  accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return
-  (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`; a functional interface of the program with its lambda adapter
-  (`ITriFunction<ResultContainer_, A, B, Action>`) goes in as its `Lambda`. Only where it declares every member the
+  (`Type IMoveSelectorConfig.filterClass => filterClass;`), a superclass's too, as the type sees its type
+  (`that.parent` in a subclass's `equals`); a superclass's method the superclass's wildcard interface declares is
+  reached through it, which the subclass's wildcard interface extends when every class between has one. What the
+  type's own instance methods reach through a cast or a local of its own wildcard use, `(Node<?>) o` in `equals`,
+  counts for nothing: C# prints that as the type itself with its own type parameters. A result that is a delegate
+  of a removed parameter, a property's too, each of its parameters and its result that parameter or not mentioning
+  it, is the delegate with the parameter erased, which the bridge adapts to by a lambda: a collector's
+  `BiFunction<ResultContainer_, A, Runnable> accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator()
+  { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`, a nullable result's null passed
+  on (`f == null ? null : …`); a functional interface of the program with its lambda adapter
+  (`ITriFunction<ResultContainer_, A, B, Action>`) goes in as its `TriFunctionLambda`. A creation never names the
+  wildcard interface: a diamond resolved to a wildcard from its target names the bound, `new AndThen<S, object>(…)`
+  (`CSharpTypeName.created`); a default method called on a captured parameter casts to the interface with the
+  captured names, `((IColl<TS, TRC>) a).N()`. A supertype's method reached through the wildcard that no interface the wildcard
+  interface extends declares (the supertype mentions a removed parameter, or has no wildcard interface of its own)
+  the wildcard interface declares itself, as the type sees it, an override of it too: `string IShadow.Name => Name;`,
+  through the interface for a default method the class does not override, `((IVariable<S, V>) this).Ordinal()`; a
+  call through the wildcard interface needs no such cast. A reached member whose parameter is a removed type
+  parameter itself, `isMovable(Solution_ workingSolution, Object entity)`, it declares with the parameter's bound,
+  `bool IsMovable(object workingSolution, object entity)`, the bridge casting it back, `(Solution_) workingSolution`:
+  Java passes nothing through the wildcard but `null` or the capture's own value, which the cast holds for. A
+  result that is a JDK collection of a type with a wildcard interface it declares as C#'s covariant read-only
+  collection of that interface, which the member's value converts to without a cast: `List<VariableDescriptor<S>>
+  GetSourceVariableDescriptorList()` is `IReadOnlyList<IVariableDescriptor>` (a List; any other collection
+  `IEnumerable<…>`). A generic method C# prints erased (`object GetValue(object entity)`) it declares as it prints,
+  where the code calls it through a wildcard; a read-only parameter (`CSharpReadOnly`) read-only, as the member has
+  it. A type parameter removed in the result of a member the code reaches through the wildcard is removed in the
+  result type's wildcard interface too, `VariableMetaModel<?, ?, ?>.entity()` making `PlanningEntityMetaModel`'s
+  remove `Solution_`, until nothing changes (not into a functional interface, which the bridge adapts as a
+  delegate). An interface's wildcard interface cannot redeclare a super-interface's member (the generic interface
+  would extend both, CS0121): a super-interface's member reached through it, `name()` of `VariableMetaModel` through
+  a `ShadowVariableMetaModel<S, E, ?>`, makes each super-interface on the way remove the same positions, and the
+  interface's wildcard interface extends theirs, which declare it. The refusal (`NO_WILDCARD_INTERFACE`) names every member the interface cannot declare. Only
+  where it declares every member the
   code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
   where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
   ResultContainer_, Result_>)`, which C# could not infer from the wildcard interface), keeps the type's wildcards their
   bound, `object`. Such an interface, of no supertypes, whose instance methods each take an erased type parameter or
   none and return one, none, or a delegate the bridge adapts, has an erasure adapter (`CSharpErasures`): a static
   `IUniConstraintCollector<A, object, Result_> Erased_(IUniConstraintCollector<A, ResultContainer_, Result_>)` and a
-  private class `Erasure_` that implements the interface of `object` by calling the adapted one's members. A value
+  class beside it, `CollectorErasure_<A, ResultContainer_, Result_>`, that implements the interface of `object` by calling the adapted one's members. A value
   going where the wildcard is expected, `new AverageUniCollector<>(mapper)` returned as `UniConstraintCollector<A, ?,
   Double>`, is adapted: `IUniConstraintCollector<A, AbstractLongAverageSlot.State, double>.Erased_(new
   AverageUniCollector<A>(mapper))`, which C#'s variance would not convert. One already of `object` is itself; any other
   is another object, which a reference comparison with the original tells apart. Not into a method's parameter that
   captures the wildcard. An interface whose statics have a companion, of
-  the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members. Where a
+  the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members, a
+  self-bounded interface's too (two declarations of the name are CS0102); when the wildcard interface is not generic.
+  One that keeps type parameters, `INotification<Solution_, ChangeEvent_>`, has an arity of its own, which C# reaches
+  statics through only constructed (CS0305): the companion is the static class beside it. Where a
   class's superclass is expected, its wildcard interface is cast to it, `(AbstractNode) node`: the interface cannot
   extend the class. A wildcard of a library type,
   and `? extends B` (what the code stores there is a `B`), is its bound (`WILDCARD_AS_BOUND`).
@@ -926,6 +1164,12 @@ by contract is `T?`, and a mapping rule that calls one says `->?`. `JavaCompat.c
 - Extension methods with Java's behaviour where it differs in a way that can be observed: `Map.put` returns the
   previous value, `Deque.removeFirst` the element, `String.split` takes a regular expression and drops trailing
   empty strings, and `String.format`'s conversions differ from .NET's.
+- Collections: `add` on a list or collection is a value in Java, always true, and C#'s `Add` is void: a call whose
+  value is used (not the statement it is in) is the compatibility library's `AddReturning`; a set's `Add` returns
+  the boolean. `toArray(new T[0])`, or of any array created there, is LINQ's `ToArray()`; `toArray(a)` of an array that
+  exists is `ToArray(a)`, Java's rule of filling `a` when it holds the elements.
+  `containsAll(Collection<?>)` takes the non-generic `ICollection` the wildcard prints as, without LINQ: `ContainsAll`
+  over objects.
 - The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `IJavaIterator<T>`
   (Java's `Iterator`, which the program's iterators implement; `JavaIterator<T>` walks a C# collection, with
   `remove`), `IJavaListIterator<T>` (a `ListIterator`, which `JavaIterator<T>` is over a list: `previous`, `set`,
@@ -957,10 +1201,15 @@ The translation calls the library only where it needs that behaviour, so idiomat
 
 ## The ratchet
 
-`TestJavaToCSharpFernflower`, `TestJavaToCSharpLangchain4j` and `TestJavaToCSharpTimefold` (maddi-run-openjdk,
-`slowTest`) translate the main sources of fernflower, langchain4j's core and timefold's solver. Each judges its
+`TestJavaToCSharpFernflower`, `TestJavaToCSharpLangchain4j`, `TestJavaToCSharpTimefold` and `TestJavaToCSharpNacos`
+(maddi-run-openjdk, `slowTest`) translate the main sources of fernflower, langchain4j's core, timefold's solver and
+one module of nacos (`J2CS_NACOS_MAIN`: `api/main` or `common/main`, each with a ratchet file of its own). The
+corpora differ in what they can show: timefold is a generic engine, whose wildcards bound type parameters, so it
+measures the wildcard interface and not declaration-site variance; nacos is application code whose wildcards bound
+concrete types, and whose errors are mostly types no mapping covers (guava, grpc, and the api module's own types
+when common is translated: a sibling module has no C# while one module is translated). Each judges its
 translation with `tools/csharp-check`, a small .NET tool on Roslyn that `JavaToCSharpRatchet` builds with
-`dotnet build`, so a .NET 10 SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors,
+`dotnet build`, so a .NET 10+ SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors,
 then compiles the syntax-clean files together against the BCL and the mappings' packages. The numbers are held in
 `src/test/resources/j2cs/<corpus>.ratchet`: printer crashes, syntax errors, syntax-clean files, compiling files
 (files without an error in that compilation), and `unmappedJdkUses`. maddi-mod's `TestJavaToCSharp*Facts` translate
@@ -970,15 +1219,28 @@ of the commit that earned it: the ratchet files are this printer's changelog.
 
 The printer reports every JDK type or member it prints without a BCL counterpart as `UNMAPPED_JDK`. Their count is
 ratcheted, and `build/j2cs/<corpus>/report.txt` lists them by frequency. That list, together with the names and
-members the compiler does not know, is the BCL mapping's work list. The error total is reported but not ratcheted:
-as the mapping lets the compiler bind more, it gets to report errors it could not see before.
+members the compiler does not know, is the BCL mapping's work list. The error total is ratcheted too: when the
+mapping lets the compiler bind more and it reports errors it could not see before, the higher number is written
+with a note that says so. `tools/csharp-check/diff.py before.out after.out` tells two runs' `csharp-check.out`
+apart: the totals, the codes that moved, and each file and code that moved, which the totals alone hide (a run that
+got better and worse at once).
 
 ## Tests
 
-The unit tests need no .NET SDK; the ratchets are what Roslyn judges.
-
 - `TestJavaToCSharpStructure`, `…Bcl`, `…Libraries` and `…Facts` translate one sample per test and assert the
-  fragments that are the rule, `contains`. Each writes its samples to `build/csharp-samples/<test>-<sample>.cs`.
+  fragments that are the rule, `contains`. Each writes its samples to `build/csharp-samples/<test>-<sample>.cs`,
+  and Roslyn judges every sample (`CSharpCheck`, the ratchets' `tools/csharp-check` kept running for the test JVM
+  with `-serve`, with the compatibility library and the mappings' packages): `contains` says what the printer
+  wrote, the judge that C# accepts it, which the text alone does not say (an override that overrides nothing reads
+  fine). A test whose sample cannot compile sets `compile = false` before translating and says why: a mapping to
+  attributes that exist nowhere, or a printer bug on its way to a fix (#185). The nullable warnings of a sample
+  translated with facts are in `nullableWarnings`, for a test to assert. Without a .NET SDK on the `PATH` the
+  judging is skipped, which the test report shows as skipped tests.
+- `TestJavaToCSharpBehaviour` checks behaviour (`behaves`): a sample with a `main` is compiled with javac and run
+  on the JVM (`JavaRun`), its translation compiled and run on .NET (`csharp-check`'s `-run:<type>`), and both must
+  print the same lines and end with the same exception (the .NET one the mapping's: `NullPointerException` is a
+  `NullReferenceException`). The other tests say what C# is written and that it compiles; only this one says that
+  it does what the Java did. A probe that does not yet is `@Disabled` with the issue that lists it (#188).
 - The structural samples are also compared whole with a golden file, `src/test/resources/…/golden/`: a new one is
   written and its test fails until it has been looked at; `-PupdateGolden` rewrites them after an intended change.
 - `TestJavaToCSharpMessages` asserts the messages, `TestJavaToCSharpPolicies` the policies besides the default, and

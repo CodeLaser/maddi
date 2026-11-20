@@ -17,9 +17,9 @@
 
 package io.codelaser.maddi.analysis.api;
 
-import io.codelaser.maddi.callgraph.ComputeCallGraph;
-
 import java.util.List;
+
+import io.codelaser.maddi.callgraph.ComputeCallGraph;
 
 public record PrepOutcome(ComputeCallGraph callGraph, List<AnalysisProblem> problems) {
 }

@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.expression.util;
 
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.expression.util.OneVariable;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
-
-import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /*
 very simple inequality solver

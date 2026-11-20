@@ -17,16 +17,7 @@
 
 package io.codelaser.maddi.inspection.integration.java.type;
 
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
-import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
-import io.codelaser.maddi.inspection.api.resource.Resources;
-import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.test.web.servlet.setup.AbstractMockMvcBuilder;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.FileOutputStream;
 import java.util.ArrayList;
@@ -34,7 +25,17 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.test.web.servlet.setup.AbstractMockMvcBuilder;
+
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
+import io.codelaser.maddi.inspection.api.resource.Resources;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 
 public class TestByteCode extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestByteCode.class);

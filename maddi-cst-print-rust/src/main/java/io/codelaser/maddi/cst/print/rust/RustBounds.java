@@ -18,6 +18,13 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.BinaryOperator;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -29,13 +36,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * The trait bounds of a type parameter, from what the Java it governs does with its values: a class's {@code T} from
@@ -115,7 +115,7 @@ final class RustBounds {
                 }
             }
             case MethodCall mc -> call(mc, tp, found);
-            case ConstructorCall cc when cc.constructor() != null && cc.parameterExpressions().size() == 1
+            case ConstructorCall cc when cc.callsConstructorOfCreatedType() && cc.parameterExpressions().size() == 1
                                          && cc.constructor().typeInfo().compilationUnit().externalLibrary()
                                          && elementIs(cc.parameterExpressions().getFirst().parameterizedType(), tp) ->
                     found.add("Clone"); // new ArrayList<>(c): a copy

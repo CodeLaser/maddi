@@ -16,14 +16,15 @@
  */
 package io.codelaser.maddi.run.main;
 
-import io.codelaser.maddi.run.config.ShippedAnalysisResults;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.run.config.ShippedAnalysisResults;
 
 /**
  * The Gradle and Maven plugins configure a run through {@link PluginOptions#analysisHintsMap}, which leaves the preload

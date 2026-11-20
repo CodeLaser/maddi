@@ -16,12 +16,12 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Java's comments come through: the licence header above {@code package}, a Javadoc as a KDoc, line and block comments

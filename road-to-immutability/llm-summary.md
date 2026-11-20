@@ -50,8 +50,22 @@ chapter only when detail is missing here. Last checked against the code and the 
     Written and read as `@Modified(hc=true)` (modified in the hidden content only; a contract on a bodiless
     declaration, `AnnotationToProperty`/`DecoratorImpl`/`SourceContractMaterializer`). Consumer: the Java→Kotlin
     printer's `List`/`MutableList` choice. Immutability, independence and `@Container` keep the deep property.
-    The book's §"Propagating modifications" (080) describes it; the step back from a modified container to its
-    elements (`useAddNewLine`) is still not computed.
+    The book's §"Propagating modifications" (080) describes it. A modified element reached through `∈`/`∋`
+    (hidden content) counts structurally when it may also be the owner's accessible content (maddi-mod#130, Bart 2026-11-19): the definition is "the written
+    object is reachable from p by SOME path of accessible fields", accessible judged by DECLARED types (a field only a
+    subclass declares is hidden; type-parameter/`Object` fields and container elements are hidden).
+    `Util.accessibleTypes` = declared types reachable through accessible fields at any depth;
+    `Util.mayBeAccessibleContent` = the written type is assignable either way to one of them (gate
+    `NOACCESSIBLEREACH`; applied in `ShadowModificationPass.project` and the engine's `mayAliasAccessibleField`;
+    widens #117's one-field `Util.hiddenAliasOwner`). Approximations (accepted): (a) a call's modification compares
+    the object plus the application objects it holds, not its JDK containers (else `clearList` loses its read-only
+    `List`); (b) the owner's own type counts only through a field back to it (`Node.first` yes; `Leaf.children` no:
+    `clearLeaves` not structural); (c) the fixpoint engine can't tell a direct write from a call, so it is coarser
+    than the reachability pass. Book §080 `structural-definition` (the definition), §109 `structural-approximations` (a-c); tests `TestAccessibleReach`,
+    `TestBook080Elements`). The step back from a modified container to its elements is computed within one method
+    (maddi-mod#113: a co-element of a modified element is modified, in the element's mode: structurally when the
+    element's own state is written, maddi-mod#130), not through a call
+    (`useAddNewLine`).
 - **Unmodifiable views** (2026-10-15, CodeLaser/maddi-mod#52; book §050 "Unmodifiable views"): a fact beside
   immutability, never derived from it. `UNMODIFIABLE_TYPE`: rule 0 + the structural rule 1, decided BEFORE the rule-3
   (dependence) cap that stops `Collections.unmodifiableList`'s view type at FINAL_FIELDS (which cannot tell "rule 1
@@ -210,7 +224,7 @@ immutability verdicts are derived.
   do not turn it on): re-derives NON_MODIFYING_METHOD / UNMODIFIED_PARAMETER / UNMODIFIED_FIELD from primitive
   evidence + converged links; a *cutover* downgrades frozen optimistic TRUEs past `TolerantWrite` (the one
   sanctioned non-monotone write), freezes the three, clears the derived immutability/independence/container family,
-  re-derives and re-certifies; up to `MODREACH_ROUNDS`=3. Seeds: a walkable body (in order, non-empty, not
+  re-derives and re-certifies; up to `MODREACH_ROUNDS`=10 (a safety bound; the rounds stop when one writes nothing). Seeds: a walkable body (in order, non-empty, not
   union-over-implementations, not opaque) is seeded from primitive evidence, not from its callers' summaries
   (b265dc8f, 2026-10-20, maddi-mod#55: a parameter a recursion cycle only reads stays unmodified); an array
   expression (`DependentVariable` without `arrayVariable()`) taints instead of failing the pass (5512762c).
@@ -278,6 +292,38 @@ immutability verdicts are derived.
   unsafe; after type arguments, elements and the JSpecify-generated JDK hints (2026-10-13): NULL_MARKED 341
   unsafe / 1,740 noise, OPEN 211 unsafe. Second oracle: kotlinc/Roslyn on the translated corpora (the J2K/C#
   ratchets: fernflower, langchain4j, guava, nacos, jenkins, timefold).
+
+## Ownership (chapter 055, before eventual immutability; finalizers are its §Finalizers; maddi-mod `analyzer/ownership`, `docs/roadmap/ownership.md`)
+
+- **Who holds an object**, not who modifies it. A pass after convergence: always on in the IDE daemon (closed world
+  a per-project setting) and the MCP server (`configure_project closedWorld`); CLI `--ownership` / `--closed-world`
+  (and the build plugins' `ownership` / `closedWorld`), or the gates `OWNERSHIP` (`OWNERSHIP=<file>` also writes a
+  census TSV) and `OWNERSHIP_WORLD=closed`. A negative verdict's reason is `OWNERSHIP_CULPRIT` (with culprits on); a
+  hand-written annotation the verdict does not uphold is a `contract-violation`. First consumer:
+  the Java→Rust printer. One fact feeds back into the fixpoint (an ownership round at the terminal point, gate
+  `NOOWNERSHIPFEED`): a parameter every caller hands over into an owned field is no dependence; the elements'
+  independence counts in its place (`java.util` containers and arrays only). Stored as
+  `HANDED_OVER_PARAMETER`; an incremental run starts from it and falls back to cold when the recomputed feed differs.
+- **`@Fresh`** (method, `FRESH_METHOD`): every returned object was created during the call (or is `null`) and
+  nothing else holds it. A lambda/method reference is never fresh. `List.copyOf`, `Collections.emptyList` are not.
+- **`@Borrowed`** (parameter, `BORROWED_PARAMETER`): nothing that outlives the call holds the argument's object;
+  keeping its hidden content is fine (`addAll(c)` borrows `c`), storing an immutable object is not (a `String`
+  stored is kept, though independent). Degraded method: nothing borrowed.
+- **`@Owned`** (field, `OWNED_FIELD`; `elements=true` = `OWNED_ELEMENTS_FIELD`): reachable only through its owner.
+  Rules: arrives fresh (creation, fresh call, `null`, or a *transferred* parameter), never leaves (borrowed callees
+  and *lent* results allowed), private or effectively private (closed world), no degraded referrer.
+  `SHARED_IMMUTABLE_FIELD` has no annotation.
+- **Transfer**: every call site (known: private/package-private or closed world, no override, no method
+  reference) hands over a fresh object or a local not used after. `@Finalizer` is transfer of the receiver; with
+  the gate on it is computed for methods moving an owned field out, and contracted finalizers' call sites are
+  checked (`finalizer-violation` warnings).
+- `@Fresh`/`@Borrowed` are contracts on bodiless and library methods (a few JDK ones: `Arrays.copyOf`,
+  `toArray()`, `ArrayList.clone`, `Map.entry`); `@Owned` is never read as a contract. Absence of links must read
+  as shared, never owned. Book examples pinned by `TestBook055Ownership`. Chapter 060
+  §"Ownership and eventual immutability" (not computed): a closed-world public constructor storing a handed-over
+  list gives an owned field, yet the type stays `@FinalFields`/dependent, as immutability does not read ownership;
+  with a private constructor maddi already proves the type immutable. With the feed, the closed-world public
+  constructor's type is `@Immutable(hc=true)` too.
 
 ## Engine facts an LLM should not re-derive wrongly
 
@@ -363,8 +409,11 @@ immutability verdicts are derived.
 ## Document map (src/docs/asciidoc/sections/)
 
 Tutorial: 010 introduction · 020 final fields · 030 modification · 040 containers ·
-045 linking & dependence · 050 immutability (incl. §Unmodifiable views) · 060 eventual (computed; §Eventual) ·
+045 linking & dependence · 050 immutability (incl. §Unmodifiable views) · **055 ownership** (computed behind
+`OWNERSHIP`, incl. §Finalizers; this file's §Ownership) · 060 eventual (computed; §Eventual) ·
 070 modification part 2 · 080 hidden content · **085 nullability** (computed; this file's §Nullability).
-Technical: **105 the link system** · **108 convergence (iterating analyzer)**.
+Technical: **105 the link system** · **108 convergence (iterating analyzer)** · **109 the analyzer today** (status per
+annotation, switches, deviations from the definitions, measurements, pinning tests: the ONLY chapter that talks about
+the current implementation; the tutorial chapters state principles and carry no issue numbers, dates, gates or test names).
 Practice: 110 support classes · 115 the analyzer's own code · 120 other annotations ·
 appendix A annotation overview. (090/100 exist on disk but are excluded: pre-sv terminology.)

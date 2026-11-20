@@ -18,6 +18,19 @@
 package io.codelaser.maddi.callgraph;
 
 
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.RECURSIVE_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
@@ -35,25 +48,12 @@ import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
 import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
 import io.codelaser.maddi.inspection.api.byname.ByNameReference;
 import io.codelaser.maddi.inspection.api.byname.ByNameSink;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.ImmutableGraph;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Predicate;
-
-import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.RECURSIVE_METHOD;
-import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 
 /*
 call & reference graphs.
@@ -775,8 +775,9 @@ public class ComputeCallGraph {
                 // ⛔⛔ AN ARRAY CREATION IS NOT A CALL TO A CONSTRUCTOR OF THE ELEMENT TYPE. 'new X[n]' carries
                 // the constructor Factory.newArrayCreationConstructor invents for it -- owned by X, one int
                 // parameter per dimension -- which X does not declare and X.constructors() does not contain.
-                // Its fully qualified name is computed from owner + <init> + erased parameters, so it is the
-                // SAME STRING as a declared X(int), while being a different object with the same hashCode.
+                // Its fully qualified name used to be computed from owner + <init> + erased parameters, so it was
+                // the SAME STRING as a declared X(int), while being a different object with the same hashCode
+                // (since CodeLaser/maddi#195 it is X[].<init>(int), and synthetic; the exclusion stays).
                 // A consumer keying the graph on that name then holds two entries it cannot tell apart:
                 // GraphService.classLevelDepths died on closed-core with "Duplicate key
                 // com.example.parameter.util.LinkMap.<init>(int)", one entry standing for
@@ -784,7 +785,7 @@ public class ComputeCallGraph {
                 // ⇒ leave it out, exactly as IsolationCore already does for the same object. Nothing is lost:
                 // the dependency on X is the addType(cc.parameterizedType()) five lines up, which is what the
                 // array creation actually means.
-                if (cc.constructor() != null && !cc.constructor().isSyntheticArrayConstructor()) {
+                if (cc.callsConstructorOfCreatedType() && !cc.constructor().isSyntheticArrayConstructor()) {
                     handleMethodCall(info, cc.constructor());
                     // a corpus's own container is often a CONSTRUCTOR taking the name (Cassandra's
                     // ParameterizedClass), so a sink may name one; the declaring type and arity match as they do

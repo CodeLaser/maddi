@@ -19,7 +19,6 @@ package io.codelaser.maddi.cst.impl.info;
 
 
 import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 
 public class ParameterInspectionImpl extends InspectionImpl implements ParameterInspection {

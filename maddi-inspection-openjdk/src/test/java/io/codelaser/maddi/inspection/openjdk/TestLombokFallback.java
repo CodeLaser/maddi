@@ -17,19 +17,9 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static org.junit.jupiter.api.Assertions.*;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -41,8 +31,20 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Stream;
 
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.junit.jupiter.api.Assertions.*;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * A Lombok processor that cannot run makes the parse fall back to parsing WITHOUT Lombok -- and that fallback is a
@@ -90,9 +92,23 @@ public class TestLombokFallback {
             """;
 
     // annotated: javac only instantiates (and so initialises) processors in a round that has annotations to offer;
-    // a source set that uses Lombok always does
+    // a source set that uses Lombok always does. It must also name lombok: the processor only runs for a source set
+    // whose sources do (a real use is an import or a qualified annotation; the broken jar has neither to offer, and
+    // any occurrence of the word counts).
     @Language("java")
     private static final String INPUT = """
+            package io.codelaser.maddi.test;
+            // stands in for a use of lombok
+            @SuppressWarnings("unused")
+            public class X {
+                private int t;
+            }
+            """;
+
+    // the same source set, the same broken Lombok on its class path, but no source that uses it: Spring Boot's
+    // dependency list puts lombok on the class path of projects that never use it
+    @Language("java")
+    private static final String INPUT_WITHOUT_LOMBOK = """
             package io.codelaser.maddi.test;
             @SuppressWarnings("unused")
             public class X {
@@ -143,10 +159,22 @@ public class TestLombokFallback {
     }
 
     private Summary parse(boolean failFast) {
+        return parse(failFast, INPUT);
+    }
+
+    private Summary parse(boolean failFast, String input) {
         JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder()
                 .setFailFast(failFast).setDetailedSources(true).setLombok(true).build();
-        return javaInspector.parseMultiSourceSet(Map.of(sourceSet, Map.of("io.codelaser.maddi.test.X", INPUT)),
+        return javaInspector.parseMultiSourceSet(Map.of(sourceSet, Map.of("io.codelaser.maddi.test.X", input)),
                 options);
+    }
+
+    @Test
+    public void lombokOnTheClassPathButUnusedDoesNotRun() {
+        Summary summary = parse(true, INPUT_WITHOUT_LOMBOK);
+        assertTrue(summary.parseExceptions().isEmpty(), String.valueOf(summary.parseExceptions()));
+        assertFalse(summary.haveErrors());
+        assertNotNull(summary.parseResult().findType("io.codelaser.maddi.test.X"));
     }
 
     @Test
@@ -174,5 +202,33 @@ public class TestLombokFallback {
     @Test
     public void failFastStopsAtTheFallback() {
         assertThrows(Summary.FailFastException.class, () -> parse(true));
+    }
+
+    /**
+     * With a second front end (the Kotlin interleave) the Java route's retry is impossible: Lombok runs after the other
+     * front end has declared against the set's units. The jar is probed first instead, and a set whose Lombok cannot
+     * run is parsed without it, as the same LombokFallback error. It aborted the whole mixed parse before (quarkus's
+     * lombok-1.18.36 on JDK 26: "TypeTag :: UNKNOWN").
+     */
+    @Test
+    public void withASecondFrontEndTheJarIsProbedFirst() {
+        ((JavaInspectorImpl) javaInspector).setInterleave(new io.codelaser.maddi.java.openjdk.SourceSetInterleave() {
+            @Override
+            public void beforeAttribution(SourceSet set, java.util.function.Function<String,
+                    io.codelaser.maddi.cst.api.info.TypeInfo> sourceTypes) {
+            }
+
+            @Override
+            public void afterCommit(SourceSet set) {
+            }
+        });
+        Summary summary = parse(false);
+        List<JavaInspectorImpl.LombokFallback> fallbacks = summary.parseExceptions().stream()
+                .filter(e -> e instanceof JavaInspectorImpl.LombokFallback)
+                .map(e -> (JavaInspectorImpl.LombokFallback) e).toList();
+        assertEquals(1, fallbacks.size(), String.valueOf(summary.parseExceptions()));
+        assertTrue(fallbacks.getFirst().rootCause().contains("simulated: a javac class this Lombok needs is gone"),
+                fallbacks.getFirst().rootCause());
+        assertNotNull(summary.parseResultIgnoringErrors().findType("io.codelaser.maddi.test.X"));
     }
 }

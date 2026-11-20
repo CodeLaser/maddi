@@ -17,9 +17,6 @@
 
 package io.codelaser.maddi.cst.api.info;
 
-import io.codelaser.maddi.cst.api.output.OutputBuilder;
-import io.codelaser.maddi.cst.api.output.element.Keyword;
-
 /**
  * A modifier that can appear on a method or constructor declaration:
  * {@code public}, {@code private}, {@code protected}, {@code abstract},

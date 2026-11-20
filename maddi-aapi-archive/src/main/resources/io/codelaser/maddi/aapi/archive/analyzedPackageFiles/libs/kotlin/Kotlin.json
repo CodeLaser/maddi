@@ -1,5 +1,17 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
+
+{"name": "Tkotlin.ExceptionsKt__ExceptionsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MaddSuppressed(0,java.lang.Throwable,java.lang.Throwable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$addSuppressed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pexception(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MgetStackTrace(1,java.lang.Throwable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "P$this$stackTrace(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "MgetSuppressedExceptions(2,java.lang.Throwable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "P$this$suppressedExceptions(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "MstackTraceToString(3,java.lang.Throwable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$stackTraceToString(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}}]},
 
 {"name": "Tkotlin.Lazy", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
  {"name": "MgetValue(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},

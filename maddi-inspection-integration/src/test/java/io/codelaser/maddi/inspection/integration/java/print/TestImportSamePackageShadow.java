@@ -17,19 +17,21 @@
 
 package io.codelaser.maddi.inspection.integration.java.print;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.integration.java.CommonTest2;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A single-type import shadows a type of the unit's own package (GitHub CodeLaser/maddi#110): a same-package
@@ -65,7 +67,7 @@ public class TestImportSamePackageShadow extends CommonTest2 {
         TypeInfo typeInfo = parseResult.findType(fqn);
         ImportComputer ic = javaInspector.importComputer(Integer.MAX_VALUE, typeInfo.compilationUnit().sourceSet());
         // as a CST-built reference to java.util.Iterator would: no written qualifier, so an import candidate
-        ic.add(javaInspector.compiledTypesManager().type(java.util.Iterator.class));
+        ic.add(javaInspector.compiledTypesManager().type(Iterator.class));
         return javaInspector.print2(typeInfo.compilationUnit(), (Qualification.Decorator) null, ic);
     }
 

@@ -20,6 +20,8 @@
 */
 package org.parsers.json;
 
+import static java.nio.charset.StandardCharsets.*;
+
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -28,8 +30,6 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.util.Arrays;
 import java.util.BitSet;
-
-import static java.nio.charset.StandardCharsets.*;
 
 
 abstract public class TokenSource implements CharSequence {

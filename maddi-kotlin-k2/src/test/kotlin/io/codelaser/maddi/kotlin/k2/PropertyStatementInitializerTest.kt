@@ -27,7 +27,8 @@ import org.junit.jupiter.api.Test
  * `val matchesLicense = if (regex) { val r = …; fun matcher(…) = …; ::matcher } else { … }`), or a `try`. The field
  * keeps no initializer. An instance property is assigned in each branch in the constructor, in source order with the
  * `init` blocks and reading the constructor's parameters, where kotlinc puts it; a top-level one in the facade's static
- * initializer.
+ * initializer. So does one with a construct only statements express (#98): an inlined scope function, an elvis whose
+ * right operand jumps, the statements before the assignment, in one block.
  */
 class PropertyStatementInitializerTest : KotlinScanTestBase() {
 
@@ -47,8 +48,11 @@ class PropertyStatementInitializerTest : KotlinScanTestBase() {
                 init { check(plain > 0) }
                 private val late: Int = if (regex) { val x = plain; x * 2 } else plain
                 fun check(s: String): Boolean = matches(s)
+                private val built: StringBuilder = StringBuilder().apply { append(template) }
+                private val marked: String = template.let { it + "!" }
             }
             val top: Int = if (System.nanoTime() > 0L) { val a = 1; a + 1 } else 0
+            val sb: StringBuilder = StringBuilder("t").also { it.append("u") }
             """.trimIndent() + "\n")
     }
 
@@ -68,8 +72,8 @@ class PropertyStatementInitializerTest : KotlinScanTestBase() {
                     .joinToString(" ") { "${it.name()}: ${it.methodBody().statements().joinToString(" ")}" }
         }
         assertEquals("""
-            regex=<empty> template=<empty> matches=<empty> parsed=<empty> plain=3 late=<empty> | <init>: this.regex=regex; this.template=template; if(regex){String prefix=template+"!";Function1<String,Boolean> matcher=text->text.equals(prefix);this.matches=matcher;}else{this.matches=(it->it.equals(template));} try{this.parsed=StringsKt.toInt(template);}catch(NumberFormatException _){this.parsed=0;} {if(!(this.plain>0)){throw new IllegalStateException("Check failed.");}} if(regex){int x=this.plain;this.late=x*2;}else{this.late=this.plain;}
-            top=<empty> | <static_0>: if(System.nanoTime()>0L){int a=1;PsKt.top=a+1;}else{PsKt.top=0;}
+            regex=<empty> template=<empty> matches=<empty> parsed=<empty> plain=3 late=<empty> built=<empty> marked=<empty> | <init>: this.regex=regex; this.template=template; if(regex){String prefix=template+"!";Function1<String,Boolean> matcher=text->text.equals(prefix);this.matches=matcher;}else{this.matches=(it->it.equals(template));} try{this.parsed=StringsKt.toInt(template);}catch(NumberFormatException _){this.parsed=0;} {if(!(this.plain>0)){throw new IllegalStateException("Check failed.");}} if(regex){int x=this.plain;this.late=x*2;}else{this.late=this.plain;} {StringBuilder ${'$'}this${'$'}apply=new StringBuilder();{${'$'}this${'$'}apply.append(template);}this.built=${'$'}this${'$'}apply;} {String ${'$'}let0;{${'$'}let0=template+"!";}this.marked=${'$'}let0;}
+            top=<empty> sb=<empty> | <static_0>: if(System.nanoTime()>0L){int a=1;PsKt.top=a+1;}else{PsKt.top=0;} {StringBuilder it=new StringBuilder("t");{it.append("u");}PsKt.sb=it;}
             """.trimIndent(), shape("K") + "\n" + shape("PsKt"))
     }
 }

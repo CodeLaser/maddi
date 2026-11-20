@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.MethodPrinter;
@@ -33,13 +40,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.CstSupertypes;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Stream;
 
 /**
  * Prints a {@link MethodInfo} as a C# method or constructor:
@@ -169,7 +169,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             return CSharpTypeName.argument(methodInfo.returnType(), q);
         }
         NullableState nullable = CSharpContext.program().facts().nullable(methodInfo);
-        String type = CSharpTypeName.declared(methodInfo.returnType(), false, nullable, q);
+        String type = CSharpTypeName.declared(methodInfo.returnType(), CSharpContext.program().readOnly(methodInfo),
+                nullable, q);
         return nullableTypeParameter(methodInfo.returnType(), methodInfo, nullable) ? type + "?" : type;
     }
 
@@ -203,11 +204,23 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         // a type of the program: a library's mapping may keep int? as the argument (IJavaEntry<int?, V>); an enum's
         // or a struct's is the value type (IComparer<E>)
         boolean boxed = pt.isBoxedExcludingVoid();
-        return method.overrides().stream().filter(o -> o != method && (!boxed || CSharpNames.translated(o.typeInfo())
-                                                                       || redeclaredAbove(o, method.typeInfo())))
-                .map(inOverridden)
-                .anyMatch(o -> o != null && o.arrays() == 0 && o.isTypeParameter() && o.typeParameter() != null
-                               && !o.typeParameter().isMethodTypeParameter());
+        return method.overrides().stream().filter(o -> o != method).anyMatch(o -> {
+            ParameterizedType in = inOverridden.apply(o);
+            if (in == null || in.arrays() != 0 || !in.isTypeParameter() || in.typeParameter() == null
+                || in.typeParameter().isMethodTypeParameter()) {
+                return false;
+            }
+            if (!boxed || CSharpNames.translated(o.typeInfo()) || redeclaredAbove(o, method.typeInfo())) return true;
+            // a library type's: as the supertype's argument prints, IJavaIterator<long> of Iterator<Long>
+            return plainArgument(method.typeInfo(), o.typeInfo(), in.typeParameter());
+        });
+    }
+
+    /** {@code lib}'s type parameter {@code tp}, as {@code type} extends or implements it, prints without {@code ?}. */
+    private static boolean plainArgument(TypeInfo type, TypeInfo lib, TypeParameter tp) {
+        ParameterizedType seen = CstSupertypes.asSeen(type, lib);
+        if (seen == null || tp.getIndex() >= seen.parameters().size()) return false;
+        return !CSharpTypeName.argument(seen.parameters().get(tp.getIndex()), null).endsWith("?");
     }
 
     /** {@code : base(…)} or {@code : this(…)} from the first statement, then the rest of the body. */
@@ -257,12 +270,16 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                && m.parameters().size() == 1 && m.parameters().getFirst().parameterizedType().isJavaLangObject();
     }
 
-    /** {@code (R? o)}, the record's own type: {@code ?} in a nullable context. */
+    /**
+     * {@code (R? o)}, the record's own type: {@code ?} in a nullable context. A record struct's is {@code (R o)}, the
+     * {@code Equals} its synthesized equality calls ({@code R?} would be another method, of {@code Nullable<R>}).
+     */
     private static OutputBuilder recordEqualsParameter(MethodInfo m, Qualification q) {
         TypeInfo record = m.typeInfo();
         String type = CSharpNames.type(record) + (record.typeParameters().isEmpty() ? "" : "<" + String.join(", ",
                 record.typeParameters().stream().map(CSharpNames::typeParameter).toList()) + ">");
-        String nullable = CSharpContext.program().facts().nullabilityAnalysed() ? "?" : "";
+        String nullable = CSharpContext.program().facts().nullabilityAnalysed()
+                          && !CSharpContext.program().struct(record) ? "?" : "";
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(new TextImpl(type + nullable + " " + CSharpContext.declare(m.parameters().getFirst().name())))
                 .add(SymbolEnum.RIGHT_PARENTHESIS);

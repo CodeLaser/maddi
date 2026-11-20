@@ -1,5 +1,30 @@
 package io.codelaser.maddi.inspection.openjdk;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
@@ -9,26 +34,6 @@ import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.run.rewire.ReparseOracle;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.JavaCompiler;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Files added and removed between two parses: {@link JavaInspector#reloadSources} reports them
@@ -236,12 +241,12 @@ public class TestReloadAddedRemoved {
 
     // ---- helpers
 
-    private static Set<String> names(java.util.Collection<TypeInfo> types) {
+    private static Set<String> names(Collection<TypeInfo> types) {
         return types.stream().map(TypeInfo::fullyQualifiedName).collect(Collectors.toSet());
     }
 
     private static Set<String> errorFiles(Summary summary) {
-        return java.util.stream.Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
+        return Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
                 .map(pe -> pe.uri() == null ? "?" : Path.of(pe.uri().getPath())
                 .getFileName().toString()).collect(Collectors.toSet());
     }
@@ -312,7 +317,7 @@ public class TestReloadAddedRemoved {
 
     private static void deleteRecursively(Path dir) throws IOException {
         try (var walk = Files.walk(dir)) {
-            walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+            walk.sorted(Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
         }
     }
 

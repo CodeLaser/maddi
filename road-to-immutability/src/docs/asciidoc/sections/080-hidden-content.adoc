@@ -116,7 +116,7 @@ Therefore, we make this annotation implicit in exactly this context.
 IMPORTANT: In the annotated APIs, a parameter of functional interface type -- the `java.util.function` family, and any
 `@FunctionalInterface` that extends or resembles one -- is marked {ignoreModifications} implicitly, unless annotated
 {modified}.
-For source methods, the analyzer follows the lambda's own links instead (<<link-system>>): what a lambda modifies is
+Where the source code of a method is available, no such assumption is needed: what a lambda modifies is
 attributed to the objects it reaches, not to the functional-interface parameter it travels in.
 
 Looking at the more general case of a `forEach` implementation iterating over a list or array, we therefore end up with:
@@ -197,24 +197,168 @@ static void replace(@Modified NonEmptyList<StringBuilder> list) {
 <1> Modification to the hidden content of `list`
 <2> Modification to the modifiable content of `list`
 
-The analyzer records this distinction as a second, _structural_ verdict beside the deep one (computed since
-2026-10, CodeLaser/maddi-mod#25): `list` in `addNewLine` is modified, but not structurally so, while `list` in
-`replace` is both.
+The two modifications differ in what the caller has to fear.
+After `replace`, the list holds a different object; after `addNewLine`, it holds the same objects as before, and one
+of them has changed.
+The definition of modification in <<modification>> speaks of the entire object graph, and makes no difference between
+the two.
+We therefore add a second, finer verdict beside it:
+
+****
+*Definition*: a parameter, field or variable is *modified in its hidden content only*, marked `@Modified(hc=true)`,
+when it is modified, but its accessible content is not.
+We call a modification that does reach the accessible content a *structural* modification.
+****
+
 The structural verdict follows the same propagation as modification, except that a modification reaching a variable
-only through its hidden content -- an element, the `∈`/`∋` links of <<link-system>> -- does not count.
-It is written as `@Modified(hc=true)`: modified in the hidden content only.
+only through its hidden content -- an element of a collection, an object of type parameter type -- does not count.
 A caller sees the difference: the argument of `addNewLine` is modified in its hidden content, that of `replace` in
 its own state.
-The same annotation is read as a contract on a declaration without a body, so an annotated API can say that a
+On a declaration without a body, the same annotation is a contract: an interface or annotated API can state that a
 method touches only the elements of its argument.
 
-What is not computed is the step back to the elements.
-Applying the two methods further on, we cannot compute
+To a reader of Java, this is the distinction between a `List` whose elements change and a list that itself changes.
+To a translation into Kotlin, it is the choice between `List` and `MutableList`.
 
-.Example {counter:example}, using `print` and `addNewLine`
+[#structural-elements]
+=== Elements of a concrete type
+
+In `NonEmptyList<StringBuilder>`, the elements are hidden content because `T` is the list's own type parameter.
+Elements can also be of a concrete type that the owner names.
+By the definition of <<accessible-hidden-content>>, and the example of `Counters` there, those are accessible content,
+not hidden content.
+Which of the two a modified object is, decides the structural verdict.
+
+.Example {counter:example}, elements of a concrete type and of a type parameter
 [source,java]
 ----
-static String useAddNewLine(@NotModified StringBuilder input) { // <1>
+class Node {
+    int mark;
+    final List<Node> children = new ArrayList<>();   // Node is a concrete type that Node names
+    Node first;                                       // may alias one of the children
+    void clear() { mark = 0; }
+}
+
+class Leaf {
+    int mark;
+    final List<Leaf> children = new ArrayList<>();   // as Node, without the field 'first'
+    void clear() { mark = 0; }
+}
+
+class Box<T> {
+    final List<T> items = new ArrayList<>();          // T is Box's own type parameter: hidden content
+    T first;
+}
+
+static void clearChildren(Node node) { for (Node c : node.children) c.clear(); }   // <1>
+static void clearFirst(Node node)    { node.first.clear(); }                        // <2>
+static void clearList(List<Node> nodes) { for (Node c : nodes) c.clear(); }         // <3>
+static void clearBox(Box<Node> box)  { for (Node c : box.items) c.clear(); }        // <4>
+static void addChild(Node node)      { node.children.add(new Node()); }             // <5>
+static void clearLeaves(Leaf leaf)   { for (Leaf c : leaf.children) c.clear(); }    // <6>
+----
+
+The verdicts on the parameters are:
+
+[cols="2,1,3"]
+|===
+|Parameter |Deep |Structural
+
+|(1) `node` in `clearChildren` |modified |modified: a child may be `node.first`
+|(2) `node` in `clearFirst` |modified |modified
+|(3) `nodes` in `clearList` |modified |not modified: the list itself only changes in its elements
+|(4) `box` in `clearBox` |modified |not modified: to `Box`, the elements of `items` are its type parameter `T`
+|(5) `node` in `addChild` |modified |modified
+|(6) `leaf` in `clearLeaves` |modified |not modified
+|===
+
+* *(1) and (2)* can write to the same object (`node.first == node.children.get(0)`), so one cannot be structural
+and the other not: `Node.first` makes a `Node` accessible content of a `Node`, and a modified child may be that
+object.
+* *(6)*, the same code without `first`, is structurally unmodified: no field leads from a `Leaf` to a `Leaf`, so
+a child is not accessible content of the leaf.
+* *(3) versus (4)*: the instantiation `Box<Node>` does not make `Node` accessible content of `Box`, and the field
+`first` of type `T` is hidden content.
+* *(3)* is the case where a Kotlin programmer would write `List`, and not `MutableList`, for the parameter.
+
+[#structural-definition]
+==== The definition, with declared types
+
+The examples show that we need to be precise about which objects are accessible content of a parameter `p`.
+We read the definition of <<accessible-hidden-content>> with declared types:
+
+****
+. A write is a structural modification of `p` when the object written is accessible content of `p`: reached from
+`p` by _some_ path of accessible fields, whatever route the method took to reach it.
+. Accessible fields are judged by _declared_ types: the fields that the declared type of `p` -- or of the field the
+path came through -- declares, together with those of its supertypes. A field that only a subclass declares is
+hidden content, whatever the run-time class; so are fields typed by a type parameter or `Object`, and the elements
+of a container.
+****
+
+The first point is why (1) and (2) above must agree: the method reached the child through the list, but the same
+object can be reached through the field `first`.
+The second point follows the reasoning of <<accessible-hidden-content>>: what a subclass adds is outside the control,
+and outside the responsibility, of the code that sees only the parent type.
+
+The paths can be longer than one field, as the next example shows.
+
+.Example {counter:example}, an element that may be accessible content further down
+[source,java]
+----
+class St   { St parent; St first; final List<Edge> edges = new ArrayList<>(); final Set<Edge> labels = new HashSet<>(); }
+class IfSt extends St { Edge ifedge; }
+class Edge { St dest; boolean labeled; }
+class Item { int n; void touch() { n++; } }
+class Bag  { final List<Item> items = new ArrayList<>(); }
+
+static void lift(St s)      { for (Edge e : s.edges) e.dest.labels.add(e); }  // <1>
+static void reset(St s)     { for (Edge e : s.edges) e.labeled = true; }      // <2>
+static void resetIf(IfSt s) { for (Edge e : s.edges) e.labeled = true; }      // <3>
+static void touchAll(Bag b) { for (Item i : b.items) i.touch(); }             // <4>
+----
+<1> Structural. `e.dest` is a `St`, and a `St` is accessible content of `s` through `s.parent` and `s.first`, so the
+write may be to the state of `s.parent`.
+<2> Not structural. No accessible field of `St`, at any depth, is declared `Edge`. `IfSt.ifedge` is such a field, but
+only a subclass declares it: to a `St`, it is hidden content, even when `s.parent` is an `IfSt` at run time.
+<3> Structural. To an `IfSt`, `ifedge` is accessible content, and a listed edge may be that edge.
+<4> Not structural. Nothing accessible from a `Bag` is an `Item`.
+
+A static analyzer does not see the objects, only their types: it must decide whether a modified object _may_ be
+accessible content of the owner.
+How {maddi} does that, and where it deviates from the definition, is described in <<structural-approximations>>.
+
+=== The step back to the elements
+
+Modifications travel from the elements to their container; do they also travel back, from the container to the
+objects that were put into it?
+They should: an object put into a collection, and modified after it comes out again, is modified.
+
+.Example {counter:example}, the step back within one method
+[source,java]
+----
+static String useLocal(@Modified Node input) {
+    List<Node> list = new LinkedList<>();
+    list.add(input);
+    for (Node c : list) c.clear(); // <1>
+    return list.get(0).toString();
+}
+----
+
+<1> `c` may be `input`: a co-element of a modified element is modified.
+
+The modification of `input` is of the same kind as that of the element: `clear()` writes the element's own field, and
+when the element is `input`, that is `input`'s own state, so `input` is modified structurally too, not only in its
+hidden content.
+An element modified only in its hidden content makes the co-element modified in its hidden content only.
+
+The same reasoning applies when the modification of the elements happens in another method.
+Applying the two methods `addNewLine` and `replace` further on:
+
+.Example {counter:example}, using `addNewLine` and `replace`
+[source,java]
+----
+static String useAddNewLine(@Modified StringBuilder input) { // <1>
     NonEmptyList<StringBuilder> list = new One<>();
     list.setFirst(input);
     addNewLine(list);
@@ -229,15 +373,18 @@ static String useReplace(@NotModified StringBuilder input) {
 }
 ----
 
-<1> Should be {modified}: the 3rd statement modifies the hidden content of `list`, as `@Modified(hc=true)` on `addNewLine` says, but that verdict is not carried back to `input`
+<1> The third statement modifies the hidden content of `list`, as `@Modified(hc=true)` on `addNewLine` says, and
+`input` is part of that hidden content.
 <2> This action discards `input` from `list` without modifying it.
 
 ****
-The example shows that the introduction of {independent} only gets us so far: from the concrete, modifying implementation, to the parameter (or field).
-The distinction between modification of hidden content and modification of modifiable content is recorded on the
-container, as `@Modified(hc=true)`; it is not yet carried back to the objects that make up that content, so `input`
-in `useAddNewLine` still reads {nm}.
+The {independent} annotation takes a modification from the concrete, modifying implementation to the parameter or
+field holding the hidden content.
+The distinction between modification of hidden content and modification of accessible content, `@Modified(hc=true)`,
+tells us where to take it from there: back to the objects that make up that hidden content, or not.
 ****
+
+The step through a call, as in `useAddNewLine`, is the harder one for an analyzer; see <<analyzer-today-gaps>>.
 
 Finally, we mention again the modification to a field from a concrete lambda:
 
@@ -372,10 +519,6 @@ interface Iterable<T> {
     Iterator<T> iterator();
 }
 ----
-
-NOTE: The annotated JDK keeps `Iterable` at {container}: an `Iterator` has `remove`, and an attempt to annotate `Iterable`
-{immutableContainerHC} was reverted after a corpus run (2026-09).
-The annotation above states what the interface _means_; a source type implementing it is judged on its own.
 
 First, creating an iterator should never be a modifying operation on a type.
 Typically, as we explore in the next section, it implies creating a subtype, static or not, of the type implementing `Iterable`.

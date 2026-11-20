@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.api.runtime;
 
-import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.variable.Variable;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 /*
 All recursion takes place in sortAndSimplify, when required.
@@ -80,6 +80,14 @@ public interface Eval {
     Expression sum(Expression lhs, Expression rhs);
 
     Expression negate(Expression expression);
+
+    /**
+     * Drop every memo that outlives one computation, such as the negation cache. Its keys and values are expressions
+     * of the types parsed so far: when a re-parse replaces types, a memo would keep each replaced generation alive
+     * and, since expressions compare by name, hand the new generation an expression built on the old one's types.
+     */
+    default void forgetMemos() {
+    }
 
     Expression remainder(Expression lhs, Expression rhs);
 

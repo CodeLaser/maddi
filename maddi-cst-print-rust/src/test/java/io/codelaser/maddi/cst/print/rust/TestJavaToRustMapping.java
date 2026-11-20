@@ -17,19 +17,25 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.LinkFacts;
+import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 /**
  * The mapping table of CodeLaser/maddi#167, row by row: a Java example, the verdicts the analysis computes for it
@@ -161,7 +167,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
             }
             """;
 
-    private String copy(io.codelaser.maddi.cst.api.analysis.Value.Independent independent) throws Exception {
+    private String copy(Value.Independent independent) throws Exception {
         List<TypeInfo> types = parse(COPY);
         TypeInfo copy = types.getFirst();
         nonModifying(copy, "size");
@@ -278,7 +284,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         modifying(box, "set");
         kept(box.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
         kept(method(box, "set").parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
-        method(box, "get").analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD,
+        method(box, "get").analysis().set(PropertyImpl.INDEPENDENT_METHOD,
                 ValueImpl.IndependentImpl.INDEPENDENT_HC);
         modified(method(box, "supplied").parameters().getFirst());
         modified(method(box, "fed").parameters().getFirst());
@@ -405,12 +411,14 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
             """;
 
     /**
-     * A struct holding itself by value has no size (E0072): the field is a {@code Box}, here {@code Option<Box<Node>>},
-     * read as {@code as_deref()} and written boxed. Java's {@code ==} on objects is identity: {@code std::ptr::eq}. A
+     * A struct holding itself: kept by {@code setParent} and held in a field, a node is a shared object (RustShared),
+     * {@code Option<Shared<Node>>}, which also has a size; a struct holding itself by value otherwise is boxed (E0072,
+     * RustBoxes). Java's {@code ==} on objects is identity: {@code this == other} compares self with the object behind
+     * the handle. A
      * nullable value assigned where the verdicts hold the target non-null is unwrapped, Java's NPE as a panic. A map
      * entry is the {@code (key, value)} tuple a map's iteration yields; a {@code SimpleEntry} is constructed as one.
      */
-    @DisplayName("a recursive field is boxed, == on objects is identity, an entry is a tuple: compiles")
+    @DisplayName("a node keeping its parent is shared, == on objects is identity, an entry is a tuple: compiles")
     @Test
     public void recursiveIdentityEntries() throws Exception {
         List<TypeInfo> types = parse(NODES);
@@ -420,13 +428,12 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         kept(method(node, "setParent").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
         borrowed(method(node, "same").parameters().getFirst());
         borrowed(method(node, "depth").parameters().getFirst());
-        translate(types, nullable(java.util.Set.of("parent")));
+        translate(types, nullable(Set.of("parent")));
         String rust = module("a.b");
-        contains(rust, "parent: Option<Box<Node>>,");
+        contains(rust, "parent: Option<crate::jrt::Shared<Node>>,");
         contains(rust, "counts: Vec<(String, i32)>,");
-        contains(rust, "self.parent = parent.map(Box::new);");
-        contains(rust, "return std::ptr::eq(self, other);");
-        contains(rust, "n = n.parent.as_deref().unwrap();");
+        contains(rust, "self.parent = parent;");
+        contains(rust, "return std::ptr::eq(self, &**other);");
         contains(rust, "self.counts.push((key, value));");
         contains(rust, "t += e.1.clone();");
         assertEquals(List.of(), rustcErrors(), rust);
@@ -500,7 +507,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         nonModifying(tags, "tags", "label");
         dependentResult(tags, "tags");
         dependentResult(tags, "label");
-        translate(types, nullable(java.util.Set.of("tags", "label", "tags()", "label()")));
+        translate(types, nullable(Set.of("tags", "label", "tags()", "label()")));
         String rust = module("a.b");
         contains(rust, "pub fn tags(&self) -> Option<&Vec<String>> {\nreturn self.tags.as_ref();");
         contains(rust, "pub fn label(&self) -> Option<&str> {\nreturn self.label.as_deref();");
@@ -546,7 +553,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         dependentResult(args, "orNames");
         nonModifying(args, "orAlt");
         borrowed(method(args, "orAlt").parameters().getLast());
-        translate(types, nullable(java.util.Set.of("arguments")));
+        translate(types, nullable(Set.of("arguments")));
         String rust = module("a.b");
         contains(rust, "pub fn arguments(&mut self) -> &Vec<String> {");
         contains(rust, "return self.arguments.as_ref().unwrap();");
@@ -1095,7 +1102,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         nonModifying(sw, "pick", "label");
         dependentResult(sw, "pick");
         borrowed(method(sw, "pick").parameters().getFirst());
-        translate(types, nullable(java.util.Set.of("list1", "list2", "pick()", "label()")));
+        translate(types, nullable(Set.of("list1", "list2", "pick()", "label()")));
         String rust = module("a.b");
         contains(rust, "\"a\" => None,");
         contains(rust, "\"b\" => self.list1.as_ref(),");
@@ -1134,7 +1141,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         TypeInfo dec = types.getFirst();
         modifying(dec, "setMeasure");
         nonModifying(dec, "norm", "decode", "use", "response");
-        translate(types, nullable(java.util.Set.of("measure", "response")));
+        translate(types, nullable(Set.of("measure", "response")));
         String rust = module("a.b");
         contains(rust, "pub fn norm(mut p: String) -> String {");
         contains(rust, "d.set_measure(Some(Box::new(");
@@ -1171,7 +1178,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         TypeInfo slot = types.getFirst();
         modifying(slot, "set");
         nonModifying(slot, "of", "name");
-        translate(types, nullable(java.util.Set.of("value", "name", "label", "name()")));
+        translate(types, nullable(Set.of("value", "name", "label", "name()")));
         String rust = module("a.b");
         contains(rust, "s.value = from.name.clone().map(|x| Box::new(x) as Box<dyn Any>);");
         contains(rust, ".map(|x| Box::new(x) as Box<dyn Any>));");
@@ -1219,7 +1226,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     public void checkedField() throws Exception {
         List<TypeInfo> types = parse(CHECKED_FIELD);
         nonModifying(types.getFirst(), "text");
-        translate(types, nullable(java.util.Set.of("t")));
+        translate(types, nullable(Set.of("t")));
         String rust = module("a.b");
         contains(rust, "text: t.clone().unwrap(),");
         assertEquals(List.of(), rustcErrors(), rust);
@@ -1291,7 +1298,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         List<TypeInfo> types = parse(FIELD_OF_LOCAL);
         nonModifying(types.getFirst(), "fill", "viaLocal", "append");
         exclusive(method(types.getFirst(), "append").parameters().getFirst());
-        translate(types, nullable(java.util.Set.of("sb")));
+        translate(types, nullable(Set.of("sb")));
         String rust = module("a.b");
         contains(rust, "let mut a = FlA::new();");
         // a &mut of a's field, a sorted list, an Option<&mut> reached through as_mut()
@@ -1390,7 +1397,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         unmodifiedField(holder, "held");
         nonModifying(linked, "hold");
         borrowed(hold.parameters().getFirst());
-        io.codelaser.maddi.cst.impl.analysis.LinkFacts links = new io.codelaser.maddi.cst.impl.analysis.LinkFacts() {
+        LinkFacts links = new LinkFacts() {
             @Override
             public Result result(MethodInfo m) {
                 return m == build || m == copy || m == view || m == hold ? Result.NEW
@@ -1403,15 +1410,15 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
             }
 
             @Override
-            public java.util.Set<io.codelaser.maddi.cst.api.info.ParameterInfo> keptInResult(MethodInfo m) {
-                return m == copy ? java.util.Set.copyOf(copy.parameters())
-                        : m == first ? java.util.Set.of(first.parameters().getFirst())
-                        : m == id ? java.util.Set.of(id.parameters().getFirst())
-                        : m == hold ? java.util.Set.of(hold.parameters().getFirst())
-                        : m == orNew ? java.util.Set.of(orNew.parameters().getFirst()) : java.util.Set.of();
+            public Set<ParameterInfo> keptInResult(MethodInfo m) {
+                return m == copy ? Set.copyOf(copy.parameters())
+                        : m == first ? Set.of(first.parameters().getFirst())
+                        : m == id ? Set.of(id.parameters().getFirst())
+                        : m == hold ? Set.of(hold.parameters().getFirst())
+                        : m == orNew ? Set.of(orNew.parameters().getFirst()) : Set.of();
             }
         };
-        translate(types, RustFacts.of(io.codelaser.maddi.cst.impl.analysis.NullabilityFacts.STORED, RustFacts.STORED,
+        translate(types, RustFacts.of(NullabilityFacts.STORED, RustFacts.STORED,
                 links));
         String rust = module("a.b");
         contains(rust, "pub fn build(&self) -> LinkedItems {");
@@ -1481,7 +1488,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         modifying(keeper, "mutate", "assign");
         modified(method(keeper, "touch").parameters().getFirst());
         borrowed(method(keeper, "touch").parameters().get(1));
-        translate(types, nullable(java.util.Set.of("kept", "other")));
+        translate(types, nullable(Set.of("kept", "other")));
         String rust = module("a.b");
         contains(rust, "self.kept.as_mut().unwrap().set(1);");
         contains(rust, "self.other.as_mut().unwrap().j = 2;");
@@ -2006,6 +2013,56 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         String rust = module("a.b");
         contains(rust, "pub fn whole(list: &Vec<String>, mut f: Box<dyn Fn(&Vec<String>) -> i32>) -> i32 {\nreturn (f)(list);");
         contains(rust, "return (f)(&list[0]);");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String HOLDS_VIEW = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.HashMap;
+            public class Outer {
+                public static class View {
+                    private final List<String> list;
+                    public View(List<String> list) { this.list = list; }
+                    public int size() { return list.size(); }
+                }
+                private final View view;
+                private final Map<String, View> byName = new HashMap<>();
+                public Outer(View view) { this.view = view; }
+                public int size() { return view.size(); }
+                public static int use() {
+                    List<String> l = new ArrayList<>();
+                    l.add("x");
+                    Outer o = new Outer(new View(l));
+                    return o.size();
+                }
+            }
+            """;
+
+    /*
+     A struct holding a struct that borrows (a field, or inside a type argument) carries the lifetime too: a struct
+     field cannot elide it. Was 'view: OuterView<'_>' (E0106), and the struct was removed with all that used it.
+     */
+    @DisplayName("row 7, transitively: a struct holding a borrowing struct carries its lifetime")
+    @Test
+    public void dependentFieldTransitive() throws Exception {
+        List<TypeInfo> types = parse(HOLDS_VIEW);
+        TypeInfo outer = types.getFirst();
+        TypeInfo view = outer.findSubType("View");
+        nonModifying(view, "size");
+        nonModifying(outer, "size");
+        unmodifiedField(view, "list");
+        kept(view.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        kept(outer.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub struct Outer<'a> {");
+        contains(rust, "view: OuterView<'a>,");
+        contains(rust, "by_name: HashMap<String, OuterView<'a>>,");
+        contains(rust, "impl<'a> Outer<'a> {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

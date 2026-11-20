@@ -1,10 +1,11 @@
 package io.codelaser.maddi.java.openjdk;
 
+import java.util.List;
+
 import com.sun.source.tree.Tree;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.Source;
-
-import java.util.List;
 
 public interface SourceProvider {
     Source sourceForNode(Tree node);

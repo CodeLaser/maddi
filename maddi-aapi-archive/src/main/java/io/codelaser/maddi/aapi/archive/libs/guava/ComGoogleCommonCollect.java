@@ -449,7 +449,7 @@ public class ComGoogleCommonCollect {
 
         //override from java.util.AbstractCollection, java.util.Collection
         @Independent @NotModified
-        <T> T [] toArray(@Independent @NotModified T [] array) { return null; }
+        <T> T [] toArray(@Independent(dependentReturnValue = true) @Modified T [] array) { return null; }
     }
 
     //public abstract class ContiguousSet extends ImmutableSortedSet<C>
@@ -870,7 +870,7 @@ public class ComGoogleCommonCollect {
 
         //override from java.util.Collection
         @Independent @NotModified
-        <T> T [] toArray(@Independent @NotModified T [] array) { return null; }
+        <T> T [] toArray(@Independent(dependentReturnValue = true) @Modified T [] array) { return null; }
     }
 
     //public abstract class ForwardingConcurrentMap extends ForwardingMap<K,V> implements ConcurrentMap<K,V>
@@ -2225,7 +2225,7 @@ public class ComGoogleCommonCollect {
 
         //override from java.util.AbstractCollection, java.util.Collection
         @Independent @NotModified
-        <T> T [] toArray(@Independent @NotModified T [] other) { return null; }
+        <T> T [] toArray(@Independent(dependentReturnValue = true) @Modified T [] other) { return null; }
     }
 
     //public abstract class ImmutableList extends ImmutableCollection<E> implements List<E>, RandomAccess

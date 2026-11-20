@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.java.openjdk;
 
+import com.sun.tools.javac.code.Symbol;
+
 /**
  * A referenced type, constructor or method could not be resolved during the openjdk scan — typically because
  * maddi runs on a deliberately partial classpath, so a library symbol simply is not present (javac hands us an
@@ -58,7 +60,7 @@ public class UnresolvedSymbolException extends UnsupportedOperationException {
     public static boolean isTolerable(Throwable t) {
         for (Throwable c = t; c != null; c = c.getCause()) {
             if (c instanceof UnresolvedSymbolException) return true;
-            if (c instanceof com.sun.tools.javac.code.Symbol.CompletionFailure) return true;
+            if (c instanceof Symbol.CompletionFailure) return true;
         }
         return false;
     }

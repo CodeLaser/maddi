@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.bytecode.java.asm;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
-
-import java.util.ArrayList;
-import java.util.List;
 
 record ParseParameterTypes(Runtime runtime,
                            LocalTypeMap findType,

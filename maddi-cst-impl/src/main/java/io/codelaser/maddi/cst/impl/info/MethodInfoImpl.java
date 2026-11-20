@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.*;
@@ -35,14 +43,6 @@ import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.impl.translate.TranslationMapImpl;
 import io.codelaser.maddi.support.EventuallyFinal;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
@@ -449,7 +449,22 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
     @Override
     public Value.FieldValue getSetField() {
-        return analysis().getOrDefault(PropertyImpl.GET_SET_FIELD, ValueImpl.GetSetValueImpl.EMPTY);
+        Value.FieldValue own = analysis().getOrNull(PropertyImpl.GET_SET_FIELD, Value.FieldValue.class);
+        if (own != null) return own;
+        /*
+         A library method without a status of its own inherits the one of the method it overrides: ArrayList.get is
+         List.get's element getter. The modification analysis writes that copy (ShallowMethodAnalyzer, FROM_OVERRIDE)
+         only when it reaches the method, which is after prep; answering it here already means prep reads the same
+         status whether or not the analysis has been there. A cold run preps before it, a warm re-analysis after: the
+         rewire oracle on fernflower's VBStyleCollection (extends ArrayList), 2026-11-09.
+         */
+        if (!isConstructor() && typeInfo().compilationUnit().externalLibrary()) {
+            for (MethodInfo override : overrides()) {
+                Value.FieldValue fv = override.getSetField();
+                if (fv.field() != null) return fv;
+            }
+        }
+        return ValueImpl.GetSetValueImpl.EMPTY;
     }
 
     @Override
@@ -687,6 +702,10 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
                 })
                 .forEach(builder::addTypeParameter);
         methodModifiers().forEach(builder::addMethodModifier);
+        // the copy overrides what the original does: without them, an implementation drops out of its interface
+        // method's implementations once its body is rewritten (withMethodBody), as rewirePhase3 already knows
+        builder.addOverrides(translationMap == null ? overrides()
+                : overrides().stream().map(translationMap::translateMethodInfo).toList());
         return methodInfo;
     }
 

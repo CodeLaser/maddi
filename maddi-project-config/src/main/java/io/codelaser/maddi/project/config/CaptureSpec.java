@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.project.config;
 
-import io.codelaser.maddi.inspection.api.resource.BuildFiles;
-import io.codelaser.maddi.run.config.javac.ParseJavacList;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.run.config.javac.ParseJavacList;
 
 /**
  * A build to capture the javac invocations of: a log, a pattern, javac lines, then the configuration. Gradle, Maven

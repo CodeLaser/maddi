@@ -57,6 +57,13 @@ not infer effective finality from the absence of subtypes in the code it sees.
 Parameters of functional interface type -- the `java.util.function` family, and any `@FunctionalInterface` that
 extends or resembles one -- have the {ignoreModifications} annotation, unless explicitly overwritten by {modified}.
 
+{fresh} on a bodiless method and {borrowed} on a parameter of one are contracts that every implementation must
+honour (see <<ownership>>); without them, an abstract method is fresh, and a parameter borrowed, only when all
+implementations are.
+{owned} is computed, never read as a contract.
+None of the three is inherited from the immutability or independence annotations: an immutable object stored in a
+field is shared, not owned.
+
 A parameter or return value of reference type that carries no null annotation is _unspecified_ (see
 <<nullability>>): it inherits the nullability of the method it overrides, where there is one, and otherwise the
 analyzer claims nothing.

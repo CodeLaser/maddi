@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.Access;
-
-import java.util.List;
 
 public interface Inspection {
 

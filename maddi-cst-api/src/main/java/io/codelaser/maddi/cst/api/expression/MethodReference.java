@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.api.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
 
 /**
  * A method reference, {@code scope::method} (including constructor references {@code Type::new}). Its

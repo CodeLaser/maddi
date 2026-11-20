@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.IntBinaryOperator;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -25,12 +31,6 @@ import io.codelaser.maddi.cst.api.runtime.Predefined;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.Wildcard;
 import io.codelaser.maddi.util.ListUtil;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.IntBinaryOperator;
 
 public class IsAssignableFrom {
     private final Predefined runtime;

@@ -1,6 +1,13 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -8,12 +15,6 @@ import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Overrides Kotlin wants where Java chooses by itself. guava's {@code WrappedSet extends WrappedCollection implements
@@ -84,7 +85,7 @@ final class KotlinInheritedDefaults {
     }
 
     /** The superclass method's parameter name: a library default's may be {@code arg0}. */
-    private static String name(MethodInfo fromSuper, io.codelaser.maddi.cst.api.info.ParameterInfo p) {
+    private static String name(MethodInfo fromSuper, ParameterInfo p) {
         return fromSuper.parameters().get(p.index()).name();
     }
 

@@ -1,15 +1,16 @@
 package io.codelaser.maddi.cst.impl.info.util;
 
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.impl.info.TypeInspection;
-import org.jetbrains.annotations.NotNull;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import org.jetbrains.annotations.NotNull;
+
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.impl.info.TypeInspection;
 
 /**
  * Index of a type's methods by name → parameter count → erased-parameter FQNs → method. A fourth level,

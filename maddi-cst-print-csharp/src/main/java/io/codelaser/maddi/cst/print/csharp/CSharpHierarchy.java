@@ -17,22 +17,23 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.print.translate.CstSupertypes;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 /**
  * The type hierarchy as C# needs it: a supertype as a type extends or implements it, in its own type parameters, and
@@ -198,6 +199,9 @@ final class CSharpHierarchy {
         // an abstract superclass of the program declares what it leaves abstract itself: a second declaration would hide
         // it (CS0533), and the subclasses' overrides would not implement it (CS0534)
         // (any of them: one in between that declares nothing does not make a third one's declaration go away)
+        // a superclass's method that takes an interface method's place, in the class that declares the interface
+        Set<MethodInfo> inherited = new HashSet<>();
+        chain.forEach(t -> inherited.addAll(t.inheritedImplementations().keySet()));
         Set<MethodInfo> declaredAbove = new HashSet<>();
         CstQueries.superclasses(cls).forEach(t -> leftAbstract(t).forEach(l -> declaredAbove.add(l.method())));
         List<LeftAbstract> left = new ArrayList<>();
@@ -210,8 +214,8 @@ final class CSharpHierarchy {
                 if (m.isStatic() || !m.isAbstract() || !m.typeParameters().isEmpty() || m.isSynthetic()
                     || CSharpWildcards.mayCapture(m)) continue;
                 if (CSharpBcl.objectOverridable(m)) continue;
-                if (implementations.stream().anyMatch(x -> x != m && (x.overrides().contains(m)
-                                                                       || inheritedImplementation(x, m)))) continue;
+                if (inherited.contains(m)
+                    || implementations.stream().anyMatch(x -> x != m && x.overrides().contains(m))) continue;
                 left.add(new LeftAbstract(m, CstSupertypes.typeArguments(i)));
             }
         });
@@ -226,47 +230,11 @@ final class CSharpHierarchy {
 
     /**
      * The methods of {@code cls}'s superclasses that implement an interface method of {@code cls} without Java's
-     * overrides() saying so: {@code class B { public boolean d() {…} }}, {@code class C extends B implements I}, with
-     * I's {@code d()}. C#'s public {@code B.D()} implements {@code I.D()} for C as Java's does; it is no property.
+     * overrides() saying so ({@link TypeInfo#inheritedImplementations()}): {@code class B { public boolean d()
+     * {…} }}, {@code class C extends B implements I}, with I's {@code d()}. C#'s public {@code B.D()} implements
+     * {@code I.D()} for C as Java's does; it is no property.
      */
     static Set<MethodInfo> inheritedImplementations(TypeInfo cls) {
-        if (cls.isInterface() || cls.interfacesImplemented().isEmpty()) return Set.of();
-        List<MethodInfo> inherited = CstQueries.superclasses(cls).stream().flatMap(t -> t.methods().stream()).toList();
-        if (inherited.isEmpty()) return Set.of();
-        Set<TypeInfo> interfaces = new HashSet<>();
-        Deque<TypeInfo> todo = new ArrayDeque<>();
-        cls.interfacesImplemented().forEach(i -> { if (i.typeInfo() != null) todo.add(i.typeInfo()); });
-        while (!todo.isEmpty()) {
-            TypeInfo iface = todo.poll();
-            if (!interfaces.add(iface)) continue;
-            iface.interfacesImplemented().forEach(i -> { if (i.typeInfo() != null) todo.add(i.typeInfo()); });
-        }
-        Set<MethodInfo> found = new HashSet<>();
-        for (TypeInfo iface : interfaces) {
-            for (MethodInfo m : iface.methods()) {
-                if (m.isStatic() || !m.isAbstract()) continue;
-                inherited.stream().filter(x -> inheritedImplementation(x, m)).findFirst().ifPresent(found::add);
-            }
-        }
-        return found;
-    }
-
-    /**
-     * Class method {@code x} has interface method {@code m}'s signature, without overriding it in Java's
-     * overrides(): a superclass's method that implements a subclass's interface. A type parameter matches any type.
-     */
-    private static boolean inheritedImplementation(MethodInfo x, MethodInfo m) {
-        if (x == m || x.typeInfo().isInterface() || x.isStatic() || x.isConstructor() || !x.name().equals(m.name())
-            || x.parameters().size() != m.parameters().size() || x.overrides().contains(m)) {
-            return false;
-        }
-        for (int i = 0; i < x.parameters().size(); i++) {
-            ParameterizedType a = x.parameters().get(i).parameterizedType();
-            ParameterizedType b = m.parameters().get(i).parameterizedType();
-            if (a.arrays() != b.arrays()) return false;
-            if (a.isTypeParameter() || b.isTypeParameter()) continue;
-            if (a.typeInfo() == null || !a.typeInfo().equals(b.typeInfo())) return false;
-        }
-        return true;
+        return Set.copyOf(cls.inheritedImplementations().values());
     }
 }

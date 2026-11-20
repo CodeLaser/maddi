@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.cst.impl.output;
 
-import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
-
 import java.util.HashSet;
 import java.util.Set;
+
+import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
 
 public record TextBlockFormattingImpl(Set<Integer> lineBreaks,
                                       boolean optOutWhiteSpaceStripping,

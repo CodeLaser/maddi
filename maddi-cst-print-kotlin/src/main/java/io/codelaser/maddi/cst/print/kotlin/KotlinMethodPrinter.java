@@ -17,22 +17,51 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Assignment;
+import io.codelaser.maddi.cst.api.expression.Cast;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InlineConditional;
+import io.codelaser.maddi.cst.api.expression.InstanceOf;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.NullConstant;
+import io.codelaser.maddi.cst.api.expression.StringConstant;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.MethodPrinter;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.Keyword;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.ForEachStatement;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
 import io.codelaser.maddi.cst.impl.output.*;
-
-import java.util.List;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
 /**
  * Prints a {@link MethodInfo} as a Kotlin function (or secondary constructor): `[vis] [override|abstract] fun
@@ -62,7 +91,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(KotlinStatementPrinter.block(methodInfo.methodBody(), qualification));
         }
         b.add(KotlinAnnotations.print(methodInfo.annotations(), qualification));
-        java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
+        Optional<Keyword> visibility =
                 KotlinModifiers.visibility(methodInfo, typeInfo);
         if (KotlinContext.translatingJava() && methodInfo.isStatic()
             && (visibility.isEmpty() || methodSourceFactory(methodInfo))) {
@@ -93,7 +122,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             // the type parameters' declaration: the generic member's, where the override borrows them (timefold's
             // SelectionSorterAdapter.getInnerSorter() takes ValueRangeSorter's <S : Any>; Kotlin wants equal bounds)
             MethodInfo declaring = genericSuper != null ? genericSuper : methodInfo;
-            List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = declaring.typeParameters();
+            List<TypeParameter> typeParameters = declaring.typeParameters();
             if (!typeParameters.isEmpty()) {
                 b.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 b.add(typeParameters.stream()
@@ -127,7 +156,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             // the body throws instead of returning null: the override keeps Kotlin's non-null result
             if (rt != null && !methodInfo.isAbstract() && methodInfo.methodBody() != null
                 && nullOverride(expressionBody(methodInfo.methodBody())) != null) {
-                rt = rt.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
+                rt = rt.withNullable(NullableState.NONNULL);
             }
             if (rt != null && !rt.isVoidOrJavaLangVoid()) {
                 String mapDefault = KotlinMappedMembers.mapDefaultResult(methodInfo, qualification);
@@ -142,52 +171,77 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
 
         if (property != null && !methodInfo.isAbstract()) b.add(SpaceEnum.ONE).add(new TextImpl("get()"));
-        if (!methodInfo.isAbstract()) {
-            Block body = methodInfo.methodBody();
-            if (methodInfo.isConstructor()) {
-                constructorBody(b, body, qualification);
-                return b;
-            }
-            List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body, qualification);
-            Expression expressionBody = reassigned.isEmpty() ? expressionBody(body) : null;
-            // `{ // why \n return x; }` stays a block, the comment on a line of its own rather than after `=` (#181);
-            // not a null override, which only an expression body gets right
-            if (expressionBody != null && nullOverride(expressionBody) == null
-                && KotlinStatementPrinter.commentedBefore(CstQueries.own(body.statements()).getFirst())) {
-                expressionBody = null;
-            }
-            if (!reassigned.isEmpty()) {
-                b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body, body.statements(), qualification));
-            } else if (nullOverride(expressionBody) != null) {
-                // Kotlin's member returns non-null, so `return null` cannot be: a DELIBERATE behaviour change, the caller
-                // gets the exception instead of the null (fernflower's InstructionSequence.clone(), "to be overwritten")
-                KotlinContext.message(KotlinPrintCode.NULL_OVERRIDE_THROWS, methodInfo,
-                        typeInfo.simpleName() + "." + methodInfo.name() + "()");
-                b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                        .add(expressionBodyCommented(body, new OutputBuilderImpl()
-                                .add(new TextImpl("throw " + nullOverride(expressionBody) + "()")), qualification));
-            } else if (expressionBody != null && genericOverridden(methodInfo) != null) {
-                // Class<AiServiceCompletedEvent> overriding <T extends AiServiceEvent> Class<T>: Java's unchecked
-                // override, Kotlin's unchecked cast
-                MethodInfo genericSuper = genericOverridden(methodInfo);
-                b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                        .add(expressionBodyCommented(body, new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
-                                .add(KotlinExpressionPrinter.widened(expressionBody, null, qualification))
-                                .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
-                                .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(genericOverrideResult(methodInfo,
-                                        genericSuper), qualification))), qualification));
-            } else if (expressionBody != null) {
-                OutputBuilder cast = KotlinNullability.typeVariableReturn(methodInfo, expressionBody, qualification);
-                b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                        .add(expressionBodyCommented(body, cast != null ? cast : KotlinNullability.toTarget(expressionBody,
-                                KotlinNullability.returnType(methodInfo), KotlinNullability.translated(typeInfo),
-                                KotlinExpressionPrinter.returned(expressionBody, KotlinNullability.returnType(methodInfo),
-                                        qualification), qualification), qualification));
-            } else {
-                b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
-            }
+        if (!KotlinContext.stubbing()) {
+            if (!methodInfo.isAbstract()) body(b, qualification);
+            return b;
         }
-        return b;
+        // Bodies.STUB: the declaration stays the analysis's; the body is left to another translator, the printer's own
+        // translation of it kept aside (and printed in full, so that the rest of the file reads as in Bodies.PRINT)
+        OutputBuilder declaration = new OutputBuilderImpl().add(b);
+        if (methodInfo.isAbstract() || methodInfo.isConstructor() || methodInfo.methodBody() == null) {
+            if (!methodInfo.isAbstract()) body(b, qualification);
+            KotlinContext.declared(new KotlinBodies.Declared(methodInfo, declaration, null, List.of()));
+            return b;
+        }
+        int before = KotlinContext.state().messages().size();
+        KotlinContext.enterStubbedBody();
+        try {
+            body(b, qualification);
+        } finally {
+            KotlinContext.exitStubbedBody();
+        }
+        List<PrintMessage<KotlinPrintCode>> messages = KotlinContext.state().messages();
+        KotlinContext.declared(new KotlinBodies.Declared(methodInfo, declaration, b,
+                messages.subList(before, messages.size())));
+        return new OutputBuilderImpl().add(declaration).add(SpaceEnum.ONE)
+                .add(new TextImpl("{ " + KotlinBodyStub.todo(methodInfo) + " }"));
+    }
+
+    /** The method's body: after its declaration, which {@code b} holds. */
+    private void body(OutputBuilder b, Qualification qualification) {
+        Block body = methodInfo.methodBody();
+        if (methodInfo.isConstructor()) {
+            constructorBody(b, body, qualification);
+            return;
+        }
+        List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body, qualification);
+        Expression expressionBody = reassigned.isEmpty() ? expressionBody(body) : null;
+        // `{ // why \n return x; }` stays a block, the comment on a line of its own rather than after `=` (#181);
+        // not a null override, which only an expression body gets right
+        if (expressionBody != null && nullOverride(expressionBody) == null
+            && KotlinStatementPrinter.commentedBefore(CstQueries.own(body.statements()).getFirst())) {
+            expressionBody = null;
+        }
+        if (!reassigned.isEmpty()) {
+            b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body, body.statements(), qualification));
+        } else if (nullOverride(expressionBody) != null) {
+            // Kotlin's member returns non-null, so `return null` cannot be: a DELIBERATE behaviour change, the caller
+            // gets the exception instead of the null (fernflower's InstructionSequence.clone(), "to be overwritten")
+            KotlinContext.message(KotlinPrintCode.NULL_OVERRIDE_THROWS, methodInfo,
+                    typeInfo.simpleName() + "." + methodInfo.name() + "()");
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
+                    .add(expressionBodyCommented(body, new OutputBuilderImpl()
+                            .add(new TextImpl("throw " + nullOverride(expressionBody) + "()")), qualification));
+        } else if (expressionBody != null && genericOverridden(methodInfo) != null) {
+            // Class<AiServiceCompletedEvent> overriding <T extends AiServiceEvent> Class<T>: Java's unchecked
+            // override, Kotlin's unchecked cast
+            MethodInfo genericSuper = genericOverridden(methodInfo);
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
+                    .add(expressionBodyCommented(body, new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                            .add(KotlinExpressionPrinter.widened(expressionBody, null, qualification))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                            .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(genericOverrideResult(methodInfo,
+                                    genericSuper), qualification))), qualification));
+        } else if (expressionBody != null) {
+            OutputBuilder cast = KotlinNullability.typeVariableReturn(methodInfo, expressionBody, qualification);
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
+                    .add(expressionBodyCommented(body, cast != null ? cast : KotlinNullability.toTarget(expressionBody,
+                            KotlinNullability.returnType(methodInfo), KotlinNullability.translated(typeInfo),
+                            KotlinExpressionPrinter.returned(expressionBody, KotlinNullability.returnType(methodInfo),
+                                    qualification), qualification), qualification));
+        } else {
+            b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
+        }
     }
 
     /**
@@ -249,7 +303,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         ExplicitConstructorInvocation eci = !statements.isEmpty()
                                             && statements.getFirst() instanceof ExplicitConstructorInvocation e ? e : null;
         // the comments of the super(…) in the header open the body (#181)
-        List<OutputBuilder> prefix = new java.util.ArrayList<>();
+        List<OutputBuilder> prefix = new ArrayList<>();
         if (eci != null && !eci.comments().isEmpty()) prefix.add(KotlinStatementPrinter.commentsOf(eci, q));
         if (eci != null) {
             b.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
@@ -278,12 +332,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * guava's CaseFormat: an enum's constants override its {@code convert} in their bodies. Kotlin's enum class is
      * final, its members too unless they say {@code open}.
      */
-    private static boolean overriddenByEnumConstant(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, MethodInfo methodInfo) {
+    private static boolean overriddenByEnumConstant(TypeInfo typeInfo, MethodInfo methodInfo) {
         if (!typeInfo.typeNature().isEnum()) return false;
         return typeInfo.fields().stream()
-                .filter(f -> f.initializer() instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc
+                .filter(f -> f.initializer() instanceof ConstructorCall cc
                              && cc.anonymousClass() != null)
-                .map(f -> ((io.codelaser.maddi.cst.api.expression.ConstructorCall) f.initializer()).anonymousClass())
+                .map(f -> ((ConstructorCall) f.initializer()).anonymousClass())
                 .anyMatch(body -> body.methods().stream().anyMatch(m -> m.overrides().contains(methodInfo)));
     }
 
@@ -365,7 +419,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 typeOverride = KotlinTypeName.inSignature(() -> KotlinTypeName.of(overridden.withNullable(declared.nullable()), q));
             }
         }
-        java.util.function.Supplier<String> print = () ->
+        Supplier<String> print = () ->
                 // before the read-only collection rule, which leaves an array invariant
                 covariantArray(pi, type) ? outArray(type, q)
                 : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
@@ -470,7 +524,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         boolean closed = m.isConstructor() || m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
                          || m.typeInfo().isFinal();
         if (!closed) {
-            java.util.List<MethodInfo> family = KotlinContext.options().world().family(m);
+            List<MethodInfo> family = KotlinContext.options().world().family(m);
             if (family == null || family.size() != 1) return false;
         }
         // a primary constructor's parameter that names an array field is that property: guava's
@@ -484,7 +538,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (element.isPrimitiveExcludingVoid() || element.typeInfo() == null && element.typeParameter() == null) {
             return false;
         }
-        java.util.Set<ParameterInfo> visiting = COVARIANT_IN_PROGRESS.get();
+        Set<ParameterInfo> visiting = COVARIANT_IN_PROGRESS.get();
         if (!visiting.add(pi)) return true; // a cycle: each one's other uses are checked where it is entered
         try {
             return onlyReadArray(pi);
@@ -493,37 +547,38 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
     }
 
-    private static final ThreadLocal<java.util.Set<ParameterInfo>> COVARIANT_IN_PROGRESS =
-            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+    private static final ThreadLocal<Set<ParameterInfo>> COVARIANT_IN_PROGRESS =
+            ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
 
     private static boolean onlyReadArray(ParameterInfo pi) {
         boolean[] escapes = {false};
-        escapes(pi, (io.codelaser.maddi.cst.api.element.Element) pi.methodInfo().methodBody(), escapes);
+        escapes(pi, (Element) pi.methodInfo().methodBody(), escapes);
         return !escapes[0];
     }
 
     /** The uses of {@code pi} in {@code body}, and in the bodies of the anonymous classes there, which capture it. */
-    private static void escapes(io.codelaser.maddi.cst.api.variable.Variable pi, io.codelaser.maddi.cst.api.element.Element body, boolean[] escapes) {
+    private static void escapes(Variable pi, Element body, boolean[] escapes) {
         // elements.clone() spread into a vararg (guava's ImmutableList.copyOf: construct(elements.clone())): the copy
         // goes where an Array<out T> goes; the call is visited before its arguments
-        java.util.Set<io.codelaser.maddi.cst.api.expression.Expression> spreadClones =
-                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall call) {
+        Set<Expression> spreadClones =
+                Collections.newSetFromMap(new IdentityHashMap<>());
+        body.visit((Element e) -> {
+            if (e instanceof MethodCall call) {
                 spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.methodInfo()));
-            } else if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall call) {
-                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.constructor()));
+            } else if (e instanceof ConstructorCall call) {
+                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(),
+                        call.callsConstructorOfCreatedType() ? call.constructor() : null));
             }
             switch (e) {
-                case io.codelaser.maddi.cst.api.expression.Assignment a -> {
-                    if (a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
+                case Assignment a -> {
+                    if (a.variableTarget() instanceof DependentVariable dv
                         && pi.equals(dv.arrayVariable()) || isPi(pi, a.value()) || pi.equals(a.variableTarget())) {
                         escapes[0] = true;
                     }
                 }
-                case io.codelaser.maddi.cst.api.statement.ReturnStatement rs when isPi(pi, rs.expression()) ->
+                case ReturnStatement rs when isPi(pi, rs.expression()) ->
                         escapes[0] = true;
-                case io.codelaser.maddi.cst.api.statement.LocalVariableCreation lvc -> {
+                case LocalVariableCreation lvc -> {
                     // guava's ObjectArrays.newArray: T[] empty = reference.length == 0 ? reference : copyOf(…), only
                     // handed on to Arrays.copyOf: the local's own uses decide (RegularImmutableMap's entries[i] = …
                     // makes it escape)
@@ -536,7 +591,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         }
                     });
                 }
-                case io.codelaser.maddi.cst.api.expression.MethodCall mc -> {
+                case MethodCall mc -> {
                     if (cloneOf(pi, mc) && !spreadClones.contains(mc)) escapes[0] = true;
                     if (!acceptsOut(pi, mc.parameterExpressions(), mc.methodInfo())) escapes[0] = true;
                 }
@@ -548,15 +603,15 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         escapes[0] = true;
                     }
                 }
-                case io.codelaser.maddi.cst.api.expression.ConstructorCall cc -> {
-                    if (cc.constructor() == null && cc.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
-                        || cc.constructor() != null && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {
+                case ConstructorCall cc -> {
+                    if (!cc.callsConstructorOfCreatedType() && cc.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
+                        || cc.callsConstructorOfCreatedType() && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {
                         escapes[0] = true;
                     }
                     // guava's fromHashers(hashers): new Hasher() { … makeHash(hashers) … }
                     if (cc.anonymousClass() != null) {
                         cc.anonymousClass().methods().stream().filter(am -> am.methodBody() != null).forEach(am -> escapes(
-                                pi, (io.codelaser.maddi.cst.api.element.Element) am.methodBody(), escapes));
+                                pi, (Element) am.methodBody(), escapes));
                         cc.anonymousClass().fields().stream().filter(f -> f.initializer() != null && !f.initializer().isEmpty())
                                 .forEach(f -> escapes(pi, f.initializer(), escapes));
                     }
@@ -568,35 +623,35 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         });
     }
 
-    private static final ThreadLocal<java.util.Set<io.codelaser.maddi.cst.api.variable.Variable>> ALIASES_IN_PROGRESS =
-            ThreadLocal.withInitial(java.util.HashSet::new);
+    private static final ThreadLocal<Set<Variable>> ALIASES_IN_PROGRESS =
+            ThreadLocal.withInitial(HashSet::new);
 
-    private static boolean cloneOf(io.codelaser.maddi.cst.api.variable.Variable pi, io.codelaser.maddi.cst.api.expression.MethodCall mc) {
+    private static boolean cloneOf(Variable pi, MethodCall mc) {
         return mc.object() != null && isPi(pi, mc.object()) && mc.methodInfo() != null
                && "clone".equals(mc.methodInfo().name()) && mc.parameterExpressions().isEmpty();
     }
 
     /** The {@code pi.clone()} arguments that are a call's whole vararg array: printed spread, a copy again. */
-    private static List<io.codelaser.maddi.cst.api.expression.Expression> clonesIntoVarargs(
-            io.codelaser.maddi.cst.api.variable.Variable pi, List<io.codelaser.maddi.cst.api.expression.Expression> args, MethodInfo callee) {
+    private static List<Expression> clonesIntoVarargs(
+            Variable pi, List<Expression> args, MethodInfo callee) {
         if (callee == null || callee.parameters().isEmpty() || args.size() != callee.parameters().size()
             || !callee.parameters().getLast().isVarArgs()) {
             return List.of();
         }
-        io.codelaser.maddi.cst.api.expression.Expression last = KotlinExpressionPrinter.unwrap(args.getLast());
-        return last instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && cloneOf(pi, mc)
+        Expression last = KotlinExpressionPrinter.unwrap(args.getLast());
+        return last instanceof MethodCall mc && cloneOf(pi, mc)
                ? List.of(mc) : List.of();
     }
 
     // the value is pi, also as a branch of a conditional: guava's RegularImmutableMap.fromEntryArrayCheckingBucketOverflow,
     // entries = n == entryArray.length ? entryArray : createEntryArray(n), an invariant local
-    private static boolean isPi(io.codelaser.maddi.cst.api.variable.Variable pi, io.codelaser.maddi.cst.api.expression.Expression e) {
+    private static boolean isPi(Variable pi, Expression e) {
         if (e == null) return false;
-        io.codelaser.maddi.cst.api.expression.Expression x = KotlinExpressionPrinter.unwrap(e);
-        if (x instanceof io.codelaser.maddi.cst.api.expression.InlineConditional ic) {
+        Expression x = KotlinExpressionPrinter.unwrap(e);
+        if (x instanceof InlineConditional ic) {
             return isPi(pi, ic.ifTrue()) || isPi(pi, ic.ifFalse());
         }
-        return x instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve && pi.equals(ve.variable());
+        return x instanceof VariableExpression ve && pi.equals(ve.variable());
     }
 
     /**
@@ -604,7 +659,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * parameter (Kotlin's platform {@code Array<(out) T>!}), a vararg (spread), a type variable, or a translated
      * method's array parameter that is itself printed covariant.
      */
-    private static boolean acceptsOut(io.codelaser.maddi.cst.api.variable.Variable pi, List<io.codelaser.maddi.cst.api.expression.Expression> args,
+    private static boolean acceptsOut(Variable pi, List<Expression> args,
                                       MethodInfo callee) {
         for (int i = 0; i < args.size(); i++) {
             if (!isPi(pi, args.get(i))) continue;
@@ -653,14 +708,14 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 .filter(op -> op.parameterizedType().arrays() == 0 && op.parameterizedType().typeInfo() != null
                         && op.parameterizedType().typeInfo() != own
                         && KotlinTypeName.isMapped(op.parameterizedType().typeInfo().fullyQualifiedName())
-                        && isSubtype(own, op.parameterizedType().typeInfo(), new java.util.HashSet<>()))
+                        && isSubtype(own, op.parameterizedType().typeInfo(), new HashSet<>()))
                 // an Iterable prints MutableIterable whatever its verdict (acceptsReadOnly): guava's addAll(Iterable)
                 // only reads its values
                 .allMatch(op -> !KotlinTypeName.mutableOnly(op.parameterizedType().typeInfo().fullyQualifiedName())
                                 && readOnlyParameter(op));
     }
 
-    private static boolean isSubtype(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {
+    private static boolean isSubtype(TypeInfo sub, TypeInfo sup, Set<TypeInfo> visited) {
         if (sub == null || !visited.add(sub)) return false;
         if (sub == sup) return true;
         if (sub.parentClass() != null && isSubtype(sub.parentClass().typeInfo(), sup, visited)) return true;
@@ -676,7 +731,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         // maddi-mod#25, the family rule: in the code translated together, the override family is complete, and the
         // position is read-only for all of it when each member's parameter there is (Kotlin wants an override's
         // parameter types exactly the overridden member's; callers pass a MutableList to a List either way)
-        java.util.List<MethodInfo> family = KotlinContext.options().world().family(m);
+        List<MethodInfo> family = KotlinContext.options().world().family(m);
         if (family == null) return false;
         KotlinWorld world = KotlinContext.options().world();
         Boolean known = world.readOnly(pi);
@@ -706,7 +761,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
         // a cycle (fromMap passes map to rawFallback, which passes it back) is assumed read-only: every parameter on it
         // is unmodified, and each one's other uses are checked where the cycle is entered
-        java.util.Set<ParameterInfo> visiting = READ_ONLY_IN_PROGRESS.get();
+        Set<ParameterInfo> visiting = READ_ONLY_IN_PROGRESS.get();
         if (!visiting.add(pi)) return true;
         try {
             return onlyRead(pi, m.methodBody());
@@ -715,8 +770,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
     }
 
-    private static final ThreadLocal<java.util.Set<ParameterInfo>> READ_ONLY_IN_PROGRESS =
-            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+    private static final ThreadLocal<Set<ParameterInfo>> READ_ONLY_IN_PROGRESS =
+            ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
 
     /**
      * Can the argument at {@code index} of a call to {@code callee} be a read-only collection? A parameter that is
@@ -759,63 +814,63 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      */
     private static boolean onlyRead(ParameterInfo pi, Block body) {
         if (body == null) return false;
-        java.util.Set<io.codelaser.maddi.cst.api.element.Element> reads =
-                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        Set<Element> reads =
+                Collections.newSetFromMap(new IdentityHashMap<>());
         int[] uses = {0};
-        java.util.function.Predicate<io.codelaser.maddi.cst.api.element.Element> visitor = e -> {
-            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null
-                && KotlinExpressionPrinter.unwrap(mc.object()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+        Predicate<Element> visitor = e -> {
+            if (e instanceof MethodCall mc && mc.object() != null
+                && KotlinExpressionPrinter.unwrap(mc.object()) instanceof VariableExpression ve
                 && pi.equals(ve.variable()) && !VIEWS.contains(mc.methodInfo().name())) {
                 reads.add(ve);
             }
             // a view (map.entrySet(), list.iterator()) is a read where it is iterated or only read in turn: guava's
             // Maps.removeAllKeys removes through map.entrySet().iterator(), which the analysis does not see
-            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall outer && outer.object() != null
+            if (e instanceof MethodCall outer && outer.object() != null
                 && outer.methodInfo() != null && !VIEWS.contains(outer.methodInfo().name())
                 && KotlinContext.options().modification().structurallyNonModifying(outer.methodInfo())) {
-                io.codelaser.maddi.cst.api.expression.VariableExpression viewed = viewOf(pi, outer.object());
+                VariableExpression viewed = viewOf(pi, outer.object());
                 if (viewed != null) reads.add(viewed);
             }
-            if (e instanceof io.codelaser.maddi.cst.api.statement.ForEachStatement fe && fe.expression() != null) {
-                io.codelaser.maddi.cst.api.expression.VariableExpression viewed = viewOf(pi, fe.expression());
+            if (e instanceof ForEachStatement fe && fe.expression() != null) {
+                VariableExpression viewed = viewOf(pi, fe.expression());
                 if (viewed != null) reads.add(viewed);
             }
-            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null) {
-                io.codelaser.maddi.cst.api.expression.VariableExpression through =
+            if (e instanceof MethodCall mc && mc.object() != null) {
+                VariableExpression through =
                         passedThrough(pi, KotlinExpressionPrinter.unwrap(mc.object()));
                 if (through != null) reads.add(through);
             }
             // ensureNotNull(map, "map"); as a statement: its result goes nowhere
-            if (e instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas && eas.expression() != null) {
-                io.codelaser.maddi.cst.api.expression.VariableExpression through =
+            if (e instanceof ExpressionAsStatement eas && eas.expression() != null) {
+                VariableExpression through =
                         passedThrough(pi, KotlinExpressionPrinter.unwrap(eas.expression()));
                 if (through != null) reads.add(through);
             }
-            if (e instanceof io.codelaser.maddi.cst.api.statement.ForEachStatement fe && fe.expression() != null
-                && KotlinExpressionPrinter.unwrap(fe.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+            if (e instanceof ForEachStatement fe && fe.expression() != null
+                && KotlinExpressionPrinter.unwrap(fe.expression()) instanceof VariableExpression ve
                 && pi.equals(ve.variable())) {
                 reads.add(ve);
             }
             // passed on to a parameter that takes a read-only collection: isRepresentable(map, KEYS), rawFallback(map)
-            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc) {
+            if (e instanceof MethodCall mc) {
                 passedOn(pi, mc.parameterExpressions(), mc.methodInfo(), reads);
             }
             // guava's SetView.minSize(Set<?> set): set instanceof SetView ? ((SetView<?>) set).minSize() : set.size().
             // A test or a cast compiles from the read-only type too; the analysis says nothing modifies the set
-            if (e instanceof io.codelaser.maddi.cst.api.expression.InstanceOf io
-                && KotlinExpressionPrinter.unwrap(io.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+            if (e instanceof InstanceOf io
+                && KotlinExpressionPrinter.unwrap(io.expression()) instanceof VariableExpression ve
                 && pi.equals(ve.variable())) {
                 reads.add(ve);
             }
-            if (e instanceof io.codelaser.maddi.cst.api.expression.Cast c
-                && KotlinExpressionPrinter.unwrap(c.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+            if (e instanceof Cast c
+                && KotlinExpressionPrinter.unwrap(c.expression()) instanceof VariableExpression ve
                 && pi.equals(ve.variable())) {
                 reads.add(ve);
             }
-            if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.constructor() != null) {
+            if (e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                 passedOn(pi, cc.parameterExpressions(), cc.constructor(), reads);
             }
-            if (e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve && pi.equals(ve.variable())) {
+            if (e instanceof VariableExpression ve && pi.equals(ve.variable())) {
                 uses[0]++;
             }
             return true;
@@ -823,8 +878,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         body.visit(visitor);
         // the methods of an anonymous class capture it too: guava's Maps.removeOnlySet, a ForwardingSet whose
         // delegate() returns the set as its MutableSet
-        body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-            if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.anonymousClass() != null) {
+        body.visit((Element e) -> {
+            if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) {
                 cc.anonymousClass().methods().stream().filter(am -> am.methodBody() != null)
                         .forEach(am -> am.methodBody().visit(visitor));
             }
@@ -834,34 +889,34 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     /** Members whose result is a live view of the collection: modifying it modifies the collection. */
-    static final java.util.Set<String> VIEWS = java.util.Set.of("entrySet", "keySet", "values", "iterator",
+    static final Set<String> VIEWS = Set.of("entrySet", "keySet", "values", "iterator",
             "listIterator", "spliterator", "subList", "headSet", "tailSet", "subSet", "headMap", "tailMap", "subMap",
             "descendingSet", "descendingMap", "navigableKeySet", "descendingKeySet", "descendingIterator");
 
     /** {@code e} is a view call on {@code pi} ({@code map.entrySet()}): the parameter's use inside it. */
-    private static io.codelaser.maddi.cst.api.expression.VariableExpression viewOf(
-            ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {
-        if (!(KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc)
+    private static VariableExpression viewOf(
+            ParameterInfo pi, Expression e) {
+        if (!(KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc)
             || mc.object() == null || mc.methodInfo() == null || !VIEWS.contains(mc.methodInfo().name())) {
             return null;
         }
-        return KotlinExpressionPrinter.unwrap(mc.object()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+        return KotlinExpressionPrinter.unwrap(mc.object()) instanceof VariableExpression ve
                && pi.equals(ve.variable()) ? ve : null;
     }
 
-    private static void passedOn(ParameterInfo pi, List<io.codelaser.maddi.cst.api.expression.Expression> args,
-                                 MethodInfo callee, java.util.Set<io.codelaser.maddi.cst.api.element.Element> reads) {
+    private static void passedOn(ParameterInfo pi, List<Expression> args,
+                                 MethodInfo callee, Set<Element> reads) {
         for (int i = 0; i < args.size(); i++) {
-            io.codelaser.maddi.cst.api.expression.Expression arg = KotlinExpressionPrinter.unwrap(args.get(i));
-            if (arg instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+            Expression arg = KotlinExpressionPrinter.unwrap(args.get(i));
+            if (arg instanceof VariableExpression ve
                 && pi.equals(ve.variable()) && !passThrough(callee, i) && acceptsReadOnly(callee, i)) {
                 reads.add(ve);
             }
             // checkNotNull(unfiltered) passed on: a read where the pass-through's result lands in one
-            io.codelaser.maddi.cst.api.expression.VariableExpression through = passedThrough(pi, arg);
+            VariableExpression through = passedThrough(pi, arg);
             if (through != null && acceptsReadOnly(callee, i)) reads.add(through);
             // new ArrayList<>(map.keySet()): a view handed to a parameter that only reads it
-            io.codelaser.maddi.cst.api.expression.VariableExpression viewed = viewOf(pi, arg);
+            VariableExpression viewed = viewOf(pi, arg);
             if (viewed != null && acceptsReadOnly(callee, i)) reads.add(viewed);
         }
     }
@@ -880,12 +935,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     /** {@code e} is a pass-through call of {@code pi}: the parameter's use inside it. */
-    private static io.codelaser.maddi.cst.api.expression.VariableExpression passedThrough(
-            ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {
-        if (!(e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc)) return null;
-        List<io.codelaser.maddi.cst.api.expression.Expression> args = mc.parameterExpressions();
+    private static VariableExpression passedThrough(
+            ParameterInfo pi, Expression e) {
+        if (!(e instanceof MethodCall mc)) return null;
+        List<Expression> args = mc.parameterExpressions();
         for (int k = 0; k < args.size(); k++) {
-            if (KotlinExpressionPrinter.unwrap(args.get(k)) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+            if (KotlinExpressionPrinter.unwrap(args.get(k)) instanceof VariableExpression ve
                 && pi.equals(ve.variable()) && passThrough(mc.methodInfo(), k)) {
                 return ve;
             }
@@ -916,14 +971,14 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         ParameterizedType own = KotlinNullability.returnType(m);
         return rt != null && own != null && KotlinNullability.isNullable(rt) && !KotlinNullability.isNullable(own)
                && !own.isPrimitiveExcludingVoid()
-                ? rt.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL) : rt;
+                ? rt.withNullable(NullableState.NONNULL) : rt;
     }
 
     private static boolean mentionsOwnTypeParameter(MethodInfo o) {
         ParameterizedType rt = o.returnType();
         if (rt == null) return false;
-        java.util.Set<io.codelaser.maddi.cst.api.info.TypeParameter> own = new java.util.HashSet<>(o.typeParameters());
-        java.util.ArrayDeque<ParameterizedType> todo = new java.util.ArrayDeque<>(List.of(rt));
+        Set<TypeParameter> own = new HashSet<>(o.typeParameters());
+        ArrayDeque<ParameterizedType> todo = new ArrayDeque<>(List.of(rt));
         while (!todo.isEmpty()) {
             ParameterizedType t = todo.pop();
             if (t.typeParameter() != null && own.contains(t.typeParameter())) return true;
@@ -957,14 +1012,14 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * takes a T (guava's TypeToInstanceMap). As the root declaration says, which every override repeats: the
      * implementations of ClassToInstanceMap.getInstance do not all say @NonNull.
      */
-    private static boolean nonNullBoundOfTypeVariable(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+    private static boolean nonNullBoundOfTypeVariable(MethodInfo methodInfo, TypeParameter tp) {
         List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
         if (!KotlinContext.translatingJava() || bounds.size() != 1 || !bounds.getFirst().isTypeParameter()
             || bounds.getFirst().arrays() > 0 || !KotlinTypeName.nullableTypeVariable(bounds.getFirst())) return false;
         int index = methodInfo.typeParameters().indexOf(tp);
         if (index < 0) return false;
         MethodInfo root = methodInfo;
-        io.codelaser.maddi.cst.api.info.TypeParameter rootTp = tp;
+        TypeParameter rootTp = tp;
         for (MethodInfo o : methodInfo.overrides()) {
             if (KotlinNullability.translated(o.typeInfo()) && index < o.typeParameters().size()
                 && o.overrides().isEmpty()) {
@@ -973,7 +1028,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             }
         }
         return root.typeParameters().contains(rootTp) && rootTp.typeBounds().stream().anyMatch(b -> b.annotations().stream()
-                .anyMatch(ae -> io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NON_NULL.contains(ae.typeInfo().simpleName())));
+                .anyMatch(ae -> NullAnnotations.NON_NULL.contains(ae.typeInfo().simpleName())));
     }
 
     /**
@@ -986,9 +1041,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         return methodInfo.typeInfo().methods().stream().anyMatch(test -> test.annotations().stream()
                 .filter(a -> "org.junit.jupiter.params.provider.MethodSource".equals(a.typeInfo().fullyQualifiedName()))
                 .anyMatch(a -> {
-                    List<String> names = new java.util.ArrayList<>();
-                    a.keyValuePairs().forEach(kv -> kv.value().visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-                        if (e instanceof io.codelaser.maddi.cst.api.expression.StringConstant sc) {
+                    List<String> names = new ArrayList<>();
+                    a.keyValuePairs().forEach(kv -> kv.value().visit((Element e) -> {
+                        if (e instanceof StringConstant sc) {
                             String name = sc.constant();
                             names.add(name.substring(name.indexOf('#') + 1));
                         }
@@ -1005,7 +1060,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                                                                || m.typeInfo().isFinal());
     }
 
-    static boolean nonNullBound(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+    static boolean nonNullBound(MethodInfo methodInfo, TypeParameter tp) {
         if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
         if (!methodInfo.overrides().isEmpty()) {
             // AllEqualOrdering's sortedCopy overrides Ordering's <E : Any> sortedCopy: Kotlin wants the same bounds,
@@ -1039,7 +1094,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * T is a type argument of one of the method's parameters ({@code Supplier<T>}): a value of T may come from there,
      * as null where T is instantiated nullable.
      */
-    static boolean typeArgumentOfParameter(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+    static boolean typeArgumentOfParameter(MethodInfo methodInfo, TypeParameter tp) {
         return methodInfo.parameters().stream().anyMatch(p -> p.parameterizedType().parameters().stream()
                 .anyMatch(a -> CstQueries.mentions(a, tp)));
     }

@@ -16,25 +16,31 @@
  */
 package io.codelaser.maddi.cst.print.translate;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.BinaryOperator;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.EnclosedExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.UnaryOperator;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.SwitchStatementOldStyle;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.This;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeMap;
-import java.util.stream.Stream;
 
 /**
  * Questions about the Java CST that a Java-to-X printer asks whatever its target language: pure functions of the
@@ -68,8 +74,7 @@ public final class CstQueries {
 
     /** The type {@code typeInfo} is a member of; null for a top-level type. */
     public static TypeInfo enclosing(TypeInfo typeInfo) {
-        var cuOrEnclosing = typeInfo.compilationUnitOrEnclosingType();
-        return cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
+        return typeInfo.enclosingType();
     }
 
     /** The superclass of {@code typeInfo}; null for {@code Object}, an interface without one, or an unknown type. */
@@ -112,6 +117,29 @@ public final class CstQueries {
         List<Element> code = new ArrayList<>();
         addCode(typeInfo, code);
         return code;
+    }
+
+    /**
+     * {@code typeInfo} and the types declared inside it, at any depth: its member types, and the local and anonymous
+     * types in its code and theirs. Of a primary type, the types of its file: what a whole-file analysis such as
+     * {@code ValueTypes} is given.
+     */
+    public static List<TypeInfo> allTypes(TypeInfo typeInfo) {
+        List<TypeInfo> all = new ArrayList<>();
+        collectTypes(typeInfo, all);
+        return all;
+    }
+
+    private static void collectTypes(TypeInfo t, List<TypeInfo> all) {
+        all.add(t);
+        t.subTypes().forEach(st -> collectTypes(st, all));
+        for (Element element : code(t)) {
+            element.visit((Element e) -> {
+                if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) collectTypes(cc.anonymousClass(), all);
+                if (e instanceof LocalTypeDeclaration ltd) collectTypes(ltd.typeInfo(), all);
+                return true;
+            });
+        }
     }
 
     /** As {@link #code}, with that of the member types, at any depth. */
@@ -169,10 +197,10 @@ public final class CstQueries {
      * Kotlin's {@code const val}, C#'s {@code const}.
      */
     public static boolean constantInitializer(FieldInfo fieldInfo) {
-        return constantInitializer(fieldInfo, new java.util.HashSet<>());
+        return constantInitializer(fieldInfo, new HashSet<>());
     }
 
-    private static boolean constantInitializer(FieldInfo fieldInfo, java.util.Set<FieldInfo> visiting) {
+    private static boolean constantInitializer(FieldInfo fieldInfo, Set<FieldInfo> visiting) {
         ParameterizedType t = fieldInfo.type();
         if (fieldInfo.initializer() == null || fieldInfo.initializer().isEmpty() || t.arrays() != 0
             || !(t.isPrimitiveExcludingVoid() || t.isJavaLangString()) || !visiting.add(fieldInfo)) return false;
@@ -185,13 +213,13 @@ public final class CstQueries {
      * {@code String ENDPOINT_PLACEHOLDER = "${" + PREFIX + ENDPOINT + ":}"}, an annotation parameter's default). A
      * String one concatenates Strings only: Kotlin folds {@code "a" + 1} at no compile time.
      */
-    private static boolean constantExpression(Expression e, boolean string, java.util.Set<FieldInfo> visiting) {
+    private static boolean constantExpression(Expression e, boolean string, Set<FieldInfo> visiting) {
         while (e instanceof EnclosedExpression ee) e = ee.inner();
         if (e.isConstant()) return !string || e.parameterizedType() != null && e.parameterizedType().isJavaLangString();
-        if (e instanceof io.codelaser.maddi.cst.api.expression.BinaryOperator bo) {
+        if (e instanceof BinaryOperator bo) {
             return constantExpression(bo.lhs(), string, visiting) && constantExpression(bo.rhs(), string, visiting);
         }
-        if (!string && e instanceof io.codelaser.maddi.cst.api.expression.UnaryOperator uo) {
+        if (!string && e instanceof UnaryOperator uo) {
             return constantExpression(uo.expression(), false, visiting);
         }
         if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {

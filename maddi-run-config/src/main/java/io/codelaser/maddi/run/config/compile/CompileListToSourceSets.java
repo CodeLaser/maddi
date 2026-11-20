@@ -1,10 +1,5 @@
 package io.codelaser.maddi.run.config.compile;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
@@ -16,6 +11,12 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * Turns a list of {@link CompileInvocation}s (parsed {@code javac} or {@code kotlinc} command lines) into a
@@ -490,12 +491,30 @@ public class CompileListToSourceSets {
         return classPath;
     }
 
+    /**
+     * `file:` + [path], as before for an ordinary path; a path with characters a URI may not hold (quarkus's
+     * "integration-tests/simple with space", rejoined by Javac.parse) is percent-encoded instead of aborting the
+     * derivation ("Illegal character in path"). Not Path.toUri(): it would add `//` and, for an existing directory,
+     * a trailing slash, and these URIs are compared with others built here.
+     */
+    static URI fileUri(String path) {
+        try {
+            return URI.create("file:" + path);
+        } catch (IllegalArgumentException e) {
+            try {
+                return new URI("file", null, path, null);
+            } catch (java.net.URISyntaxException e2) {
+                throw new IllegalArgumentException("Cannot make a file URI of " + path, e2);
+            }
+        }
+    }
+
     private static void handleDirectoryInClasspath(Map<String, SourceSet> sourceSetsByPath,
                                                    String part,
                                                    Map<String, SourceSet> classPath) {
         SourceSet inMap = sourceSetsByPath.get(part);
         if (inMap == null) {
-            URI uri = URI.create("file:" + part);
+            URI uri = fileUri(part);
             SourceSet sourceSet = new SourceSetImpl.Builder()
                     .setName(part)
                     .setSourceDirectories(List.of())
@@ -514,25 +533,63 @@ public class CompileListToSourceSets {
                                              Map<String, SourceSet> classPath,
                                              String destination,
                                              Set<String> moduleJarNames) {
+        if (sourceSetsByPath.containsKey(part)) return;
         String lastPart = lastPart(part);
         SourceSet inMap = classPath.get(lastPart);
-        URI uri = URI.create("file:" + part);
-        if (inMap == null) {
-            SourceSet sourceSet = new SourceSetImpl.Builder()
-                    .setName(lastPart)
-                    .setSourceDirectories(List.of())
-                    .setUri(uri)
-                    .setLibrary(true)
-                    .setExternalLibrary(true)
-                    .setModule(moduleJarNames.contains(lastPart))
-                    .build();
-            classPath.put(lastPart, sourceSet);
-            sourceSetsByPath.put(part, sourceSet);
-            LOGGER.info("Create jar: {} -> {}", lastPart, destination);
-        } else if (!uri.equals(inMap.uri())) {
-            LOGGER.info("Name clash: {} vs {}", uri, inMap.uri());
-            sourceSetsByPath.put(part, inMap);
+        URI uri = fileUri(part);
+        String name = lastPart;
+        if (inMap != null) {
+            if (uri.equals(inMap.uri())) return;
+            /*
+             ⛔ TWO JARS UNDER ONE FILE NAME ARE TWO LIBRARIES. Two builds of one tree against different versions of the
+             same distribution: maddi-intellij compiles against IntelliJ 2025.3, maddi-intellij-j2k against 2026.2.3,
+             both through '.../idea-<version>/plugins/Kotlin/lib/kotlin-plugin.jar'. Mapped onto the first jar of
+             that name, the second set was parsed against the other version: 'JavaToKotlinActionHandler', absent
+             from 2025.3, did not resolve, and J2kStarter was dropped on every load. The first jar keeps the plain
+             name (names are identities); a later one is named by the shortest path tail that tells it apart.
+             */
+            name = distinguishingName(part, classPath);
+            LOGGER.info("Name clash: {} vs {}; the second is library '{}'", uri, inMap.uri(), name);
         }
+        SourceSet sourceSet = new SourceSetImpl.Builder()
+                .setName(name)
+                .setSourceDirectories(List.of())
+                .setUri(uri)
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .setModule(moduleJarNames.contains(lastPart))
+                .build();
+        classPath.put(name, sourceSet);
+        sourceSetsByPath.put(part, sourceSet);
+        LOGGER.info("Create jar: {} -> {}", name, destination);
+    }
+
+    /*
+     The shortest tail of 'part' that differs from the same tail of every library jar of that file name, so it names
+     what tells them apart: 'idea-2026.2.3/plugins/Kotlin/lib/kotlin-plugin.jar'. No machine-specific prefix, as long
+     as the jars differ below it.
+     */
+    private static String distinguishingName(String part, Map<String, SourceSet> classPath) {
+        String quoted = Pattern.quote(SEPARATOR);
+        String[] components = part.split(quoted);
+        String leaf = components[components.length - 1];
+        List<String[]> others = classPath.values().stream()
+                .map(s -> s.uri().getPath())
+                .filter(p -> p != null && p.endsWith(SEPARATOR + leaf) && !p.equals(part))
+                .map(p -> p.split(quoted)).toList();
+        for (int k = 2; k <= components.length; k++) {
+            String tail = tail(components, k);
+            int kk = k;
+            if (!tail.isEmpty() && !classPath.containsKey(tail)
+                && others.stream().noneMatch(o -> o.length >= kk && tail.equals(tail(o, kk)))) {
+                return tail;
+            }
+        }
+        return part;
+    }
+
+    private static String tail(String[] components, int k) {
+        return String.join("/", Arrays.copyOfRange(components, components.length - k, components.length));
     }
 
     private static final Set<String> TEST_NAMES = Set.of("test", "test-classes", "testFixtures", "test-annotations",
@@ -680,7 +737,7 @@ public class CompileListToSourceSets {
                                       Map<String, Integer> duplicateNamePrevention) {
         String destination = inv.destination();
         ComputeNameResult result = computeName(buildRoot, buildUnitByDestination, destination);
-        URI uri = URI.create("file:" + inv.destination());
+        URI uri = fileUri(inv.destination());
         // sourcePath() may be null (javac with no -sourcepath); source dirs are then inferred from source files
         List<String> sourcePath = inv.sourcePath();
         List<Path> sourceDirs = new ArrayList<>(sourcePath == null ? List.of()
@@ -786,6 +843,7 @@ public class CompileListToSourceSets {
                 .setEnablePreview(inv.enablePreview())
                 .setKotlinLanguageVersion(inv.kotlinLanguageVersion())
                 .setKotlinApiVersion(inv.kotlinApiVersion())
+                .setKotlinPluginOptions(inv.kotlinPluginOptions())
                 .setJvmTarget(inv.jvmTarget())
                 .setJdkHome(inv.jdkHome())
                 .build();

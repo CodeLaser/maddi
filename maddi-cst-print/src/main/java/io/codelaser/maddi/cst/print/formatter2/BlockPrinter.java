@@ -17,18 +17,19 @@
 
 package io.codelaser.maddi.cst.print.formatter2;
 
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputElement;
 import io.codelaser.maddi.cst.api.output.element.BlankLine;
 import io.codelaser.maddi.cst.api.output.element.Guide;
 import io.codelaser.maddi.cst.api.output.element.Keyword;
 import io.codelaser.maddi.cst.api.output.element.Symbol;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 
 public class BlockPrinter {
     private static final Logger LOGGER = LoggerFactory.getLogger(BlockPrinter.class);

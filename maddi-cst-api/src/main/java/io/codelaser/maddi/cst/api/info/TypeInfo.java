@@ -18,7 +18,14 @@
 package io.codelaser.maddi.cst.api.info;
 
 
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.Element;
@@ -32,12 +39,6 @@ import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.TypeNature;
 import io.codelaser.maddi.support.Either;
-
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /**
  * Represents a type declaration in the CST: a class, interface, enum, record, or annotation type.
@@ -86,6 +87,46 @@ public interface TypeInfo extends NamedType, Info {
      * enclosed in it.
      */
     boolean isEqualToOrInnerClassOf(TypeInfo typeInfo);
+
+    /**
+     * The type this type is declared in: a member type's, and a local or an anonymous class's. Null for a primary
+     * type. The other side of {@link #compilationUnitOrEnclosingType()}.
+     */
+    /**
+     * The code of this class, or of a type declared in it, uses an instance of a type around it: a {@code This} that
+     * denotes one, or the unqualified creation of another inner class. False for a static or top-level type. See
+     * {@link EnclosingInstance}.
+     */
+    default boolean usesEnclosingInstance() {
+        return isInnerClass() && !EnclosingInstance.uses(this).isEmpty();
+    }
+
+    /** Its own access, narrowed by each enclosing type's ({@link Info#effectiveAccess()}). */
+    @Override
+    default Access effectiveAccess() {
+        Access own = access();
+        TypeInfo enclosing = enclosingType();
+        if (own == null || enclosing == null) return own;
+        Access outer = enclosing.effectiveAccess();
+        return outer == null ? own : own.combine(outer);
+    }
+
+    default TypeInfo enclosingType() {
+        return compilationUnitOrEnclosingType().isRight() ? compilationUnitOrEnclosingType().getRight() : null;
+    }
+
+    /**
+     * The nearest method whose body this type is declared in: its own {@link #enclosingMethod()}, else that of the
+     * nearest {@link #enclosingType()} that has one (a member class of a local class). Null for a type that is in
+     * no method body.
+     */
+    default MethodInfo nearestEnclosingMethod() {
+        for (TypeInfo t = this; t != null; t = t.enclosingType()) {
+            MethodInfo enclosing = t.enclosingMethod();
+            if (enclosing != null) return enclosing;
+        }
+        return null;
+    }
 
     /** Returns {@code true} if this type is owned directly by a {@link CompilationUnit}. */
     default boolean isPrimaryType() {
@@ -151,6 +192,24 @@ public interface TypeInfo extends NamedType, Info {
      * computed during inspection.
      */
     Set<TypeInfo> superTypesExcludingJavaLangObject();
+
+    /**
+     * Per abstract or default method of the interfaces this class declares (and of the interfaces they extend), the
+     * method of a superclass that takes its place in this class without overriding it: in
+     * {@code class C extends B implements I}, {@code B.d()} for {@code I.d()}, when {@code B} does not implement
+     * {@code I} itself. The link is a fact of {@code C}, not of either method, so {@link MethodInfo#overrides()} does
+     * not have it: {@code B.d()} overrides nothing. The superclass's method may be abstract; then both leave the same
+     * method to the subclasses. An interface's default method is replaced as an abstract one is implemented: the
+     * class's method is the one that runs.
+     * <p>
+     * Not the interface methods this class overrides itself, nor those of the interfaces its superclasses declare
+     * (ask them). Empty for an interface. The signatures are compared as members of this class, by erasure; see
+     * {@link InheritedImplementations}. Computed on each call, from this type and its supertypes as they are
+     * inspected at that moment: call it once the types are resolved.
+     */
+    default Map<MethodInfo, MethodInfo> inheritedImplementations() {
+        return InheritedImplementations.of(this);
+    }
 
     /** Returns the set of modifiers declared on this type ({@code public}, {@code final}, …). */
     Set<TypeModifier> typeModifiers();
@@ -405,6 +464,16 @@ public interface TypeInfo extends NamedType, Info {
     boolean isNonSealed();
 
     /** Builder for constructing a {@link TypeInfo} during the inspection phase. */
+    /*
+    @ImmutableContainer(after = "commit"): a contract, not computed. TypeInfo.builder() hands this builder out before the
+    commit, which is @Dependent (#107); the after-mark excuse (TypeIndependentAnalyzerImpl.excused) accepts that only
+    when the exposed type is itself eventual. Literally, nothing stops a setter call on an escaped builder after
+    commit(); what makes the excuse sound is that the commit detaches the builder: the product copies every
+    collection (InspectionImpl copies the annotations since maddi 1a8053014) and EventuallyFinal.setFinal drops the
+    builder, so a late mutation cannot reach the committed TypeInfo. Replace with Freezable builders, from which the
+    engine computes the mark itself (CodeLaser/maddi-mod#133).
+     */
+    @ImmutableContainer(after = "commit", hc = true)
     interface Builder extends Info.Builder<Builder> {
         /** Adds a type that is permitted to extend this sealed type. */
         Builder addPermittedType(TypeInfo typeInfo);

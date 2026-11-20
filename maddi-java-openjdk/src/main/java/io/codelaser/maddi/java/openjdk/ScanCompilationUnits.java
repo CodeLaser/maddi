@@ -1,8 +1,27 @@
 package io.codelaser.maddi.java.openjdk;
 
-import com.sun.source.tree.CompilationUnitTree;
-
+import java.io.IOException;
 import java.net.URI;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
+import javax.tools.JavaFileManager;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardLocation;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LineMap;
 import com.sun.source.util.DocTrees;
 import com.sun.source.util.JavacTask;
@@ -13,6 +32,8 @@ import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.util.Names;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
@@ -23,28 +44,11 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.graph.util.TimedLogger;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
+import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
-import io.codelaser.maddi.graph.util.TimedLogger;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardLocation;
-import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 public class ScanCompilationUnits {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnits.class);
@@ -93,7 +97,7 @@ public class ScanCompilationUnits {
                                 boolean detailedSources,
                                 MaddiDiagnosticCollector diagnosticCollector,
                                 List<String> packagesToPreload,
-                                io.codelaser.maddi.inspection.api.resource.ParameterNameIndex parameterNameIndex,
+                                ParameterNameIndex parameterNameIndex,
                                 boolean jdkInternals,
                                 boolean computeFingerPrints,
                                 boolean syntheticListField) {
@@ -119,7 +123,7 @@ public class ScanCompilationUnits {
     }
 
     /** The shared-JDK loader for platform types; see {@code ClassSymbolScanner#setSharedJdkLoader}. */
-    public void setSharedJdkLoader(java.util.function.Function<String, TypeInfo> sharedJdkLoader) {
+    public void setSharedJdkLoader(Function<String, TypeInfo> sharedJdkLoader) {
         classSymbolScanner.setSharedJdkLoader(sharedJdkLoader);
     }
 
@@ -193,8 +197,8 @@ public class ScanCompilationUnits {
     // diagnostic; tolerant of future javac internals changes.
     private static boolean nameTableIsNotShared(JavacTask task) {
         try {
-            com.sun.tools.javac.util.Names names =
-                    com.sun.tools.javac.util.Names.instance(((BasicJavacTask) task).getContext());
+            Names names =
+                    Names.instance(((BasicJavacTask) task).getContext());
             return !"SharedNameTable".equals(names.table.getClass().getSimpleName());
         } catch (RuntimeException e) {
             return true;
@@ -333,6 +337,13 @@ public class ScanCompilationUnits {
                     String packageName = modulePackage.substring(sep + 2);
                     preloads.addAll(preloadJdk(module, packageName));
                 }
+            }
+            // ⛔ AND WHAT THE PRELOAD ONLY TOUCHED, as in preloadOnly (maddi#119), which this path lacked: loading
+            // java.lang's interfaces registers java.util.function.Supplier (and more) lazily, the clear below dropped
+            // it from the accounting, and nothing committed it. A lambda typed Supplier then had a target without
+            // singleAbstractMethod() (CodeLaser/maddi#193). The caller commits the preloads as it commits a scan's.
+            for (TypeInfo touched : classSymbolScanner.typesLoaded()) {
+                if (!touched.hasBeenInspected() && !preloads.contains(touched)) preloads.add(touched);
             }
         } else {
             preloads = List.of();

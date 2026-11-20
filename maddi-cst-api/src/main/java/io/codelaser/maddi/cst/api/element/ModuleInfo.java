@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.api.element;
 
-import io.codelaser.maddi.cst.api.info.Info;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /**
  * Represents the contents of a Java 9+ {@code module-info.java} file.

@@ -17,8 +17,27 @@
 
 package io.codelaser.maddi.run.rewire;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.ref.WeakReference;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
+
+import javax.management.ObjectName;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.callgraph.PrimaryTypeUseGraph;
+import io.codelaser.maddi.callgraph.ReparseWithDependents;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -26,17 +45,6 @@ import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.Supplier;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 
 /**
  * The rewire driver: edit a randomly chosen source file on disk, ask the inspector what changed, re-parse with the
@@ -93,8 +101,11 @@ public class RunRewireTests {
          *                  rewired copies before the analysis (the REWIRE cone; {@code ModificationRequest.carryFrom})
          * @param seedPrevious null, or the previous generation's objects of the seed types, for the early cutoff
          *                  ({@code ModificationRequest.seedPrevious})
+         * @return for a seeded analysis ({@code seedTypes} not null): whether it stayed incremental, false when it fell
+         *         back to the cold analysis of everything (the early cutoff found a changed element whose change reaches
+         *         outside the seed). Ignored for a full analysis
          */
-        void analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph, Set<TypeInfo> seedTypes,
+        boolean analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph, Set<TypeInfo> seedTypes,
                      Set<TypeInfo> carryFrom, Set<TypeInfo> seedPrevious);
 
         /** The output of one primary type, comparable between two analyses. */
@@ -105,8 +116,9 @@ public class RunRewireTests {
      * @param reparses         re-parses done
      * @param oracleChecks     oracle checks done
      * @param oracleDifferences every difference an oracle check found; empty is the expected outcome
+     * @param coldFallbacks    re-parses whose seeded analysis fell back to the cold analysis; 0 without the analysis
      */
-    public record Result(int reparses, int oracleChecks, List<String> oracleDifferences) {
+    public record Result(int reparses, int oracleChecks, List<String> oracleDifferences, int coldFallbacks) {
     }
 
     private final InputConfiguration inputConfiguration;
@@ -144,14 +156,15 @@ public class RunRewireTests {
     /** One re-parse: what it touched and what each step took. */
     private record Stats(int iteration, boolean restore, int changed, int cone, int rewiredTypes, int primaryTypes,
                          long reloadMs, long reparseMs, long prepMs, long callGraphMs, long analysisMs,
-                         int vertices, long edges, long heapMb) {
+                         boolean coldFallback, int vertices, long edges, long heapMb) {
         @Override
         public String toString() {
             return String.format("iteration %d%s: %d changed, %d in the REWIRE cone, %d type(s) built by the rewire, of"
                                  + " %d primary types; reload %d ms, re-parse %d ms, prep %d ms (call graph alone %d"
                                  + " ms)%s; call graph %d vertices, %d edges; heap after GC %d MB", iteration,
                     restore ? " (restore)" : "", changed, cone, rewiredTypes, primaryTypes, reloadMs, reparseMs,
-                    prepMs, callGraphMs, analysisMs < 0 ? "" : ", analysis " + analysisMs + " ms", vertices, edges,
+                    prepMs, callGraphMs, analysisMs < 0 ? "" : ", analysis " + analysisMs + " ms"
+                                                              + (coldFallback ? " (fell back to cold)" : ""), vertices, edges,
                     heapMb);
         }
     }
@@ -162,7 +175,7 @@ public class RunRewireTests {
      */
     private static long heapAfterGcMb() {
         System.gc();
-        java.lang.Runtime rt = java.lang.Runtime.getRuntime();
+        Runtime rt = Runtime.getRuntime();
         return (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
     }
 
@@ -172,13 +185,45 @@ public class RunRewireTests {
      */
     private static final int HISTOGRAM = Integer.getInteger("maddi.rewire.histogram", 0);
 
+    /*
+     -Dmaddi.rewire.types=A,B: edit these primary types, in this order and round, instead of drawing them at random;
+     each is the first primary type whose fully qualified name ends in the given text. Edit a type first to compare
+     its warm summary with the cold run's own values rather than with values an earlier rewire carried.
+     */
+    private static final String TYPES = System.getProperty("maddi.rewire.types");
+
+    /*
+     -Dmaddi.rewire.edit=declaration: the edit adds a public static method to the primary type instead of a comment, a
+     declaration change: the dependents that rely on the type are parsed again (ReparseWithDependents), the others
+     rewired, and the restore removes the method again. An annotation type cannot hold one; it gets the comment.
+     */
+    private static final boolean DECLARATION_EDIT = "declaration".equals(System.getProperty("maddi.rewire.edit"));
+
+    static String edited(String content, int iteration) {
+        int close = content.lastIndexOf('}');
+        if (!DECLARATION_EDIT || close < 0 || content.contains("@interface")) return "// some comment\n\n" + content;
+        return content.substring(0, close) + "\n    public static void maddiRewireProbe" + iteration + "() {\n    }\n"
+               + content.substring(close);
+    }
+
+    /*
+     DIAGNOSTIC -Dmaddi.rewire.oracleAtStart=true: run the oracle before the first edit as well (logged as iteration
+     -1). Nothing has been re-parsed or carried yet, so it compares two cold runs in one JVM: a difference there is
+     the analysis not being deterministic, not the incremental path. Each oracle call also logs a digest of both
+     sides' analysis output, to tell which of the runs is the odd one.
+     */
+    private static final boolean ORACLE_AT_START = Boolean.getBoolean("maddi.rewire.oracleAtStart");
+    // DIAGNOSTIC -Dmaddi.rewire.dumpTo=<directory>: each oracle call writes both sides' analysis output there
+    // (cold-N.txt, warm-N.txt, one element per line under its primary type), to compare runs of different JVMs
+    private static final String DUMP_TO = System.getProperty("maddi.rewire.dumpTo");
+
     private static void logHistogram(int iteration, boolean restore) {
         if (HISTOGRAM <= 0) return;
         try {
-            Object out = java.lang.management.ManagementFactory.getPlatformMBeanServer().invoke(
-                    new javax.management.ObjectName("com.sun.management:type=DiagnosticCommand"),
+            Object out = ManagementFactory.getPlatformMBeanServer().invoke(
+                    new ObjectName("com.sun.management:type=DiagnosticCommand"),
                     "gcClassHistogram", new Object[]{new String[0]}, new String[]{String[].class.getName()});
-            String top = ((String) out).lines().limit(HISTOGRAM + 3L).collect(java.util.stream.Collectors.joining("\n"));
+            String top = ((String) out).lines().limit(HISTOGRAM + 3L).collect(Collectors.joining("\n"));
             LOGGER.info("REWIRE HISTOGRAM iteration {}{}:\n{}", iteration, restore ? " (restore)" : "", top);
         } catch (Exception e) {
             LOGGER.warn("REWIRE HISTOGRAM not available: {}", e.toString());
@@ -191,7 +236,7 @@ public class RunRewireTests {
      reaches it (LeakPath). "not found" means a root outside the driver: a static, a thread-local, a cache.
      */
     private static final boolean LEAK_CHECK = Boolean.getBoolean("maddi.rewire.leakCheck");
-    private final List<java.lang.ref.WeakReference<TypeInfo>> watched = new ArrayList<>();
+    private final List<WeakReference<TypeInfo>> watched = new ArrayList<>();
     private int watchedAt;
 
     private void leakCheck(int iteration, InfoMapView view) {
@@ -199,18 +244,18 @@ public class RunRewireTests {
         int n = stats.size();
         if (watched.isEmpty() && n == 2 && !view.rewiredTypes().isEmpty()) {
             // every type the rewire built: whether a generation survives is a count, and one survivor's chain is enough
-            view.rewiredTypes().forEach(t -> watched.add(new java.lang.ref.WeakReference<>(t)));
+            view.rewiredTypes().forEach(t -> watched.add(new WeakReference<>(t)));
             LOGGER.info("REWIRE LEAK watching the {} type(s) built at re-parse {}", watched.size(), n);
             watchedAt = n;
         } else if (!watched.isEmpty() && n == watchedAt + 4) {
             for (int i = 0; i < 3; i++) System.gc();
-            List<TypeInfo> alive = watched.stream().map(java.lang.ref.WeakReference::get).filter(Objects::nonNull)
+            List<TypeInfo> alive = watched.stream().map(WeakReference::get).filter(Objects::nonNull)
                     .toList();
             LOGGER.info("REWIRE LEAK of the {} type(s) built at re-parse {}, {} are still reachable", watched.size(),
                     watchedAt, alive.size());
             // the types reachable from the driver by name: more than one object for a name is a generation kept
             List<TypeInfo> all = LeakPath.reachable(this, TypeInfo.class, 40_000_000);
-            Map<String, List<TypeInfo>> byName = all.stream().collect(java.util.stream.Collectors.groupingBy(
+            Map<String, List<TypeInfo>> byName = all.stream().collect(Collectors.groupingBy(
                     TypeInfo::fullyQualifiedName));
             List<Map.Entry<String, List<TypeInfo>>> doubled = byName.entrySet().stream()
                     .filter(e -> e.getValue().size() > 1).sorted(Map.Entry.comparingByKey()).toList();
@@ -243,9 +288,52 @@ public class RunRewireTests {
         }
     }
 
+    /*
+     -Dmaddi.rewire.leakFields=A,B: at re-parse A, hold weak references to the analysis-made fields the driver reaches
+     (the link engine's virtual fields and translations: owned by a type, not among its fields()); at re-parse B, after
+     re-analyses that replaced them, print how many are still reachable and how a few of them are reached. An analysis
+     that clears an element and computes it again should leave the old ones to the collector.
+     */
+    private static final String LEAK_FIELDS = System.getProperty("maddi.rewire.leakFields");
+    private final List<java.lang.ref.WeakReference<io.codelaser.maddi.cst.api.info.FieldInfo>> watchedFields =
+            new ArrayList<>();
+
+    private void leakFields() {
+        if (LEAK_FIELDS == null) return;
+        String[] ab = LEAK_FIELDS.split(",");
+        int a = Integer.parseInt(ab[0].strip());
+        int b = Integer.parseInt(ab[1].strip());
+        int n = stats.size();
+        if (n == a) {
+            List<io.codelaser.maddi.cst.api.info.FieldInfo> all = LeakPath.reachable(this,
+                    io.codelaser.maddi.cst.api.info.FieldInfo.class, 40_000_000);
+            List<io.codelaser.maddi.cst.api.info.FieldInfo> made = all.stream()
+                    .filter(f -> f.owner() != null && f.owner().fields().stream().noneMatch(g -> g == f)).toList();
+            int step = Math.max(1, made.size() / 50_000);
+            for (int i = 0; i < made.size(); i += step) watchedFields.add(new java.lang.ref.WeakReference<>(made.get(i)));
+            LOGGER.info("REWIRE LEAKFIELDS at re-parse {}: {} field(s) reachable, {} analysis-made, watching {}", n,
+                    all.size(), made.size(), watchedFields.size());
+        } else if (n == b && !watchedFields.isEmpty()) {
+            for (int i = 0; i < 3; i++) System.gc();
+            List<io.codelaser.maddi.cst.api.info.FieldInfo> alive = watchedFields.stream()
+                    .map(java.lang.ref.WeakReference::get).filter(Objects::nonNull).toList();
+            LOGGER.info("REWIRE LEAKFIELDS at re-parse {}: of the {} watched since re-parse {}, {} still reachable", n,
+                    watchedFields.size(), a, alive.size());
+            for (int i = 0; i < Math.min(5, alive.size()); i++) {
+                io.codelaser.maddi.cst.api.info.FieldInfo f = alive.get(i * alive.size() / Math.min(5, alive.size()));
+                LOGGER.info("REWIRE LEAKFIELDS {} of {}, from the driver:{}", f.name(), f.owner(),
+                        LeakPath.path(this, f));
+            }
+        }
+    }
+
     public Result go() {
         Random random = new Random(SEED);
         List<TypeInfo> list = parseResult.primaryTypes().stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
+        List<TypeInfo> chosen = TYPES == null ? null : Arrays.stream(TYPES.split(","))
+                .map(name -> list.stream().filter(t -> t.fullyQualifiedName().endsWith(name.strip())).findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("maddi.rewire.types: no type " + name)))
+                .toList();
         G<Info> infoGraph = initialGraph;
         lastParseResult = parseResult;
         if (options.analysis() != null) {
@@ -253,9 +341,14 @@ public class RunRewireTests {
             options.analysis().analyze(javaInspector, parseResult, initialGraph, null, null, null);
             LOGGER.info("REWIRE ANALYSIS of the parse the run starts from: {} ms", ms(System.nanoTime() - t0));
         }
+        if (ORACLE_AT_START) {
+            lastGraph = initialGraph;
+            oracle(-1);
+        }
         for (int i = 0; i < options.iterations(); ++i) {
             LOGGER.info("Compute primary type use graph, iteration {}", i);
-            TypeInfo typeToRewire = list.get(random.nextInt(list.size()));
+            TypeInfo typeToRewire = chosen != null ? chosen.get(i % chosen.size())
+                    : list.get(random.nextInt(list.size()));
             Path path = Path.of(typeToRewire.compilationUnit().uri().getSchemeSpecificPart());
             Path absolutePath = path.toAbsolutePath();
             boolean stop = false;
@@ -264,7 +357,7 @@ public class RunRewireTests {
                 boolean restored = false;
                 try {
                     LOGGER.info("Modifying {}", absolutePath);
-                    String updatedContent = "// some comment\n\n" + content;
+                    String updatedContent = edited(content, i);
                     // this will trigger a change of fingerprint
                     stop |= write(path, updatedContent);
                     if (!stop) {
@@ -301,7 +394,7 @@ public class RunRewireTests {
             if (stop) break;
         }
         logSummary();
-        return new Result(stats.size(), oracleChecks, List.copyOf(oracleDifferences));
+        return new Result(stats.size(), oracleChecks, List.copyOf(oracleDifferences), coldFallbacks());
     }
 
     private G<Info> reloadSources(TypeInfo pt, G<Info> infoGraph, int iteration, boolean restore) throws IOException {
@@ -313,14 +406,17 @@ public class RunRewireTests {
         Set<TypeInfo> dependentPrimaryTypes = new PrimaryTypeUseGraph(infoGraph).dependentsOf(rr.sourceHasChanged());
         assert Collections.disjoint(dependentPrimaryTypes, rr.sourceHasChanged());
         LOGGER.info("{} has {} dependent types", pt, dependentPrimaryTypes.size());
-        JavaInspector.Invalidated invalidated = ti -> {
-            if (rr.sourceHasChanged().contains(ti)) return INVALID;
-            if (dependentPrimaryTypes.contains(ti)) return REWIRE;
-            return UNCHANGED;
-        };
         long t1 = System.nanoTime();
         LOGGER.info("Reparse");
-        ParseResult parseResult1 = javaInspector.parse(reparseOptions(invalidated)).parseResult();
+        // the changed types INVALID, their dependents REWIRE; when a changed type's declarations moved, the
+        // dependents that rely on them are parsed again instead, and have no analysis to carry
+        ReparseWithDependents.Outcome reparse = ReparseWithDependents.go(javaInspector, rr.sourceHasChanged(),
+                dependentPrimaryTypes, this::reparseOptions);
+        ParseResult parseResult1 = reparse.parseResult();
+        if (!reparse.declarationsChanged().isEmpty()) {
+            LOGGER.info("REWIRE DECLARATIONS of {} changed: {} of the {} dependent type(s) parsed again, the rest rewired",
+                    reparse.declarationsChanged(), reparse.reparsedDependents().size(), dependentPrimaryTypes.size());
+        }
         long t2 = System.nanoTime();
         LOGGER.info("Prep");
         G<Info> graph = options.prep().apply(javaInspector, parseResult1);
@@ -329,6 +425,7 @@ public class RunRewireTests {
         new ComputeCallGraph(javaInspector.runtime(), parseResult1, _ -> false).go();
         long t4 = System.nanoTime();
         long analysisMs = -1;
+        boolean coldFallback = false;
         if (options.analysis() != null) {
             // seeded: the re-parsed types, with the rewired cone's analyzer output carried onto the copies, so the
             // worklist wakes a cone type only when an input it read changed; the kept ones keep their values. Without
@@ -338,23 +435,32 @@ public class RunRewireTests {
             Set<TypeInfo> carryFrom = null;
             Set<TypeInfo> seedPrevious = null;
             if (CARRY) {
-                // every previous primary type but the changed ones: the REWIRE cone, and what else the re-parse
-                // rebuilt (a source set re-scanned in full); a kept type maps onto itself and is skipped
+                // every previous primary type but the changed ones and the dependents parsed again (they rely on a
+                // declaration that moved): the rewired part of the cone, and what else the re-parse rebuilt (a
+                // source set re-scanned in full); a kept type maps onto itself and is skipped. A re-parsed dependent
+                // is seeded, with its previous output as its prior: its source did not change.
                 Set<TypeInfo> previous = new HashSet<>(previousParseResult.primaryTypes());
                 previous.removeAll(rr.sourceHasChanged());
+                previous.removeAll(reparse.reparsedDependents());
                 carryFrom = Set.copyOf(previous);
-                seedPrevious = Set.copyOf(rr.sourceHasChanged());
+                Set<TypeInfo> priors = new HashSet<>(rr.sourceHasChanged());
+                priors.addAll(reparse.reparsedDependents());
+                seedPrevious = Set.copyOf(priors);
+                for (TypeInfo t : reparse.reparsedDependents()) {
+                    seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
+                }
             } else {
                 for (TypeInfo t : dependentPrimaryTypes) seedTypes.add(parseResult1.findType(t.fullyQualifiedName()));
             }
             seedTypes.remove(null);
-            options.analysis().analyze(javaInspector, parseResult1, graph, seedTypes, carryFrom, seedPrevious);
+            coldFallback = !options.analysis().analyze(javaInspector, parseResult1, graph, seedTypes, carryFrom,
+                    seedPrevious);
             analysisMs = ms(System.nanoTime() - t4);
         }
         InfoMapView view = javaInspector.lastRewireInfoMap();
         Stats s = new Stats(iteration, restore, rr.sourceHasChanged().size(), dependentPrimaryTypes.size(),
                 view == null ? 0 : view.rewiredTypes().size(), parseResult1.primaryTypes().size(),
-                ms(t1 - t0), ms(t2 - t1), ms(t3 - t2), ms(t4 - t3), analysisMs, graph.vertices().size(),
+                ms(t1 - t0), ms(t2 - t1), ms(t3 - t2), ms(t4 - t3), analysisMs, coldFallback, graph.vertices().size(),
                 graph.edgeStream().count(),
                 heapAfterGcMb());
         stats.add(s);
@@ -363,6 +469,7 @@ public class RunRewireTests {
         lastGraph = graph;
         lastParseResult = parseResult1;
         leakCheck(iteration, view); // after: it tells the live types by lastParseResult
+        leakFields();
         return graph;
     }
 
@@ -387,12 +494,13 @@ public class RunRewireTests {
         JavaInspector cold = options.coldInspector().get();
         ParseResult coldResult = cold.parse(options.parseOptions()).parseResult();
         G<Info> coldGraph = options.prep().apply(cold, coldResult);
+        // the analysis first: the warm side's prep data has been through it too, and it writes carried-tier values
+        // of its own (the constants of an interface have none before it): compared before, every one of them showed
+        // as a prep difference
+        if (options.analysis() != null) options.analysis().analyze(cold, coldResult, coldGraph, null, null, null);
         List<String> differences = new ArrayList<>(ReparseOracle.differences(javaInspector, lastParseResult, lastGraph,
                 cold, coldResult, coldGraph));
-        if (options.analysis() != null) {
-            options.analysis().analyze(cold, coldResult, coldGraph, null, null, null);
-            differences.addAll(analysisDifferences(cold, coldResult));
-        }
+        if (options.analysis() != null) differences.addAll(analysisDifferences(cold, coldResult));
         ++oracleChecks;
         if (differences.isEmpty()) {
             LOGGER.info("REWIRE ORACLE iteration {}: as a cold parse ({} ms)", iteration, ms(System.nanoTime() - t0));
@@ -400,9 +508,9 @@ public class RunRewireTests {
             LOGGER.error("REWIRE ORACLE iteration {}: {} difference(s) with a cold parse", iteration,
                     differences.size());
             // up to 50 of each kind ("prep of", "analysis of", ...): one kind must not hide another
-            differences.stream().collect(java.util.stream.Collectors.groupingBy(
-                            d -> d.substring(0, Math.max(0, d.indexOf(" of "))), java.util.LinkedHashMap::new,
-                            java.util.stream.Collectors.toList()))
+            differences.stream().collect(Collectors.groupingBy(
+                            d -> d.substring(0, Math.max(0, d.indexOf(" of "))), LinkedHashMap::new,
+                            Collectors.toList()))
                     .forEach((kind, list) -> {
                         LOGGER.error("REWIRE ORACLE iteration {}: {} {} difference(s)", iteration, list.size(),
                                 kind.isEmpty() ? "other" : kind);
@@ -415,33 +523,103 @@ public class RunRewireTests {
     /* per primary type, the element lines of the analysis output that differ: "-" cold only, "+" warm only */
     private List<String> analysisDifferences(JavaInspector cold, ParseResult coldResult) {
         List<String> differences = new ArrayList<>();
+        int coldDigest = 0;
+        int warmDigest = 0;
+        StringBuilder coldDump = new StringBuilder();
+        StringBuilder warmDump = new StringBuilder();
         for (TypeInfo coldType : coldResult.primaryTypes().stream()
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList()) {
             TypeInfo warmType = lastParseResult.findType(coldType.fullyQualifiedName());
             if (warmType == null) continue; // ReparseOracle reports it
-            List<String> c = options.analysis().dump(cold, coldType).lines().map(String::strip).toList();
-            List<String> w = options.analysis().dump(javaInspector, warmType).lines().map(String::strip).toList();
+            List<String> c = options.analysis().dump(cold, coldType).lines().map(String::strip)
+                    .map(RunRewireTests::linksInOrder).toList();
+            List<String> w = options.analysis().dump(javaInspector, warmType).lines().map(String::strip)
+                    .map(RunRewireTests::linksInOrder).toList();
+            if (DUMP_TO != null) {
+                coldDump.append("== ").append(coldType.fullyQualifiedName()).append('\n');
+                c.forEach(l -> coldDump.append(l).append('\n'));
+                warmDump.append("== ").append(coldType.fullyQualifiedName()).append('\n');
+                w.forEach(l -> warmDump.append(l).append('\n'));
+            }
+            coldDigest = 31 * coldDigest + c.hashCode();
+            warmDigest = 31 * warmDigest + w.hashCode();
             if (c.equals(w)) continue;
             StringBuilder sb = new StringBuilder("analysis of " + coldType.fullyQualifiedName() + ":");
             c.stream().filter(l -> !w.contains(l)).forEach(l -> sb.append("\n  - ").append(l));
             w.stream().filter(l -> !c.contains(l)).forEach(l -> sb.append("\n  + ").append(l));
             differences.add(sb.toString());
         }
+        LOGGER.info("REWIRE ORACLE analysis digest: cold {}, warm {}", Integer.toHexString(coldDigest),
+                Integer.toHexString(warmDigest));
+        if (DUMP_TO != null) {
+            write(Path.of(DUMP_TO, "cold-" + oracleChecks + ".txt"), coldDump.toString());
+            write(Path.of(DUMP_TO, "warm-" + oracleChecks + ".txt"), warmDump.toString());
+        }
         return differences;
+    }
+
+    private static final String LINKS = "\"links\":[";
+
+    /*
+     The links of an element are a set; the dump lists them in the order the analysis added them, which follows the
+     order in which it visited the code. A warm re-analysis visits less, in another order: the same links, listed
+     differently (fernflower's Statement.type, 2026-11-09). Sort the top-level entries of each "links" array before
+     comparing. Quote-aware, because names hold brackets (int[], C<init>).
+     */
+    static String linksInOrder(String line) {
+        int from = 0;
+        StringBuilder sb = new StringBuilder();
+        int at;
+        while ((at = line.indexOf(LINKS, from)) >= 0) {
+            int start = at + LINKS.length();
+            List<String> entries = new ArrayList<>();
+            int depth = 0;
+            boolean inString = false;
+            int entryStart = start;
+            int i = start;
+            for (; i < line.length(); i++) {
+                char ch = line.charAt(i);
+                if (inString) {
+                    if (ch == '\\') i++;
+                    else if (ch == '"') inString = false;
+                } else if (ch == '"') {
+                    inString = true;
+                } else if (ch == '[' || ch == '{') {
+                    depth++;
+                } else if (ch == ']' || ch == '}') {
+                    if (depth == 0) break; // the end of the links array
+                    depth--;
+                } else if (ch == ',' && depth == 0) {
+                    entries.add(line.substring(entryStart, i));
+                    entryStart = i + 1;
+                }
+            }
+            if (i >= line.length()) return line; // not what we expected: compare as is
+            if (i > entryStart) entries.add(line.substring(entryStart, i));
+            entries.sort(null);
+            sb.append(line, from, start).append(String.join(",", entries));
+            from = i;
+        }
+        return sb.append(line, from, line.length()).toString();
     }
 
     private void logSummary() {
         if (stats.isEmpty()) return;
         LOGGER.info("REWIRE SUMMARY {} re-parse(s) over {} primary types; median cone {}, median rewire-built types {};"
                     + " median ms: reload {}, re-parse {}, prep {}, call graph alone {}, analysis {}; oracle: {}"
-                    + " check(s), {} difference(s)", stats.size(), stats.getLast().primaryTypes(),
+                    + " check(s), {} difference(s); fell back to cold: {}", stats.size(), stats.getLast().primaryTypes(),
                 median(stats.stream().mapToLong(Stats::cone)), median(stats.stream().mapToLong(Stats::rewiredTypes)),
                 median(stats.stream().mapToLong(Stats::reloadMs)), median(stats.stream().mapToLong(Stats::reparseMs)),
                 median(stats.stream().mapToLong(Stats::prepMs)), median(stats.stream().mapToLong(Stats::callGraphMs)),
-                median(stats.stream().mapToLong(Stats::analysisMs)), oracleChecks, oracleDifferences.size());
+                median(stats.stream().mapToLong(Stats::analysisMs)), oracleChecks, oracleDifferences.size(),
+                coldFallbacks());
     }
 
-    private static long median(java.util.stream.LongStream values) {
+    private int coldFallbacks() {
+        return (int) stats.stream().filter(Stats::coldFallback).count();
+    }
+
+    private static long median(LongStream values) {
         long[] sorted = values.sorted().toArray();
         return sorted.length == 0 ? 0 : sorted[sorted.length / 2];
     }

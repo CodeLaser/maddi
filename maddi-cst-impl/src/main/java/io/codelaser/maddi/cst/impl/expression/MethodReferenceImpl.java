@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -24,14 +30,12 @@ import io.codelaser.maddi.cst.api.element.Visitor;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.Precedence;
-import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
-import io.codelaser.maddi.cst.api.expression.TypeExpression;
-import io.codelaser.maddi.cst.impl.type.DiamondEnum;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
@@ -42,12 +46,7 @@ import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
+import io.codelaser.maddi.cst.impl.type.DiamondEnum;
 
 public class MethodReferenceImpl extends ExpressionImpl implements MethodReference {
     private final ParameterizedType parameterizedType;

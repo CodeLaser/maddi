@@ -17,6 +17,9 @@
 
 package io.codelaser.maddi.cst.api.info;
 
+import java.util.List;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
@@ -24,9 +27,6 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
-
-import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * Base interface for all named, inspectable program elements: types, methods, fields, and parameters.
@@ -60,14 +60,38 @@ public interface Info extends Element {
     String info();
 
     /**
-     * Returns the effective visibility of this element.
+     * The access this element is declared with: its modifier, or the language's default where it has none (an
+     * interface's member is public). For a member that is its own, whatever its type's: a {@code public} method of a
+     * {@code private} nested class is public here. For a type, the narrowest of its own and of the types enclosing it.
+     * What code outside the element can reach is {@link #effectiveAccess()}.
      */
     Access access();
+
+    /**
+     * From where outside its own declaration this element can be used: the narrowest of its {@link #access()} and
+     * that of everything it is declared in. A {@code public} method of a {@code private} nested class is private; a
+     * constant of a package-private interface is package-private. The same as {@link #access()} for what is declared
+     * in nothing.
+     */
+    default Access effectiveAccess() {
+        return access();
+    }
 
     /**
      * Returns the compilation unit that directly or transitively owns this element.
      */
     CompilationUnit compilationUnit();
+
+    /**
+     * This element is declared in a source file that was parsed: the program's own code, which can be edited. False
+     * for an element of the JDK or of a library on the class path, and for one without a compilation unit or a
+     * source set (a primitive, a type that could not be loaded): see {@link CompilationUnit#externalLibrary()} and
+     * {@link CompilationUnit#partOfJdk()}, both asked, as a source set states the two separately.
+     */
+    default boolean parsedFromSource() {
+        CompilationUnit compilationUnit = compilationUnit();
+        return compilationUnit != null && !compilationUnit.externalLibrary() && !compilationUnit.partOfJdk();
+    }
 
     /**
      * Returns the unqualified name, e.g. {@code "ArrayList"} or {@code "add"}.

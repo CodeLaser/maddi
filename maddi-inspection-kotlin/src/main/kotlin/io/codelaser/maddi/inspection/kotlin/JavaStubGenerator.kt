@@ -128,9 +128,96 @@ object JavaStubGenerator {
         name.isNotEmpty() && name !in JAVA_KEYWORDS
                 && Character.isJavaIdentifierStart(name[0]) && name.all { Character.isJavaIdentifierPart(it) }
 
-    /** Positional parameter names: javac resolves a call by argument types, never by parameter name. */
-    private fun parameterList(m: MethodInfo): String =
-        m.parameters().withIndex().joinToString(", ") { (i, p) ->
+    /**
+     * The Java method a GENERIC [m] overrides, whose erased signature the stub must print: kotlinc compiles `override
+     * fun remove(element: E)` in an `ArrayList<E>` as `remove(Object)`, and `override fun addAll(c: Collection<E>)` as
+     * `addAll(Collection<? extends E>)`. Written as in Kotlin, the stub declares a second method of the same erasure,
+     * and javac refuses it ("name clash", fernflower's VBStyleCollection). Erased, it overrides (JLS 8.4.2) whatever the
+     * Kotlin-mapped types said. A Kotlin method is stubbed by the same rules as [m], and a non-generic one already
+     * matches. The overridden method's own parameter types cannot be compared: maddi records `ArrayList.remove`'s as `E`,
+     * Kotlin's `MutableCollection` view.
+     */
+    private fun javaOverridden(m: MethodInfo): MethodInfo? {
+        if (m.isConstructor || m.isStatic) return null
+        if (m.parameters().none { javaType(it.parameterizedType()) != erasure(it.parameterizedType()) }) return null
+        fun isJava(t: TypeInfo) = t.compilationUnit()?.uri()?.toString()?.endsWith(".kt") != true
+        return runCatching { m.overrides() }.getOrDefault(emptySet()).firstOrNull { o ->
+            o.parameters().size == m.parameters().size && isJava(o.typeInfo())
+        } ?: sameErasureInJavaSupertype(m, m.typeInfo(), ::isJava, HashSet())
+    }
+
+    /**
+     * [m]'s override in a Java supertype, found by erasure. `overrides()` substitutes type variables and misses what
+     * Kotlin maps as `E` and a bytecode-loaded JDK declares `Object`: `remove(element: E)` against `ArrayList`'s
+     * `remove(Object)` (also `contains`, `indexOf`, `Map.get`). Equal erasures are exactly javac's name clash.
+     */
+    private fun sameErasureInJavaSupertype(m: MethodInfo, type: TypeInfo, isJava: (TypeInfo) -> Boolean,
+                                           seen: MutableSet<TypeInfo>): MethodInfo? {
+        val own = m.parameters().map { erasure(it.parameterizedType()) }
+        for (st in listOfNotNull(type.parentClass()) + type.interfacesImplemented()) {
+            val t = st.typeInfo() ?: continue
+            if (!seen.add(t)) continue
+            if (isJava(t)) t.methods().firstOrNull { o ->
+                !o.isStatic && o.name() == m.name() && o.parameters().size == own.size
+                    && o.parameters().map { erasure(it.parameterizedType()) } == own
+            }?.let { return it }
+            sameErasureInJavaSupertype(m, t, isJava, seen)?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * The erasure of [overridden]'s parameter [index] AS [sub] INHERITS IT: a type variable of the overridden method's
+     * class is first replaced by the argument [sub]'s supertype chain gives it. ⛔ The declared erasure alone made
+     * quarkus's `override fun list(query: PanacheQuery<*>)` in a `MongoOperations<PanacheQuery<*>, …>` into
+     * `list(Object)`, a name clash with the inherited `list(PanacheQuery<?>)`; erased as inherited it is
+     * `list(PanacheQuery)`, which overrides it. ArrayList's `remove(Object)` and `addAll(Collection<? extends E>)` are
+     * unchanged by this: no top-level type variable.
+     */
+    private fun inheritedErasure(sub: TypeInfo, overridden: MethodInfo, index: Int): String {
+        val declared = overridden.parameters()[index].parameterizedType()
+        val tp = declared.typeParameter() ?: return erasure(declared)
+        val path = supertypePath(sub, overridden.typeInfo(), HashSet()) ?: return erasure(declared)
+        // walk down from the overridden class: its type parameter -> the argument one level below, and so on
+        var current: ParameterizedType = declared
+        for (step in path.asReversed()) {
+            val variable = current.typeParameter() ?: break
+            val position = step.typeInfo()?.typeParameters()?.indexOfFirst { it == variable } ?: -1
+            if (position < 0 || position >= step.parameters().size) break
+            current = step.parameters()[position]
+        }
+        val arrays = declared.arrays()
+        val erased = erasure(current)
+        return if (current === declared || arrays == 0) erased else erased + "[]".repeat(arrays)
+    }
+
+    /** The supertypes from [from] up to [target], [from]'s own first; null when [target] is not a supertype. */
+    private fun supertypePath(from: TypeInfo, target: TypeInfo, seen: MutableSet<TypeInfo>): List<ParameterizedType>? {
+        if (!seen.add(from)) return null
+        for (st in listOfNotNull(from.parentClass()) + from.interfacesImplemented()) {
+            val t = st.typeInfo() ?: continue
+            if (t == target) return listOf(st)
+            supertypePath(t, target, seen)?.let { return listOf(st) + it }
+        }
+        return null
+    }
+
+    /** The JLS erasure: a type variable is its leftmost bound's erasure, `Object` when unbounded. */
+    private fun erasure(pt: ParameterizedType): String {
+        val tp = pt.typeParameter() ?: return rawType(pt)
+        val bound = tp.typeBounds().firstOrNull { it.typeParameter() != tp }
+        return (bound?.let { erasure(it) } ?: "java.lang.Object") + "[]".repeat(pt.arrays())
+    }
+
+    /**
+     * Positional parameter names: javac resolves a call by argument types, never by parameter name. An override of a
+     * Java method whose types differ ([javaOverridden]) takes that method's ERASED signature, all of it: a signature
+     * that is the erasure of the overridden one overrides it (JLS 8.4.2), a partly erased one does not.
+     */
+    private fun parameterList(m: MethodInfo): String {
+        val overridden = javaOverridden(m)
+        return m.parameters().withIndex().joinToString(", ") { (i, p) ->
+            if (overridden != null) return@joinToString inheritedErasure(m.typeInfo(), overridden, i) + " p$i"
             val type = javaType(p.parameterizedType())
             // a `vararg` is `T...`: as `T[]`, a Java call passing the elements does not resolve. Only a TRAILING one:
             // anywhere else it is a plain array on the JVM, and `T...` does not compile (Exposed's
@@ -138,6 +225,7 @@ object JavaStubGenerator {
             val trailing = i == m.parameters().lastIndex
             (if (p.isVarArgs && trailing && type.endsWith("[]")) type.dropLast(2) + "..." else type) + " p$i"
         }
+    }
 
     /**
      * An interface field is implicitly `static final`, so javac demands an initializer ("= expected").
@@ -185,7 +273,10 @@ object JavaStubGenerator {
             typeInfo.interfacesImplemented().takeIf { it.isNotEmpty() }
                 ?.let { sb.append(" extends ").append(it.joinToString(", ", transform = ::javaSupertype)) }
         } else {
-            typeInfo.parentClass()?.takeUnless { isJavaLangObject(it) }
+            // a `@JvmRecord data class` has java.lang.Record for parent, which only a Java `record` may extend ("classes
+            // cannot directly extend java.lang.Record"): a plain class stands in for it. Resolved only with
+            // kotlin-stdlib on the class path, which fernflower's J2K measurement lacked until maddi-mod#146
+            typeInfo.parentClass()?.takeUnless { isJavaLangObject(it) || it.typeInfo()?.fullyQualifiedName() == "java.lang.Record" }
                 ?.let { sb.append(" extends ").append(javaSupertype(it)) }
             typeInfo.interfacesImplemented().takeIf { it.isNotEmpty() }
                 ?.let { sb.append(" implements ").append(it.joinToString(", ", transform = ::javaSupertype)) }
@@ -252,15 +343,22 @@ object JavaStubGenerator {
         // a `$default` constructor (the trailing `int` mask and DefaultConstructorMarker) is kotlinc's, called by
         // Kotlin only; it would need a `this(...)` of its own, and nothing in Java can name its marker. A companion's
         // private one is not Java's to call either; an overload kotlinc adds (a no-argument one) is
-        if (m.isConstructor && !isStubbed(m)) return
+        // ...unless it calls a supertype constructor that takes arguments (`companion object : NameProvider("H2")`):
+        // left out, javac gives the stub an implicit `super()` the parent does not have, and refuses it
+        if (m.isConstructor && !isStubbed(m)
+            && (m.parameters().lastOrNull()?.name() == "\$marker" || hints.delegation(m) == null)) return
         val isStatic = m.isStatic
         // a Kotlin interface method WITH an implementation is a Java `default` method (javac needs the keyword,
         // else a Java class relying on it is forced to implement it); one without a body stays abstract.
-        val interfaceDefault = ownerIsInterface && !isStatic && hints.hasBody(m)
+        // ⚠ an abstract method is never a default, whatever hasBody says: a `fun interface`'s single method carries an
+        // empty body block, and stubbed `default` it left the interface without an abstract method -- "not a
+        // functional interface" for every Java lambda (fernflower's IBytecodeProvider, maddi-mod#146)
+        val interfaceDefault = ownerIsInterface && !isStatic && !m.isAbstract && hints.hasBody(m)
         val delegated = if (m.isConstructor) hints.delegation(m) else null
         run {
             val signature = (if (m.isConstructor) "<init>" else m.name()) +
-                    m.parameters().joinToString(",", "(", ")") { rawType(it.parameterizedType()) }
+                    (javaOverridden(m)?.let { o -> o.parameters().indices.joinToString(",", "(", ")") { inheritedErasure(m.typeInfo(), o, it) } }
+                        ?: m.parameters().joinToString(",", "(", ")") { rawType(it.parameterizedType()) })
             if (!emitted.add(signature)) return@run
             sb.append(indent).append("public ")
             if (isStatic) sb.append("static ")

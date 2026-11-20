@@ -16,6 +16,12 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.element.MultiLineComment;
@@ -27,12 +33,6 @@ import io.codelaser.maddi.cst.impl.output.GuideImpl;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 /**
  * Java's comments as Kotlin's: a line or block comment as written, a Javadoc as a KDoc. KDoc keeps the

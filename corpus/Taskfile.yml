@@ -69,8 +69,9 @@ vars:
 
 env:
   # Exported to every command a task runs (builds, plugin invocations, and any
-  # `maddi` you drive through this Taskfile). The 5 javac --add-exports the
-  # openjdk front-end needs are bundled here as MADDI_EXPORTS.
+  # `maddi` you drive through this Taskfile). The 6 javac --add-exports the
+  # openjdk front-end needs are bundled here as MADDI_EXPORTS (javac.file lets
+  # SharedArchives share one copy of each jar across the javac file managers).
   TEST_OSS_ROOT: '{{.TEST_OSS_ROOT}}'
   MADDI_EXPORTS: >-
     --add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
@@ -78,6 +79,7 @@ env:
     --add-exports jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED
     --add-exports jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED
     --add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+    --add-exports jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED
 
 tasks:
 

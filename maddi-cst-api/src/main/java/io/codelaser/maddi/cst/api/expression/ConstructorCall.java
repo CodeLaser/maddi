@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.api.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.Diamond;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
 
 /**
  * An object or array creation: {@code new Type(args)}, {@code new Type[n]}/{@code new Type[]{...}}, an
@@ -32,9 +32,30 @@ import java.util.List;
  */
 public interface ConstructorCall extends Expression {
     /**
-     * @return the invoked constructor, or {@code null} for an array creation.
+     * @return the constructor that runs. For {@code new X(...)} a constructor of the created type; for an anonymous
+     * class creation {@code new X(...) { }} the constructor of the <em>superclass</em> that the arguments go to
+     * ({@code Object}'s when {@code X} is an interface), so its {@code typeInfo()} is not the created type; {@code null}
+     * for an array initializer, and for an anonymous creation of which the front end does not know the superclass
+     * constructor. Test {@link #callsConstructorOfCreatedType()} or {@link #isAnonymousCreation()} rather than
+     * comparing this with {@code null} (CodeLaser/maddi#194).
      */
     MethodInfo constructor();
+
+    /**
+     * @return true when a constructor of the created type itself runs: {@code new X(...)}, {@code outer.new X(...)},
+     * and the synthetic constructor of {@code new X[n]}. False for an anonymous class creation, whose created type is
+     * the anonymous class, and for an array initializer {@code { a, b }}.
+     */
+    default boolean callsConstructorOfCreatedType() {
+        return constructor() != null && anonymousClass() == null;
+    }
+
+    /**
+     * @return true for {@code new X(...) { ... }}; {@link #anonymousClass()} is then the class body.
+     */
+    default boolean isAnonymousCreation() {
+        return anonymousClass() != null;
+    }
 
     /**
      * @return the qualifying instance for an inner-class creation ({@code outer.new Inner()}), otherwise

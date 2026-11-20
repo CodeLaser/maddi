@@ -41,6 +41,14 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   **expression body** (`fun f() = expr`); the implicit no-arg default constructor is suppressed.
 - **Data classes** — a Java record, or a Kotlin data class (detected by its generated `componentN()` accessors),
   prints as `data class …`, and the regenerated `componentN`/`copy` methods are suppressed.
+- **Value classes** — a Java record of one value that only its own file sees (private, nested in a private type, or
+  local) and that no code locks, compares with `==` or identity-hashes prints as `@JvmInline value class`
+  (`KotlinValueClasses`, on maddi's shared `ValueTypes` in maddi-cst-analysis, which the C# printer's structs use
+  too). File-only, because the translation is a drop-in replacement for Java's class files: Java cannot call a value
+  class's constructor, nor a function that takes one, whose JVM name Kotlin mangles. Not with an `equals` or
+  `hashCode` of its own (a value class may not redeclare them), type parameters, annotations or an inner class, nor
+  where Kotlin forbids one: a vararg's type, a `lateinit` property's (a field without a value that is not final, a
+  local declared without one).
 - **Block layout** — members and block statements are `NEWLINE`-separated (Kotlin has no `;`), so multi-statement
   output stays valid regardless of formatter width.
 - **Statements / expressions** (`KotlinStatementPrinter` / `KotlinExpressionPrinter`) — no semicolons; `val`/`var`

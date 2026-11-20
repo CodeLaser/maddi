@@ -185,4 +185,12 @@ public class Kotlin {
             return null;
         }
     }
+
+    /* public fun Throwable.stackTraceToString(): String -- prints the trace into a fresh writer (maddi-mod#15) */
+    class ExceptionsKt__ExceptionsKt$ {
+        @NotNull
+        static String stackTraceToString(@NotModified Throwable receiver) {
+            return null;
+        }
+    }
 }

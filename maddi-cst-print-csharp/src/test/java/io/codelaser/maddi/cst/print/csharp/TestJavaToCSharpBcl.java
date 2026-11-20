@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
 
 /**
  * The JDK in C# ({@link CSharpBcl}, {@code jdk-bcl.csmap}): values, collections and their navigation, concurrency,
@@ -83,7 +84,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "TimeSpan.FromTicks((after - before) / 100)");
         contains(cs, "random.Next(6)");
         contains(cs, "Convert.ToBase64String((byte[]) (object) bytes)");
-        contains(cs, "map.ForEach((k, v) => Console.Out.WriteLine(k + v))");
+        contains(cs, "map.ForEach((k, v) => Console.Out.WriteLine(k + JavaString.ValueOf(v)))");
     }
 
     @Language("java")
@@ -236,7 +237,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "internal static IFactory Factory() => JavaServiceLoader.Load<IFactory>().FirstOrDefault()");
         contains(cs, "File.ReadAllBytes(new FileInfo(System.IO");
         // known-ugly: getFileName() is a Path, a FileInfo of the name, whose ToString() is the name again
-        contains(cs, "internal static string Type(FileInfo path) => (new FileInfo(path.Name)).ToString();");
+        contains(cs, "internal static string Type(FileInfo path) => new FileInfo(path.Name).ToString();");
         contains(cs, "internal static string Type(string path) => Type(new FileInfo(path));");
     }
 
@@ -388,7 +389,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                 """, "add-only.csmap")));
         String cs = translate("Registry", PUTS);
         contains(cs, "counts.Add(key, 1);");
-        contains(cs, "=> counts.Put(key, 2);");
+        contains(cs, "=> counts.PutValue(key, 2);");
     }
 
     @Language("java")
@@ -673,7 +674,8 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "JavaClass.DeclaredMethod(c, \"run\")");
         contains(cs, "JavaClass.DeclaredMethod(c, \"apply\", p, typeof(int))");
         contains(cs, "JavaClass.DeclaredField(c, \"x\")");
-        contains(cs, "JavaClass.IsRecord(c) + \" \" + c.IsNested + \" \" + c.ToString()");
+        contains(cs, "JavaString.ValueOf(JavaClass.IsRecord(c)) + \" \" + JavaString.ValueOf(c");
+        contains(cs, ".IsNested) + \" \" + c.ToString()");
         contains(cs, "s.TrimEnd() + s.TrimStart()");
         contains(cs, "IJavaListIterator<string> it = list.Iterator(list.Count);");
         contains(cs, "while (it.HasPrevious())");
@@ -775,7 +777,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "l.ToMap(x => x, ");
         // the supplier's type arguments are the result's
         contains(cs, "=> new OrderedDictionary<string, string>());");
-        contains(cs, "s.ToCollection(() => new HashSet<string>())");
+        contains(cs, "s.ToCollection(() => new JavaLinkedHashSet<string>())");
     }
 
     @Language("java")

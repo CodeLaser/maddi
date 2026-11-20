@@ -17,16 +17,6 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
-import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.print.translate.CstSupertypes;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +26,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 /**
  * The naming policy: Java's names, written the way C# code names things. Every name is a function of the declaration
@@ -114,6 +114,36 @@ public final class CSharpNames {
     static String typeParameters(List<TypeParameter> typeParameters) {
         return typeParameters.isEmpty() ? ""
                 : typeParameters.stream().map(CSharpNames::typeParameter).collect(Collectors.joining(", ", "<", ">"));
+    }
+
+    /** The type parameters as an interface or delegate declares them, with their variance: {@code <in A, out R>}. */
+    static String declaredTypeParameters(List<TypeParameter> typeParameters) {
+        return typeParameters.isEmpty() ? "" : typeParameters.stream().map(tp -> {
+            String variance = CSharpContext.program().variance(tp);
+            return (variance == null ? "" : variance + " ") + typeParameter(tp);
+        }).collect(Collectors.joining(", ", "<", ">"));
+    }
+
+    /**
+     * The lambda adapter class of a translated functional interface, its sibling: {@code MapperLambda} for
+     * {@code IMapper} (a variant interface may declare no nested class, CS8427, so none does).
+     */
+    static String lambdaAdapterName(TypeInfo typeInfo) {
+        String name = type(typeInfo);
+        boolean prefixed = name.length() > 1 && name.charAt(0) == 'I' && Character.isUpperCase(name.charAt(1))
+                           && !typeInfo.simpleName().equals(name);
+        return (prefixed ? name.substring(1) : name) + "Lambda";
+    }
+
+    /** {@code printed}, the interface as a type ({@code Outer.IMapper<A, R>}), as its lambda adapter: {@code Outer.MapperLambda<A, R>}. */
+    static String lambdaAdapterReference(TypeInfo typeInfo, String printed) {
+        int lt = printed.indexOf('<');
+        String head = lt < 0 ? printed : printed.substring(0, lt);
+        String tail = lt < 0 ? "" : printed.substring(lt);
+        String name = type(typeInfo);
+        int at = head.lastIndexOf(name);
+        if (at < 0) return head + "." + lambdaAdapterName(typeInfo) + tail;
+        return head.substring(0, at) + lambdaAdapterName(typeInfo) + head.substring(at + name.length()) + tail;
     }
 
     /**

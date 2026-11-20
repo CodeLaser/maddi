@@ -17,15 +17,15 @@
 
 package io.codelaser.maddi.inspection.api.parser;
 
+import java.util.List;
+import java.util.Map;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
-import java.util.Map;
 
 public interface MethodTypeParameterMap {
 

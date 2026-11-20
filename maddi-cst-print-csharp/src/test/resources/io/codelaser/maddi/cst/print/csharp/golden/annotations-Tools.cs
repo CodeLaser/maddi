@@ -17,13 +17,10 @@ internal sealed class Tools {
         public string[] Value { get; set; } = new string[] { "" };
         public bool Required { get; set; } = true;
         public Type Ranker { get; set; } = typeof(Tools.ToolAttribute.INullRanker);
-        public interface INullRanker : Tools.ToolAttribute.IRanker {
-            public sealed class Lambda(Func<MethodInfo, int> f) : INullRanker { public int Rank(MethodInfo m) => f(m); }
-        }
+        public interface INullRanker : Tools.ToolAttribute.IRanker { }
+        public sealed class NullRankerLambda(Func<MethodInfo, int> f) : INullRanker { public int Rank(MethodInfo m) => f(m); }
 
-        public interface IRanker {
-            int Rank(MethodInfo m);
-            public sealed class Lambda(Func<MethodInfo, int> f) : IRanker { public int Rank(MethodInfo m) => f(m); }
-        }
+        public interface IRanker { int Rank(MethodInfo m); }
+        public sealed class RankerLambda(Func<MethodInfo, int> f) : IRanker { public int Rank(MethodInfo m) => f(m); }
     }
 }

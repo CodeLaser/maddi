@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.graph.op;
 
-import io.codelaser.maddi.graph.V;
-
 import java.util.Comparator;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.graph.V;
 
 public record Cycle<T>(Set<V<T>> vertices) {
     public int size() {

@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.run.openjdkmain;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * {@code --translate kotlin|csharp}: the translators behind the CLI. Here without the analysis
@@ -63,6 +63,17 @@ public class TestTranslateOption {
         assertTrue(box.contains("class Box"), box);
         assertTrue(Files.readString(out.resolve("translation-report.txt"))
                 .startsWith("kotlin: 1 types, 1 files, 0 printer crashes"));
+    }
+
+    @Test
+    public void kotlinStubs(@TempDir Path tmp) throws Exception {
+        Path out = tmp.resolve("kotlin-stubs");
+        assertEquals(Main.EXIT_OK, translate(project(tmp), Main.TRANSLATE_KOTLIN_STUBS, out));
+        String box = Files.readString(out.resolve("p/Box.kt"));
+        assertTrue(box.contains("{ TODO(\"maddi:p.Box.name()\") }"), box);
+        String bodies = Files.readString(out.resolve("maddi-bodies.json"));
+        assertTrue(bodies.contains("\"id\": \"p.Box.name()\""), bodies);
+        assertTrue(bodies.contains("\"kotlinFile\": \"p/Box.kt\""), bodies);
     }
 
     @Test

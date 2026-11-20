@@ -17,20 +17,19 @@
 
 package io.codelaser.maddi.inspection.resource;
 
-import io.codelaser.maddi.annotation.Container;
-import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.api.resource.BuildFiles;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 
 public record InputConfigurationImpl(Path workingDirectory,
                                      List<SourceSet> sourceSets,
@@ -261,7 +260,16 @@ public record InputConfigurationImpl(Path workingDirectory,
             if (SCHEME.matcher(path).matches()) {
                 return URI.create(path);
             }
-            return URI.create("file:" + path);
+            try {
+                return URI.create("file:" + path);
+            } catch (IllegalArgumentException e) {
+                // a path with a space (quarkus's "simple with space"): percent-encoded, the same URI otherwise
+                try {
+                    return new URI("file", null, path, null);
+                } catch (java.net.URISyntaxException e2) {
+                    throw new IllegalArgumentException("Cannot make a file URI of " + path, e2);
+                }
+            }
         }
 
         private static boolean isJmod(String classPathPart) {

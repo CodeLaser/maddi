@@ -1,11 +1,12 @@
 package io.codelaser.maddi.java.openjdk.initial;
 
-import io.codelaser.maddi.java.openjdk.InMemoryJavaFileObject;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.net.URI;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.java.openjdk.InMemoryJavaFileObject;
 
 /**
  * A source set's name is free text; a Maven reactor's reads "Project :: Module/main". The in-memory URI quotes

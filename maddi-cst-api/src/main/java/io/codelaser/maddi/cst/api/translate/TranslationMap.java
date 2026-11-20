@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.cst.api.translate;
 
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.BinaryOperator;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.element.Element;
@@ -30,13 +37,6 @@ import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.BinaryOperator;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collector;
 
 public interface TranslationMap {
 

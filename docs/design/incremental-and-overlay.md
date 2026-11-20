@@ -152,6 +152,15 @@ Mechanisms are not the gap. Plumbing and three decisions are.
    A carried link can name a field the link engine made (a virtual field, a superclass field seen on a subtype);
    the rewire copies it by identity onto the rewired owner (`InfoMapImpl.fieldInfo`). The terminal passes are
    still not run on a seeded analysis.
+   *Heap (2026-11-04, fernflower, 7 edits and their restores, the driver's `-Dmaddi.rewire.leakFields`):* the heap
+   after GC grew about 360 MB with every fall-back and stayed flat otherwise. The evaluator's negation cache, which
+   lives as long as the runtime, kept each fully analysed generation through its keys (an `instanceof` test type
+   reaches a type and its analysis); a hit, equal by name, also handed the new generation an expression on the old
+   types. A re-parse now clears it (`Eval.forgetMemos`), and the heap holds at 1.15–1.34 GB through four
+   fall-backs in a row, where it had reached 2.3 GB. What remains: the fall-backs themselves. On fernflower a
+   comment-only edit falls back in about half the edits, the seed re-analysed alone not reproducing its cold
+   values: a value the terminal passes write is absent (`fluentMethod`), or a field's independence comes out
+   weaker (`ArrayExprent.hardType`).
 4. **Per-type rescan within a source set** is cheaper than the July decision assumed (§5: javac does not force
    the whole set, and the plumbing is mostly there), but it still comes after 1–3: the analysis carry absorbs a
    coarse rescan, and for every run but the IDE's the parse is not where the time goes.
@@ -237,12 +246,35 @@ What the reparse has to do differently, whichever of the three is chosen:
    type of the set).
 2. Seed the `InfoMap`'s `rebuilt` set with the `INVALID` types only, so that `REWIRE` types of the *same* set are
    copied by the rewire phases instead of rebuilt by javac.
-3. **A signature change must re-attribute the same-set dependents** (*open*). Today a caller in the same set whose
+3. **A signature change must re-attribute the same-set dependents** (*done 2026-11-09, by refusing the rewire*). Today a caller in the same set whose
    callee lost a method fails attribution and its unit is dropped, which is at least visible. With a partial scan the
    caller is `REWIRE`, copied with references the `InfoMap` cannot map, and nothing says so. The cheapest sound rule
    is to hand javac `INVALID` ∪ (`REWIRE` ∩ same set) for attribution and rebuild what fails; whether the rest of
    that cone is rebuilt or rewired is the question. A file-level fingerprint of the *declarations* (signatures only,
    bodies and comments out) would tell a body edit, which cannot break a caller, from a signature edit, which can.
+   *Since 2026-11-09:* `DeclarationSignature` (maddi-inspection-api) is that fingerprint, taken from the model instead
+   of the file: the type's header, every non-private member's modifiers, name and types, the initializers of final
+   primitive and String fields, the nested types. `reparse` compares each re-scanned type with its previous
+   generation after the scans and before the rewire, and throws `DeclarationsChangedException` when one moved while
+   types were to be rewired: the changed types are live as new objects, nothing is rewired. `ReparseWithDependents`
+   (maddi-callgraph) catches it and parses again with the dependents `INVALID` and the changed types `REWIRE`; the
+   rewire driver and the warm-analysis tests go through it. The dependents are then new objects without analysis
+   values, so they are seeded and nothing is carried for them. Measured before the fix (`TestWarmAnalysisWithCarry`):
+   an added overload and an override of an inherited method left the dependent calling the old target, and its
+   verdicts optimistic, even after the early cutoff fell back to the cold analysis. A caller that vouches for its
+   edit opts out with `Invalidated.acrossDeclarationChanges`. The signature over-approximates: any added public
+   member counts as a change.
+   *Since 2026-11-10:* only the `REWIRE` types that rely on a moved declaration are refused (reported by
+   test-manager: a write that changed one type's declarations re-parsed an unrelated rewired type with it, and cost
+   jfocus its warm analysis). `DeclarationDependencies` (maddi-inspection-api) tells which primary types a type's
+   code relies on: the types written in it and its imports, the type of every expression (`x.b().c()` resolves `c`
+   in the type `b()` returns, which the source never names), the owners of the members it uses, type arguments and
+   bounds, closed over supertypes and enclosing types. The exception names the affected types (`affected()`), and
+   `ReparseWithDependents` parses only those again, in rounds until a parse is not refused; the other dependents
+   are rewired from the generation before the edit, so their analysis is carried, and a re-parsed dependent is
+   seeded with its previous output as the early cutoff's prior. Pinned by `TestReparseWithDependents`
+   (`unrelatedDependent`, `chain`, `cascade`). A missed dependency keeps a stale resolution silently, so the walk
+   adds when in doubt and counts a type it cannot walk as affected.
 4. `lastScanUnits` and the loader task: a partial scan's task serves `getOrLoad` for the set as the full scan's did;
    nothing changes, but the compiled-type loader must not be built from a task that only parsed a subset of the set
    with (b) or (c), since its `SOURCE_PATH`/`CLASS_PATH` differ from a full scan's.

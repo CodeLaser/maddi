@@ -18,6 +18,7 @@
 module io.codelaser.maddi.cst.print.translate {
     requires transitive io.codelaser.maddi.cst.api;
     requires transitive io.codelaser.maddi.cst.analysis;
+    requires transitive io.codelaser.maddi.inspection.api;
     requires io.codelaser.maddi.cst.impl;
     requires io.codelaser.maddi.support;
 

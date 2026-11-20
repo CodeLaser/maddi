@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.analysis.api;
 
+import java.util.Collection;
+import java.util.Set;
+import java.util.function.Predicate;
+
 import io.codelaser.maddi.callgraph.CallGraphContributions;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
-
-import java.util.Collection;
-import java.util.Set;
-import java.util.function.Predicate;
 
 /**
  * @param faultTolerant          null: the prep analyzer's own default options; otherwise its fault-tolerance switch.

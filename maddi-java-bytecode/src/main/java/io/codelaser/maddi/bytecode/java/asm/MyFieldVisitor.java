@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.bytecode.java.asm;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
+import static org.objectweb.asm.Opcodes.ASM9;
+
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.objectweb.asm.Opcodes.ASM9;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
 
 public class MyFieldVisitor extends FieldVisitor {
     private static final Logger LOGGER = LoggerFactory.getLogger(MyFieldVisitor.class);

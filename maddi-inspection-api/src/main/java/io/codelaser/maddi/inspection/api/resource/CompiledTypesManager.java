@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.inspection.api.resource;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-
-import java.util.List;
 
 /**
  * manages all types that come in byte-code form.

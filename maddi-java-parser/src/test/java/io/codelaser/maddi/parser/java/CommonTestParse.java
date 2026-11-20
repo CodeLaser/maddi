@@ -17,6 +17,16 @@
 
 package io.codelaser.maddi.parser.java;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+
+import org.parsers.java.JavaParser;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.*;
@@ -35,15 +45,6 @@ import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.inspection.resource.SummaryImpl;
 import io.codelaser.maddi.support.Either;
-import org.parsers.java.JavaParser;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Supplier;
 
 
 public class CommonTestParse {

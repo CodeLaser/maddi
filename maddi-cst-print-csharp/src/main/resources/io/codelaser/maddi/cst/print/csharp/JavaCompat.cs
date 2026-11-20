@@ -31,12 +31,49 @@ namespace Maddi.JavaCompat;
 /// <summary>Java's collection methods whose results the BCL's do not have.</summary>
 public static class JavaCollections
 {
+    /// <summary>
+    /// Java's unchecked cast of a list to another element type, (List&lt;Entity_&gt;) entities of a List&lt;Object&gt;:
+    /// the list itself where it is one of T, as Java's cast holds; else a copy of its elements as T, where .NET's
+    /// List&lt;object&gt; is no List&lt;T&gt; (a change to the copy does not reach the list). Null stays null.
+    /// </summary>
+    [return: System.Diagnostics.CodeAnalysis.NotNullIfNotNull(nameof(list))]
+    public static List<T>? UncheckedList<T>(object? list) => list switch
+    {
+        null => null,
+        List<T> same => same,
+        _ => ((System.Collections.IEnumerable)list).Cast<T>().ToList(),
+    };
+
     /// <summary>Map.put: the previous value, or the default when there was none.</summary>
     public static V? Put<K, V>(this IDictionary<K, V> d, K key, V value)
     {
         d.TryGetValue(key, out var old);
         d[key] = value;
         return old;
+    }
+
+    /// <summary>Map.put of a map whose values are a value type: the previous value, null when there was none, as in Java.</summary>
+    public static V? PutValue<K, V>(this IDictionary<K, V> d, K key, V value) where V : struct
+    {
+        V? old = d.TryGetValue(key, out var v) ? v : null;
+        d[key] = value;
+        return old;
+    }
+
+    /// <summary>Map.remove of a map whose values are a value type: the removed value, null when there was none.</summary>
+    public static V? RemoveValue<K, V>(this IDictionary<K, V> d, K key) where V : struct
+    {
+        if (!d.TryGetValue(key, out var old)) return null;
+        d.Remove(key);
+        return old;
+    }
+
+    /// <summary>Map.putIfAbsent of a map whose values are a value type: the present value, null when it was absent.</summary>
+    public static V? PutIfAbsentValue<K, V>(this IDictionary<K, V> d, K key, V value) where V : struct
+    {
+        if (d.TryGetValue(key, out var old)) return old;
+        d[key] = value;
+        return null;
     }
 
     /// <summary>Map.get of a map whose values are a value type: null when the key is absent, as in Java.</summary>
@@ -48,6 +85,20 @@ public static class JavaCollections
 
     public static V GetOrDefault<K, V>(this IDictionary<K, V> d, K key, V def) =>
         d.TryGetValue(key, out var v) ? v : def;
+
+    /// <summary>
+    /// Map.get(Object) with a key of another type than the map's, a VariableMetaModel&lt;S, E, V&gt; for a map of
+    /// VariableMetaModel&lt;?, ?, ?&gt;: the map's own types are inferred from the map alone; a key that is no K is absent.
+    /// A key Java finds through an erasure adapter (Erased_) is not found here: the adapters do not delegate equality.
+    /// </summary>
+    public static V? Get<K, V>(this IDictionary<K, V> d, object? key) =>
+        key is K k && d.TryGetValue(k, out var v) ? v : default;
+
+    public static V? GetValueOrNull<K, V>(this IDictionary<K, V> d, object? key) where V : struct =>
+        key is K k && d.TryGetValue(k, out var v) ? v : null;
+
+    public static V GetOrDefault<K, V>(this IDictionary<K, V> d, object? key, V def) =>
+        key is K k && d.TryGetValue(k, out var v) ? v : def;
 
     /// <summary>Collection.removeAll: whether anything was removed.</summary>
     public static bool RemoveAllOf<T>(this ICollection<T> c, IEnumerable<T> items)
@@ -92,8 +143,9 @@ public static class JavaCollections
         foreach (var x in e) action(x);
     }
 
+    // Enumerable's, named: as an extension, Contains would be this one, the nearer namespace's
     public static bool Contains(this System.Collections.IEnumerable e, object? item) =>
-        e.Cast<object>().Contains(item);
+        Enumerable.Contains(e.Cast<object>(), item);
 
     /// <summary>Iterable.iterator: Java's iterator, with remove.</summary>
     public static JavaIterator<T> Iterator<T>(this IEnumerable<T> e) => new JavaIterator<T>(e);
@@ -135,9 +187,14 @@ public static class JavaCollections
 
     public static V? RemoveKeyObject<K, V>(this IDictionary<K, V> d, object? o) => o is K k ? d.RemoveAndGet(k) : default;
 
-    public static void PutAll<K, V>(this IDictionary<K, V> d, IEnumerable<KeyValuePair<K, V>> other)
+    /// <summary>
+    /// Map.putAll(Map&lt;? extends K, ? extends V&gt;): a map of a GenuineVariableDescriptor into one of its
+    /// VariableDescriptor; KeyValuePair is a struct, which variance does not convert. Java checked K2 and V2 against K and
+    /// V; a constraint would say nothing of null (CS8631 for a V2 that may be null into an object).
+    /// </summary>
+    public static void PutAll<K, V, K2, V2>(this IDictionary<K, V> d, IEnumerable<KeyValuePair<K2, V2>> other)
     {
-        foreach (var (k, v) in other.ToList()) d[k] = v;
+        foreach (var (k, v) in other.ToList()) d[(K) (object) k!] = (V) (object?) v!;
     }
 
     public static V? PutIfAbsent<K, V>(this IDictionary<K, V> d, K key, V value)
@@ -210,10 +267,36 @@ public static class JavaCollections
 
     public static bool AddAll<T>(this ICollection<T> c, params T[] items) => c.AddAll((IEnumerable<T>)items);
 
-    public static bool InsertAll<T>(this IList<T> l, int index, IEnumerable<T> items)
+    /// <summary>Java's add on a List, always true, where C#'s Add is void: for a call whose value is used.</summary>
+    public static bool AddReturning<T>(this ICollection<T> c, T item)
+    {
+        c.Add(item);
+        return true;
+    }
+
+    /// <summary>Java's toArray(T[] a): a filled with the elements when it holds them (the next slot null), a new array otherwise.</summary>
+    public static T[] ToArray<E, T>(this IEnumerable<E> c, T[] a)
+    {
+        var items = c.Cast<T>().ToList();
+        if (a.Length < items.Count) return items.ToArray();
+        items.CopyTo(a);
+        if (a.Length > items.Count) a[items.Count] = default!;
+        return a;
+    }
+
+    /// <summary>Java's containsAll(Collection&lt;?&gt;): every element of other, whatever its type, is in c.</summary>
+    public static bool ContainsAll<T>(this IEnumerable<T> c, System.Collections.IEnumerable other)
+    {
+        var set = c.Cast<object?>().ToHashSet();
+        foreach (var o in other) if (!set.Contains(o)) return false;
+        return true;
+    }
+
+    /// <summary>List.addAll(int, Collection&lt;? extends E&gt;), of a value type too, which variance does not convert.</summary>
+    public static bool InsertAll<T, T2>(this IList<T> l, int index, IEnumerable<T2> items)
     {
         var all = items.ToList();
-        for (var i = 0; i < all.Count; i++) l.Insert(index + i, all[i]);
+        for (var i = 0; i < all.Count; i++) l.Insert(index + i, (T) (object?) all[i]!);
         return all.Count > 0;
     }
 
@@ -231,7 +314,7 @@ public static class JavaCollections
     /// <summary>List.sort and Collections.sort: stable, as Java's.</summary>
     public static void Sort<T>(this IList<T> l, Comparison<T>? comparison)
     {
-        var sorted = l.Order(Comparer<T>.Create(comparison ?? Comparer<T>.Default.Compare)).ToList();
+        var sorted = l.Order(comparison == null ? JavaComparer<T>.Natural : Comparer<T>.Create(comparison)).ToList();
         for (var i = 0; i < sorted.Count; i++) l[i] = sorted[i];
     }
 
@@ -526,6 +609,113 @@ public sealed class JavaKeySet<K, V>(IDictionary<K, V> map) : ISet<K>
     public override string ToString() => "[" + string.Join(", ", this) + "]";
 }
 
+/// <summary>
+/// Java's LinkedHashSet: a hash set that iterates in insertion order, also after a removal, where .NET's HashSet
+/// reuses a removed element's slot for the next one added. Re-adding a present element keeps its place. A null
+/// element is allowed, as in Java.
+/// </summary>
+public class JavaLinkedHashSet<T> : ISet<T>, IReadOnlySet<T>
+{
+#pragma warning disable CS8714 // null is kept apart, in nullNode
+    private readonly Dictionary<T, LinkedListNode<T>> index;
+#pragma warning restore CS8714
+    private readonly LinkedList<T> order = new();
+    private LinkedListNode<T>? nullNode;
+
+    public JavaLinkedHashSet() => index = new();
+
+    public JavaLinkedHashSet(int capacity) => index = new(capacity);
+
+    public JavaLinkedHashSet(IEnumerable<T> items) : this()
+    {
+        foreach (var item in items) Add(item);
+    }
+
+    public int Count => order.Count;
+
+    public bool IsReadOnly => false;
+
+    public bool Add(T item)
+    {
+        if (item is null)
+        {
+            if (nullNode != null) return false;
+            nullNode = order.AddLast(item);
+            return true;
+        }
+        if (index.ContainsKey(item)) return false;
+        index[item] = order.AddLast(item);
+        return true;
+    }
+
+    void ICollection<T>.Add(T item) => Add(item);
+
+    public bool Contains(T item) => item is null ? nullNode != null : index.ContainsKey(item);
+
+    public bool Remove(T item)
+    {
+        if (item is null)
+        {
+            if (nullNode == null) return false;
+            order.Remove(nullNode);
+            nullNode = null;
+            return true;
+        }
+        if (!index.Remove(item, out var node)) return false;
+        order.Remove(node);
+        return true;
+    }
+
+    public void Clear()
+    {
+        index.Clear();
+        order.Clear();
+        nullNode = null;
+    }
+
+    public void CopyTo(T[] array, int arrayIndex) => order.CopyTo(array, arrayIndex);
+
+    public IEnumerator<T> GetEnumerator() => order.GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public void UnionWith(IEnumerable<T> other)
+    {
+        foreach (var item in other) Add(item);
+    }
+
+    public void ExceptWith(IEnumerable<T> other)
+    {
+        foreach (var item in other) Remove(item);
+    }
+
+    public void IntersectWith(IEnumerable<T> other)
+    {
+        var keep = new HashSet<T>(other);
+        foreach (var item in order.Where(x => !keep.Contains(x)).ToList()) Remove(item);
+    }
+
+    public void SymmetricExceptWith(IEnumerable<T> other)
+    {
+        foreach (var item in new HashSet<T>(other))
+            if (!Remove(item)) Add(item);
+    }
+
+    private HashSet<T> Snapshot() => new(order);
+
+    public bool IsSubsetOf(IEnumerable<T> other) => Snapshot().IsSubsetOf(other);
+
+    public bool IsSupersetOf(IEnumerable<T> other) => Snapshot().IsSupersetOf(other);
+
+    public bool IsProperSubsetOf(IEnumerable<T> other) => Snapshot().IsProperSubsetOf(other);
+
+    public bool IsProperSupersetOf(IEnumerable<T> other) => Snapshot().IsProperSupersetOf(other);
+
+    public bool Overlaps(IEnumerable<T> other) => other.Any(Contains);
+
+    public bool SetEquals(IEnumerable<T> other) => Snapshot().SetEquals(other);
+}
+
 /// <summary>A sorted set's and map's Java members that copy where Java gives a view.</summary>
 public static class JavaSortedSets
 {
@@ -562,15 +752,29 @@ public static class JavaSortedSets
         new(m.Keys, m.Comparer);
 }
 
+/// <summary>
+/// Java's natural order: Comparable's compareTo. A String's is ordinal, by UTF-16 code unit ("B" before "a"), where
+/// .NET's default comparer for strings is the culture's ("a" before "B"); any other type's is its CompareTo.
+/// </summary>
+public static class JavaComparer<T>
+{
+    public static readonly IComparer<T> Natural = typeof(T) == typeof(string)
+        ? (IComparer<T>) (object) StringComparer.Ordinal
+        : typeof(T).IsAssignableFrom(typeof(string))
+            ? Comparer<T>.Create((a, b) => a is string s && b is string t
+                ? string.CompareOrdinal(s, t) : Comparer<T>.Default.Compare(a, b))
+            : Comparer<T>.Default;
+}
+
 public static class JavaComparator
 {
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
-        (a, b) => Comparer<K>.Default.Compare(key(a), key(b));
+        (a, b) => JavaComparer<K>.Natural.Compare(key(a), key(b));
 
     /// <summary>Comparator.comparing with the compared type given, Comparing&lt;T&gt;(o => o.Id): a lambda's
     /// parameter type cannot be inferred from its use.</summary>
     public static Comparison<T> Comparing<T>(Func<T, IComparable> key) =>
-        (a, b) => Comparer<IComparable>.Default.Compare(key(a), key(b));
+        (a, b) => JavaComparer<IComparable>.Natural.Compare(key(a), key(b));
 
     public static Comparison<T> ThenComparing<T, K>(this Comparison<T> first, Func<T, K> key) =>
         first.ThenComparing(Comparing(key));
@@ -584,13 +788,13 @@ public static class JavaComparator
 
     public static Comparison<T> Reversed<T>(this Comparison<T> c) => (a, b) => c(b, a);
 
-    public static Comparison<T> ReverseOrder<T>() => (a, b) => Comparer<T>.Default.Compare(b, a);
+    public static Comparison<T> ReverseOrder<T>() => (a, b) => JavaComparer<T>.Natural.Compare(b, a);
 
     public static Comparison<KeyValuePair<K, V>> ComparingByKey<K, V>() =>
-        (a, b) => Comparer<K>.Default.Compare(a.Key, b.Key);
+        (a, b) => JavaComparer<K>.Natural.Compare(a.Key, b.Key);
 
     public static Comparison<KeyValuePair<K, V>> ComparingByValue<K, V>() =>
-        (a, b) => Comparer<V>.Default.Compare(a.Value, b.Value);
+        (a, b) => JavaComparer<V>.Natural.Compare(a.Value, b.Value);
 }
 
 /// <summary>
@@ -673,15 +877,76 @@ public static class JavaString
 
     public static sbyte[] GetBytes(string s, Encoding encoding) => encoding.GetBytes(s).AsSigned();
 
+    /// <summary>String.compareToIgnoreCase: each char's upper case, then its lower case, compared; the difference.</summary>
+    public static int CompareToIgnoreCase(string a, string b)
+    {
+        var n = Math.Min(a.Length, b.Length);
+        for (var i = 0; i < n; i++)
+        {
+            char c1 = a[i], c2 = b[i];
+            if (c1 == c2) continue;
+            c1 = char.ToUpperInvariant(c1);
+            c2 = char.ToUpperInvariant(c2);
+            if (c1 == c2) continue;
+            c1 = char.ToLowerInvariant(c1);
+            c2 = char.ToLowerInvariant(c2);
+            if (c1 != c2) return c1 - c2;
+        }
+        return a.Length - b.Length;
+    }
+
+    /// <summary>Integer.toString(i, radix) and Long's: a sign and the digits, 0-9 a-z; radix 10 outside 2..36.</summary>
+    public static string ToString(long l, int radix)
+    {
+        if (radix < 2 || radix > 36) radix = 10;
+        if (l == 0) return "0";
+        var negative = l < 0;
+        var digits = new System.Text.StringBuilder();
+        // the minimum's absolute value does not fit: its digits from the negative value
+        for (var v = l; v != 0; v /= radix) digits.Insert(0, "0123456789abcdefghijklmnopqrstuvwxyz"[(int) Math.Abs(v % radix)]);
+        return negative ? "-" + digits : digits.ToString();
+    }
+
     public static string ValueOf(object? o) => o switch
     {
         null => "null",
+        string s => s,
         bool b => ValueOf(b),
         double d => ValueOf(d),
         float f => ValueOf(f),
         char[] a => new string(a),
+        _ when Library(o.GetType()) => LibraryValueOf(o),
         _ => o.ToString()!
     };
+
+    /// <summary>A type of the BCL or of this library, whose ToString is not Java's toString.</summary>
+    private static bool Library(Type t) => t.Namespace is { } n
+        && (n.StartsWith("System", StringComparison.Ordinal) || n == "Maddi.JavaCompat");
+
+    /// <summary>
+    /// AbstractCollection's "[a, b]", AbstractMap's "{k=v}", an entry's "k=v", each element as String.valueOf; else
+    /// the object's own ToString.
+    /// </summary>
+    private static string LibraryValueOf(object o)
+    {
+        var t = o.GetType();
+        if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+        {
+            return ValueOf(t.GetProperty("Key")!.GetValue(o)) + "=" + ValueOf(t.GetProperty("Value")!.GetValue(o));
+        }
+        if (o is not System.Collections.IEnumerable e) return o.ToString()!;
+        var map = o is System.Collections.IDictionary || t.GetInterfaces().Any(i => i.IsGenericType
+            && (i.GetGenericTypeDefinition() == typeof(IDictionary<,>)
+                || i.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)));
+        var parts = new List<string>();
+        foreach (var x in e)
+        {
+            parts.Add(x is System.Collections.DictionaryEntry d
+                ? ValueOf(d.Key) + "=" + ValueOf(d.Value)
+                : ReferenceEquals(x, o) ? (map ? "(this Map)" : "(this Collection)") : ValueOf(x));
+        }
+        return map ? "{" + string.Join(", ", parts) + "}" : "[" + string.Join(", ", parts) + "]";
+    }
 
     public static string ValueOf(bool b) => b ? "true" : "false";
 
@@ -853,6 +1118,12 @@ public static class JavaCharacter
 
 public static class JavaMath
 {
+    /// <summary>Math.abs(int): the minimum is its own absolute value, as two's complement wraps it.</summary>
+    public static int Abs(int i) => i < 0 ? unchecked(-i) : i;
+
+    /// <summary>Math.abs(long): the minimum is its own absolute value.</summary>
+    public static long Abs(long l) => l < 0 ? unchecked(-l) : l;
+
     // Java's: the nearest, ties up; d + 0.5 would round 0.49999999999999994 up to 1. NaN is 0, an infinity the
     // extreme value, as .NET's saturating conversion has it
     public static long Round(double d)
@@ -1133,6 +1404,27 @@ public readonly record struct JavaPeriod(int Years, int Months, int Days)
     }
 }
 
+/// <summary>Stream.Builder: the elements added, in order; Build() is the stream of them, once.</summary>
+public sealed class JavaStreamBuilder<T>
+{
+    private List<T>? items = new List<T>();
+
+    public JavaStreamBuilder<T> Add(T t)
+    {
+        Accept(t);
+        return this;
+    }
+
+    public void Accept(T t) => (items ?? throw new InvalidOperationException()).Add(t);
+
+    public IEnumerable<T> Build()
+    {
+        var built = items ?? throw new InvalidOperationException();
+        items = null;
+        return built;
+    }
+}
+
 public static class JavaFunctions
 {
     /// <summary>RandomGenerator.ints(origin, bound): an endless sequence of draws.</summary>
@@ -1161,6 +1453,9 @@ public static class JavaFunctions
     public static Func<T, bool> Or<T>(this Func<T, bool> first, Func<T, bool> other) => x => first(x) || other(x);
 
     public static Func<T, bool> Negate<T>(this Func<T, bool> p) => x => !p(x);
+
+    /// <summary>Predicate.not: the type argument given, as a method group does not infer it.</summary>
+    public static Func<T, bool> Not<T>(Func<T, bool> p) => x => !p(x);
 
     public static Func<T, U, bool> And<T, U>(this Func<T, U, bool> first, Func<T, U, bool> other) =>
         (x, y) => first(x, y) && other(x, y);
@@ -1219,6 +1514,21 @@ public static class JavaClass
 
 public static class JavaArrays
 {
+    /// <summary>
+    /// Arrays.sort: Java's natural order (ordinal for strings, JavaComparer) or the comparator's, stable as Java's
+    /// sort of objects is, where Array.Sort is not; from (inclusive) to (exclusive) where given.
+    /// </summary>
+    public static void Sort<T>(T[] a, Comparison<T>? comparison = null) => Sort(a, 0, a.Length, comparison);
+
+    public static void Sort<T>(T[] a, int from, int to, Comparison<T>? comparison = null)
+    {
+        if (from < 0 || to > a.Length) throw new IndexOutOfRangeException("Array index out of range: " + (from < 0 ? from : to));
+        if (from > to) throw new ArgumentException("fromIndex(" + from + ") > toIndex(" + to + ")");
+        var comparer = comparison == null ? JavaComparer<T>.Natural : Comparer<T>.Create(comparison);
+        var sorted = new ArraySegment<T>(a, from, to - from).Order(comparer).ToArray();
+        sorted.CopyTo(a, from);
+    }
+
     /// <summary>Arrays.deepEquals, Objects.deepEquals: arrays element by element, nested ones too.</summary>
     public static bool DeepEquals(object? a, object? b)
     {
@@ -1265,6 +1575,37 @@ public static class JavaArrays
 
     public static string ToString<T>(T[]? a) =>
         a == null ? "null" : "[" + string.Join(", ", a.Select(x => JavaString.ValueOf(x))) + "]";
+
+    /// <summary>Arrays.deepToString: nested arrays as their elements, "[[0, 0], [0, 5]]".</summary>
+    public static string DeepToString(Array? a)
+    {
+        if (a == null) return "null";
+        var parts = new List<string>();
+        foreach (var x in a) parts.Add(x is Array nested && x is not char[] ? DeepToString(nested) : JavaString.ValueOf(x));
+        return "[" + string.Join(", ", parts) + "]";
+    }
+
+    /// <summary>new T[a][b]: Java creates every row, as C#'s jagged array creation does not.</summary>
+    public static T[][] Jagged<T>(int a, int b)
+    {
+        var rows = new T[a][];
+        for (var i = 0; i < a; i++) rows[i] = new T[b];
+        return rows;
+    }
+
+    public static T[][][] Jagged<T>(int a, int b, int c)
+    {
+        var rows = new T[a][][];
+        for (var i = 0; i < a; i++) rows[i] = Jagged<T>(b, c);
+        return rows;
+    }
+
+    public static T[][][][] Jagged<T>(int a, int b, int c, int d)
+    {
+        var rows = new T[a][][][];
+        for (var i = 0; i < a; i++) rows[i] = Jagged<T>(b, c, d);
+        return rows;
+    }
 }
 
 public static class JavaSystem
@@ -3538,7 +3879,7 @@ public sealed class JavaPriorityQueue<T> : ICollection<T>
     {
         if (initialCapacity < 1) throw new ArgumentException("initialCapacity " + initialCapacity);
         heap = new List<T>(initialCapacity);
-        this.comparison = comparison ?? Comparer<T>.Default.Compare;
+        this.comparison = comparison ?? JavaComparer<T>.Natural.Compare;
     }
 
     public JavaPriorityQueue(IEnumerable<T> elements) : this(11, (Comparison<T>?) null)

@@ -18,9 +18,9 @@
 package io.codelaser.maddi.cst.api.expression;
 
 
-import io.codelaser.maddi.annotation.Fluent;
-
 import java.util.List;
+
+import io.codelaser.maddi.annotation.Fluent;
 
 /**
  * A sequence of expressions evaluated in order, the value being that of the last. Java has no comma

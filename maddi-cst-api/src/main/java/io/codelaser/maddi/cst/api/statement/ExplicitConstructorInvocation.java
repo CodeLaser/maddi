@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
-
-import java.util.List;
 
 /**
  * An explicit constructor invocation as the first statement of a constructor body: {@code this(...)} or

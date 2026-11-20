@@ -17,21 +17,18 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Precedence;
 import io.codelaser.maddi.cst.api.expression.StringConcat;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.runtime.Factory;
 import io.codelaser.maddi.cst.api.runtime.Predefined;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
-
-import java.util.List;
 
 public class StringConcatImpl extends BinaryOperatorImpl implements StringConcat {
     public StringConcatImpl(List<Comment> comments, Source source, MethodInfo operator, Precedence precedence,

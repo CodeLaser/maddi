@@ -55,7 +55,7 @@ public class JavaUtil {
 
         //override from java.util.Collection
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
 
         //override from java.util.Collection
         //override has frequency 16
@@ -328,7 +328,7 @@ public class JavaUtil {
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean removeLastOccurrence(@Nullable java.lang.Object p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -365,15 +365,15 @@ public class JavaUtil {
 
         //override from java.lang.Object
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
-        protected Object clone() { return null; }
+        @Fresh protected Object clone() { return null; }
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
+        @Fresh @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
 
         //override from java.util.AbstractList, java.util.List
         //@Independent(hc=true)[H] @NotModified[H] @GetSet("_synthetic_list")[H]
@@ -937,73 +937,73 @@ public class JavaUtil {
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @Nullable Object val) { }
 
         //@Independent[O] @NotModified[T]
-        @NotNull(nullableArguments = 0) static <T> T [] copyOf(@NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified T [] original, int newLength) {
+        @Fresh @NotNull(nullableArguments = 0) static <T> T [] copyOf(@NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified T [] original, int newLength) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        @NotNull(nullableArguments = 0) static <T, U> T [] copyOf(
+        @Fresh @NotNull(nullableArguments = 0) static <T, U> T [] copyOf(
             @NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified U [] original,
             int newLength,
             @NotNull Class<? extends T []> newType) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static byte [] copyOf(/*@Independent[M]*/ @NotNull @NotModified byte [] original, int newLength) { return null; }
+        @Fresh static byte [] copyOf(/*@Independent[M]*/ @NotNull @NotModified byte [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static short [] copyOf(/*@Independent[M]*/ @NotNull @NotModified short [] original, int newLength) { return null; }
+        @Fresh static short [] copyOf(/*@Independent[M]*/ @NotNull @NotModified short [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static int [] copyOf(/*@Independent[M]*/ @NotNull @NotModified int [] original, int newLength) { return null; }
+        @Fresh static int [] copyOf(/*@Independent[M]*/ @NotNull @NotModified int [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static long [] copyOf(/*@Independent[M]*/ @NotNull @NotModified long [] original, int newLength) { return null; }
+        @Fresh static long [] copyOf(/*@Independent[M]*/ @NotNull @NotModified long [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static char [] copyOf(/*@Independent[M]*/ @NotNull @NotModified char [] original, int newLength) { return null; }
+        @Fresh static char [] copyOf(/*@Independent[M]*/ @NotNull @NotModified char [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static float [] copyOf(/*@Independent[M]*/ @NotNull @NotModified float [] original, int newLength) { return null; }
+        @Fresh static float [] copyOf(/*@Independent[M]*/ @NotNull @NotModified float [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static double [] copyOf(/*@Independent[M]*/ @NotNull @NotModified double [] original, int newLength) { return null; }
+        @Fresh static double [] copyOf(/*@Independent[M]*/ @NotNull @NotModified double [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static boolean [] copyOf(/*@Independent[M]*/ @NotNull @NotModified boolean [] original, int newLength) { return null; }
+        @Fresh static boolean [] copyOf(/*@Independent[M]*/ @NotNull @NotModified boolean [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        @NotNull(nullableArguments = 0) static <T> T [] copyOfRange(/*@Independent[M]*/ @NotNull(nullableArguments = 0) @NotModified T [] original, int from, int to) { return null; }
+        @Fresh @NotNull(nullableArguments = 0) static <T> T [] copyOfRange(/*@Independent[M]*/ @NotNull(nullableArguments = 0) @NotModified T [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        @NotNull(nullableArguments = 0) static <T, U> T [] copyOfRange(
+        @Fresh @NotNull(nullableArguments = 0) static <T, U> T [] copyOfRange(
             @NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified U [] original,
             int from,
             int to,
             @NotNull Class<? extends T []> newType) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static byte [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified byte [] original, int from, int to) { return null; }
+        @Fresh static byte [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified byte [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static short [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified short [] original, int from, int to) { return null; }
+        @Fresh static short [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified short [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static int [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified int [] original, int from, int to) { return null; }
+        @Fresh static int [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified int [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static long [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified long [] original, int from, int to) { return null; }
+        @Fresh static long [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified long [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static char [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified char [] original, int from, int to) { return null; }
+        @Fresh static char [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified char [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static float [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified float [] original, int from, int to) { return null; }
+        @Fresh static float [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified float [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static double [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified double [] original, int from, int to) { return null; }
+        @Fresh static double [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified double [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static boolean [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified boolean [] original, int from, int to) {
+        @Fresh static boolean [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified boolean [] original, int from, int to) {
             return null;
         }
 
@@ -1567,20 +1567,20 @@ public class JavaUtil {
         @NotModified int nextClearBit(int fromIndex) { return 0; }
         @NotModified int previousSetBit(int fromIndex) { return 0; }
         @NotModified int previousClearBit(int fromIndex) { return 0; }
-        @NotModified boolean intersects(@NotNull BitSet set) { return false; }
+        @NotModified boolean intersects(@NotNull @Independent @NotModified BitSet set) { return false; }
         @NotModified byte [] toByteArray() { return null; }
         @NotModified long [] toLongArray() { return null; }
         @NotModified IntStream stream() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void and(@NotNull java.util.BitSet p0) { }
-        void andNot(@NotNull java.util.BitSet p0) { }
-        void or(@NotNull java.util.BitSet p0) { }
+        @Modified void and(@NotNull @Independent @NotModified java.util.BitSet p0) { }
+        @Modified void andNot(@NotNull @Independent @NotModified java.util.BitSet p0) { }
+        @Modified void or(@NotNull @Independent @NotModified java.util.BitSet p0) { }
         static java.util.BitSet valueOf(@NotNull java.nio.ByteBuffer p0) { return null; }
         static java.util.BitSet valueOf(@NotNull java.nio.LongBuffer p0) { return null; }
         static java.util.BitSet valueOf(@NotNull byte[] p0) { return null; }
         static java.util.BitSet valueOf(@NotNull long[] p0) { return null; }
-        void xor(@NotNull java.util.BitSet p0) { }
+        @Modified void xor(@NotNull @Independent @NotModified java.util.BitSet p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void clear() { }
@@ -1616,12 +1616,12 @@ public class JavaUtil {
         //override has frequency 3
         @NotNull(nullableArguments = 0) @Independent(hcReturnValue = true)
         @NotModified
-        Object [] toArray() { return null; }
+        @Fresh Object [] toArray() { return null; }
 
         //override has frequency 3
         @Independent(hcReturnValue = true)
         @NotModified
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] t) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] t) { return null; }
 
         @Independent(hcReturnValue = true)
         @NotModified
@@ -2379,7 +2379,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.Set
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
         static <T> HashSet<T> newHashSet(int numElements) { return null; }
     }
 
@@ -2606,7 +2606,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[H]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[H]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
 
         //override from java.lang.Iterable, java.util.Collection, java.util.List
         //@Independent(hc=true)[H] @NotModified[H] @NotNull[H]
@@ -2645,7 +2645,7 @@ public class JavaUtil {
         //override from java.util.Collection
         //frequency 3
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] t) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] t) { return null; }
 
         //override from java.util.Collection
         //frequency 52
@@ -3369,7 +3369,7 @@ public class JavaUtil {
         }
 
         @NotNull @NotModified @Independent
-        static <K, V> Map.Entry<K, V> entry(
+        @Fresh static <K, V> Map.Entry<K, V> entry(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K k,
             /*@Independent(hc=true)[T] @NotModified[O]*/ V v) { return null; }
 
@@ -3820,7 +3820,7 @@ public class JavaUtil {
         @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
         @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        <T> T[] toArray(@NotNull T[] p0) { return null; }
+        <T> T[] toArray(@Independent(dependentReturnValue = true) @Modified @NotNull T[] p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean offer(E p0) { return false; }
@@ -4031,7 +4031,7 @@ public class JavaUtil {
 
         //override from java.util.Collection
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @NotNull T [] t) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] t) { return null; }
 
         //override from java.util.Collection
         //frequency 27
@@ -4703,7 +4703,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        <T> T [] toArray(/*@Independent[M] @NotModified[H]*/ @NotNull T [] a) { return null; }
+        <T> T [] toArray(/*@Independent[M] @NotModified[H]*/ @Independent(dependentReturnValue = true) @Modified @NotNull T [] a) { return null; }
 
         //override from java.util.AbstractList, java.util.List
         //@Independent(hc=true)[H] @NotModified[H] @GetSet("_synthetic_list")[H]
@@ -5116,8 +5116,9 @@ public class JavaUtil {
         @Nullable java.lang.String findInLine(@NotNull java.lang.String p0) { return null; }
         @Nullable java.lang.String findWithinHorizon(@NotNull java.util.regex.Pattern p0, int p1) { return null; }
         @Nullable java.lang.String findWithinHorizon(@NotNull java.lang.String p0, int p1) { return null; }
-        @NotModified boolean hasNext(@NotNull java.util.regex.Pattern p0) { return false; }
-        @NotModified boolean hasNext(@NotNull java.lang.String p0) { return false; }
+        // hasNext..: reads ahead from the source into the buffer, so the input is consumed (maddi#215)
+        @Modified boolean hasNext(@NotNull java.util.regex.Pattern p0) { return false; }
+        @Modified boolean hasNext(@NotNull java.lang.String p0) { return false; }
         @Nullable java.io.IOException ioException() { return null; }
         @Modified java.lang.String next(@NotNull java.util.regex.Pattern p0) { return null; }
         @Modified java.lang.String next(@NotNull java.lang.String p0) { return null; }
@@ -5146,22 +5147,22 @@ public class JavaUtil {
         @Modified java.util.Scanner reset() { return null; }
 
         // a query, declared so (generated from the assumed-defaults list)
-        @NotModified boolean hasNext() { return false; }
-        @NotModified boolean hasNextBigDecimal() { return false; }
-        @NotModified boolean hasNextBigInteger() { return false; }
-        @NotModified boolean hasNextBigInteger(int p0) { return false; }
-        @NotModified boolean hasNextBoolean() { return false; }
-        @NotModified boolean hasNextByte() { return false; }
-        @NotModified boolean hasNextByte(int p0) { return false; }
-        @NotModified boolean hasNextDouble() { return false; }
-        @NotModified boolean hasNextFloat() { return false; }
-        @NotModified boolean hasNextInt() { return false; }
-        @NotModified boolean hasNextInt(int p0) { return false; }
-        @NotModified boolean hasNextLine() { return false; }
-        @NotModified boolean hasNextLong() { return false; }
-        @NotModified boolean hasNextLong(int p0) { return false; }
-        @NotModified boolean hasNextShort() { return false; }
-        @NotModified boolean hasNextShort(int p0) { return false; }
+        @Modified boolean hasNext() { return false; }
+        @Modified boolean hasNextBigDecimal() { return false; }
+        @Modified boolean hasNextBigInteger() { return false; }
+        @Modified boolean hasNextBigInteger(int p0) { return false; }
+        @Modified boolean hasNextBoolean() { return false; }
+        @Modified boolean hasNextByte() { return false; }
+        @Modified boolean hasNextByte(int p0) { return false; }
+        @Modified boolean hasNextDouble() { return false; }
+        @Modified boolean hasNextFloat() { return false; }
+        @Modified boolean hasNextInt() { return false; }
+        @Modified boolean hasNextInt(int p0) { return false; }
+        @Modified boolean hasNextLine() { return false; }
+        @Modified boolean hasNextLong() { return false; }
+        @Modified boolean hasNextLong(int p0) { return false; }
+        @Modified boolean hasNextShort() { return false; }
+        @Modified boolean hasNextShort(int p0) { return false; }
     }
 
     //public java.util.ServiceLoader (shadow created for its nullability, generated)

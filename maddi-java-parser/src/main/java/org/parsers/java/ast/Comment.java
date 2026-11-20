@@ -21,8 +21,9 @@
 */
 package org.parsers.java.ast;
 
-import org.parsers.java.*;
 import static org.parsers.java.Token.TokenType.*;
+
+import org.parsers.java.*;
 
 public class Comment extends Token { 
 

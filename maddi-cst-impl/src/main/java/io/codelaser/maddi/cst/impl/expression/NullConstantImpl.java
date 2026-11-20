@@ -17,6 +17,8 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -27,8 +29,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
 import io.codelaser.maddi.cst.impl.output.KeywordImpl;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
-
-import java.util.List;
 
 public class NullConstantImpl extends ConstantExpressionImpl<Object> implements NullConstant {
 

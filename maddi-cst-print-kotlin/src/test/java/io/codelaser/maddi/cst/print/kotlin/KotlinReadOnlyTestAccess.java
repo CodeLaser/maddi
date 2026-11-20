@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import java.util.function.Consumer;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-
-import java.util.function.Consumer;
 
 /** Every body of a type, its nested, anonymous and local types included, for the tests (KotlinReadOnly's walk). */
 public final class KotlinReadOnlyTestAccess {

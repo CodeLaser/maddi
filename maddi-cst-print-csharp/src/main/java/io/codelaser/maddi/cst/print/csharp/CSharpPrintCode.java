@@ -29,6 +29,13 @@ public enum CSharpPrintCode implements PrintMessage.Code {
     WILDCARD_AS_BOUND(Severity.LOSS),
     /** A raw generic type printed with {@code object} arguments: C# has no raw types. */
     RAW_TYPE(Severity.LOSS),
+    /**
+     * A type the program uses with an unbound wildcard gets no wildcard interface ({@link CSharpWildcardInterfaces}):
+     * the detail names the type and the member reached through the wildcard that the interface could not declare,
+     * or the generic parameter the wildcard goes into. Its wildcard is then {@code object}, which a type parameter
+     * argument does not convert to.
+     */
+    NO_WILDCARD_INTERFACE(Severity.LOSS),
     /** A Java instance initializer {@code { … }}: C# has none (yet: to be moved into the constructors). */
     INSTANCE_INITIALIZER(Severity.ERROR),
     /**
@@ -75,7 +82,10 @@ public enum CSharpPrintCode implements PrintMessage.Code {
      * attribute classes ({@link CSharpAttributes}).
      */
     ANNOTATION_TYPE(Severity.ERROR),
-    /** {@code new int[a][b]}: a jagged array of more than one sized dimension has no C# creation expression. */
+    /**
+     * {@code new int[a][b][c][d][e]}: a jagged array of more than four sized dimensions, which the compatibility
+     * library's {@code JavaArrays.Jagged} does not create.
+     */
     MULTI_DIMENSIONAL_ARRAY(Severity.ERROR),
     /** A form of a switch C# cannot say (a pattern, a block arm of a switch expression). */
     SWITCH_FORM(Severity.ERROR),

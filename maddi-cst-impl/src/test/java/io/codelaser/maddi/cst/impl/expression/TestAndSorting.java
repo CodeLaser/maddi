@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
-import io.codelaser.maddi.cst.api.expression.Expression;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.expression.Expression;
 
 public class TestAndSorting extends CommonTest {
 

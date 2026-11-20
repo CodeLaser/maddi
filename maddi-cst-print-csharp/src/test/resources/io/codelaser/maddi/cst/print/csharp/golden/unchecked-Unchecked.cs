@@ -15,7 +15,7 @@ internal static class Unchecked {
         foreach (object o in values) { if (o == v) { return true; } }
         return false;
     }
-    internal static Func<int, ISet<V>> Sets<V>() => (Func<int, ISet<V>>) (p0 => new HashSet<V>(p0));
+    internal static Func<int, ISet<V>> Sets<V>() => (Func<int, ISet<V>>) (p0 => new JavaLinkedHashSet<V>(p0));
     internal static Func<A, B, A> PickFirst<A, B>() => (a, b) => a;
     internal static Func<A, A> Identity<A>() => x_ => x_;
     internal static Entry<E, string> Unowned<E>() => Entry.Of<E, string>(default, "x");
@@ -33,7 +33,9 @@ internal static class Unchecked {
 }
 internal sealed class Assign<S> : IMv<S> { }
 internal sealed class Cell<T> { internal T t; }
-internal sealed record Entry<E, V>(E Entity, V Value);
+internal readonly record struct Entry<E, V>(E Entity, V Value) {
+    public override string ToString() => "Entry[entity=" + JavaString.ValueOf(Entity) + ", value=" + JavaString.ValueOf(Value) + "]";
+}
 internal static class Entry { internal static Entry<E, V> Of<E, V>(E entity, V value) => new Entry<E, V>(entity, value); }
 internal interface IMv<S> { }
 internal sealed class Unassign<S> : IMv<S> { }

@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
@@ -24,11 +28,6 @@ import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.Access;
 import io.codelaser.maddi.cst.api.info.Info;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
 
 public abstract class InspectionImpl implements Inspection {
     private final Access access;
@@ -101,7 +100,9 @@ public abstract class InspectionImpl implements Inspection {
         this.comments = comments == null ? List.of() : List.copyOf(comments);
         this.source = source;
         this.synthetic = synthetic;
-        this.annotations = annotations;
+        // copied, as comments is: the builder hands its own list in, and an escaped builder's addAnnotation after
+        // commit() would otherwise still change the committed product
+        this.annotations = annotations == null ? List.of() : List.copyOf(annotations);
         this.javaDoc = javaDoc;
     }
 

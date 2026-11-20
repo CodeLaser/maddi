@@ -17,6 +17,15 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+import java.util.Map;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
@@ -25,14 +34,6 @@ import io.codelaser.maddi.inspection.api.parser.GenericsHelper;
 import io.codelaser.maddi.inspection.impl.parser.GenericsHelperImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * What {@code GenericsHelperImpl.findSingleAbstractMethodOfInterface} says when there is no SAM.
@@ -92,7 +93,7 @@ public class TestSingleAbstractMethodDiagnostic {
     @DisplayName("loaded but not functional: the message counts the abstract methods and names them")
     @Test
     public void testLoadedButNotFunctional() {
-        javaInspector.parse(java.util.Map.of("a.Two", """
+        javaInspector.parse(Map.of("a.Two", """
                 package a;
                 public interface Two {
                     int one();
@@ -113,7 +114,7 @@ public class TestSingleAbstractMethodDiagnostic {
     @Test
     public void testNotAnInterface() {
         // something has to be parsed first, or the JDK has not been scanned and nothing resolves at all
-        javaInspector.parse(java.util.Map.of("a.UsesString", """
+        javaInspector.parse(Map.of("a.UsesString", """
                 package a;
                 public class UsesString { String s = "x"; }
                 """), JavaInspectorImpl.DETAILED_SOURCES);
@@ -129,7 +130,7 @@ public class TestSingleAbstractMethodDiagnostic {
     public void testStillWorks() {
         // preload BEFORE the parse: it is what asks for the package to be loaded rather than resolved
         javaInspector.preload("java.base::java.util.function");
-        javaInspector.parse(java.util.Map.of("a.UsesString", """
+        javaInspector.parse(Map.of("a.UsesString", """
                 package a;
                 public class UsesString { String s = "x"; }
                 """), JavaInspectorImpl.DETAILED_SOURCES);

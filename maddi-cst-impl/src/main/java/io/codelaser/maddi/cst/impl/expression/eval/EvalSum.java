@@ -17,15 +17,15 @@
 
 package io.codelaser.maddi.cst.impl.expression.eval;
 
-import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.expression.SumImpl;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.expression.SumImpl;
 
 public class EvalSum {
 

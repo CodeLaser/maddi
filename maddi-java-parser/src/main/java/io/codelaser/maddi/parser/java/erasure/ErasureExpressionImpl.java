@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.parser.java.erasure;
 
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -28,10 +32,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.inspection.api.parser.ErasedExpression;
-
-import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public abstract class ErasureExpressionImpl implements ErasedExpression, Expression {
     protected final Runtime runtime;

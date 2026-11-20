@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+
+import java.net.URI;
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -24,12 +32,6 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.Test;
-
-import java.net.URI;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * {@link InfoByFqn#allTypes}: every registered copy of a name, one per source set, without stubs. A library a
@@ -73,10 +75,18 @@ public class TestInfoByFqnAllTypes {
         assertEquals(second, registry.getType("com.example.lib.Thing", sourceSet("core/test-classes")));
         assertEquals(List.of(second, first), registry.allTypes("com.example.lib.Thing"));
 
-        // the first jar re-read: one copy per jar, not two
+        // the first jar re-read: one copy per jar, and it is the one the code parsed before calls. A fresh third
+        // object used to take its place in allTypes, and analysis results no longer reached the original (nacos,
+        // slf4j-api 2.0.13 and 1.7.26)
         TypeInfo firstAgain = type(runtime, v1);
-        registry.put(firstAgain.fullyQualifiedName(), firstAgain, sourceSet("other/test-classes"));
-        assertEquals(List.of(firstAgain, second), registry.allTypes("com.example.lib.Thing"));
+        TypeInfo registered = registry.putIfAbsentFromSameOrigin(firstAgain.fullyQualifiedName(), firstAgain,
+                sourceSet("other/test-classes"));
+        assertSame(first, registered);
+        assertSame(first, registry.getType("com.example.lib.Thing", sourceSet("other/test-classes")));
+        List<TypeInfo> all = registry.allTypes("com.example.lib.Thing");
+        assertEquals(2, all.size());
+        assertSame(first, all.get(0));
+        assertSame(second, all.get(1));
     }
 
     // a name defined in two source sets is kept in an immutable list; removeAllSources (invalidateAllSources) threw

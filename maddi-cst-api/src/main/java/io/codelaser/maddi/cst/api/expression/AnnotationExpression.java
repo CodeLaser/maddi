@@ -17,17 +17,14 @@
 
 package io.codelaser.maddi.cst.api.expression;
 
-import io.codelaser.maddi.annotation.Independent;
+import java.util.List;
 
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.element.Source;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
-
-import java.util.List;
 
 /**
  * An annotation use, {@code @SomeAnnotation(key = value, ...)}. Modelled as an expression so it can be

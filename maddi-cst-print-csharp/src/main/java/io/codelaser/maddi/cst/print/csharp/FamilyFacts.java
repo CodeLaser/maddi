@@ -16,6 +16,10 @@
  */
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -25,10 +29,6 @@ import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.impl.analysis.ForwardingNullabilityFacts;
-
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * The analysis's facts, with a method's result nullable where a method of the program overriding it may return null:

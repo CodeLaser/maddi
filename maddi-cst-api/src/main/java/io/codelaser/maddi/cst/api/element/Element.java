@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.cst.api.element;
 
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
@@ -25,7 +29,6 @@ import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -33,10 +36,6 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 /**
  * Represents an element in the Common Syntax Tree.
@@ -118,7 +117,18 @@ public interface Element {
      */
     void visit(@NotNull @IgnoreModifications Visitor visitor);
 
+    /**
+     * {@code @NotModified}: printing reads this element. Computed, it is the cycle of {@link #rewire}: an
+     * implementation prints its parts through this abstract method, whose verdict is the union of the implementations
+     * (#116). One implementation that modifies before its mark ({@code AnnotationExpressionImpl.print}, whose
+     * qualification check may load a type's inspection on demand) made the union modifying, every statement and
+     * expression printing its parts through a stream modifying with it (#112), and {@code Element}, {@code Statement},
+     * {@code Expression} and {@code Info} {@code @FinalFields} after the mark. The engine does not yet carry an
+     * after-mark label across a call on a part (CodeLaser/maddi-mod#133); until it does,
+     * the contract cuts the cycle and the guard checks the implementations against it.
+     */
     @NotNull
+    @NotModified
     OutputBuilder print(Qualification qualification);
 
     @SuppressWarnings("unchecked")

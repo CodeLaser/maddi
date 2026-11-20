@@ -17,11 +17,12 @@
 
 package io.codelaser.maddi.cst.io;
 
-import io.codelaser.maddi.cst.api.analysis.Codec;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.codelaser.maddi.cst.api.analysis.Codec;
 
 /**
  * Robustness tests for the scalar layer of {@link CodecImpl}: the pure quote/unquote helpers and the
@@ -59,6 +60,20 @@ public class TestCodecPrimitives extends CommonTest {
             // the encoded form must be parseable JSON (previously a trailing backslash threw on parse)
             assertEquals(s, codec.decodeString(context, makeD(ev.toString())), "round-trip failed for [" + s + "]");
         }
+    }
+
+    @DisplayName("control characters are escaped, so the encoded string parses (CodeLaser/maddi-mod#110)")
+    @Test
+    public void testControlCharacters() {
+        for (String s : new String[]{"\0", "\0\0", "a\r\nb", "\t", "\u001f", "x\u0001y",
+                "\\u0000", "\\\0", "\\u12"}) {
+            Codec.EncodedValue ev = codec.encodeString(context, s);
+            assertEquals(s, codec.decodeString(context, makeD(ev.toString())), "round-trip failed for [" + s + "]");
+            assertEquals(s, CodecImpl.unquote(CodecImpl.quote(s)));
+        }
+        // nothing else changes: a string without control characters is written as before
+        assertEquals("\"a\\\\u0000b\"", CodecImpl.quote("a\\u0000b"));
+        assertEquals("\"a\\u0000b\"", CodecImpl.quote("a\0b"));
     }
 
     @DisplayName("potentiallyUnquote only unquotes when actually quoted")

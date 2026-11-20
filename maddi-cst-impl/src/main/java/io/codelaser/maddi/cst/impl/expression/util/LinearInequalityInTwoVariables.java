@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.cst.impl.expression.util;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.util.OneVariable;
-
-import java.util.List;
 
 public record LinearInequalityInTwoVariables(double a,
                                              OneVariable x,

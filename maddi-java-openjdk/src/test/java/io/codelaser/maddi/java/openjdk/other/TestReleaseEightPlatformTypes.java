@@ -1,11 +1,12 @@
 package io.codelaser.maddi.java.openjdk.other;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * A source set compiled with {@code --release 8} still resolves JDK types to the JDK.

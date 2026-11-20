@@ -16,13 +16,6 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.expression.MethodReference;
-import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.variable.FieldReference;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -30,6 +23,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
+
+import io.codelaser.maddi.inspection.api.util.MethodFamilies;
+import io.codelaser.maddi.inspection.api.util.MethodUses;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
 
 /**
  * The code that is translated together: the primary types whose Kotlin is compiled as one, main and test sources. A
@@ -83,14 +87,14 @@ public final class KotlinWorld {
      * A method of the code translated together overrides {@code method} ({@link #FILE}: of its compilation unit), so
      * a call of it may run another body.
      */
-    public boolean overridden(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+    public boolean overridden(MethodInfo method) {
         if (isFile()) return overriddenIn(method, method.typeInfo().compilationUnit().types());
         return overridden.computeIfAbsent(method, m -> overriddenIn(method, types));
     }
 
-    private static boolean overriddenIn(io.codelaser.maddi.cst.api.info.MethodInfo method,
+    private static boolean overriddenIn(MethodInfo method,
                                         Collection<TypeInfo> primaryTypes) {
-        return primaryTypes.stream().flatMap(t -> java.util.stream.Stream.concat(java.util.stream.Stream.of(t),
+        return primaryTypes.stream().flatMap(t -> Stream.concat(Stream.of(t),
                         t.recursiveSubTypeStream()))
                 .flatMap(TypeInfo::constructorAndMethodStream)
                 .anyMatch(m -> m != method && m.overrides().contains(method));
@@ -111,16 +115,18 @@ public final class KotlinWorld {
     }
 
     // the override families of the world's methods, built when first asked (maddi-mod#25)
-    private volatile Map<io.codelaser.maddi.cst.api.info.MethodInfo, List<io.codelaser.maddi.cst.api.info.MethodInfo>> families;
+    private volatile Map<MethodInfo, List<MethodInfo>> families;
 
     /**
      * The override family of a method of the world: the methods that override it or that it overrides, transitively,
      * all in the world's types (member, anonymous and local ones). Null when the family reaches outside the world (a
      * JDK interface's method, a type not translated with it), or when a lambda or method reference of the world
      * implements one of its members: Kotlin types such an implementation's parameters from the interface, and its
-     * body is not checked here. {@link #FILE} has no families.
+     * body is not checked here. A superclass's method that implements a subclass's interface method is of the
+     * family ({@link MethodFamilies}), though Java's {@code overrides()} does not link them. {@link #FILE} has no
+     * families.
      */
-    public List<io.codelaser.maddi.cst.api.info.MethodInfo> family(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+    public List<MethodInfo> family(MethodInfo method) {
         if (isFile()) return null;
         if (families == null) {
             synchronized (this) {
@@ -130,62 +136,23 @@ public final class KotlinWorld {
         return families.get(method);
     }
 
-    private Map<io.codelaser.maddi.cst.api.info.MethodInfo, List<io.codelaser.maddi.cst.api.info.MethodInfo>> computeFamilies() {
-        Map<io.codelaser.maddi.cst.api.info.MethodInfo, io.codelaser.maddi.cst.api.info.MethodInfo> parent = new IdentityHashMap<>();
-        Set<io.codelaser.maddi.cst.api.info.MethodInfo> implementedByFunction = Collections.newSetFromMap(new IdentityHashMap<>());
-        List<io.codelaser.maddi.cst.api.info.MethodInfo> methods = types.stream()
-                .flatMap(TypeInfo::recursiveSubTypeStreamIncludingLocal)
-                .flatMap(TypeInfo::constructorAndMethodStream)
-                .filter(m -> !m.isConstructor() && !m.isStatic()).toList();
-        for (io.codelaser.maddi.cst.api.info.MethodInfo m : methods) {
-            parent.putIfAbsent(m, m);
-            for (io.codelaser.maddi.cst.api.info.MethodInfo o : m.overrides()) {
-                parent.putIfAbsent(o, o);
-                union(parent, m, o);
-            }
-        }
-        types.forEach(t -> KotlinReadOnly.forEachBody(t, (method, body) -> body.visit((Element e) -> {
-            TypeInfo functional = e instanceof io.codelaser.maddi.cst.api.expression.Lambda l
-                    ? l.concreteFunctionalType().typeInfo()
-                    : e instanceof MethodReference mr ? mr.parameterizedType().typeInfo() : null;
-            if (functional != null && functional.singleAbstractMethod() != null) {
-                implementedByFunction.add(functional.singleAbstractMethod());
-            }
-            return true;
-        })));
-        Map<io.codelaser.maddi.cst.api.info.MethodInfo, List<io.codelaser.maddi.cst.api.info.MethodInfo>> byRoot = new IdentityHashMap<>();
-        for (io.codelaser.maddi.cst.api.info.MethodInfo m : parent.keySet()) {
-            byRoot.computeIfAbsent(find(parent, m), _ -> new java.util.ArrayList<>()).add(m);
-        }
-        Map<io.codelaser.maddi.cst.api.info.MethodInfo, List<io.codelaser.maddi.cst.api.info.MethodInfo>> result = new IdentityHashMap<>();
-        for (List<io.codelaser.maddi.cst.api.info.MethodInfo> family : byRoot.values()) {
-            boolean complete = family.stream().allMatch(m -> types.contains(m.typeInfo().primaryType())
-                                                              && !implementedByFunction.contains(m));
-            List<io.codelaser.maddi.cst.api.info.MethodInfo> members = complete ? List.copyOf(family) : null;
-            for (io.codelaser.maddi.cst.api.info.MethodInfo m : family) {
-                if (members != null) result.put(m, members);
+    private Map<MethodInfo, List<MethodInfo>> computeFamilies() {
+        List<TypeInfo> all = types.stream().flatMap(TypeInfo::recursiveSubTypeStreamIncludingLocal).toList();
+        // the families, with a superclass's method that implements a subclass's interface method (MethodFamilies)
+        MethodFamilies families = MethodFamilies.of(all);
+        // a functional interface's method that a lambda or a method reference of the world implements
+        Set<MethodInfo> implementedByFunction = MethodUses.of(all).methods(MethodUses.Kind.IMPLEMENTATION);
+        Map<MethodInfo, List<MethodInfo>> result = new IdentityHashMap<>();
+        for (TypeInfo t : all) {
+            for (MethodInfo m : t.methods()) {
+                if (m.isStatic() || result.containsKey(m)) continue;
+                List<MethodInfo> family = List.copyOf(families.family(m));
+                boolean complete = family.stream().allMatch(x -> types.contains(x.typeInfo().primaryType())
+                                                                  && !implementedByFunction.contains(x));
+                if (complete) family.forEach(x -> result.put(x, family));
             }
         }
         return result;
-    }
-
-    private static io.codelaser.maddi.cst.api.info.MethodInfo find(
-            Map<io.codelaser.maddi.cst.api.info.MethodInfo, io.codelaser.maddi.cst.api.info.MethodInfo> parent,
-            io.codelaser.maddi.cst.api.info.MethodInfo m) {
-        io.codelaser.maddi.cst.api.info.MethodInfo root = m;
-        while (parent.get(root) != root) root = parent.get(root);
-        while (parent.get(m) != root) {
-            io.codelaser.maddi.cst.api.info.MethodInfo next = parent.get(m);
-            parent.put(m, root);
-            m = next;
-        }
-        return root;
-    }
-
-    private static void union(Map<io.codelaser.maddi.cst.api.info.MethodInfo, io.codelaser.maddi.cst.api.info.MethodInfo> parent,
-                              io.codelaser.maddi.cst.api.info.MethodInfo a, io.codelaser.maddi.cst.api.info.MethodInfo b) {
-        io.codelaser.maddi.cst.api.info.MethodInfo ra = find(parent, a), rb = find(parent, b);
-        if (ra != rb) parent.put(ra, rb);
     }
 
     /** A read-only verdict remembered; null when not decided, or for {@link #FILE}, which remembers nothing. */

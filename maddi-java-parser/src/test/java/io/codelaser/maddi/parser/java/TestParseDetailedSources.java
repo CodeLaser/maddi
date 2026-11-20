@@ -17,6 +17,16 @@
 
 package io.codelaser.maddi.parser.java;
 
+import static io.codelaser.maddi.cst.api.element.DetailedSources.PRECEDING_COMMA;
+import static io.codelaser.maddi.cst.api.element.DetailedSources.SUCCEEDING_COMMA;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -24,15 +34,6 @@ import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.stream.Collectors;
-
-import static io.codelaser.maddi.cst.api.element.DetailedSources.PRECEDING_COMMA;
-import static io.codelaser.maddi.cst.api.element.DetailedSources.SUCCEEDING_COMMA;
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestParseDetailedSources extends CommonTestParse {
 

@@ -1,0 +1,398 @@
+[[analyzer-today]]
+= The analyzer today
+
+The chapters of the first part define concepts, and show annotations as the definitions require them.
+This chapter records where the current implementation, the modification analysis in the `maddi-mod` repository,
+stands with respect to those definitions: what it computes, what it only reads as a contract, where it approximates,
+and how it has been measured.
+It is the one chapter of this document that is expected to go out of date; everything in it is a statement about
+software, not about the concepts.
+
+[#analyzer-today-status]
+== What is computed
+
+[cols="2,1,4"]
+|===
+|Annotations |Status |Remarks
+
+|{final}, {finalFields}, {nm}, {modified}, {container}, {independent}, {immutable}
+|computed
+|Contracts on methods without a body, and in the annotated APIs.
+
+|`@Modified(hc=true)`
+|computed
+|The structural verdict, beside the deep one; a contract on a declaration without a body.
+With the approximations of <<structural-approximations>>.
+
+|{sse}
+|computed
+|On methods with source, by default. The analyzer records, per method, the set of types whose static state it
+modifies, its own included; the static side effect is the part of that set the method does not own.
+A contract on library methods.
+
+|{ignoreModifications}
+|contract
+|Implicit on parameters of functional interface type in the annotated APIs.
+The separation check of <<confinement-guard>> reports the warning `ignore-modifications-not-confined`; it does not
+lower the immutability verdict.
+
+|{unmodifiableView}
+|computed
+|A contract on the eleven `Collections.unmodifiable*` factories of the annotated JDK.
+
+|dynamic type annotations
+|computed
+|With the machinery that propagates eventual immutability.
+
+|{fresh}, {borrowed}, {owned}
+|computed, behind a switch
+|By the ownership pass, see <<analyzer-today-switches>>. A hand-written {fresh}, {borrowed} or {owned} on code
+with a body is checked: a negative verdict is a contract violation, and carries its reason in the IDE.
+
+|{finalizer}
+|partly
+|Read as a contract; the rule that a finalizer does not modify its receiver (<<finalizer-exemption>>) is implemented,
+and much depends on it.
+With the ownership pass on, the call sites of contracted finalizers are checked, and {finalizer} is computed as
+described in <<finalizer-transfer>>.
+The three sequencing rules of <<finalizer-rules>> are not enforced as stated.
+
+|{mark}, {only}, {testMark}, `after="..."`
+|computed by propagation
+|Read as contracts, and computed for types that hold fields of eventually immutable type, for classes and
+interfaces alike.
+The detection from preconditions, as in the two `SimpleImmutableSet` examples of <<eventual-immutability>>, is not
+implemented: the analyzer recognizes a leading guard that calls a {testMark} method, and nothing more general.
+An earlier generation of the analyzer did compute them from preconditions.
+
+|{beforeMark}
+|not read
+|
+
+|{nn}, {nullable}
+|computed
+|By the nullability pass, when the nullability configuration asks for it.
+
+|{identity}, {fluent}
+|computed
+|
+
+|{utilityClass}
+|contract
+|Implies {immutable} and {independent} on the type. Never inferred; the three implications of its definition are
+not checked.
+
+|{extensionClass}, {singleton}
+|not read
+|Defined in `maddi-annotation` only.
+|===
+
+[#analyzer-today-switches]
+== Switches
+
+*The ownership pass* runs once the analysis has converged, at the point where the analyzer certifies its result.
+One fact flows back into the analysis: a parameter that every caller hands over into an owned field is no dependence
+(<<ownership-and-eventual>>), after which the analysis converges again.
+Otherwise the pass only adds verdicts.
+The IDE plugins and the MCP server always run it; on the command line and in the build plugins it is off by
+default, and `--ownership`, or the environment variable `OWNERSHIP`, switches it on.
+
+*The closed world* of <<ownership-transfer>> is a setting: `--closed-world`, a plugin setting, or
+`OWNERSHIP_WORLD=closed`.
+In a closed world, the third condition for an owned field is also relaxed: a non-private field qualifies when no code
+outside its primary type mentions it.
+For nullability (<<null-who-calls>>), the closed world is the default.
+
+*Nullability* is one configuration switch, `nullability`: the link engine then keeps the null markers in the method
+summaries and records the argument links at every call (<<null-in-the-link-graph>>).
+
+*For comparison runs*, most non-default behaviours are reachable through environment gates.
+`PARALLEL=n` sets the number of threads; `NOFORK` restores the sequential linking of the branches of an `if`;
+`NOACCESSIBLEREACH` restores the comparison of <<structural-approximations>> to the owner's own fields;
+`MODREACH_ROUNDS` bounds the rounds of the modification reachability pass, 10 by default.
+
+[#analyzer-today-engine]
+== The engine
+
+The chapters on <<link-system>> and <<convergence>> describe the design. In the code of `maddi-mod`:
+
+[cols="2,3"]
+|===
+|In the text |In the code
+
+|the preparatory analysis
+|module `maddi-modification-prepwork`
+
+|the link system, the method link summary
+|module `maddi-modification-link`; `MethodLinkedVariables`. The table of how natures compose is in the module's
+README
+
+|the closure of the link graph
+|`IncrementalFixpointEngine`
+
+|the main loop
+|`IteratingAnalyzerImpl`, in module `maddi-modification-analyzer`
+
+|the guarded overwrite
+|`TolerantWrite`
+
+|a degraded method
+|property `DEGRADED_ANALYSIS_METHOD`
+
+|the modification reachability pass
+|`ShadowModificationPass`, also called MODREACH; on by default
+
+|the nullability pass
+|`NullabilityPass`; properties `NULLABILITY_FIELD`, `NULLABILITY_PARAMETER`, `NULLABILITY_METHOD`
+|===
+
+*Parallelism.* The loop uses a small thread pool: at most eight threads, two fewer than the machine has cores, and
+small runs stay sequential.
+The vast majority of verdicts are independent of scheduling. The known exception is a constructor whose
+modification verdict depends on whether a sibling was decided in the same pass; it is tracked, and resolves to the
+conservative side.
+
+*The worklist.* On large code bases it typically collapses from tens of thousands of elements to a few hundred
+within two or three passes.
+
+*How changes to the engine are accepted.* A set of open-source code bases, from a few thousand to fifty thousand
+elements, is kept certified and crash-free on the default configuration. Every change to the engine must reproduce
+byte-identical verdict dumps on at least one of them, and an optimization is accepted only when the dump is
+identical before and after: speed is never allowed to buy a change of verdict.
+The same gates that drive these comparisons (<<analyzer-today-switches>>) can disable the worklist, parallelism and
+cycle breaking, and dump the verdict fingerprint per element.
+
+*Scale.* On current hardware the analyzer processes, certified, code bases in the range of 50,000 elements
+(methods, fields, types) in a few minutes, with linking dominating the cost.
+
+[#shared-variable-collapse]
+=== The shared-variable collapse
+
+The link system as described in <<link-system>> has a scaling problem.
+Consider a builder-style method that threads one object through many locals: every local is assigned from
+the previous one, every field of the object is reachable from every local, and the naive link set grows as
+(locals × fields × natures) — the _part-of link explosion_.
+On real code bases this reached hundreds of thousands of links for a single method.
+
+The collapse introduces _shared variables_: an equivalence grouping of variables that provably denote the
+same runtime slot, in two tiers:
+
+* _modification identity_: variables linked by `≡` on their `§m` component — they share their modification
+  fate exactly;
+* _assignment groups_: chains of pure whole-object assignments (`a = b; c = a;`) collapse into one group
+  with a single representative.
+
+The graph then stores edges against group _representatives_ only.
+What used to be quadratic bookkeeping becomes one edge per relationship, and the closure runs on the
+collapsed graph.
+
+The price is _reconstruction_: the method summary must be expressed in terms of the method's real
+parameters, fields and return value — not internal representatives.
+At extraction time, representative-level facts are projected back onto the group members that matter,
+guided by one master rule: _direction_.
+Assignment direction within a group is preserved (the source of an assignment passes knowledge to the
+recipient, never the reverse), field-level facts are re-homed onto each endpoint of an intra-group link
+(`setI ← this` mirrors to `setI.i ← this.i`), and a redundancy pass removes links that are transitive
+consequences of nearer hops.
+The reconstruction techniques have their own catalogue in the module (`sv-reconstruction-techniques.md`); the
+summary-level behaviour is pinned by the link test suite, which is the de-facto specification.
+
+[#analyzer-today-gaps]
+== Where the analyzer deviates from the definitions
+
+The examples of the first part are analysed by the tests of <<analyzer-today-tests>>; the deviations below that
+concern an example are marked as such in the test.
+
+=== Immutability
+
+* `Counters` in <<accessible-hidden-content>> is computed {immutableContainerHC}, where the text concludes
+{finalFields}: the analyzer treats the values of the map as hidden content, although `Counters` calls a method of
+`Counter`.
+* `SetBasedContainer4` in <<immutability>> is computed {finalFields}: rule 2 is decided on the declared type of the
+public field, `Set`, and not on the immutable object that `Set.copyOf` puts there.
+* The convention that a parameter of functional interface type is {ignoreModifications} is applied in the annotated
+APIs only. In source code, the `consumer` parameter of `visit` and of the generic `forEach` is computed {modified}.
+As a consequence `NonEmptyImmutableList`, `One`, `OneWithOne` and `ImmutableOne` are not computed {container},
+and `OneWithOne.visit` and the generic `forEach` are computed {modified}.
+* A modifying call on an {ignoreModifications} _instance_ field leaves the field and the type unmodified, but the
+method that makes the call is computed {modified}: `Catalogue.price` and `FieldNode.record` in
+<<ignore-modifications-hidden-content>>. For a static field, as in `CountAccess`, the method is computed {nm}.
+* Filling an array field with `System.arraycopy` in a constructor is computed as a modification of the field, and
+the type stops at {finalFields}. With `Arrays.copyOf`, as in `ArrayContainer3`, it does not.
+* `ImmutableArray` in <<independent-type>> is computed {finalFields}, and its `iterator()` and `IteratorImpl`
+{independent}, without the hidden content.
+* `C1.useC2` in <<modification-part2>> is computed {nm}: the indirect modification through the parameter `c2` is
+not found.
+* Stateless lambdas and anonymous classes stop at {finalFields}, where the example of `ApplyLocalFunctions2` in
+<<modification-part2>> shows {immutable} and {immutableContainer}. A known, conservative gap.
+* A class that is neither `final` nor `sealed` is extensible, and gets `hc=true`. The analyzer does not infer
+effective finality of a type from the absence of subtypes in the code it sees.
+* An interface's own immutability verdict is not passed down to its implementations: the abstract methods are read
+again for each implementation.
+* The annotated JDK keeps `Iterable` at {container}, where <<hidden-content>> shows {immutableContainer}: an `Iterator`
+has `remove`, and annotating `Iterable` as {immutableContainerHC} was reverted after a corpus run (2026-09).
+A source type implementing `Iterable` is judged on its own.
+* For `Lazy` in <<support-classes>>, the two `@Independent(hc=true)` annotations that the argument there arrives at,
+on the field `supplier` and on the constructor parameter it travels from, are not computed: the analyzer concludes
+dependent at both positions, whether or not `supplier` is emptied.
+The two `@NotNull(content=true)` beside them are not in the shipped source either.
+
+=== Ownership
+
+* A method whose analysis failed (a _degraded_ method, see <<convergence>>) is assumed to keep all its parameters,
+and a field that such a method refers to is not owned.
+* A method that calls itself starts out as not fresh, and stays so unless other evidence decides it.
+* The fact that flows back into the analysis applies only to a `java.util` container or an array, whose content is
+exactly its elements.
+* The modification reachability pass (<<after-the-fixpoint>>) re-derives modification, and must apply the finalizer
+rule exactly as the iteration does: a finalizer outside the analysed code contributes no modification of its
+receiver, even though its default without information would read as modifying.
+
+=== Hidden content
+
+* The step back from a modified container to the objects put into it (<<hidden-content>>) is made within one method
+(CodeLaser/maddi-mod#113), in the mode of the element (CodeLaser/maddi-mod#130).
+It is not made through a call: `input` in `useAddNewLine` is computed {nm}, where the example shows {modified}.
+Neither is it made through a field: in the last example of <<containers>>, the parameter `message` of
+`ErrorRegistry.add` is computed {nm}, and the type a {container}.
+* A lambda's modification of its parameter is not propagated through the `visit` method of an interface in source
+code: `list` in `addNewLine` is computed {nm}, where the examples show {modified} and `@Modified(hc=true)`.
+
+[#structural-approximations]
+=== Structural modification
+
+The structural verdict has been computed since 2026-10 (CodeLaser/maddi-mod#25); its definition by declared types
+(<<structural-definition>>) dates from CodeLaser/maddi-mod#130.
+A run-time check, which validates the analyzer's verdicts on test suites, applies the definition literally by
+walking the heap at the method's exit.
+The analyzer cannot see the heap.
+For a modified object that it reached through hidden content, it asks whether that object _may_ also be accessible
+content of the owner.
+It computes the _accessible types_ of the owner's declared type: the declared types reachable through accessible
+fields, at any depth (`Util.accessibleTypes`).
+The modification is structural when the written object's type is compatible with one of them, meaning assignable
+either way (`Util.mayBeAccessibleContent`).
+Before #130, only the owner's own fields were compared (CodeLaser/maddi-mod#117).
+
+The analyzer makes three approximations, accepted on 2026-11-19.
+The numbers refer to the two examples of <<structural-elements>>.
+
+(a) A modification made by a call is compared by its object and the application objects that object holds, not by
+the JDK containers it holds.::
+The analyzer knows that a call modifies an object structurally, but not where in that object's accessible content
+the write lands. Taken literally, every application object that the written object holds, and every container it
+holds, would be a candidate. With containers included, a `List<Node> children` in every `Node` would make every
+modification of a list's elements a modification of the list. Then `clearList` would lose its read-only
+`List`. +
+The gap: a call that writes a JDK container that both the element and the owner hold is missed. The run-time check
+guards this case.
+
+(b) The owner's own type is one of its accessible types only when a field leads back to it.::
+`St` is an accessible type of `St` because of `parent`, while `Leaf` is not one of `Leaf`: its only route back is
+the hidden list `children`. So `clearLeaves` is not structural. +
+The gap: a heap in which a leaf is in its own `children` list is missed. The run-time check would see such a write
+as structural.
+
+(c) The fixpoint engine does not know whether a modification was a direct write or a call.::
+The reachability pass, on by default, knows the exact write: in `reset`, `e.labeled = true` writes the edge's own
+`boolean`, so only `Edge` is compared. The fixpoint engine (`setModificationViaReachability(false)`) knows only
+that the edge is modified, so it compares as in (a). There an `Edge` holds a `St`, and `reset` comes out structural:
+sound, but coarser.
+
+The method `lift` of that example is fernflower's `LabelHelper.liftClosures`.
+
+=== Nullability
+
+* The Java output writes the top-level state, and an array's element state in a type-use flavour; the type
+arguments reach Java only through {maddi}'s own `nullableArguments`, and the Kotlin and C# types in full.
+* The rounds of <<nullability>> are at most five.
+* Kotlin _smart-casts_ a `val` after a null test, so a `!!` is unnecessary where Kotlin itself sees the variable as
+not null. The analyzer keeps a second set of flow facts restricted to what Kotlin derives (no fact from
+`requireNonNull`, from `assert`, from a Java call's result, or about a `var` property), and the translation drops the
+`!!` exactly there.
+
+[#analyzer-today-measurements]
+== Measurements
+
+*Nullability against Guava.*
+Guava is `@NullMarked`, with some 16,000 annotated positions in its public and internal API.
+The analyzer infers Guava's nullability with those annotations hidden, and compares per position.
+The trivial baselines frame the result: "everything not null" is 2,515 unsafe, "everything nullable" 13,272 noise.
+In the first closed-world measurement of 2026-10-07 the inference agreed on 13,306 of the 15,787 top-level
+positions, with 354 unsafe and 233 noise; the open-world reading more than halved the unsafe count, to 166, at the
+price of leaving a quarter of the positions unspecified.
+Later measurements score more positions (type arguments, array elements) against richer JDK contracts, generated
+from JSpecify's annotated JDK, which moves both columns: on 2026-10-13 the closed world stood at 341 unsafe and the
+open world at 211.
+What remains on the unsafe side is, in the main, Guava's own API design: public parameters it declares
+`@Nullable` on principle, which no caller in Guava ever passes `null` to.
+
+*Cycle breaking.*
+On the decompiler code base that motivated cycle breaking (<<convergence>>), immutability went from 380 out of 450
+types undecided to a single undecided type.
+On elasticsearch, 51% of 45,000 types remained undecided as long as the breaking pass resolved blocked supertypes
+only; the cause was fields of external, unannotated types, which the pass now resolves as well.
+
+*Ownership.*
+The verdicts have been checked against instrumented test runs, which record every place that holds a claimed owned
+object, and every holder of a borrowed argument after the call.
+The contradictions those runs found were holes in the pass, and are fixed.
+
+[#analyzer-today-tests]
+== Tests that pin the examples
+
+The examples of the first part are analysed by tests in `maddi-mod`, in the package `roadtoimmutability` of the
+module `maddi-modification-analyzer`, one class per chapter.
+A test states the verdicts that the example shows; where the analyzer computes something else, the test pins what
+is computed, with a comment that starts with `DEVIATION`.
+
+[cols="1,2"]
+|===
+|Test |Examples
+
+|`TestBook020FinalFields`, `TestBook030Modification`, `TestBook040Containers`, `TestBook045Linking`
+|the examples of <<finalfields>>, <<modification>>, <<containers>> and <<linking-dependence>> that are complete
+classes
+
+|`TestBook050Immutability`, `TestBook050StaticAndViews`, `TestBook050StaticSideEffects`,
+`TestBook050IgnoreModifications`
+|<<immutability>>, except the illegal `MyString` and the value-based classes
+
+|`TestBook055Finalizers`
+|`Names` and `Report.Builder` in <<finalizers>>
+
+|`TestBook070ModificationPart2`
+|`CyclicReferences` and `ApplyLocalFunctions` in <<modification-part2>>
+
+|`TestBook080HiddenContent`
+|`ImmutableOne`, the methods using `visit`, `ImmutableArray` and `GetterSetter` in <<hidden-content>>
+|===
+
+Older tests, in other packages, pin the remaining examples:
+
+[cols="1,2"]
+|===
+|Test |Examples
+
+|`TestBook055Ownership`
+|`Lines`, `Document` and `Parser` in <<ownership>>, and the table of `Palette` variants in
+<<ownership-and-eventual>>
+
+|`TestBook080Elements`
+|`Node`, `Leaf` and `Box` in <<structural-elements>>
+
+|`TestAccessibleReach`
+|`St`, `Edge` and `Bag` in <<structural-definition>>
+
+|`TestBookIndependenceOfSupportTypes`
+|`SetOnce` and `Lazy` in <<support-classes>>; it runs the listing of `Lazy` beside the shipped code and prints both
+verdicts
+|===
+
+Not pinned: the examples of <<eventual-immutability>>, <<nullability>> and the last chapter, and the fields of
+`ApplyLocalFunctions2`.
+
+The design notes are in `maddi-mod`: `docs/roadmap/ownership.md`, `docs/design/eventual-immutability.md` and
+`docs/design/nullability.md`.
+
+// ensure a newline at the end

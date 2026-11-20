@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Predefined;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.HashSet;
-import java.util.Set;
 
 
 public record IsAssignableFrom2(Predefined runtime) {

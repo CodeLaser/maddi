@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.info.Access;
 import io.codelaser.maddi.cst.api.info.Variance;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
 
 public interface TypeParameterInspection extends Inspection {
     List<ParameterizedType> typeBounds();

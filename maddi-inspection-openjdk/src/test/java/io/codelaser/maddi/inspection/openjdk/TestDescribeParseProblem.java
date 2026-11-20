@@ -1,13 +1,14 @@
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.analysis.Message;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.net.URI;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.inspection.api.parser.Summary;
 
 /**
  * The parse's INFO line names its first problem on one line: the file as a path, where in it, and javac's message

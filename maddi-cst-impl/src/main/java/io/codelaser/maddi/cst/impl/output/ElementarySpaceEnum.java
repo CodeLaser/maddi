@@ -17,9 +17,9 @@
 
 package io.codelaser.maddi.cst.impl.output;
 
-import io.codelaser.maddi.cst.api.output.element.ElementarySpace;
-
 import java.util.Objects;
+
+import io.codelaser.maddi.cst.api.output.element.ElementarySpace;
 
 public enum ElementarySpaceEnum implements ElementarySpace {
     ONE(" "), NICE(" "), NONE(""), RELAXED_NONE(""), NEWLINE("\n"),

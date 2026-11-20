@@ -1,17 +1,8 @@
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static org.junit.jupiter.api.Assertions.*;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.*;
@@ -22,8 +13,19 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Stream;
 
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.junit.jupiter.api.Assertions.*;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * <b>GAP #12, the REPRODUCTION attempt</b> — a real stale jar, not a hand-written message.
@@ -114,9 +116,13 @@ public class TestGap12StaleJarReproduction {
             // A: declares a.b.Widget from source (the edited version)
             SourceSet setA = new SourceSetImpl.Builder().setName(TEST_PROTOCOL).setUri(URI.create("file:/a/"))
                     .setDependencies(List.of(javaBase)).build();
-            // B: sees the JAR's a.b.Widget, and calls the constructor only the jar has
+            // B: sees the JAR's a.b.Widget, and calls the constructor only the jar has. It depends on A as well, as the
+            // ES module did: the stale jar shadows a definition B can also see. Without that dependency B and A are
+            // unrelated, each has its own a.b.Widget as javac compiles them, and there is no collision to report
+            // (quarkus' generated gRPC classes, TestSameFqnInUnrelatedSourceSets); the jar comes first, so javac
+            // takes its Widget
             SourceSet setB = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "B").setUri(URI.create("file:/b/"))
-                    .setDependencies(List.of(javaBase, staleJar)).build();
+                    .setDependencies(List.of(javaBase, staleJar, setA)).build();
 
             InputConfiguration ic = new InputConfigurationImpl.Builder()
                     .addClassPathParts(javaBase, staleJar)

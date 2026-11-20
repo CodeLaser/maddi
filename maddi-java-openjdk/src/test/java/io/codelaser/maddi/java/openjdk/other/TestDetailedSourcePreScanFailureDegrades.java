@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
-import io.codelaser.maddi.java.openjdk.CommonTest;
-import io.codelaser.maddi.java.openjdk.ScanCompilationUnits;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.java.openjdk.CommonTest;
+import io.codelaser.maddi.java.openjdk.ScanCompilationUnits;
 
 /**
  * Regression (originally surfaced by Apache Camel's {@code TransformerRouteTest}): the openjdk front-end runs an

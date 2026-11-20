@@ -5,10 +5,11 @@
 
 package io.codelaser.maddi.cst.print;
 
-import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
 
 public class TestFormattingOptionsBuilder {
 

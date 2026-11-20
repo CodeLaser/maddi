@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.cst.api.runtime;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collector;
+
+import org.jetbrains.annotations.Nullable;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.*;
@@ -33,13 +41,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.TypeNature;
 import io.codelaser.maddi.cst.api.type.Wildcard;
 import io.codelaser.maddi.cst.api.variable.*;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collector;
 
 public interface Factory {
 

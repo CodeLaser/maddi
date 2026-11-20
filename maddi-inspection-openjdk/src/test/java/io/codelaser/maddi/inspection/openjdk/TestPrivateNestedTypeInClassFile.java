@@ -1,28 +1,30 @@
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
-import javax.tools.JavaCompiler;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * ⛔⛔ <b>A PRIVATE NESTED TYPE IS SKIPPED BY THE MEMBER WALK AND STILL REACHABLE THROUGH A MEMBER'S SIGNATURE.</b>
@@ -176,7 +178,7 @@ public class TestPrivateNestedTypeInClassFile {
         // not take a class directory: User.java was DROPPED with an UnresolvedSymbolException, summary.types()
         // was empty, and "the parse has no errors" passed on nothing at all.
         assertEquals(List.of("c.d.User"), summary.types().stream()
-                .map(io.codelaser.maddi.cst.api.info.TypeInfo::fullyQualifiedName).sorted().toList(),
+                .map(TypeInfo::fullyQualifiedName).sorted().toList(),
                 "the source set must actually have parsed");
         assertTrue(summary.parseWarnings().isEmpty(),
                 "and resolved its references: " + summary.parseWarnings().stream()

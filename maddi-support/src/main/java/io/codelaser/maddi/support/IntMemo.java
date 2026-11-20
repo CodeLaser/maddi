@@ -17,9 +17,9 @@
 
 package io.codelaser.maddi.support;
 
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
-
 import java.util.function.IntSupplier;
+
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 /**
  * The primitive twin of {@link Memo}: an idempotent lazy {@code int} cache, for the cached-hash idiom.

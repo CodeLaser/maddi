@@ -17,18 +17,16 @@
 
 package io.codelaser.maddi.cst.api.variable;
 
-import io.codelaser.maddi.annotation.Independent;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.util.OneVariable;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 /**
  * Base interface for all variable kinds in the CST.

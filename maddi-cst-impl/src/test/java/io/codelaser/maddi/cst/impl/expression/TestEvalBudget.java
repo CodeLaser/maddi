@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
-import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.Negation;
-import io.codelaser.maddi.cst.impl.expression.eval.EvalBudget;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.time.Duration;
 import java.util.concurrent.CancellationException;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Negation;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalBudget;
 
 /**
  * maddi-mod#20: the boolean evaluator must stop when its thread is interrupted, and negating an And/Or whose

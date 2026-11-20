@@ -332,6 +332,21 @@ public class JavaNioFile {
     }
 
     //public final class Paths
+    //public interface DirectoryStream<T> extends Closeable, Iterable<T>
+    class DirectoryStream$<T> {
+        // one shot, unlike Iterable's: a second iteration throws IllegalStateException (maddi#215)
+        // forEach cannot be hinted here: it is declared on Iterable only, and a hint for a method the type does not
+        // declare is dropped, so 'stream.forEach(..)' still reads Iterable's @NotModified
+        @Modified @NotNull Iterator<T> iterator() { return null; }
+
+        // "Decides if the given directory entry should be accepted or filtered": a query. Said here because shadowing
+        // DirectoryStream brought the nested interface under the compiler's defaults, which assume it modifies
+        interface Filter<T> {
+            @NotModified
+            boolean accept(T entry);
+        }
+    }
+
     class Paths$ {
         static Path get(String first, @NotModified String ... more) { return null; }
         static Path get(URI uri) { return null; }
@@ -407,6 +422,13 @@ public class JavaNioFile {
             return null;
         }
         @Modified WatchKey register(WatchService watchService, WatchEvent.Kind<?> ... kind) { return null; }
+    }
+
+    //public interface PathMatcher
+    class PathMatcher$ {
+        // a query: the JDK's glob and regex matchers only read their pattern. A contract on every implementation,
+        // so that 'includes.stream().anyMatch(m -> m.matches(path))' leaves 'includes' unmodified (maddi-mod#115)
+        @NotModified boolean matches(@NotNull Path path) { return false; }
     }
 
     //public java.nio.file.DirectoryIteratorException (shadow created for its nullability, generated)

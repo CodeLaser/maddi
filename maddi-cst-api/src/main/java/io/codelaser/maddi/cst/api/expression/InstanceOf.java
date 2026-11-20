@@ -21,7 +21,6 @@ import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.api.variable.LocalVariable;
 
 /**
  * An {@code expression instanceof TestType} test, including pattern-matching forms

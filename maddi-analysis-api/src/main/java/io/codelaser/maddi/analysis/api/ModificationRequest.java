@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.analysis.api;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
 
 /**
  * @param callGraph    null: analyze the order without the graph (no worklist narrowing)

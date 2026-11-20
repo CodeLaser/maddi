@@ -45,6 +45,20 @@ public class KotlinSequences {
     public static final String PACKAGE_NAME = "kotlin.sequences";
 
     /*
+    public interface Sequence<out T> { public operator fun iterator(): Iterator<T> }
+
+    As Iterable.iterator() in jdk/JavaLang: every `for (x in seq)` is this call, and the terminal operations below
+    already read their receiver as unmodified. A constrainOnce() sequence throws on a second iteration; that is the
+    exception, not the contract (the census of 2026-11-15 read 8 receivers as modified through it).
+    */
+    interface Sequence$<T> {
+        @NotModified
+        @NotNull
+        @Independent(hc = true, except = "remove")
+        Iterator<T> iterator();
+    }
+
+    /*
     public fun <T> Sequence<T>.filter(predicate: (T) -> Boolean): Sequence<T>
 
     Two kinds. The INTERMEDIATE operations return a lazy view that reads the receiver when it is iterated: dependent

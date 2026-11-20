@@ -17,20 +17,10 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.info.*;
-import io.codelaser.maddi.cst.api.output.OutputBuilder;
-import io.codelaser.maddi.cst.api.output.Qualification;
-import io.codelaser.maddi.cst.api.output.element.Keyword;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
-import io.codelaser.maddi.cst.impl.info.TypeModifierEnum;
-import io.codelaser.maddi.cst.impl.output.*;
-
+import java.net.URI;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +28,29 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Assignment;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.Keyword;
+import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
+import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
+import io.codelaser.maddi.cst.impl.info.TypeModifierEnum;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 /**
  * Prints a {@link TypeInfo} as a Kotlin type declaration, mirroring the Java {@code TypePrinterImpl} and its
@@ -138,6 +151,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 : primary == null ? Set.of() : primary.parameters().stream().map(ParameterInfo::name).collect(Collectors.toSet());
         MethodInfo primaryFinal = primary;
         if (components.isEmpty() && typeInfo.typeNature().isRecord()) dataClass = false; // a data class needs a property
+        // a record of one value, seen in this file only: a value class (KotlinValueClasses)
+        boolean valueClass = dataClass && !components.isEmpty() && !accessorsAsFunctions(typeInfo, components)
+                             && KotlinValueClasses.valueClass(typeInfo);
 
         // Java's @interface: Kotlin's annotation class, its elements the constructor's properties
         boolean annotationType = companion && typeInfo.typeNature().isAnnotation();
@@ -147,7 +163,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             // outside the class's scope, as its header: nacos's AbstractHealthChecker is annotated
             // @JsonTypeInfo(defaultImpl = None.class), None one of its nested classes
             out.add(KotlinAnnotations.print(typeInfo.annotations(), new KotlinHeaderQualification(insideType, typeInfo)));
-            if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()
+            if (valueClass) {
+                out.add(new TextImpl("@JvmInline")).add(SpaceEnum.ONE);
+            } else if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()
                 && !accessorsAsFunctions(typeInfo, components)) {
                 // a JVM record, as Java's: Java code calls item.varExprent(), not item.getVarExprent()
                 out.add(new TextImpl("@JvmRecord")).add(SpaceEnum.ONE);
@@ -190,6 +208,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     out.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
                 }
                 out.add(KeywordImpl.INTERFACE);
+            } else if (valueClass) {
+                out.add(new TextImpl("value")).add(SpaceEnum.ONE).add(KeywordImpl.CLASS);
             } else if (dataClass) {
                 out.add(KotlinKeyword.DATA).add(SpaceEnum.ONE).add(KeywordImpl.CLASS); // record / Kotlin data class
             } else {
@@ -220,31 +240,21 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     out.add(KotlinKeyword.CONSTRUCTOR);
                 }
                 MethodInfo primaryConstructor = primary;
-                out.add(primary.parameters().stream()
-                        .map(p -> new OutputBuilderImpl()
-                                .add(KotlinComments.print(fieldByName.get(p.name()).comments(), insideType))
-                                // the comments of its `this.x = x`, which the header property is now (#181)
-                                .add(assignmentComments(primaryConstructor, p, insideType))
-                                .add(KotlinFieldPrinter.jvmModifiers(fieldByName.get(p.name())))
-                                .add(propertyVisibility(fieldByName.get(p.name())))
-                                // a record's component is read through its accessor, x(): a data class property. A
-                                // private property has no accessors, and @JvmField none to replace
-                                .add(!privateProperty(fieldByName.get(p.name())) && !typeInfo.typeNature().isRecord()
-                                     && KotlinFieldPrinter.accessorClash(fieldByName.get(p.name()), fieldByName.get(p.name()).isFinal())
-                                     || !privateProperty(fieldByName.get(p.name())) && !typeInfo.typeNature().isRecord()
-                                        && !hasComponentMethods(typeInfo)
-                                        && KotlinFieldPrinter.javaField(fieldByName.get(p.name()), KotlinModifiers.visibility(
-                                                fieldByName.get(p.name()).access(), fieldByName.get(p.name()).owner()))
-                                        ? new OutputBuilderImpl().add(new TextImpl("@JvmField")).add(SpaceEnum.ONE)
-                                        : new OutputBuilderImpl())
-                                .add(fieldByName.get(p.name()).isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)
-                                .add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.name(p.name())))
-                                .add(SymbolEnum.COLON_LABEL)
-                                // a property: the field's type, with its verdict, as every use of it reads it
-                                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(fieldByName.get(p.name())),
-                                        insideType))))
+                OutputBuilder primaryParameters = primary.parameters().stream()
+                        .map(p -> {
+                            FieldInfo field = fieldByName.get(p.name());
+                            OutputBuilder property = primaryProperty(field, p, insideType);
+                            KotlinContext.declaredField(field, property);
+                            return new OutputBuilderImpl()
+                                    .add(KotlinComments.print(field.comments(), insideType))
+                                    // the comments of its `this.x = x`, which the header property is now (#181)
+                                    .add(assignmentComments(primaryConstructor, p, insideType))
+                                    .add(property);
+                        })
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
+                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
+                out.add(primaryParameters);
+                declaredConstructor(primary, primaryParameters);
             } else if (!components.isEmpty()) {
                 out.add(components.stream()
                         .map(f -> new OutputBuilderImpl().add(KotlinComments.print(f.comments(), insideType))
@@ -254,7 +264,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             } else if (initConstructor != null) {
-                out.add(primaryConstructorHeader(initConstructor, insideType));
+                OutputBuilder header = primaryConstructorHeader(initConstructor, insideType);
+                out.add(header);
+                declaredConstructor(initConstructor, header);
             } else if (annotationType && typeInfo.methods().stream().anyMatch(KotlinTypePrinter::isAnnotationElement)) {
                 out.add(typeInfo.methods().stream().filter(KotlinTypePrinter::isAnnotationElement)
                         .map(m -> annotationElement(m, insideType))
@@ -351,6 +363,39 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return out;
     }
 
+    /** A primary constructor's parameter as the property it declares, without its comments: {@code @JvmField val x: T}. */
+    private OutputBuilder primaryProperty(FieldInfo field, ParameterInfo p, Qualification insideType) {
+        return new OutputBuilderImpl()
+                .add(KotlinFieldPrinter.jvmModifiers(field))
+                .add(propertyVisibility(field))
+                // a record's component is read through its accessor, x(): a data class property. A
+                // private property has no accessors, and @JvmField none to replace
+                .add(!privateProperty(field) && !typeInfo.typeNature().isRecord()
+                     && KotlinFieldPrinter.accessorClash(field, field.isFinal())
+                     || !privateProperty(field) && !typeInfo.typeNature().isRecord()
+                        && !hasComponentMethods(typeInfo)
+                        && KotlinFieldPrinter.javaField(field, KotlinModifiers.visibility(
+                                field.access(), field.owner()))
+                        ? new OutputBuilderImpl().add(new TextImpl("@JvmField")).add(SpaceEnum.ONE)
+                        : new OutputBuilderImpl())
+                .add(field.isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)
+                .add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.name(p.name())))
+                .add(SymbolEnum.COLON_LABEL)
+                // a property: the field's type, with its verdict, as every use of it reads it
+                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(field),
+                        insideType)));
+    }
+
+    /**
+     * Bodies.STUB: a constructor printed in the class header, for the bodies that call it. Its declaration is the
+     * header's parameter list, {@code constructor(val id: Int)}, which a call passes as {@code Foo(id)}.
+     */
+    private static void declaredConstructor(MethodInfo constructor, OutputBuilder parameters) {
+        if (!KotlinContext.stubbing()) return;
+        KotlinContext.declared(new KotlinBodies.Declared(constructor, new OutputBuilderImpl().add(KotlinKeyword.CONSTRUCTOR)
+                .add(parameters), null, List.of()));
+    }
+
     /** The one explicit constructor of a Java class, which becomes the primary one; null when there are more. */
     private MethodInfo soleConstructor(List<MethodInfo> constructors) {
         if (typeInfo.typeNature().isInterface() || constructors.size() != 1) return null;
@@ -366,8 +411,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (constructor.methodBody() == null) return false;
         boolean[] found = {false};
         ((Element) constructor.methodBody()).visit((Element e) -> {
-            if (e instanceof io.codelaser.maddi.cst.api.expression.Lambda) return false;
-            if (e instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement) found[0] = true;
+            if (e instanceof Lambda) return false;
+            if (e instanceof ReturnStatement) found[0] = true;
             return !found[0];
         });
         return found[0];
@@ -383,8 +428,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     private static boolean exposedIn(TypeInfo t, TypeInfo nested) {
         if (t != nested && (t.access() == null || !t.access().isPrivate())) {
-            java.util.stream.Stream<ParameterizedType> supertypes = java.util.stream.Stream.concat(
-                    t.parentClass() == null ? java.util.stream.Stream.empty() : java.util.stream.Stream.of(t.parentClass()),
+            Stream<ParameterizedType> supertypes = Stream.concat(
+                    t.parentClass() == null ? Stream.empty() : Stream.of(t.parentClass()),
                     t.interfacesImplemented().stream());
             if (supertypes.anyMatch(st -> names(st, nested))) return true;
             for (MethodInfo m : t.constructorAndMethodStream().toList()) {
@@ -434,16 +479,16 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private static boolean onlyAssignsParameters(MethodInfo c) {
         return c.methodBody() != null && c.methodBody().statements().stream().filter(s -> !s.isSynthetic())
-                .allMatch(s -> s instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas
-                               && eas.expression() instanceof io.codelaser.maddi.cst.api.expression.Assignment a
-                               && a.value() instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                .allMatch(s -> s instanceof ExpressionAsStatement eas
+                               && eas.expression() instanceof Assignment a
+                               && a.value() instanceof VariableExpression ve
                                && ve.variable() instanceof ParameterInfo pi
                                && a.variableTarget() != null && pi.name().equals(a.variableTarget().simpleName()));
     }
 
     private static boolean privateProperty(FieldInfo field) {
         return KotlinModifiers.visibility(field.access(), field.owner(), null)
-                .equals(Optional.of(io.codelaser.maddi.cst.impl.output.KeywordImpl.PRIVATE));
+                .equals(Optional.of(KeywordImpl.PRIVATE));
     }
 
     /**
@@ -472,8 +517,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         // class TextContentMixin @JsonCreator constructor(@JsonProperty("text") text: String): annotated, the primary
         // constructor needs its keyword
         OutputBuilder annotations = KotlinAnnotations.print(c.annotations(), q);
-        java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility = typeInfo.typeNature().isEnum()
-                ? java.util.Optional.empty() : KotlinModifiers.visibility(c.access(), typeInfo, c);
+        Optional<Keyword> visibility = typeInfo.typeNature().isEnum()
+                ? Optional.empty() : KotlinModifiers.visibility(c.access(), typeInfo, c);
         // and documented: its comments go before the keyword
         OutputBuilder comments = KotlinComments.print(c.comments(), q);
         if (!annotations.isEmpty() || visibility.isPresent() || !comments.isEmpty()) {
@@ -489,9 +534,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (c.methodBody() == null) return new OutputBuilderImpl();
         return c.methodBody().statements().stream()
                 .filter(s -> !s.comments().isEmpty()
-                             && s instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas
-                             && eas.expression() instanceof io.codelaser.maddi.cst.api.expression.Assignment a
-                             && a.value() instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                             && s instanceof ExpressionAsStatement eas
+                             && eas.expression() instanceof Assignment a
+                             && a.value() instanceof VariableExpression ve
                              && ve.variable() instanceof ParameterInfo pi && pi.equals(p))
                 .map(s -> KotlinStatementPrinter.commentsOf(s, q))
                 .reduce(new OutputBuilderImpl(), OutputBuilder::add);
@@ -499,7 +544,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** The arguments of the constructor's {@code super(…)}, or {@code ()}. */
     private static OutputBuilder superArguments(MethodInfo c, Qualification q) {
-        io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci = KotlinMethodPrinter.explicitConstructorInvocation(c);
+        ExplicitConstructorInvocation eci = KotlinMethodPrinter.explicitConstructorInvocation(c);
         if (eci == null || eci.parameterExpressions().isEmpty()) {
             return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
@@ -512,9 +557,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private OutputBuilder initBlock(MethodInfo c, Qualification q) {
         if (c.methodBody() == null) return null;
-        List<io.codelaser.maddi.cst.api.statement.Statement> statements = c.methodBody().statements().stream()
+        List<Statement> statements = c.methodBody().statements().stream()
                 .filter(st -> !st.isSynthetic())
-                .filter(st -> !(st instanceof io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation))
+                .filter(st -> !(st instanceof ExplicitConstructorInvocation))
                 .filter(st -> !typeInfo.typeNature().isRecord() || !isComponentAssignment(st))
                 .toList();
         // the comments of what went into the header, super(…) and the components, open the block (#181)
@@ -535,10 +580,10 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
     }
 
-    private static boolean isComponentAssignment(io.codelaser.maddi.cst.api.statement.Statement st) {
-        return st instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas
-               && eas.expression() instanceof io.codelaser.maddi.cst.api.expression.Assignment a
-               && a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.FieldReference;
+    private static boolean isComponentAssignment(Statement st) {
+        return st instanceof ExpressionAsStatement eas
+               && eas.expression() instanceof Assignment a
+               && a.variableTarget() instanceof FieldReference;
     }
 
     /** {@code x()} of a record with component {@code x}: the data class's property {@code x} takes its place. */
@@ -558,7 +603,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .add(new TextImpl(KotlinNames.name(m.name()))).add(SymbolEnum.COLON_LABEL)
                 .add(new TextImpl(KotlinAnnotations.elementType(type, q)));
         if (m.methodBody() != null && m.methodBody().statements().size() == 1
-            && m.methodBody().statements().getFirst() instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement rs
+            && m.methodBody().statements().getFirst() instanceof ReturnStatement rs
             && rs.expression() != null) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                     .add(KotlinAnnotations.elementValue(rs.expression(), type.arrays() > 0, type, q));
@@ -573,7 +618,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private static boolean accessorsAsFunctions(TypeInfo record, List<FieldInfo> components) {
         return KotlinContext.translatingJava()
-               && components.stream().anyMatch(f -> supertypeMethod(record, f.name(), new java.util.HashSet<>()));
+               && components.stream().anyMatch(f -> supertypeMethod(record, f.name(), new HashSet<>()));
     }
 
     private static boolean supertypeMethod(TypeInfo typeInfo, String name, Set<TypeInfo> visited) {
@@ -591,7 +636,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /** {@code [override] fun response(): T = response}, beside the property. */
     private static OutputBuilder componentAccessor(TypeInfo record, FieldInfo component, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl();
-        if (supertypeMethod(record, component.name(), new java.util.HashSet<>())) {
+        if (supertypeMethod(record, component.name(), new HashSet<>())) {
             b.add(KotlinKeyword.OVERRIDE).add(SpaceEnum.ONE);
         }
         String name = KotlinNames.name(component.name());
@@ -622,7 +667,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         typeInfo.subTypes().stream().flatMap(t -> t.fields().stream()).filter(KotlinTypePrinter::hoisted)
                 .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
         typeInfo.methods().stream().filter(m -> !m.isSynthetic() && (m.isStatic() || m.isStaticInitializer()))
-                .sorted(java.util.Comparator.comparing(MethodInfo::isStaticInitializer))
+                .sorted(Comparator.comparing(MethodInfo::isStaticInitializer))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
         if (members.isEmpty()) return Stream.of();
         return Stream.of(new OutputBuilderImpl().add(KotlinKeyword.COMPANION).add(SpaceEnum.ONE).add(KotlinKeyword.OBJECT)
@@ -673,7 +718,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** Parsed from a {@code .kt} file: printed back in its own shape, not translated from Java's. */
     static boolean fromKotlinSource(TypeInfo typeInfo) {
-        java.net.URI uri = typeInfo.compilationUnit().uri();
+        URI uri = typeInfo.compilationUnit().uri();
         return uri != null && (uri.toString().endsWith(".kt") || uri.toString().endsWith(".kts"));
     }
 
@@ -799,7 +844,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         ParameterizedType withArguments = declaredArguments(type);
         return type != null && type.wildcard() == null && type.annotations().stream()
                 .anyMatch(ae -> NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName()))
-                ? withArguments.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE) : withArguments;
+                ? withArguments.withNullable(NullableState.NULLABLE) : withArguments;
     }
 
     static ParameterizedType declaredArguments(ParameterizedType supertype) {
@@ -811,7 +856,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             // a bounded wildcard's too: ? super @Nullable V (guava's RangeMap.merge)
             if ((a.wildcard() == null || !a.isUnboundWildcard()) && a.arrays() == 0 && inner.annotations().stream()
                     .anyMatch(ae -> NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName()))) {
-                inner = inner.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
+                inner = inner.withNullable(NullableState.NULLABLE);
             }
             changed |= inner != a;
             arguments.add(inner);
@@ -919,7 +964,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         for (TypeInfo t = CstQueries.enclosing(parentType); t != null; t = CstQueries.enclosing(t)) chain.addFirst(t);
         if (chain.isEmpty() || chain.stream().allMatch(t -> t.typeParameters().isEmpty())) return null;
         // only where the generic outers enclose this class too: their type parameters are in scope as they are
-        java.util.Set<TypeInfo> ownOuters = new java.util.HashSet<>();
+        Set<TypeInfo> ownOuters = new HashSet<>();
         for (TypeInfo t = CstQueries.enclosing(typeInfo); t != null; t = CstQueries.enclosing(t)) ownOuters.add(t);
         if (chain.stream().anyMatch(t -> !t.typeParameters().isEmpty() && !ownOuters.contains(t))) return null;
         StringBuilder sb = new StringBuilder();
@@ -969,7 +1014,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<TypeInfo> sameName = new ArrayList<>();
         method.typeInfo().methods().stream().filter(m -> m.name().equals(method.name()) && m.methodBody() != null)
                 .forEach(m -> m.methodBody().visit((Element e) -> {
-                    if (e instanceof io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration ltd
+                    if (e instanceof LocalTypeDeclaration ltd
                         && ltd.typeInfo().simpleName().equals(typeInfo.simpleName())
                         && ltd.typeInfo().enclosingMethod() == m) {
                         sameName.add(ltd.typeInfo());

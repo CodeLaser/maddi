@@ -17,16 +17,16 @@
 
 package io.codelaser.maddi.run.openjdkmain;
 
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.junit.jupiter.api.Test;
 
 /**
  * ⛔ <b>Two options shared the short form {@code -s}.</b> commons-cli keys its short-option map by the letter,

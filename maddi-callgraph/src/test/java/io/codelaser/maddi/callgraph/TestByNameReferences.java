@@ -17,39 +17,40 @@
 
 package io.codelaser.maddi.callgraph;
 
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.Info;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.V;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
-import io.codelaser.maddi.inspection.api.byname.ByNameReference;
-import io.codelaser.maddi.inspection.api.byname.ByNameSink;
-import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.TEST_PROTOCOL_PREFIX;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.V;
+import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
+import io.codelaser.maddi.inspection.api.byname.ByNameReference;
+import io.codelaser.maddi.inspection.api.byname.ByNameSink;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 
 /**
  * A string literal that a declared {@link ByNameSink} turns into a type: the reference the compiler never sees and
@@ -194,7 +195,7 @@ public class TestByNameReferences extends CommonTest {
                 a.b.Holder.ambiguousMember() -> a.b.Target#overloaded (FIELD)""",
                 ccg.byNameReferences().stream().map(Object::toString).sorted(
                         // source order is the member order of the fixture, which is what a reader expects
-                        java.util.Comparator.comparingInt(s -> HOLDER.indexOf(s.substring(9, s.indexOf('(')))))
+                        Comparator.comparingInt(s -> HOLDER.indexOf(s.substring(9, s.indexOf('(')))))
                         .reduce((a, b) -> a + "\n" + b).orElse(""));
 
         // ⛔ the blind spot is a NUMBER: a concatenation and a parameter, both calls to a declared sink whose name
@@ -242,7 +243,7 @@ public class TestByNameReferences extends CommonTest {
     public void members() throws IOException {
         ParseResult parseResult = parse();
         Map<String, ByNameReference> byMember = compute(parseResult, SINKS).byNameReferences().stream()
-                .collect(java.util.stream.Collectors.toMap(r -> r.from().simpleName(), r -> r));
+                .collect(Collectors.toMap(r -> r.from().simpleName(), r -> r));
 
         TypeInfo target = parseResult.findType("a.b.Target");
         assertSame(target.getFieldByName("instance", true), byMember.get("literal").targetMember());
@@ -259,7 +260,7 @@ public class TestByNameReferences extends CommonTest {
     public void theSiteIsWhereTheLiteralIsWritten() throws IOException {
         ParseResult parseResult = parse();
         Map<String, ByNameReference> byMember = compute(parseResult, SINKS).byNameReferences().stream()
-                .collect(java.util.stream.Collectors.toMap(r -> r.from().simpleName(), r -> r));
+                .collect(Collectors.toMap(r -> r.from().simpleName(), r -> r));
 
         ByNameReference literal = byMember.get("literal");
         assertEquals(false, literal.viaConstant());

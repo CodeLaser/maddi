@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.run.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Which analysis results an analysis run preloads: the rule behind {@code --preload-analysis-results-dirs} of the

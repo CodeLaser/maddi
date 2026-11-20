@@ -21,9 +21,9 @@
 */
 package org.parsers.java.ast;
 
-import org.parsers.java.*;
-import java.util.*;
 import static org.parsers.java.Token.TokenType.*;
+
+import org.parsers.java.*;
 
 public class IfStatement extends BaseNode implements Statement { 
 

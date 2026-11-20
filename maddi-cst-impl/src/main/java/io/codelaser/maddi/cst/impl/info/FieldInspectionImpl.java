@@ -18,6 +18,9 @@
 package io.codelaser.maddi.cst.impl.info;
 
 
+import java.util.HashSet;
+import java.util.Set;
+
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -26,9 +29,6 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldModifier;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
-
-import java.util.HashSet;
-import java.util.Set;
 
 
 public class FieldInspectionImpl extends InspectionImpl implements FieldInspection {

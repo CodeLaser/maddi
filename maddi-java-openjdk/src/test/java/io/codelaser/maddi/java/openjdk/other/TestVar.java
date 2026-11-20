@@ -17,21 +17,21 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.statement.ForEachStatement;
 import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.inspection.api.parser.ErasedExpression;
 import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestVar extends CommonTest {
 
@@ -251,5 +251,52 @@ public class TestVar extends CommonTest {
         assertNotNull(explicitDs);
         // line 9, the written 'String' token and nothing more
         assertEquals("9-14:9-19", explicitDs.detail(explicitType).compact2());
+    }
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            import java.util.List;
+
+            class X {
+                String method(Object bean) {
+                    var beanClass = bean == null ? "null" : bean.getClass();
+                    return "" + beanClass;
+                }
+                void list() {
+                    var list = List.of("a", 1);
+                    for (var e : list) {
+                        System.out.println(e);
+                    }
+                }
+            }
+            """;
+
+    /**
+     * #189: javac infers {@code Serializable & Constable} for {@code beanClass} on every JDK. Up to 26 the
+     * declaration carries a synthesized intersection tree; 27 carries a {@code JCVarType} holding the
+     * {@code IntersectionClassType}, which maddi reduced to {@code Object}. The same source must have the same
+     * type whatever JDK maddi runs on; run this on 27 and on 25/26.
+     */
+    @Test
+    public void test6() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT6);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 1);
+        LocalVariableCreation lvc = (LocalVariableCreation) methodInfo.methodBody().statements().getFirst();
+        assertTrue(lvc.isVar());
+        ParameterizedType type = lvc.localVariable().parameterizedType();
+        assertTrue(type.isIntersectionType(), type.toString());
+        assertEquals("java.io.Serializable&java.lang.constant.Constable", type.toString());
+
+        MethodInfo list = typeInfo.findUniqueMethod("list", 0);
+        LocalVariableCreation listLvc = (LocalVariableCreation) list.methodBody().statements().getFirst();
+        // nested too: javac's lub carries a recursive Comparable, which both JDKs bottom out at Comparable<?>
+        String element = "java.io.Serializable&Comparable<? extends java.io.Serializable&Comparable<?>"
+                         + "&java.lang.constant.Constable&java.lang.constant.ConstantDesc>"
+                         + "&java.lang.constant.Constable&java.lang.constant.ConstantDesc";
+        assertEquals("Type java.util.List<" + element + ">", listLvc.localVariable().parameterizedType().toString());
+        ForEachStatement fe = (ForEachStatement) list.methodBody().statements().get(1);
+        assertTrue(fe.initializer().isVar());
+        assertEquals(element, fe.initializer().localVariable().parameterizedType().toString());
     }
 }

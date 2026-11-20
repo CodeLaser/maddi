@@ -17,32 +17,35 @@
 
 package io.codelaser.maddi.run.openjdkmain;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.cli.*;
-import org.apache.commons.cli.help.HelpFormatter;
-import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
-import io.codelaser.maddi.run.config.ShippedAnalysisResults;
-import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
-import io.codelaser.maddi.run.config.Configuration;
-import io.codelaser.maddi.run.config.report.ExitCode;
-import io.codelaser.maddi.run.config.GeneralConfiguration;
-import io.codelaser.maddi.inspection.api.resource.BuildFiles;
-import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
-import io.codelaser.maddi.run.config.util.JsonStreaming;
-import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
-import io.codelaser.maddi.run.config.javac.ParseJavacList;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+
+import org.apache.commons.cli.*;
+import org.apache.commons.cli.help.HelpFormatter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.GeneralConfiguration;
+import io.codelaser.maddi.run.config.ShippedAnalysisResults;
+import io.codelaser.maddi.run.config.javac.ParseJavacList;
+import io.codelaser.maddi.run.config.report.ExitCode;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
 
 public class Main {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
@@ -67,6 +70,8 @@ public class Main {
     public static final String INCREMENTAL_ANALYSIS = "incremental-analysis";
     public static final String JDK_INTERNALS = "jdk-internals";
     public static final String WARN_NEAR_MISSES = "warn-near-misses";
+    public static final String OWNERSHIP = "ownership";
+    public static final String CLOSED_WORLD = "closed-world";
     public static final String SKIP_KOTLIN_SOURCES = "skip-kotlin-sources";
     public static final String ANALYSIS_STEPS = "analysis-steps";
 
@@ -79,6 +84,8 @@ public class Main {
     public static final String TRANSLATE = "translate";
     public static final String TRANSLATE_OUTPUT = "translate-output";
     public static final String TRANSLATE_KOTLIN = "kotlin";
+    // the declarations as for kotlin, each method body TODO("maddi:<id>"), the printer's own bodies in maddi-bodies.json
+    public static final String TRANSLATE_KOTLIN_STUBS = "kotlin-stubs";
     public static final String TRANSLATE_CSHARP = "csharp";
     public static final String TRANSLATE_RUST = "rust";
     public static final String DEBUG = "debug";
@@ -264,7 +271,9 @@ public class Main {
                         """).get());
         options.addOption(Option.builder().longOpt(TRANSLATE).hasArg().argName("LANGUAGE")
                 .desc("Translate the main sources to '" + TRANSLATE_KOTLIN + "', '" + TRANSLATE_CSHARP + "' or '"
-                      + TRANSLATE_RUST + "' (experimental), into --" + TRANSLATE_OUTPUT + ". Runs the modification analysis with nullability unless "
+                      + TRANSLATE_RUST + "' (experimental), into --" + TRANSLATE_OUTPUT + "; '" + TRANSLATE_KOTLIN_STUBS
+                      + "' is Kotlin with each method body a TODO stub for another translator (an LLM) to write, the "
+                      + "stubs described in maddi-bodies.json. Runs the modification analysis with nullability unless "
                       + "--" + ANALYSIS_STEPS + " says otherwise; with --" + ANALYSIS_STEPS + " " + AS_NONE
                       + " the translation has no facts.").get());
         options.addOption(Option.builder().longOpt(TRANSLATE_OUTPUT).hasArg().argName("DIR")
@@ -287,6 +296,11 @@ public class Main {
                 + "(exit " + EXIT_KOTLIN_SOURCES + ") rather than skipping it silently.");
         options.addOption(null, WARN_NEAR_MISSES, false, "Emit advisory warnings for types/methods that narrowly "
                 + "miss a property (e.g. would be @Container but for a single modifying parameter). Off by default.");
+        options.addOption(null, OWNERSHIP, false, "Run the ownership pass: @Fresh methods, @Borrowed parameters, "
+                + "@Owned fields (road-to-immutability §055). Off by default.");
+        options.addOption(null, CLOSED_WORLD, false, "With --" + OWNERSHIP + ": the sources are an application, no code "
+                + "outside them calls their public methods, so a parameter every caller hands over may be @Owned. "
+                + "Off by default: a library's public methods have callers maddi cannot see.");
     }
 
     public static GeneralConfiguration generalConfiguration(Map<String, String> kvMap) {
@@ -296,6 +310,8 @@ public class Main {
         setBooleanProperty(kvMap, INCREMENTAL_ANALYSIS, builder::setIncrementalAnalysis);
         setBooleanProperty(kvMap, JDK_INTERNALS, builder::setJdkInternals);
         setBooleanProperty(kvMap, WARN_NEAR_MISSES, builder::setWarnNearMisses);
+        setBooleanProperty(kvMap, OWNERSHIP, builder::setOwnership);
+        setBooleanProperty(kvMap, CLOSED_WORLD, builder::setClosedWorld);
         setBooleanProperty(kvMap, SKIP_KOTLIN_SOURCES, builder::setSkipKotlinSources);
         setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
         setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
@@ -305,7 +321,7 @@ public class Main {
         return builder.build();
     }
 
-    private static GeneralConfiguration parseGeneralConfiguration(CommandLine cmd) {
+    static GeneralConfiguration parseGeneralConfiguration(CommandLine cmd) {
         GeneralConfiguration.Builder builder = new GeneralConfiguration.Builder();
 
         builder.setParallel(cmd.hasOption(PARALLEL));
@@ -313,6 +329,8 @@ public class Main {
         builder.setIncrementalAnalysis(cmd.hasOption(INCREMENTAL_ANALYSIS));
         builder.setJdkInternals(cmd.hasOption(JDK_INTERNALS));
         builder.setWarnNearMisses(cmd.hasOption(WARN_NEAR_MISSES));
+        builder.setOwnership(cmd.hasOption(OWNERSHIP));
+        builder.setClosedWorld(cmd.hasOption(CLOSED_WORLD));
         builder.setSkipKotlinSources(cmd.hasOption(SKIP_KOTLIN_SOURCES));
 
         String[] analysisSteps = cmd.getOptionValues(ANALYSIS_STEPS);
@@ -595,7 +613,7 @@ public class Main {
         AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
 
         String[] analyzedDirs = cmd.getOptionValues(PRELOAD_ANALYSIS_RESULTS_DIRS);
-        List<String> stated = new java.util.ArrayList<>();
+        List<String> stated = new ArrayList<>();
         splitAndAdd(analyzedDirs, ",", stated::add);
         boolean producesHints = cmd.hasOption(ANALYSIS_RESULTS_TARGET_DIR) || cmd.hasOption(UPDATED_HINTS_DIR);
         ShippedAnalysisResults.resolve(stated, producesHints, Main.class).forEach(builder::addPreloadAnalysisResultsDirs);

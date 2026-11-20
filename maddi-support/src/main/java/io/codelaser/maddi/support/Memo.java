@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.support;
 
-import io.codelaser.maddi.annotation.rare.IgnoreModifications;
-
 import java.util.Objects;
 import java.util.function.Supplier;
+
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 /**
  * An idempotent lazy cache: a slot that is computed on first read and never observably changes after.

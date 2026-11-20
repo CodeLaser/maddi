@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.support;
 
+import java.util.Objects;
+
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.Nullable;
-
-import java.util.Objects;
 
 /**
  * A class holding either an object of type <code>A</code>, or one of type <code>B</code>; it cannot hold both,

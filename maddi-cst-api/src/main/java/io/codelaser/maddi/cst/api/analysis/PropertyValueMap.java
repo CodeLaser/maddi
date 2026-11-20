@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.api.analysis;
 
-import io.codelaser.maddi.annotation.Independent;
-
-import io.codelaser.maddi.cst.api.info.InfoMap;
-import io.codelaser.maddi.cst.api.info.InfoMapView;
-
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 
 public interface PropertyValueMap {
 
@@ -38,14 +38,14 @@ public interface PropertyValueMap {
      * {@code VARIABLE_DATA}, which is recomputed anyway) — see {@code docs/design/analysis-rewiring.md}. Requires each kept
      * property's value to implement {@code rewire}.
      */
-    PropertyValueMap rewire(@Independent(hc = true) InfoMapView infoMap, java.util.function.Predicate<Property> filter);
+    PropertyValueMap rewire(@Independent(hc = true) InfoMapView infoMap, Predicate<Property> filter);
 
     /**
      * Remove every property matching {@code filter}. The early-cutoff skip's clear-before-recompute: a type carried
      * optimistically but found dirty by the worklist must have its carried (possibly-stale) analyzer output cleared,
      * or re-analysis hits the monotonic-overwrite guard when it lowers a value. See {@code docs/design/analysis-rewiring.md}.
      */
-    void removeIf(java.util.function.Predicate<Property> filter);
+    void removeIf(Predicate<Property> filter);
 
     record PropertyValue(Property property, Value value) {
 

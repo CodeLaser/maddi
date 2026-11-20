@@ -17,17 +17,19 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
-import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
-import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
-import io.codelaser.maddi.cst.api.info.*;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.impl.statement.BlockImpl;
-
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
+import io.codelaser.maddi.cst.impl.statement.BlockImpl;
 
 /*
 BASIC RULE OF REWIRING: the fqn stays the same, as does the (name of the) source set.
@@ -39,7 +41,7 @@ public class InfoMapImpl implements InfoMap {
     private final Map<TypeInfo, Map<Info, Info>> setOfPrimaryTypesToRewire;
     private final Set<TypeInfo> toRewire;
     // see InfoMapView#rewired: one copy per original object, so that identity-keyed DetailedSources find it
-    private final java.util.IdentityHashMap<Object, Object> rewiredObjects = new java.util.IdentityHashMap<>();
+    private final IdentityHashMap<Object, Object> rewiredObjects = new IdentityHashMap<>();
     private final boolean carryIntrinsic;
 
     public InfoMapImpl(Set<TypeInfo> setOfPrimaryTypesToRewire) {
@@ -134,7 +136,7 @@ public class InfoMapImpl implements InfoMap {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T> T rewired(T original, java.util.function.Supplier<T> rewire) {
+    public <T> T rewired(T original, Supplier<T> rewire) {
         Object done = rewiredObjects.get(original);
         if (done != null) return (T) done;
         T result = rewire.get();
@@ -147,6 +149,11 @@ public class InfoMapImpl implements InfoMap {
     @Override
     public <T> T rewiredIfPresent(T original) {
         return (T) rewiredObjects.get(original);
+    }
+
+    @Override
+    public void releaseRewireMemo() {
+        rewiredObjects.clear();
     }
 
     @Override
@@ -194,9 +201,10 @@ public class InfoMapImpl implements InfoMap {
         for (TypeInfo primaryType : toRewire) {
             primaryType.rewirePhase3(this);
         }
-        // the copies are made; kept, the memo would hold this generation's originals for as long as the map lives
-        // (the inspector keeps the last one for its lookups)
-        rewiredObjects.clear();
+        // the copies are made. The memo stays until releaseRewireMemo: the carry of a seeded analysis looks up the
+        // copies of the old variable data's VariableInfos in it (rewiredIfPresent). Cleared here, every lookup missed
+        // and no statement-level link was carried (fernflower: 358,487 of 358,487). The inspector replaces the map at
+        // the next re-parse, so an unreleased memo holds one generation, not a chain of them.
         return toRewire.stream()
                 .map(primaryType -> (TypeInfo) setOfPrimaryTypesToRewire.get(primaryType).get(primaryType))
                 .collect(Collectors.toUnmodifiableSet());
@@ -256,6 +264,7 @@ public class InfoMapImpl implements InfoMap {
         MethodInfo mi = new MethodInfoImpl(MethodInfoImpl.MethodTypeEnum.SYNTHETIC_ARRAY_CONSTRUCTOR,
                 MethodInfoImpl.CONSTRUCTOR_NAME, typeInfo(methodInfo.typeInfo()));
         mi.builder()
+                .setSynthetic(true)
                 .addAnnotations(methodInfo.annotations().stream()
                         .map(a -> (AnnotationExpression) a.rewire(this)).toList())
                 .addComments(methodInfo.comments().stream().map(c -> c.rewire(this)).toList())

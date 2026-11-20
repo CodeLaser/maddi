@@ -58,7 +58,7 @@ class NamedArgumentOrderTest : KotlinScanTestBase() {
             swapped: int ${'$'}arg0=this.n++; int ${'$'}arg1=this.n++; return namedOrder(${'$'}arg1,${'$'}arg0);
             inOrder: return namedOrder(this.n++,this.n++);
             stable: return namedOrder(y,x);
-            statement: int ${'$'}arg2=this.n++; int ${'$'}arg3=1; namedOrder(${'$'}arg3,${'$'}arg2);
+            statement: int ${'$'}arg2=this.n++; namedOrder(1,${'$'}arg2);
             """.trimIndent(), listOf("swapped", "inOrder", "stable", "statement").joinToString("\n") { "$it: ${body(it)}" })
     }
 }

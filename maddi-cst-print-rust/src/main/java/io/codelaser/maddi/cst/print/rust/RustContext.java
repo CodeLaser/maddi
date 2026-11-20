@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Assignment;
@@ -28,15 +36,11 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 
 /**
  * The state of printing one Java compilation unit as one Rust module: the facts, the messages, the {@code use}
@@ -56,6 +60,24 @@ final class RustContext {
     Set<MethodInfo> mutableGetters = Set.of();
     // the function parameters a call site passes a closure that writes what it captures: FnMut (RustClosures)
     Set<ParameterInfo> mutatingFunctions = Set.of();
+    // the JDK and library types without a Rust counterpart, by fully qualified name: their opaque stand-ins in jrt.rs,
+    // shared by all modules of the crate (RustTypes.named, RustTranslator.opaqueTypes)
+    Map<String, String> opaque = new TreeMap<>();
+
+    /** The opaque stand-in for an unmapped external type: a unit struct in {@code jrt.rs}, unique by simple name. */
+    String opaque(TypeInfo type) {
+        String existing = opaque.get(type.fullyQualifiedName());
+        if (existing != null) return existing;
+        String base = type.simpleName().replaceAll("[^A-Za-z0-9_]", "_");
+        String name = base;
+        for (int i = 2; opaque.containsValue(name) || RESERVED_IN_JRT.contains(name); i++) name = base + i;
+        opaque.put(type.fullyQualifiedName(), name);
+        return name;
+    }
+
+    private static final Set<String> RESERVED_IN_JRT = Set.of("Before", "After", "Null", "Any", "Box", "Option",
+            "Result", "String", "Vec", "Path", "File", "Files", "JPath", "Shared", "WeakShared", "BitSet", "DataInputStream",
+            "PrintStream");
     /** The module being printed: a type in it needs no {@code use}. */
     final String module;
     private final List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();
@@ -119,7 +141,46 @@ final class RustContext {
             && parameter.parameterizedType().arrays() == 0 && stored(parameter)) {
             return RustFacts.Passing.OWNED;
         }
+        if (passing == RustFacts.Passing.OWNED && modifiedNotKept(parameter)) {
+            // dependent because the RECEIVER's content goes into it ('engine.checkAndSetVariableValue(name, this.value)',
+            // CodeLaser/maddi#202 pattern 4), not because the method keeps it: moved in, the caller would lose what
+            // the method did to it
+            return RustFacts.Passing.EXCLUSIVE;
+        }
         return passing;
+    }
+
+    /*
+     Modified, and neither returned, assigned, handed to a callee that keeps it, nor kept in a new result: the body
+     decides (stored). An abstract method has no body: every implementation decides, and one without a body or one that
+     keeps it keeps the move.
+     */
+    private boolean modifiedNotKept(ParameterInfo parameter) {
+        ParameterizedType type = parameter.parameterizedType();
+        // decided modified: an undecided verdict (no facts) keeps the move
+        var unmodified = parameter.analysis().getOrNull(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+        if (unmodified == null || !unmodified.isFalse() || RustTypes.isCopy(type) || RustTypes.isString(type) || RustTypes.isFunctional(type)
+            || type.isTypeParameter()) {
+            return false;
+        }
+        MethodInfo method = parameter.methodInfo();
+        if (method.methodBody() != null && !method.methodBody().isEmpty()) return notKept(parameter);
+        if (!method.isAbstract()) return false;
+        var implementations = method.analysis().getOrDefault(PropertyImpl.IMPLEMENTATIONS,
+                ValueImpl.SetOfMethodInfoImpl.EMPTY);
+        if (implementations.isEmpty()) return false;
+        for (MethodInfo implementation : implementations.methodInfoSet()) {
+            if (implementation.methodBody() == null || implementation.methodBody().isEmpty()
+                || parameter.index() >= implementation.parameters().size()
+                || !notKept(implementation.parameters().get(parameter.index()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean notKept(ParameterInfo parameter) {
+        return !stored(parameter) && !facts.keptInNewResult(parameter) && !RustFacts.renewedResult(parameter);
     }
 
     private final Map<ParameterInfo, Boolean> stored = new HashMap<>();
@@ -144,7 +205,7 @@ final class RustContext {
                     case Assignment a when is(a.value(), parameter) -> keeps[0] = true;
                     case MethodCall mc ->
                             keeps[0] |= handedOn(mc.methodInfo(), mc.parameterExpressions(), parameter);
-                    case ConstructorCall cc when cc.constructor() != null ->
+                    case ConstructorCall cc when cc.callsConstructorOfCreatedType() ->
                             keeps[0] |= handedOn(cc.constructor(), cc.parameterExpressions(), parameter);
                     default -> { }
                 }

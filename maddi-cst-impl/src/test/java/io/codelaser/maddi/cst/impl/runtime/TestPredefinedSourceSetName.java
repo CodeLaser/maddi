@@ -1,11 +1,12 @@
 package io.codelaser.maddi.cst.impl.runtime;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 
 /**
  * A source set that claims {@link SourceSet#partOfJdk()} is named after its JPMS module. That is the convention

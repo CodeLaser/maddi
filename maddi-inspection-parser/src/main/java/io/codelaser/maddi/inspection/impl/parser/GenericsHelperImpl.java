@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.inspection.impl.parser;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -36,11 +42,6 @@ import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.inspection.api.parser.GenericsHelper;
 import io.codelaser.maddi.inspection.api.parser.MethodTypeParameterMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
     private static final Logger LOGGER = LoggerFactory.getLogger(GenericsHelperImpl.class);

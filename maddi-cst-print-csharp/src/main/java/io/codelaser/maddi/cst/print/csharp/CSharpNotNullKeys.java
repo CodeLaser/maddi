@@ -17,18 +17,6 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.ParameterInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
-import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -37,6 +25,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InstanceOf;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 /**
  * The type parameters that are {@code where T : notnull} in a nullable context. C#'s Dictionary, SortedDictionary and
@@ -107,8 +108,11 @@ final class CSharpNotNullKeys {
                     typeArguments(mc);
                     dictionaryFactory(mc);
                 }
-                else if (ex instanceof ConstructorCall cc && cc.constructor() != null) {
+                else if (ex instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType()) {
                     call(cc.constructor(), cc.parameterExpressions());
+                    opened(cc);
+                } else if (ex instanceof InstanceOf io) {
+                    rawTest(io);
                 }
             } else if (e instanceof LocalVariableCreation lvc) {
                 lvc.localVariableStream().forEach(lv -> use(lv.parameterizedType()));
@@ -125,6 +129,21 @@ final class CSharpNotNullKeys {
         if (result != null && !result.parameters().isEmpty() && plain(result.parameters().getFirst())) {
             seeds.add(result.parameters().getFirst().typeParameter());
         }
+    }
+
+    /**
+     * A type test against a raw generic type, which C# writes with the arguments the operand's type determines
+     * ({@code is IPlanningListVariableMetaModel<Solution_, Entity_, Value_>}): those type parameters are passed.
+     */
+    private void rawTest(InstanceOf io) {
+        ParameterizedType tested = io.patternVariable() != null && io.patternVariable().localVariable() != null
+                ? io.patternVariable().localVariable().parameterizedType() : io.testType();
+        Map<TypeParameter, ParameterizedType> inferred = CSharpExpressionPrinter.rawTestInferred(tested,
+                io.expression().parameterizedType());
+        if (inferred == null) return;
+        inferred.forEach((tp, a) -> {
+            if (plain(a)) link(tp, a.typeParameter());
+        });
     }
 
     /** A generic method's type parameters as its arguments give them. */
@@ -150,6 +169,31 @@ final class CSharpNotNullKeys {
         if (explicit.size() == method.typeParameters().size()) {
             for (int i = 0; i < explicit.size(); i++) {
                 if (plain(explicit.get(i))) link(method.typeParameters().get(i), explicit.get(i).typeParameter());
+            }
+        }
+    }
+
+    /**
+     * A creation's wildcard argument that goes into a type parameter of the class, {@code new Change<>(variable)} of
+     * a {@code Variable<S, ?, ?>}: C# opens it ({@link CSharpOpeners}), passing the variable's own type parameters
+     * where the class's are expected.
+     */
+    private void opened(ConstructorCall cc) {
+        List<ParameterInfo> parameters = cc.constructor().parameters();
+        List<Expression> arguments = cc.parameterExpressions();
+        for (int i = 0; i < arguments.size() && i < parameters.size(); i++) {
+            ParameterizedType formal = parameters.get(i).parameterizedType();
+            ParameterizedType actual = arguments.get(i).parameterizedType();
+            if (actual == null || formal.typeInfo() == null || formal.typeInfo() != actual.typeInfo()
+                || formal.parameters().size() != actual.parameters().size()
+                || formal.typeInfo().typeParameters().size() != formal.parameters().size()) {
+                continue;
+            }
+            for (int j = 0; j < formal.parameters().size(); j++) {
+                ParameterizedType a = actual.parameters().get(j);
+                if (a.wildcard() != null && a.wildcard().isUnbound() && plain(formal.parameters().get(j))) {
+                    link(formal.parameters().get(j).typeParameter(), formal.typeInfo().typeParameters().get(j));
+                }
             }
         }
     }

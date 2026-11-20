@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.List;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.List;
-import java.util.Set;
 
 /**
  * Rust's names for Java's: snake case for functions, fields and locals, the type's own name for a type, a module per
@@ -76,8 +76,17 @@ public final class RustNames {
         return KEYWORDS.contains(name) ? "r#" + name : name;
     }
 
-    /** The method's name, with the suffix of its rank among the same-named methods of its type. */
+    /**
+     * The method's name, with the suffix of its rank among the same-named methods of its type; a method of a closed
+     * hierarchy's member the name of its family, an associated function of the root ({@link RustHierarchies}).
+     */
     public static String method(MethodInfo method) {
+        String inHierarchy = RustHierarchies.current().callName(method);
+        return inHierarchy != null ? inHierarchy : ownMethod(method);
+    }
+
+    /** {@link #method} as the method's own type has it, whatever hierarchy that type is in. */
+    static String ownMethod(MethodInfo method) {
         if (method.isConstructor()) return "new" + suffix(method, method.typeInfo().constructors());
         List<MethodInfo> sameName = method.typeInfo().methods().stream()
                 .filter(m -> m.name().equals(method.name())).toList();
@@ -104,9 +113,18 @@ public final class RustNames {
         return packageName.isEmpty() ? "root" : identifier(packageName.replace('.', '_'));
     }
 
+    /**
+     * The module a type's items are in: its package's, except for a member of a closed hierarchy, which is printed
+     * with the hierarchy's root (RustHierarchies), also when the member is in another package.
+     */
+    public static String module(TypeInfo typeInfo) {
+        TypeInfo root = RustHierarchies.current().root(typeInfo);
+        return module((root != null ? root : typeInfo).packageName());
+    }
+
     /** The path from the crate root: {@code crate::com_example_util::Parser}. */
     public static String path(TypeInfo typeInfo) {
-        return "crate::" + module(typeInfo.packageName()) + "::" + type(typeInfo);
+        return "crate::" + module(typeInfo) + "::" + type(typeInfo);
     }
 
     /**
@@ -115,8 +133,15 @@ public final class RustNames {
      * printed as {@code Box} made every {@code Box<dyn Fn…>} of its module that struct (E0618, E0277).
      */
     public static String type(TypeInfo typeInfo) {
+        // a member of a closed hierarchy is an object of the root's struct (RustHierarchies)
+        TypeInfo root = RustHierarchies.current().root(typeInfo);
+        return ownType(root != null ? root : typeInfo);
+    }
+
+    /** {@link #type} of the type itself, whatever hierarchy it is in. */
+    static String ownType(TypeInfo typeInfo) {
         TypeInfo enclosing = CstQueries.enclosing(typeInfo);
-        String name = enclosing == null ? typeInfo.simpleName() : type(enclosing) + typeInfo.simpleName();
+        String name = enclosing == null ? typeInfo.simpleName() : ownType(enclosing) + typeInfo.simpleName();
         return RUST_TYPES.contains(name) ? "J" + name : name;
     }
 

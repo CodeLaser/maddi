@@ -1,7 +1,5 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import io.codelaser.maddi.run.config.compile.CompileInvocation;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -11,6 +9,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
 
 /**
  * A {@code kotlinc} and a {@code javac} invocation that write into ONE output directory, as one invocation.
@@ -37,7 +37,8 @@ record SharedDestination(Kotlinc kotlinc, CompileInvocation javac) implements Co
      * Pairs each javac invocation with the kotlinc invocation of the same destination, at the position of the
      * earlier of the two (log order is dependency order). Anything unpaired passes through unchanged.
      */
-    static List<CompileInvocation> merge(List<CompileInvocation> invocations) {
+    static List<CompileInvocation> merge(List<CompileInvocation> all) {
+        List<CompileInvocation> invocations = foldKotlinc(all);
         Map<String, Kotlinc> kotlincByDestination = new LinkedHashMap<>();
         Map<String, CompileInvocation> javacByDestination = new LinkedHashMap<>();
         for (CompileInvocation inv : invocations) {
@@ -127,6 +128,11 @@ record SharedDestination(Kotlinc kotlinc, CompileInvocation javac) implements Co
     }
 
     @Override
+    public List<String> kotlinPluginOptions() {
+        return kotlinc.kotlinPluginOptions();
+    }
+
+    @Override
     public int jvmTarget() {
         return kotlinc.jvmTarget();
     }
@@ -154,6 +160,41 @@ record SharedDestination(Kotlinc kotlinc, CompileInvocation javac) implements Co
     @Override
     public String moduleName() {
         return kotlinc.moduleName();
+    }
+
+    /**
+     * Several kotlinc invocations of one destination, as one, at the first one's position. kotlin-maven-plugin's
+     * {@code kapt} execution logs a block of its own into {@code target/classes} before the {@code compile} one,
+     * both listing {@code src/main/kotlin} (quarkus's panache-kotlin runtimes): unfolded, the same {@code .kt}
+     * sources sat in two source sets, {@code main} and {@code main2}. Source directories and class paths are the
+     * union, so the kapt-generated directories are kept.
+     */
+    static List<CompileInvocation> foldKotlinc(List<CompileInvocation> invocations) {
+        Map<String, Kotlinc> folded = new LinkedHashMap<>();
+        for (CompileInvocation inv : invocations) {
+            if (inv instanceof Kotlinc k && k.destination() != null) folded.merge(k.destination(), k, SharedDestination::fold);
+        }
+        List<CompileInvocation> result = new ArrayList<>(invocations.size());
+        Set<String> emitted = new HashSet<>();
+        for (CompileInvocation inv : invocations) {
+            if (inv instanceof Kotlinc k && k.destination() != null) {
+                if (emitted.add(k.destination())) result.add(folded.get(k.destination()));
+            } else {
+                result.add(inv);
+            }
+        }
+        return result;
+    }
+
+    private static Kotlinc fold(Kotlinc a, Kotlinc b) {
+        return new Kotlinc(a.jvmTarget() != 0 ? a.jvmTarget() : b.jvmTarget(),
+                a.apiVersion() != null ? a.apiVersion() : b.apiVersion(),
+                a.languageVersion() != null ? a.languageVersion() : b.languageVersion(), a.destination(),
+                a.moduleName() != null ? a.moduleName() : b.moduleName(),
+                a.jdkHome() != null ? a.jdkHome() : b.jdkHome(), union(a.classpath(), b.classpath()),
+                union(a.sourcePath(), b.sourcePath()), union(a.sourceFiles(), b.sourceFiles()),
+                union(a.friendPaths(), b.friendPaths()), a.encoding() != null ? a.encoding() : b.encoding(),
+                union(a.kotlinPluginOptions(), b.kotlinPluginOptions()));
     }
 
     @Override

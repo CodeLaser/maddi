@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Expression;
-
-import java.util.List;
 
 /**
  * The classic {@code for (init; condition; update) body} loop. The condition is

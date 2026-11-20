@@ -38,8 +38,6 @@ import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 
-import java.util.List;
-
 /**
  * Where C#'s nullable reference types need a {@code !}: when the analysis's facts say the program's nullability is
  * known ({@link CSharpFacts#nullabilityAnalysed}), a dereference of a value that may be null is {@code x!.m()}. Java
@@ -245,9 +243,11 @@ final class CSharpNullability {
             case NullConstant nc -> false; // null.m() is no code worth helping
             // not facts().callResultNonNull(mc): C# types the call by the method's declared T?, whatever this call
             // passes, and warns without the ! (fernflower's lstEdgeClosures[i] = GetMaxBreakLift(...), CS8601)
+            // JavaString.ValueOf(o), Java's o.toString(): a string
+            case MethodCall mc when CSharpExpressionPrinter.javaToString(mc) -> false;
             case MethodCall mc -> !mc.methodInfo().isVoid()
                                   && (facts().nullable(mc.methodInfo()) == NullableState.NULLABLE
-                                      || CSharpExpressionPrinter.nullableResult(mc));
+                                      || CSharpExpressionPrinter.nullableResult(mc) || nullableProperty(mc));
             case VariableExpression ve -> switch (ve.variable()) {
                 case FieldReference fr -> facts().nullable(fr.fieldInfo()) == NullableState.NULLABLE
                                           && !knownNonNull(fr);
@@ -262,6 +262,17 @@ final class CSharpNullability {
                            && mayBeNull(c.expression());
             default -> false;
         };
+    }
+
+    /**
+     * A getter printed as its field's property, {@code switchStatement.DefaultEdge}: C# types the read by the
+     * property, which is declared with the field's verdict ({@code StatEdge? DefaultEdge { get; private set; }}),
+     * whatever the analysis says of the getter (fernflower's SwitchStatement.getDefaultEdge(), CS8602, CS8604).
+     */
+    private static boolean nullableProperty(MethodCall mc) {
+        CSharpProperties.Property property = CSharpContext.program().accessorOf(mc.methodInfo());
+        return property != null && property.field() != null && mc.methodInfo() == property.getter()
+               && facts().nullable(property.field()) == NullableState.NULLABLE;
     }
 
     /** A cast to a method's own type parameter, which C# cannot write {@code T?}: its operand is asserted, {@code (T) x!}. */

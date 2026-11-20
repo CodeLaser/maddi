@@ -16,10 +16,8 @@ internal sealed class Metadata {
     }
     internal interface IBuilder { internal IBuilder Name(string name); }
 
-    internal interface IListener<T> {
-        void OnEvent(T @event);
-        public sealed class Lambda(Action<T> f) : IListener<T> { public void OnEvent(T @event) => f(@event); }
-    }
+    internal interface IListener<in T> { void OnEvent(T @event); }
+    internal sealed class ListenerLambda<T>(Action<T> f) : IListener<T> { public void OnEvent(T @event) => f(@event); }
 
     internal sealed class Ok : IResult {
         public bool Success => true;
@@ -29,10 +27,9 @@ internal sealed class Metadata {
     internal interface IResult {
         bool Success { get; }
         bool Failed() => !Success;
-        public sealed class Lambda(Func<bool> f) : IResult { public bool Success => f(); }
     }
+    internal sealed class ResultLambda(Func<bool> f) : IResult { public bool Success => f(); }
 
-    internal interface IStartListener : IListener<string> {
-        public sealed class Lambda(Action<string> f) : IStartListener { public void OnEvent(string @event) => f(@event); }
-    }
+    internal interface IStartListener : IListener<string> { }
+    internal sealed class StartListenerLambda(Action<string> f) : IStartListener { public void OnEvent(string @event) => f(@event); }
 }

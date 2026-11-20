@@ -23,7 +23,6 @@ import io.codelaser.maddi.cst.api.expression.IntConstant;
 import io.codelaser.maddi.cst.api.expression.Numeric;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.expression.DivideImpl;
-import io.codelaser.maddi.cst.impl.expression.IntConstantImpl;
 
 public class EvalDivide {
     private final Runtime runtime;

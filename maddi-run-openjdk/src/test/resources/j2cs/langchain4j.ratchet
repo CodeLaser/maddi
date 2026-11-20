@@ -96,9 +96,21 @@
 # 152 -> 151.
 # 2026-10-19, maddi d31f0f731, e9a7e4927, 9680a9230: a raw cast into a parameterized target, an array of a type parameter as
 # Object[], an array as varargs arguments, getMethod's types, Map.of()'s key notnull: 300 -> 301 compiling files, 197 -> 191 errors.
+# 2026-11-05: the error total is ratcheted from here on (JavaToCSharpRatchet.DIRECTION): a rise that a mapping
+# earns, by letting the compiler see errors it could not before, is written with a note that says so.
+# 2026-11-05, maddi e65b4878d: a class bounding a type parameter is not sealed (CS0701, and the CS0266 its
+# constraint caused): 192 -> 172 errors, compiling files unchanged (301).
+#
+# 2026-11-07, inference C# cannot make (maddi, mechanism 3): wildcard uses in inferred type arguments, Class<T>-only
+# type parameters, reduce's raw seed, the map and list helpers' ? extends and get(Object): 172 -> 171 errors.
+# 2026-11-10, Objects.requireNonNull(x, Supplier) calls the supplier for the message (CS1660); a functional
+# interface nested in an interface, hoisted, is a public delegate (CS0051): 171 -> 157 errors.
+# 2026-11-10, Java's unchecked list cast is JavaCollections.UncheckedList, a class's goes through object (CS0030);
+# Arrays.sort is JavaArrays.Sort with a comparator and a range, Collections.emptySortedMap: 157 -> 155 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	301
+compilingFiles	305
 unmappedJdkUses	151
+errors	155

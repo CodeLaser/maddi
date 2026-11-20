@@ -17,19 +17,24 @@
 
 package io.codelaser.maddi.cst.io;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.analysis.Codec;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.runtime.PredefinedWithoutParameterizedType;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.Diamond;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
 
 public class ExpressionCodec {
     private final Codec codec;
@@ -49,7 +54,80 @@ public class ExpressionCodec {
         map.put(Cast.NAME, new CastCodec());
         map.put(BooleanConstant.NAME, new BooleanConstantCodec());
         map.put(IntConstant.NAME, new IntConstantCodec());
-        map.put(io.codelaser.maddi.cst.api.expression.TypeExpression.NAME, new TypeExpressionCodec());
+        map.put(TypeExpression.NAME, new TypeExpressionCodec());
+        // the expressions a link names that the ones above do not cover: the scope of a field reference
+        // (a.b().c), the index of an array element, the assigned value of a marker variable; without them the whole
+        // value was left out of a stored analysis (fernflower: 59 of 777 values not encoded, 2026-11-12)
+        map.put(MethodCall.NAME, new MethodCallCodec());
+        map.put(CharConstant.NAME, new CharConstantCodec());
+        map.put(LongConstant.NAME, new NumberConstantCodec());
+        map.put(DoubleConstant.NAME, new NumberConstantCodec());
+        map.put(FloatConstant.NAME, new NumberConstantCodec());
+        // a byte or short constant as a marker's value (guava UnsignedBytes.saturatedCast, CodeLaser/maddi-mod#110)
+        map.put(ByteConstant.NAME, new NumberConstantCodec());
+        map.put(ShortConstant.NAME, new NumberConstantCodec());
+        // the absent dimension of an array creation with an initializer ('new Integer[] { 1 }')
+        map.put(EmptyExpression.NAME, new EmptyExpressionCodec());
+        map.put(ArrayInitializer.NAME, new ArrayInitializerCodec());
+        map.put(BinaryOperator.NAME, new BinaryOperatorCodec());
+        map.put(UnaryOperator.NAME, new UnaryOperatorCodec());
+        map.put(InlineConditional.NAME, new InlineConditionalCodec());
+        // and those guava's links add (2026-11-12)
+        map.put(Assignment.NAME, new AssignmentCodec());
+        map.put(ClassExpression.NAME, new ClassExpressionCodec());
+        map.put(ArrayLength.NAME, new ArrayLengthCodec());
+    }
+
+    /*
+     The operators are the runtime's own MethodInfo objects (int.+, boolean.!, ...), one of each, so they are written
+     by the name of the getter that hands them out, and read back through it.
+     */
+    private Map<MethodInfo, String> operatorNames;
+    private Map<String, MethodInfo> operatorsByName;
+
+    private void operators() {
+        if (operatorNames != null) return;
+        operatorNames = new IdentityHashMap<>();
+        operatorsByName = new HashMap<>();
+        for (Method m : PredefinedWithoutParameterizedType.class.getMethods()) {
+            if (m.getParameterCount() != 0 || m.getReturnType() != MethodInfo.class) continue;
+            try {
+                MethodInfo operator = (MethodInfo) m.invoke(runtime);
+                if (operator != null && !operatorNames.containsKey(operator)) {
+                    operatorNames.put(operator, m.getName());
+                    operatorsByName.put(m.getName(), operator);
+                }
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new IllegalStateException("Cannot read the operator " + m.getName(), e);
+            }
+        }
+    }
+
+    private Codec.EncodedValue encodeOperator(MethodInfo operator) {
+        operators();
+        String name = operatorNames.get(operator);
+        if (name == null) throw new UnsupportedOperationException("Not a predefined operator: " + operator);
+        return codec.encodeString(context, name);
+    }
+
+    private Codec.EncodedValue encodeOperatorOrNull(MethodInfo operator) {
+        return operator == null ? codec.encodeString(context, "") : encodeOperator(operator);
+    }
+
+    private MethodInfo decodeOperatorOrNull(Codec.EncodedValue ev) {
+        return codec.decodeString(context, ev).isEmpty() ? null : decodeOperator(ev);
+    }
+
+    private MethodInfo decodeOperator(Codec.EncodedValue ev) {
+        operators();
+        String name = codec.decodeString(context, ev);
+        MethodInfo operator = operatorsByName.get(name);
+        if (operator == null) throw new UnsupportedOperationException("Not a predefined operator: " + name);
+        return operator;
+    }
+
+    private Source source(Codec.EncodedValue ev) {
+        return runtime.parseSourceFromCompact2(codec.decodeString(context, ev));
     }
 
     private interface ECodec {
@@ -130,11 +208,19 @@ public class ExpressionCodec {
     }
 
     class ConstructorCallCodec implements ECodec {
+        private static final String ARRAY_CONSTRUCTOR = "[]";
 
         @Override
         public List<Codec.EncodedValue> encode(Expression e) {
             ConstructorCall cc = (ConstructorCall) e;
-            return List.of(codec.encodeInfoOutOfContext(context, cc.constructor()),
+            // an array creation's constructor is synthetic, no member of any type: written as ["[]", array type],
+            // where a member's list starts with its tagged name (guava MutableTypeToInstanceMapTest,
+            // CodeLaser/maddi-mod#110)
+            Codec.EncodedValue constructor = cc.constructor() != null && cc.constructor().isSyntheticArrayConstructor()
+                    ? codec.encodeList(context, List.of(codec.encodeString(context, ARRAY_CONSTRUCTOR),
+                    codec.encodeType(context, cc.constructor().returnType())))
+                    : codec.encodeInfoOutOfContext(context, cc.constructor());
+            return List.of(constructor,
                     encodeDiamond(cc.diamond()),
                     codec.encodeType(context, cc.parameterizedType()),
                     codec.encodeExpression(context, cc.object()),
@@ -146,7 +232,11 @@ public class ExpressionCodec {
         @Override
         public Expression decode(List<Codec.EncodedValue> list) {
             String source = codec.decodeString(context, list.get(1));
-            MethodInfo constructor = (MethodInfo) codec.decodeInfoOutOfContext(context, list.get(2));
+            List<Codec.EncodedValue> constructorList = codec.decodeList(context, list.get(2));
+            MethodInfo constructor = constructorList.size() == 2
+                                     && ARRAY_CONSTRUCTOR.equals(codec.decodeString(context, constructorList.getFirst()))
+                    ? runtime.newArrayCreationConstructor(codec.decodeType(context, constructorList.get(1)))
+                    : (MethodInfo) codec.decodeInfoOutOfContext(context, list.get(2));
             Diamond diamond = decodeDiamond(list.get(3));
             ParameterizedType concreteReturnType = codec.decodeType(context, list.get(4));
             Expression object = codec.decodeExpression(context, list.get(5));
@@ -184,6 +274,44 @@ public class ExpressionCodec {
         }
     }
 
+    class ArrayInitializerCodec implements ECodec {
+
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            ArrayInitializer ai = (ArrayInitializer) e;
+            return List.of(codec.encodeType(context, ai.parameterizedType()),
+                    codec.encodeList(context, ai.expressions().stream()
+                            .map(ExpressionCodec.this::encodeExpression).toList()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            List<Expression> expressions = codec.decodeList(context, list.get(3)).stream()
+                    .map(ev -> codec.decodeExpression(context, ev)).toList();
+            // written as the array's type, which is the common type with one dimension more
+            ParameterizedType arrayType = codec.decodeType(context, list.get(2));
+            return runtime.newArrayInitializerBuilder()
+                    .setSource(source(list.get(1)))
+                    .setCommonType(arrayType.copyWithArrays(arrayType.arrays() - 1))
+                    .setExpressions(expressions)
+                    .build();
+        }
+    }
+
+    // equal by its message, which is all it carries
+    class EmptyExpressionCodec implements ECodec {
+
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            return List.of(codec.encodeString(context, ((EmptyExpression) e).msg()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            return runtime.newEmptyExpression(codec.decodeString(context, list.get(2)));
+        }
+    }
+
     class NullConstantCodec implements ECodec {
 
         @Override
@@ -204,8 +332,8 @@ public class ExpressionCodec {
 
         @Override
         public List<Codec.EncodedValue> encode(Expression e) {
-            io.codelaser.maddi.cst.api.expression.TypeExpression te =
-                    (io.codelaser.maddi.cst.api.expression.TypeExpression) e;
+            TypeExpression te =
+                    (TypeExpression) e;
             return List.of(codec.encodeType(context, te.parameterizedType()));
         }
 
@@ -268,6 +396,183 @@ public class ExpressionCodec {
             String source = codec.decodeString(context, list.get(1));
             int value = codec.decodeInt(context, list.get(2));
             return runtime.newInt(List.of(), runtime.parseSourceFromCompact2(source), value);
+        }
+    }
+
+    class MethodCallCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            MethodCall mc = (MethodCall) e;
+            return List.of(codec.encodeInfoOutOfContext(context, mc.methodInfo()),
+                    encodeExpression(mc.object()),
+                    codec.encodeList(context, mc.parameterExpressions().stream()
+                            .map(ExpressionCodec.this::encodeExpression).toList()),
+                    codec.encodeType(context, mc.concreteReturnType()),
+                    codec.encodeBoolean(context, mc.objectIsImplicit()),
+                    codec.encodeList(context, mc.typeArguments().stream()
+                            .map(t -> codec.encodeType(context, t)).toList()),
+                    codec.encodeString(context, mc.modificationTimes() == null ? "" : mc.modificationTimes()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            List<ParameterizedType> typeArguments = codec.decodeList(context, list.get(7)).stream()
+                    .map(ev -> codec.decodeType(context, ev)).toList();
+            return runtime.newMethodCallBuilder()
+                    .setSource(source(list.get(1)))
+                    .setMethodInfo((MethodInfo) codec.decodeInfoOutOfContext(context, list.get(2)))
+                    .setObject(decodeExpression(list.get(3)))
+                    .setParameterExpressions(codec.decodeList(context, list.get(4)).stream()
+                            .map(ExpressionCodec.this::decodeExpression).toList())
+                    .setConcreteReturnType(codec.decodeType(context, list.get(5)))
+                    .setObjectIsImplicit(codec.decodeBoolean(context, list.get(6)))
+                    .setTypeArguments(typeArguments)
+                    .setModificationTimes(codec.decodeString(context, list.get(8)))
+                    .build();
+        }
+    }
+
+    class CharConstantCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            return List.of(codec.encodeInt(context, ((CharConstant) e).constant()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            return runtime.newChar(List.of(), source(list.get(1)), (char) codec.decodeInt(context, list.get(2)));
+        }
+    }
+
+    // long, double and float, as text: a JSON number need not keep a long's or a double's every bit
+    class NumberConstantCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            Object constant = ((ConstantExpression<?>) e).constant();
+            return List.of(codec.encodeString(context, String.valueOf(constant)));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            String name = codec.decodeString(context, list.getFirst());
+            Source source = source(list.get(1));
+            String value = codec.decodeString(context, list.get(2));
+            return switch (name) {
+                case LongConstant.NAME -> runtime.newLong(List.of(), source, Long.parseLong(value));
+                case DoubleConstant.NAME -> runtime.newDouble(List.of(), source, Double.parseDouble(value));
+                case FloatConstant.NAME -> runtime.newFloat(List.of(), source, Float.parseFloat(value));
+                case ByteConstant.NAME -> runtime.newByte(List.of(), source, Byte.parseByte(value));
+                case ShortConstant.NAME -> runtime.newShort(List.of(), source, Short.parseShort(value));
+                default -> throw new UnsupportedOperationException(name);
+            };
+        }
+    }
+
+    class BinaryOperatorCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            BinaryOperator bo = (BinaryOperator) e;
+            return List.of(encodeOperator(bo.operator()), encodeExpression(bo.lhs()), encodeExpression(bo.rhs()),
+                    codec.encodeType(context, bo.parameterizedType()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            MethodInfo operator = decodeOperator(list.get(2));
+            return runtime.newBinaryOperatorBuilder()
+                    .setSource(source(list.get(1)))
+                    .setOperator(operator)
+                    .setLhs(decodeExpression(list.get(3)))
+                    .setRhs(decodeExpression(list.get(4)))
+                    .setParameterizedType(codec.decodeType(context, list.get(5)))
+                    .setPrecedence(runtime.precedenceOfBinaryOperator(operator))
+                    .build();
+        }
+    }
+
+    class UnaryOperatorCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            UnaryOperator uo = (UnaryOperator) e;
+            return List.of(encodeOperator(uo.operator()), encodeExpression(uo.expression()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            return runtime.newUnaryOperator(List.of(), source(list.get(1)), decodeOperator(list.get(2)),
+                    decodeExpression(list.get(3)), runtime.precedenceUnary());
+        }
+    }
+
+    class InlineConditionalCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            InlineConditional ic = (InlineConditional) e;
+            return List.of(encodeExpression(ic.condition()), encodeExpression(ic.ifTrue()),
+                    encodeExpression(ic.ifFalse()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            return runtime.newInlineConditionalBuilder()
+                    .setSource(source(list.get(1)))
+                    .setCondition(decodeExpression(list.get(2)))
+                    .setIfTrue(decodeExpression(list.get(3)))
+                    .setIfFalse(decodeExpression(list.get(4)))
+                    .build(runtime);
+        }
+    }
+
+    class AssignmentCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            Assignment a = (Assignment) e;
+            Boolean prefix = a.prefixPrimitiveOperator();
+            return List.of(encodeExpression(a.target()), encodeExpression(a.value()),
+                    encodeOperatorOrNull(a.assignmentOperator()),
+                    codec.encodeString(context, prefix == null ? "" : prefix.toString()),
+                    encodeOperatorOrNull(a.binaryOperator()),
+                    codec.encodeBoolean(context, a.assignmentOperatorIsPlus()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            String prefix = codec.decodeString(context, list.get(5));
+            return runtime.newAssignmentBuilder()
+                    .setSource(source(list.get(1)))
+                    .setTarget((VariableExpression) decodeExpression(list.get(2)))
+                    .setValue(decodeExpression(list.get(3)))
+                    .setAssignmentOperator(decodeOperatorOrNull(list.get(4)))
+                    .setPrefixPrimitiveOperator(prefix.isEmpty() ? null : Boolean.valueOf(prefix))
+                    .setBinaryOperator(decodeOperatorOrNull(list.get(6)))
+                    .setAssignmentOperatorIsPlus(codec.decodeBoolean(context, list.get(7)))
+                    .build();
+        }
+    }
+
+    class ClassExpressionCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            return List.of(codec.encodeType(context, ((ClassExpression) e).type()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            return runtime.newClassExpressionBuilder(codec.decodeType(context, list.get(2)))
+                    .setSource(source(list.get(1))).build();
+        }
+    }
+
+    class ArrayLengthCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            return List.of(encodeExpression(((ArrayLength) e).scope()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            return runtime.newArrayLengthBuilder().setSource(source(list.get(1)))
+                    .setExpression(decodeExpression(list.get(2))).build();
         }
     }
 }

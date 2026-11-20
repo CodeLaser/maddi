@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.util;
 
-import io.codelaser.maddi.annotation.Independent;
-import io.codelaser.maddi.annotation.NotModified;
-import io.codelaser.maddi.annotation.NotNull;
-
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
 
 public class ListUtil {
 

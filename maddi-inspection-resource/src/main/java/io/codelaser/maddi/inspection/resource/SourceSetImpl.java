@@ -17,9 +17,7 @@
 
 package io.codelaser.maddi.inspection.resource;
 
-import io.codelaser.maddi.cst.api.element.FingerPrint;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.support.SetOnce;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -28,7 +26,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.support.SetOnce;
 
 public class SourceSetImpl implements SourceSet {
     private final String name;
@@ -271,8 +271,12 @@ public class SourceSetImpl implements SourceSet {
      * constructor stays readable); each one {@code <= 0} / false / {@code null} when not stated.
      */
     record LanguageFacts(int languageLevel, boolean enablePreview, String kotlinLanguageVersion,
-                         String kotlinApiVersion, int jvmTarget, String jdkHome) {
-        static final LanguageFacts NONE = new LanguageFacts(0, false, null, null, 0, null);
+                         String kotlinApiVersion, int jvmTarget, String jdkHome, List<String> kotlinPluginOptions) {
+        static final LanguageFacts NONE = new LanguageFacts(0, false, null, null, 0, null, List.of());
+
+        LanguageFacts {
+            kotlinPluginOptions = kotlinPluginOptions == null ? List.of() : List.copyOf(kotlinPluginOptions);
+        }
     }
 
     @Override
@@ -293,6 +297,11 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public String kotlinApiVersion() {
         return languageFacts.kotlinApiVersion();
+    }
+
+    @Override
+    public List<String> kotlinPluginOptions() {
+        return languageFacts.kotlinPluginOptions();
     }
 
     @Override
@@ -419,6 +428,7 @@ public class SourceSetImpl implements SourceSet {
         private String kotlinApiVersion;
         private int jvmTarget;
         private String jdkHome;
+        private List<String> kotlinPluginOptions = List.of();
 
         public Builder() {
         }
@@ -451,6 +461,7 @@ public class SourceSetImpl implements SourceSet {
             kotlinApiVersion = set.kotlinApiVersion();
             jvmTarget = set.jvmTarget();
             jdkHome = set.jdkHome();
+            kotlinPluginOptions = set.kotlinPluginOptions();
         }
 
         public Builder setName(String name) {
@@ -572,6 +583,12 @@ public class SourceSetImpl implements SourceSet {
             return this;
         }
 
+        /** The set's own {@code kotlinc -P plugin:…} options, in order; empty for none. */
+        public Builder setKotlinPluginOptions(List<String> kotlinPluginOptions) {
+            this.kotlinPluginOptions = kotlinPluginOptions == null ? List.of() : kotlinPluginOptions;
+            return this;
+        }
+
         /** The set's own {@code kotlinc -jdk-home}; {@code null} unstated. */
         public Builder setJdkHome(String jdkHome) {
             this.jdkHome = jdkHome;
@@ -581,7 +598,8 @@ public class SourceSetImpl implements SourceSet {
         public SourceSet build() {
             return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
                     externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags,
-                    new LanguageFacts(languageLevel, enablePreview, kotlinLanguageVersion, kotlinApiVersion, jvmTarget, jdkHome));
+                    new LanguageFacts(languageLevel, enablePreview, kotlinLanguageVersion, kotlinApiVersion, jvmTarget, jdkHome,
+                            kotlinPluginOptions));
         }
     }
 }

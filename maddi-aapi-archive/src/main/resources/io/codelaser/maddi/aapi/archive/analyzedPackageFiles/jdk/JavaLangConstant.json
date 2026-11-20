@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tjava.lang.constant.ClassDesc", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MarrayType(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},

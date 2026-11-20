@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.java.openjdk.stub;
 
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.java.openjdk.CommonTest;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 
 @Disabled("stubs not implemented yet")
 public class TestStub1 extends CommonTest {

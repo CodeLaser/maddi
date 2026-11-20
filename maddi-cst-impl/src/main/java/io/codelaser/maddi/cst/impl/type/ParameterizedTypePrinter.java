@@ -18,20 +18,20 @@
 package io.codelaser.maddi.cst.impl.type;
 
 
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
-import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.output.TypeNameRequired;
 import io.codelaser.maddi.cst.api.type.Diamond;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.Wildcard;
 import io.codelaser.maddi.cst.impl.output.*;
-
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 
 public class ParameterizedTypePrinter {
 

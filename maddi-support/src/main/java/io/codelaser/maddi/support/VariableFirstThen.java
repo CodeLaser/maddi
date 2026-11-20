@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.support;
 
+import java.util.Objects;
+
 import io.codelaser.maddi.annotation.*;
 import io.codelaser.maddi.annotation.eventual.Mark;
 import io.codelaser.maddi.annotation.eventual.Only;
 import io.codelaser.maddi.annotation.eventual.TestMark;
-
-import java.util.Objects;
 
 /**
  * An object which first holds an object of type <code>S</code>, and, in the second and final stage of its life-cycle,

@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
@@ -24,13 +31,6 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.CstSupertypes;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * A method's parameter {@code EmbeddingStoreRequestContext<?> c} takes any context, whose type argument Java captures
@@ -49,6 +49,7 @@ final class CSharpWildcards {
     private CSharpWildcards() {
     }
 
+    /** {@code q} null: the names only, without the constraints. */
     static Captured captured(MethodInfo method, Qualification q) {
         if (!mayBeGeneric(method)) return Captured.NONE;
         Set<String> taken = new HashSet<>();
@@ -82,9 +83,14 @@ final class CSharpWildcards {
                 forParameter.add(unique);
                 List<ParameterizedType> bounds = bounds(declared, a);
                 if (!constrainable(bounds)) ok = false;
-                if (!bounds.isEmpty()) {
-                    forConstraints.add("where " + unique + " : " + String.join(", ",
-                            bounds.stream().map(b -> CSharpTypeName.of(b, q)).toList()));
+                // the generic type's own is a dictionary's key (CSharpNotNullKeys): the capture is, as it goes there
+                boolean notNull = q != null && CSharpContext.program().notNullKey(declared)
+                                  && bounds.stream().noneMatch(b -> b.typeInfo() != null && !b.typeInfo().isInterface());
+                if ((!bounds.isEmpty() || notNull) && q != null) {
+                    List<String> parts = new ArrayList<>();
+                    if (notNull) parts.add("notnull");
+                    bounds.forEach(b -> parts.add(CSharpTypeName.of(b, q)));
+                    forConstraints.add("where " + unique + " : " + String.join(", ", parts));
                 }
             }
             if (!ok) continue;
@@ -109,7 +115,19 @@ final class CSharpWildcards {
         return true;
     }
 
+    /**
+     * The method has an overload of the same arity: in the type that declares what it overrides, whose decision an
+     * override follows (an abstract class's private {@code groupBy(keyA, keyB)} must not make its
+     * {@code groupBy(key, collector)} capture where the interface's prints the wildcard interface, CS0535).
+     */
     private static boolean overloaded(MethodInfo method) {
+        List<MethodInfo> overridden = method.overrides().stream()
+                .filter(o -> o != method && CSharpNames.translated(o.typeInfo())).toList();
+        if (!overridden.isEmpty()) return overridden.stream().anyMatch(CSharpWildcards::overloadedInOwnType);
+        return overloadedInOwnType(method);
+    }
+
+    private static boolean overloadedInOwnType(MethodInfo method) {
         return method.typeInfo().methods().stream().anyMatch(m -> m != method && m.name().equals(method.name())
                                                                    && m.parameters().size() == method.parameters().size());
     }
@@ -145,7 +163,11 @@ final class CSharpWildcards {
         return method.parameters().stream().anyMatch(p -> capturable(p.parameterizedType()));
     }
 
-    /** {@code X<?>}, {@code X<? extends B>} of a generic type of the program. */
+    /**
+     * {@code X<?>}, {@code X<? extends B>} of a generic type of the program. Captured even where the type's variance
+     * ({@link CSharpVariance}) would take the bound: an argument that is a type parameter has no variance conversion
+     * (CS1503), a captured one takes it.
+     */
     static boolean capturable(ParameterizedType pt) {
         TypeInfo t = pt.typeInfo();
         return pt.arrays() == 0 && pt.wildcard() == null && t != null && CSharpNames.translated(t)

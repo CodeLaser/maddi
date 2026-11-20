@@ -1,0 +1,452 @@
+[[ownership]]
+= Ownership
+
+The previous chapters asked who can _modify_ an object.
+Independence (<<linking-dependence>>) answers whether modifications can travel between two objects; it lets two
+holders share immutable content, because nothing can travel through it.
+This chapter asks a different question: who _holds_ an object?
+
+Why would we want to know?
+Inside Java, an object with a single holder is the one object that is always safe to modify: nobody else is there to
+be surprised.
+We will see in <<ownership-and-eventual>> that this gives a second road to immutability, next to the copy and the
+mark.
+Outside Java, the question is unavoidable as soon as code has to be translated into a language without a garbage
+collector.
+In Rust, an object has one owner, and its lifetime is that of its owner; a value held in several places must be
+wrapped in a shared, reference-counted handle.
+A field whose object nobody else holds can be a plain field; a method whose result nobody else holds can return it
+by value; a parameter the method does not keep can be borrowed.
+
+Ownership differs from independence in two ways.
+
+* Immutable sharing counts. A field holding a `String` that its caller passed in is independent of that caller, as
+modifications cannot travel through a `String`; but the object is shared, so the field does not own it.
+* Ownership is a claim about the _absence_ of other holders.
+Where independence can be assumed until a link shows up, ownership must be proven: whenever we do not know what a
+method does with an object, we must assume it is shared.
+
+Three annotations express the verdicts: {fresh} on a method, {borrowed} on a parameter, {owned} on a field.
+
+[#fresh-methods]
+== Fresh methods
+
+****
+*Definition*: a method is *fresh*, marked {fresh}, when every object it returns was created during the call, or is
+`null`, and nothing outside the call holds it when the method returns: the caller owns the result.
+****
+
+In practice, every return path must yield an object created in the method, the result of a call to another
+fresh method, or `null`; and that object must not be linked to the receiver, a parameter, a field or a static.
+
+.Example {counter:example}, fresh and non-fresh methods
+[source,java]
+----
+class Lines {
+    private final List<String> lines = new ArrayList<>();
+
+    @Fresh
+    List<String> copy() {           // <1>
+        return new ArrayList<>(lines);
+    }
+
+    @Fresh
+    List<String> sorted() {         // <2>
+        List<String> result = copy();
+        Collections.sort(result);
+        return result;
+    }
+
+    List<String> orEmpty(List<String> list) {   // <3>
+        return list == null ? new ArrayList<>() : list;
+    }
+
+    List<String> registered() {     // <4>
+        List<String> result = new ArrayList<>();
+        registry.add(result);
+        return result;
+    }
+}
+----
+
+<1> A new object, holding the elements of `lines`: the elements are shared, the list is not.
+<2> The result of a fresh method, modified before it is returned: still fresh.
+<3> One return path yields the parameter.
+<4> The new object is also held by `registry`.
+
+Note the first callout: freshness is about the object itself, not about its hidden content.
+The copy is a new list; the strings in it are as shared as they were before.
+
+A lambda or a method reference is not a created object: the Java Language Specification allows every evaluation of
+the same lambda to return the same instance (JLS 15.27.4, 15.13.3), so a method returning one is not fresh.
+
+On a method without a body, an abstract method or a library method in the annotated APIs, {fresh} is a contract
+that every implementation must honour.
+In the JDK, `Arrays.copyOf`, `Collection.toArray()`, `ArrayList.clone`, `String.toCharArray` and `Map.entry` are fresh,
+for example.
+`List.copyOf` is not: it may return its argument.
+Neither is `Collections.emptyList`, which returns a shared instance.
+An abstract method without a contract is fresh only when all its implementations are.
+
+[#borrowed-parameters]
+== Borrowed parameters
+
+****
+*Definition*: a parameter is *borrowed*, marked {borrowed}, when nothing that outlives the call holds the argument's
+object when the method returns.
+****
+
+A borrowing method may read the object, modify it, and keep what it contains.
+
+.Example {counter:example}, borrowed and kept parameters
+[source,java]
+----
+class Lines {
+    private final List<String> lines = new ArrayList<>();
+
+    int countEmpty(@Borrowed List<String> list) {   // <1>
+        int n = 0;
+        for (String s : list) if (s.isEmpty()) n++;
+        return n;
+    }
+
+    void addAll(@Borrowed Collection<String> c) {   // <2>
+        lines.addAll(c);
+    }
+
+    void add(String line) {                         // <3>
+        lines.add(line);
+    }
+
+    Runnable printer(List<String> list) {           // <4>
+        return () -> list.forEach(System.out::println);
+    }
+}
+----
+
+<1> Read only.
+<2> `addAll` copies the elements: `lines` holds the strings, not the collection.
+<3> `lines` holds the object itself. It is a `String`, so `line` is independent, but not borrowed.
+<4> The returned lambda captures the parameter.
+
+The method keeps a parameter when a field of the receiver, a static, the return value, another parameter's content,
+or a lambda or object that escapes, holds a link to the parameter's object itself.
+A link to its hidden content does not count: that is the case of `addAll`.
+Keeping is transitive: calling a method that keeps its argument keeps it too.
+
+The second and third callouts show the two questions side by side.
+In the vocabulary of <<content-linking>>, both `c` and `line` are {independentHC}: what they bring ends up in the
+hidden content of `lines`.
+For ownership, the difference is which object ends up there: the elements of `c`, or `line` itself.
+
+On a parameter of a method without a body, {borrowed} is a contract, which every implementation must honour.
+
+[#owned-fields]
+== Owned fields
+
+****
+*Definition*: a field is *owned*, marked {owned}, when the object it holds can only be reached through the object
+holding the field.
+The owned object lives and dies with its owner.
+****
+
+Three conditions make a field owned; they mirror the way an object can come to have a second holder.
+
+. *It arrives fresh.* Every value assigned to the field, in constructors, initializers and methods, is an object
+created for it, the result of a fresh method, or `null`. A parameter qualifies only when it is transferred
+(<<ownership-transfer>>).
+An unmodifiable view (`Collections.unmodifiableList(x)` and the rest of that family, see <<unmodifiable-views>>)
+arrives fresh when the object it wraps does: the view holds that object and nothing else.
+. *It never leaves.* No link takes the field's object to a return value, a parameter, a static, a field of another
+object, or an escaping lambda.
+Passing it to a borrowed parameter is allowed, and so is returning it from a method whose result every caller only
+uses and does not keep. We call the latter _lending_; it is Rust's `&self.f`.
+. *It cannot be taken.* The field is private: no code outside the type can read the reference directly.
+
+Compare these with the rules of immutability in <<immutability>>: the third is rule 2, and the first two are rule 3,
+with 'not dependent' sharpened to 'not held'.
+
+.Example {counter:example}, owned and non-owned fields
+[source,java]
+----
+public class Document {
+    @Owned
+    private final List<String> lines = new ArrayList<>();    // <1>
+
+    @Owned
+    private StringBuilder buffer;                              // <2>
+
+    private final List<String> tags;                           // <3>
+
+    private final Map<String, String> index = new HashMap<>(); // <4>
+
+    public Document(List<String> tags) {
+        this.tags = tags;
+    }
+
+    public void append(String s) {
+        if (buffer == null) buffer = new StringBuilder();
+        buffer.append(s);
+        lines.add(s);
+    }
+
+    public Map<String, String> index() {
+        return Collections.unmodifiableMap(index);
+    }
+}
+----
+
+<1> Created for the field, and it never leaves.
+<2> Created lazily: every assignment is still a creation.
+Note that ownership does not require the field to be final: the owner may replace what it owns.
+<3> The public constructor stores its parameter, which a caller may go on using.
+<4> The unmodifiable view shares the object: a holder of the view sees every change to `index`.
+
+A field that is not owned only because it shares an immutable object (a `String`, say, stored from a parameter) is
+_shared immutable_: in Rust, a reference-counted value nobody modifies.
+There is no annotation for it, as {immutable} on the field's type says it.
+Static fields and fields of primitive type are not considered.
+
+{owned} has one parameter, `elements`.
+`@Owned(elements = true)` says that the elements of the field's collection, map or other generic object, its hidden
+content, are owned too: each arrives created for it, or is handed over by every caller (<<ownership-transfer>>), and
+none leaves.
+In Rust, such a field is a vector of plain values rather than of shared handles.
+
+Unlike {fresh} and {borrowed}, {owned} is never a contract: it concerns a field, which only the code of its own type
+can judge.
+
+[#ownership-transfer]
+== Transfer
+
+The first condition rejects a field assigned from a parameter: in general the caller may go on using the object.
+But when we can see every call site, we can check that they do not.
+
+****
+*Definition*: a parameter is *transferred* when every call site passes an object that is created on the spot, or is
+held by a local that the caller does not use after the call; and the method keeps the parameter only in one field.
+****
+
+.Example {counter:example}, a parameter handed over by every caller
+[source,java]
+----
+public class Parser {
+    @Owned
+    private final List<Token> tokens;            // <1>
+
+    private Parser(List<Token> tokens) {
+        this.tokens = tokens;
+    }
+
+    public static Parser of(String source) {
+        List<Token> tokens = new ArrayList<>();
+        tokens.add(new Token(source));            // <2>
+        return new Parser(tokens);                // <3>
+    }
+}
+----
+
+<1> Owned: the private constructor's only caller hands its list over.
+<2> Before the hand-over, the local is only the receiver of calls that keep nothing of it.
+<3> The last use of `tokens`.
+
+When are all call sites known?
+Certainly when the method is private or package-private.
+For a public method, it depends on what the code is: in a library, the callers are yet to be written; in an
+application analysed as a whole, a _closed world_, no code outside it calls its public methods.
+We will meet the same distinction in <<null-who-calls>>.
+The method must also not override anything, nothing may override it, and no method reference may name it: each of
+these is a call site we cannot see.
+
+{finalizer}, the subject of the next section, is a transfer of the receiver.
+
+[#finalizers]
+== Finalizers
+
+Up to now, we have focused on the distinction between the building phase of an object's life-cycle, and its
+subsequent immutable phase.
+We have ignored the destruction of objects: critically important for some applications, but often completely
+ignored by Java programmers because of the silent background presence of the garbage collector.
+The annotation {finalizer} marks that calling a certain method means that the object has reached the end of its
+life-cycle:
+
+****
+Once a method marked {finalizer} has been called, no other methods may be subsequently applied.
+****
+
+Why is this useful?
+The most obvious use-case for immutability is the meaning of the `build()` method in a builder: can you call it once,
+or is the builder somehow incremental?
+Secondly, consider "terminal" operations such as `findAny` or `collect` on a stream. They close the stream,
+after which you are not allowed to use it anymore.
+
+In the terms of this chapter, a finalizer is a _transfer of the receiver_: the caller hands the object over to the
+call, and does not use it afterwards.
+
+[#finalizer-exemption]
+=== A finalizer does not modify
+
+Whatever the finalizer does to the dying object is invisible to the rest of the program: there is no "after" in
+which the change could be observed.
+We can therefore state:
+
+****
+A call to a {finalizer} method does not modify its receiver, whatever the method's own {nm} or {modified} status.
+****
+
+This is not a corner case; it is what makes stream-based code fit the definitions of this document.
+The stream operations `filter`, `map`, `flatMap`, `collect`, and their relatives each consume the stream they are
+called on: using the receiver again afterwards is illegal.
+They are finalizers, and none of them can promise to be {nm}.
+
+.Example {counter:example}, a stream pipeline does not modify the field it starts from
+[source,java]
+----
+@ImmutableContainer(hc=true)
+class Names {
+    private final List<String> names;
+
+    public Names(List<String> names) {
+        this.names = List.copyOf(names);
+    }
+
+    @NotModified
+    public List<String> upperCase() {
+        return names.stream()           // <1>
+            .map(String::toUpperCase)   // <2>
+            .toList();
+    }
+}
+----
+
+<1> A new stream, linked to the field `names`.
+<2> A modifying call on that stream, in the plain reading.
+
+Without the statement above, the modification at the second callout would travel along the link to the field `names`,
+and from there to the method: every method containing a stream pipeline would be {modified}, and no type with such
+a method could be immutable.
+With it, the pipeline is silent about its receivers, and only genuine evidence, such as what the lambda captures and
+modifies, or where the collector puts its results, determines the verdict.
+
+[#finalizer-rules]
+=== Sequencing rules
+
+How can the analyzer enforce the sequence of method calling on an object?
+The simplest way is by some severe restrictions:
+
+****
+The following need to be true at all times when using types with finalizer methods:
+
+. Any field of a type with finalizers must be effectively final (marked with {final}).
+. A finalizer method can only be called on a field inside a method which is marked as a finalizer as well.
+. A finalizer method can never be called on a parameter or any variable linked to it, with linking as defined throughout this document (see <<linking-dependence>>).
+****
+
+These restrictions help you control the life-cycle of objects with a {finalizer}, by not letting them out of sight.
+Each of them is an ownership rule:
+
+[cols="1,1"]
+|===
+|Rule |In ownership terms
+
+|no method may be called after the finalizer
+|the receiver is not used after the call: a transfer (<<ownership-transfer>>), with the receiver as the argument
+|1. a type with finalizers has effectively final fields
+|the owner cannot be swapped out
+|2. a finalizer is called on a field only inside a finalizer
+|an owner consumes what it owns only while it is itself consumed (in Rust, moving out of a field needs `self` by value)
+|3. never on a parameter, or anything linked to it
+|a borrowed object cannot be consumed
+|===
+
+The eventually immutable types of the next chapter use finalizers to keep an object in its _before_ state while it
+is held by a field (<<finalizers-before-mark>>).
+
+[#finalizer-transfer]
+=== Handing over what you own
+
+The second condition for an owned field says it never leaves.
+A finalizer is the one place where it may: after the call, its owner is dead, so the object still has a single
+holder.
+
+.Example {counter:example}, a builder handing over its owned field
+[source,java]
+----
+class Report {
+    private final List<String> lines;
+
+    private Report(List<String> lines) {
+        this.lines = lines;
+    }
+
+    static class Builder {
+        @Owned
+        private final List<String> lines = new ArrayList<>();
+
+        @Fluent
+        Builder add(String line) {
+            lines.add(line);
+            return this;
+        }
+
+        @Finalizer
+        Report build() {
+            return new Report(lines); // <1>
+        }
+    }
+}
+
+...
+Report report = new Report.Builder().add("a").add("b").build(); // <2>
+----
+
+<1> The owned list leaves the builder; this is allowed in a finalizer only.
+<2> The builder is a temporary: nothing can use it after `build()`.
+
+The two callouts are the two sides of the annotation.
+A method _needs_ to be a finalizer when it hands over an owned field of its own type; it is _permitted_ to be one
+when every call site hands over the receiver: a temporary (a construction, a fresh method's result, a chain of
+{fluent} calls on one), or a local that is not used after the call.
+The analyzer computes {finalizer} only when both hold.
+Call-site evidence alone would be vacuous: any method called once, on a temporary, would qualify.
+
+For a contracted finalizer, the same test on every call site finds the uses of the receiver after the call, for
+example a stream used again after `map`.
+They are reported as warnings: the statement of <<finalizer-exemption>> relies on them not happening.
+
+== Ownership and independence
+
+Ownership is a stronger form of independence for one field, parameter or result: an owned field is independent,
+since no other holder exists through which a modification could travel; and a borrowed parameter is independent,
+since nothing retains it.
+The converse does not hold, because independence allows immutable sharing.
+The fields of this chapter's examples, side by side:
+
+[cols="3,1,1,3"]
+|===
+|Field |Independent |Owned |Why
+
+|`List<String> lines = new ArrayList<>()`, never leaves
+|{y}
+|{y}
+|a single holder: nothing can travel, nobody else can reach it
+
+|`String name`, stored from a parameter
+|{y}
+|{n}
+|shared, but nothing can travel through a `String`
+
+|`List<String> tags`, a `List.copyOf` of a parameter
+|{y}
+|{n}
+|`copyOf` may return its argument: possibly shared, and immutable either way
+
+|`List<String> tags`, stored from a public constructor's parameter
+|{n}
+|{n}
+|the caller holds the list, and can modify it
+|===
+
+There is no row with an owned, dependent field.
+
+// ensure a newline at the end

@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.graph.op;
 
+import java.util.Iterator;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.graph.EdgeIterator;
 import io.codelaser.maddi.graph.EdgePrinter;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.V;
 import io.codelaser.maddi.graph.util.TimedLogger;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Iterator;
-import java.util.Map;
 
 public class GreedyEdgeRemoval<T> implements BreakCycles.ActionComputer<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(GreedyEdgeRemoval.class);

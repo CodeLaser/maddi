@@ -1,14 +1,15 @@
 package io.codelaser.maddi.java.openjdk;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.IntStream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * <b>GAP #12's residual.</b> When the same type arrives twice — once committed from a stale jar, once again from
@@ -138,7 +139,7 @@ public class TestGap12StaleArtifactDiagnosis {
 
     /** One missing package produces one error per use site; this is the real shape, 50 of them in one file. */
     private static List<String> fiftyMissingPackageErrors() {
-        return java.util.stream.IntStream.range(0, 50)
+        return IntStream.range(0, 50)
                 .mapToObj(i -> "line " + (7 + i) + ": package com.example.ann does not exist")
                 .toList();
     }
@@ -175,7 +176,7 @@ public class TestGap12StaleArtifactDiagnosis {
     @DisplayName("#12b: the error list is deduplicated and capped, but says what it dropped")
     @Test
     public void theCapIsNotSilent() {
-        List<String> many = java.util.stream.IntStream.range(0, 12)
+        List<String> many = IntStream.range(0, 12)
                 .mapToObj(i -> "line " + i + ": cannot find symbol Distinct" + i).toList();
         String m = StaleArtifactDiagnosis.message(TYPE, SRC, "main", false, CLASSES, MEMBER, EXISTING, many);
         assertTrue(m.contains("12 javac error(s)"), m);

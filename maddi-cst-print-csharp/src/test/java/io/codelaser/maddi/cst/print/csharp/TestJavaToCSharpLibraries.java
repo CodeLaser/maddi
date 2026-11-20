@@ -17,20 +17,21 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Set;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
 /**
  * The library mappings besides the JDK's: slf4j, Jackson, JAXB and Micrometer, a client's overrides in Java and as a
@@ -196,6 +197,8 @@ public class TestJavaToCSharpLibraries extends CommonJavaToCSharp {
                 annotation com.fasterxml.jackson.annotation.JsonProperty -> JsonPropertyName($value)
                 annotation com.fasterxml.jackson.annotation.JsonProperty -> Marked
                 """, "marks.csmap")));
+        // the mapping names attributes that exist nowhere: the sample is about the parsing, not C#
+        compile = false;
         String cs = translate("Marks", MARKS);
         contains(cs, "s.Replace(\" #\", \"\")");
         contains(cs, "[JsonPropertyName(\"n\")] [JsonRequired]");

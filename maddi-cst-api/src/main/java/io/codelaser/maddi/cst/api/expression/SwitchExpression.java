@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.cst.api.expression;
 
+import java.util.Collection;
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.statement.SwitchEntry;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.Collection;
-import java.util.List;
 
 /**
  * A switch expression, {@code switch (selector) { case ... -> value; ... }}, which yields a value. Like

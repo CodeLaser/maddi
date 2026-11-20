@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
-import io.codelaser.maddi.cst.api.analysis.Property;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
 
 import java.util.*;
 
-import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
+import io.codelaser.maddi.cst.api.analysis.Property;
 
 public class PropertyProviderImpl {
 
@@ -35,6 +35,8 @@ public class PropertyProviderImpl {
                 ALWAYS_ESCAPES,
                 ANALYZER_ERROR,
                 ANNOTATED_API,
+                BORROWED_PARAMETER,
+                HANDED_OVER_PARAMETER,
                 ASSUMED_DEFAULTS,
                 COMMUTABLE_METHODS,
                 CONTAINER_FIELD,
@@ -55,6 +57,7 @@ public class PropertyProviderImpl {
                 FINAL_TYPE,
                 FINALIZER_METHOD,
                 FLUENT_METHOD,
+                FRESH_METHOD,
                 GET_SET_EQUIVALENT,
                 GET_SET_FIELD,
                 IDENTITY_METHOD,
@@ -84,9 +87,13 @@ public class PropertyProviderImpl {
                 NULLABLE_CULPRIT,
                 IMMUTABLE_CULPRIT,
                 CONTAINER_CULPRIT,
+                OWNERSHIP_CULPRIT,
                 NULLABILITY_FIELD,
                 NULLABILITY_METHOD,
                 NULLABILITY_PARAMETER,
+                OWNED_FIELD,
+                OWNED_ELEMENTS_FIELD,
+                SHARED_IMMUTABLE_FIELD,
                 OWN_FIELDS_READ_MODIFIED_IN_METHOD,
                 PARALLEL_PARAMETER_GROUPS,
                 PARAMETER_ASSIGNED_TO_FIELD,

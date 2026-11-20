@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.inspection.api.parser;
 
-import io.codelaser.maddi.cst.api.type.NamedType;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 public record TypeParameterMap(Map<NamedType, ParameterizedType> map) {
 

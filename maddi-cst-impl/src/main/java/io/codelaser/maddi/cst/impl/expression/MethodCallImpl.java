@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.element.Comment;
@@ -24,7 +29,6 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.element.Visitor;
 import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -43,11 +47,6 @@ import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
 import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.type.DiamondEnum;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class MethodCallImpl extends ExpressionImpl implements MethodCall {
     private final Expression object;
@@ -408,29 +407,38 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
         MethodInfo translatedMethod = translationMap.translateMethodInfo(methodInfo);
         Expression translatedObject = object.translate(translationMap);
         ParameterizedType translatedReturnType = translationMap.translateType(concreteReturnType);
-        List<Expression> translatedParameters = parameterExpressions.isEmpty() ? parameterExpressions :
-                parameterExpressions.stream()
-                        // a translation that turns an argument into an empty expression removes it; an argument
-                        // that was already empty (a front end's placeholder for code it did not convert) stays, or
-                        // any translation of the call -- even one renumbering statement indices -- deletes it
-                        .map(e -> {
-                            Expression t = e.translate(translationMap);
-                            return t.isEmpty() && !e.isEmpty() ? null : t;
-                        })
-                        .filter(Objects::nonNull)
-                        .collect(translationMap.toList(parameterExpressions));
-        List<ParameterizedType> trTypeArgs = typeArguments.stream()
-                .map(translationMap::translateType)
-                .collect(translationMap.toList(typeArguments));
+        // The two list fields are only read here (stream, size, get), never handed on: the lists this call holds
+        // stay its own, so the modification analysis can see that, after its parts are committed, translate
+        // modifies nothing (CodeLaser/maddi-mod#133). Hence fresh lists and 'changed' flags instead of
+        // translationMap.toList(field), which hands back the field itself when nothing changed.
+        List<Expression> translatedParameters = parameterExpressions.stream()
+                // a translation that turns an argument into an empty expression removes it; an argument
+                // that was already empty (a front end's placeholder for code it did not convert) stays, or
+                // any translation of the call -- even one renumbering statement indices -- deletes it
+                .map(e -> {
+                    Expression t = e.translate(translationMap);
+                    return t.isEmpty() && !e.isEmpty() ? null : t;
+                })
+                .filter(Objects::nonNull)
+                .toList();
+        boolean parametersChanged = translatedParameters.size() != parameterExpressions.size();
+        for (int i = 0; !parametersChanged && i < translatedParameters.size(); i++) {
+            parametersChanged = translatedParameters.get(i) != parameterExpressions.get(i);
+        }
+        List<ParameterizedType> trTypeArgs = typeArguments.stream().map(translationMap::translateType).toList();
+        boolean typeArgumentsChanged = false;
+        for (int i = 0; !typeArgumentsChanged && i < trTypeArgs.size(); i++) {
+            typeArgumentsChanged = trTypeArgs.get(i) != typeArguments.get(i);
+        }
         String newModificationTimes = Objects.requireNonNullElse(
                 translationMap.modificationTimes(this, translatedObject, translatedParameters),
                 modificationTimes);
         if (translatedMethod == methodInfo
             && translatedObject == object
             && translatedReturnType == concreteReturnType
-            && translatedParameters == parameterExpressions
+            && !parametersChanged
             && newModificationTimes.equals(modificationTimes)
-            && trTypeArgs == typeArguments
+            && !typeArgumentsChanged
             && (propertyValueMap.isEmpty() || !translationMap.isClearAnalysis())) {
             return this;
         }

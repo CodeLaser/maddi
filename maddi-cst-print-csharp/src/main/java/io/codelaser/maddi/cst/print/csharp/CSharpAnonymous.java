@@ -17,8 +17,13 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.print.translate.CstSupertypes;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -34,13 +39,8 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.This;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 /**
  * C# has no anonymous classes. One that does not become a lambda (see {@link CSharpProgram#lambdaLike}) is hoisted:
@@ -130,10 +130,14 @@ final class CSharpAnonymous {
     }
 
     /**
-     * The superclass constructor an anonymous class's creation calls (the CST has none for it): the only one of its
-     * arity, not of variable arity; null when there is none such, or several.
+     * The superclass constructor an anonymous class's creation calls, when it is not of variable arity: the one the
+     * front end resolved (maddi#194); from a front end that does not say, the only one of its arity, null when there is
+     * none such, or several.
      */
     static MethodInfo superConstructor(ConstructorCall cc) {
+        if (cc.isAnonymousCreation() && cc.constructor() != null) {
+            return cc.constructor().isVarargs() ? null : cc.constructor();
+        }
         ParameterizedType parent = cc.anonymousClass() == null ? null : cc.anonymousClass().parentClass();
         if (parent == null || parent.typeInfo() == null) return null;
         List<MethodInfo> candidates = parent.typeInfo().constructors().stream()

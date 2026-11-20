@@ -40,6 +40,7 @@ import java.util.stream.Stream;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Fresh;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
@@ -2056,7 +2057,7 @@ public class JavaLang {
         IntStream codePoints() { return null; }
 
         //@Independent[O] @NotModified[T]
-        char [] toCharArray() { return null; }
+        @Fresh char [] toCharArray() { return null; }
 
         //@NotModified[T]
         static String format(@NotNull String format, @NotNull(nullableArguments = 0) @NotModified /*@Independent[T]*/ Object ... args) { return null; }
@@ -2709,10 +2710,11 @@ public class JavaLang {
         @IgnoreModifications
         static long currentTimeMillis() { return 0L; }
         static long nanoTime() { return 0L; }
+        // dest (object1) is written into: @Modified, as Array.set's array (CodeLaser/maddi#205)
         static void arraycopy(
             /*@Immutable(hc=true)[T] @Independent[T]*/ @Independent(hcParameters = { 2 }) @NotModified @NotNull Object object,
             int i,
-            /*@Immutable(hc=true)[T] @NotModified[T]*/ @NotNull Object object1,
+            /*@Immutable(hc=true)[T] @NotModified[T]*/ @NotNull @Modified Object object1,
             int i1,
             int i2) { }
 
@@ -2913,8 +2915,9 @@ public class JavaLang {
         @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintStream s) { }
         @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintWriter s) { }
         @Modified Throwable fillInStackTrace() { return null; }
-        @NotModified StackTraceElement [] getStackTrace() { return null; }
-        @Modified void setStackTrace(@NotModified @NotNull StackTraceElement [] stackTrace) { }
+        // CodeLaser/maddi-mod#129: both copy the array (getOurStackTrace().clone(), stackTrace.clone())
+        @NotModified @Independent StackTraceElement [] getStackTrace() { return null; }
+        @Modified void setStackTrace(@NotModified @Independent @NotNull StackTraceElement [] stackTrace) { }
         @Modified void addSuppressed(@NotNull @NotModified Throwable exception) { }
         @NotModified Throwable [] getSuppressed() { return null; }
     

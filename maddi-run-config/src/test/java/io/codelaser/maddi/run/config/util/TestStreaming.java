@@ -17,26 +17,28 @@
 
 package io.codelaser.maddi.run.config.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
-import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
-import io.codelaser.maddi.run.config.Configuration;
-import io.codelaser.maddi.cst.api.element.FingerPrint;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.Configuration;
 
 public class TestStreaming {
     @Test
@@ -232,6 +234,7 @@ public class TestStreaming {
                 .setLanguageLevel(21).setEnablePreview(true).build();
         SourceSet kotlin = new SourceSetImpl.Builder().setName("app-main").setUri(URI.create("file:/repo/app"))
                 .setKotlinLanguageVersion("1.9").setKotlinApiVersion("1.9").setJvmTarget(17).setJdkHome("/jdk/17")
+                .setKotlinPluginOptions(List.of("plugin:p:a=1", "plugin:q:b=2"))
                 .build();
         SourceSet silent = new SourceSetImpl.Builder().setName("says-nothing").setUri(URI.create("file:/repo/other"))
                 .build();
@@ -241,6 +244,7 @@ public class TestStreaming {
         Assertions.assertEquals("1.9", renamed.kotlinApiVersion());
         Assertions.assertEquals(17, renamed.jvmTarget());
         Assertions.assertEquals("/jdk/17", renamed.jdkHome());
+        Assertions.assertEquals(List.of("plugin:p:a=1", "plugin:q:b=2"), renamed.kotlinPluginOptions());
         SourceSet renamedJava = new SourceSetImpl.Builder(java).setName("renamed-java").build();
         Assertions.assertEquals(21, renamedJava.languageLevel());
         Assertions.assertTrue(renamedJava.enablePreview());
@@ -258,6 +262,7 @@ public class TestStreaming {
         Assertions.assertEquals("1.9", copy.sourceSets().get(1).kotlinApiVersion());
         Assertions.assertEquals(17, copy.sourceSets().get(1).jvmTarget());
         Assertions.assertEquals("/jdk/17", copy.sourceSets().get(1).jdkHome());
+        Assertions.assertEquals(List.of("plugin:p:a=1", "plugin:q:b=2"), copy.sourceSets().get(1).kotlinPluginOptions());
         Assertions.assertEquals(0, copy.sourceSets().get(1).languageLevel());
         SourceSet none = copy.sourceSets().get(2);
         Assertions.assertEquals(0, none.languageLevel());
@@ -266,8 +271,9 @@ public class TestStreaming {
         Assertions.assertNull(none.kotlinApiVersion());
         Assertions.assertEquals(0, none.jvmTarget());
         Assertions.assertNull(none.jdkHome());
+        Assertions.assertEquals(List.of(), none.kotlinPluginOptions());
         for (String key : List.of("languageLevel", "enablePreview", "kotlinLanguageVersion", "kotlinApiVersion",
-                "jvmTarget", "jdkHome")) {
+                "jvmTarget", "jdkHome", "kotlinPluginOptions")) {
             Assertions.assertEquals(1, json.split("\"" + key + "\"", -1).length - 1, key + " only where stated: " + json);
         }
     }

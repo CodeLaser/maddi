@@ -17,15 +17,15 @@
 
 package io.codelaser.maddi.inspection.api.parser;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /*
 result of successful parsing.
@@ -66,7 +66,23 @@ public interface ParseResult {
 
     int size();
 
+    /**
+     * The types named {@code fqn}: one per source set that declares it, so usually one. <b>Null</b> when none does.
+     * <p>
+     * ⚠ More than one is an ordinary state, not an error: integration-test applications, mutually exclusive
+     * extensions and generated sources declare the same name in source sets that never see each other (quarkus: 383
+     * such names). The list is in a fixed order, by source-set name, so the same parse always gives the same list;
+     * but no position in it means anything. A caller that acts on "the" type must choose by source set, or refuse,
+     * never take the first one (CodeLaser/maddi#224). See {@link #duplicatePrimaryTypes()}.
+     */
     List<TypeInfo> typeByFullyQualifiedName(String fqn);
+
+    /**
+     * Every primary type whose fully qualified name is declared in more than one source set, by name (sorted), each
+     * list ordered by source-set name. Empty when every name is unique. The census a refactoring checks before it
+     * resolves a name to a single type.
+     */
+    Map<String, List<TypeInfo>> duplicatePrimaryTypes();
 
     /**
      * The types whose {@link TypeInfo#binaryName()} is exactly {@code binaryName} — {@code a.b.Outer$Inner}, the

@@ -1,16 +1,17 @@
 package io.codelaser.maddi.java.openjdk;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.Map;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * CodeLaser/maddi#144: the type-use annotations written on an anonymous class creation's type are kept, on the

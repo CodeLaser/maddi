@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.cst.print.formatter2;
 
-import io.codelaser.maddi.cst.api.output.OutputElement;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import io.codelaser.maddi.cst.api.output.OutputElement;
 
 public class Util {
 

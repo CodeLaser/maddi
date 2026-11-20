@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Kotlin has no {@code ;}, so statements must end up on lines of their own, also in a block the formatter would

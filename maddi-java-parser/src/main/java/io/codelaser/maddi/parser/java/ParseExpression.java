@@ -17,6 +17,23 @@
 
 package io.codelaser.maddi.parser.java;
 
+import static org.parsers.java.Token.TokenType.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+import org.parsers.java.ast.ArrayInitializer;
+import org.parsers.java.ast.MethodCall;
+import org.parsers.java.ast.MethodReference;
+import org.parsers.java.ast.SwitchExpression;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
@@ -39,21 +56,6 @@ import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.parser.java.util.EscapeSequence;
 import io.codelaser.maddi.parser.java.util.TextBlockParser;
 import io.codelaser.maddi.util.StringUtil;
-import org.parsers.java.Node;
-import org.parsers.java.Token;
-import org.parsers.java.ast.*;
-import org.parsers.java.ast.ArrayInitializer;
-import org.parsers.java.ast.MethodCall;
-import org.parsers.java.ast.MethodReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import static org.parsers.java.Token.TokenType.*;
 
 public class ParseExpression extends CommonParse {
     private static final Logger LOGGER = LoggerFactory.getLogger(ParseExpression.class);
@@ -138,7 +140,7 @@ public class ParseExpression extends CommonParse {
             case TernaryExpression _ -> inlineConditional(context, index, forwardType, comments, source, node);
             case ArrayInitializer _, MemberValueArrayInitializer _ ->
                     arrayInitializer(context, index, forwardType, comments, source, node);
-            case org.parsers.java.ast.SwitchExpression _ ->
+            case SwitchExpression _ ->
                     parseSwitchExpression(context, index, forwardType, comments, source, node.getFirst());
             case InstanceOfExpression ioe -> parseInstanceOf(context, index, forwardType, comments, source, ioe);
             case ObjectType ot -> {

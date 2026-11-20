@@ -1,8 +1,7 @@
 [[appendix-exit-codes]]
 = Exit codes
 
-Every runner returns one of these process exit codes (shared across the openjdk, in-house and Kotlin
-runners). A parse error never returns `0`.
+Every run returns one of these process exit codes. A parse error never returns `0`.
 
 [cols="1,2,4",options="header"]
 |===
@@ -15,6 +14,10 @@ runners). A parse error never returns `0`.
 map to `2`.)
 | `4` | IO exception | An IO failure — e.g. a source directory or classpath entry could not be read.
 | `5` | Analyzer error | The modification analysis threw.
+| `6` | Kotlin sources | The Java analyzer was handed a project with Kotlin sources. It refuses rather than report
+success over a tree it only partly read; `--skip-kotlin-sources` overrides, or use `maddi-kotlin` (<<kotlin>>).
+| `7` | Unsupported option | An option was given that this pipeline does not honour, for example writing analysis
+results from the mixed Java and Kotlin pipeline. It refuses rather than run the option as a no-op.
 |===
 
 TIP: Unresolved references to types not on the (partial) classpath are *warnings*, not errors — they do

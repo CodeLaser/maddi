@@ -17,6 +17,15 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -26,14 +35,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 import io.codelaser.maddi.cst.impl.type.WildcardEnum;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 /**
  * Renders a {@link ParameterizedType} as a C# type reference.
@@ -69,7 +71,8 @@ public final class CSharpTypeName {
     /** The value types C# has for Java's types, the primitives and the BCL mapping's structs. */
     private static final Set<String> VALUE_TYPES = Set.of("int", "long", "short", "sbyte", "byte", "char", "bool",
             "double", "float", "decimal", "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan",
-            "KeyValuePair", "ValueTuple", "JavaChronoUnit", "JavaPeriod", "JavaTimeUnit");
+            "KeyValuePair", "ValueTuple", "JavaChronoUnit", "JavaPeriod", "JavaTimeUnit", "BigInteger",
+            "MidpointRounding");
 
     /** The structs a Java reference type maps to, {@link #valueReference}. */
     private static final Set<String> STRUCTS = Set.of("decimal", "Guid", "DateOnly", "TimeOnly", "DateTime",
@@ -90,6 +93,16 @@ public final class CSharpTypeName {
             "java.util.Collection", "IReadOnlyCollection",
             "java.util.Set", "IReadOnlyCollection",
             "java.lang.Iterable", "IEnumerable");
+
+    /**
+     * C#'s non-generic interface of a JDK collection, {@code IList} for a {@code List}, which every generic one is
+     * (with its using); null for another type.
+     */
+    static String nonGeneric(TypeInfo t) {
+        String nonGeneric = t == null ? null : NON_GENERIC.get(t.fullyQualifiedName());
+        if (nonGeneric != null) CSharpContext.using("IComparable".equals(nonGeneric) ? "System" : "System.Collections");
+        return nonGeneric;
+    }
 
     private static final ThreadLocal<Boolean> EXPRESSION = ThreadLocal.withInitial(() -> false);
 
@@ -152,6 +165,30 @@ public final class CSharpTypeName {
     }
 
     /**
+     * The type a creation names, {@code new AndThenCollector<S, object>(…)} for a diamond resolved to
+     * {@code AndThenCollector<S, ?>} from its target: a wildcard argument is its bound, never the wildcard interface
+     * a wildcard use would be (CS0144).
+     */
+    static String created(ParameterizedType pt, Qualification q) {
+        TypeInfo t = pt.typeInfo();
+        if (t == null || pt.arrays() != 0 || !CSharpNames.translated(t) || pt.parameters().isEmpty()
+            || pt.parameters().size() != t.typeParameters().size()
+            || pt.parameters().stream().noneMatch(a -> a.wildcard() != null)) {
+            return of(pt, q);
+        }
+        List<String> printed = new ArrayList<>();
+        for (int i = 0; i < pt.parameters().size(); i++) {
+            ParameterizedType a = pt.parameters().get(i);
+            boolean unbound = a.wildcard() != null && (a.wildcard().isUnbound() || a.typeInfo() == null && a.typeParameter() == null);
+            printed.add(unbound ? rawArgument(t.typeParameters().get(i), q)
+                    : a.wildcard() != null ? argument(a.withWildcard(null), q) : argument(a, q));
+        }
+        String name = name(t, q);
+        String inner = innerOfGeneric(t, name, printed);
+        return inner != null ? inner : name + "<" + String.join(", ", printed) + ">";
+    }
+
+    /**
      * The type of a declaration, with what the analysis knows: a collection parameter the method does not modify is
      * read-only ({@code IReadOnlyList<T>}), a reference type that may be null is {@code T?}.
      */
@@ -207,6 +244,8 @@ public final class CSharpTypeName {
      * mapping makes of Java's types (Guid, DateOnly, decimal, KeyValuePair for an entry) stay as they are.
      */
     private static boolean valueTypeFree(ParameterizedType pt, String type) {
+        // a struct of the program is never null (CSharpStructs)
+        if (pt.arrays() == 0 && !pt.isTypeParameter() && CSharpContext.program().struct(pt.typeInfo())) return false;
         if (pt.arrays() == 0 && pt.typeInfo() != null && pt.typeInfo().typeNature().isEnum()
             && CSharpNames.simpleEnum(pt.typeInfo())) {
             return false;
@@ -256,8 +295,10 @@ public final class CSharpTypeName {
         List<TypeParameter> erased = CSharpContext.erasedTypeParameters();
         if (pt.isTypeParameter()) {
             // in a method C# prints with its type parameters erased (CSharpProgram): the bound
-            return erased.contains(pt.typeParameter()) ? rawArgument(pt.typeParameter(), q)
-                    : CSharpNames.typeParameter(pt.typeParameter());
+            if (erased.contains(pt.typeParameter())) return rawArgument(pt.typeParameter(), q);
+            // a generic type's own, of a captured parameter's type: the capture's name (CSharpContext.capturedName)
+            String captured = CSharpContext.capturedName(pt.typeParameter());
+            return captured != null ? captured : CSharpNames.typeParameter(pt.typeParameter());
         }
         if (!erased.isEmpty()) pt = erasedToWildcards(pt, erased);
         TypeInfo typeInfo = pt.typeInfo();
@@ -308,12 +349,107 @@ public final class CSharpTypeName {
             ParameterizedType a = arguments.get(i);
             // Key<?> where Key<T extends Attribute>: the bound, which satisfies the constraint
             boolean unbound = a.wildcard() != null && a.wildcard().isUnbound() && i < typeInfo.typeParameters().size();
-            printed.add(unbound ? rawArgument(typeInfo.typeParameters().get(i), q) : of(a, q, true));
+            if (unbound) {
+                printed.add(rawArgument(typeInfo.typeParameters().get(i), q));
+            } else if (a.wildcard() != null && i < typeInfo.typeParameters().size() && exact(a, typeInfo.typeParameters().get(i))) {
+                // ? extends B of an out parameter is B: C#'s declaration-site variance says what Java's wildcard said
+                printed.add(of(a.withWildcard(null), q, true));
+            } else {
+                printed.add(of(a, q, true));
+            }
         }
         LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
         String name = bcl != null ? bcl(bcl, printed, arguments, q) : name(typeInfo, q);
+        if (bcl == null) {
+            String inner = innerOfGeneric(typeInfo, name, printed);
+            if (inner != null) return inner;
+        }
         String type = bcl != null || printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
         return !typeArgument && valueReference(pt) ? type + "?" : type;
+    }
+
+    /** Wildcard argument {@code a} at {@code tp} is its bound exactly: {@code ? extends B} at an {@code out}, {@code ? super B} at an {@code in}. */
+    private static boolean exact(ParameterizedType a, TypeParameter tp) {
+        String variance = CSharpContext.program().variance(tp);
+        return variance != null && (a.typeInfo() != null || a.typeParameter() != null)
+               && (a.wildcard().isExtends() ? "out" : "in").equals(variance);
+    }
+
+    /**
+     * An inner class of a generic class, {@code ElementAwareArrayList<T>.Entry}: Java's arguments are its outer types'
+     * first, then its own (as the Java printer's {@code distributeTypeParameters} has them), and C# writes each on its
+     * own segment, {@code ElementAwareArrayList<T>.Entry}, not {@code ElementAwareArrayList.Entry<T>}. A name in scope
+     * by its simple name is the outer type's own instance, {@code Entry}. Without the outer types' arguments, as
+     * {@code DownstreamIterator} is written inside its outer class, a qualified name has the enclosing type's own
+     * type parameters, or their bounds outside it. Null when no outer type of the name is generic.
+     */
+    private static String innerOfGeneric(TypeInfo typeInfo, String name, List<String> printed) {
+        List<TypeInfo> chain = new ArrayList<>();
+        chain.add(typeInfo);
+        for (TypeInfo t = typeInfo; inner(t); ) {
+            t = CstQueries.enclosing(t);
+            chain.addFirst(t);
+        }
+        if (chain.size() == 1 || chain.subList(0, chain.size() - 1).stream().allMatch(t -> t.typeParameters().isEmpty())) {
+            return null;
+        }
+        int own = typeInfo.typeParameters().size();
+        if (printed.size() < own) return null;
+        List<String> ownArguments = printed.subList(printed.size() - own, printed.size());
+        String ownPart = ownArguments.isEmpty() ? "" : "<" + String.join(", ", ownArguments) + ">";
+        TypeInfo current = CSharpContext.currentType();
+        TypeInfo outer = chain.get(chain.size() - 2);
+        if (!name.contains(".")) {
+            if (current != null && current.isEnclosedIn(outer)) return name + ownPart;
+            // out of the outer class's scope the name is not: Bag<string>.Entry
+            name = fromPrimaryType(typeInfo);
+        }
+        List<String> outerArguments = printed.subList(0, printed.size() - own);
+        String[] segments = name.split("\\.");
+        if (segments.length < chain.size()) return null;
+        int first = segments.length - chain.size();
+        StringBuilder sb = new StringBuilder(String.join(".", Arrays.asList(segments).subList(0, first)));
+        int end = outerArguments.size();
+        List<String> parts = new ArrayList<>();
+        for (int i = chain.size() - 2; i >= 0; i--) {
+            TypeInfo e = chain.get(i);
+            List<String> arguments;
+            if (outerArguments.isEmpty()) {
+                boolean inside = current != null && current.isEnclosedIn(e);
+                ParameterizedType inherited = inside ? null : inheritedOuter(current, e);
+                arguments = inherited != null ? inherited.parameters().stream().map(a -> of(a, null, true)).toList()
+                        : e.typeParameters().stream()
+                        .map(tp -> inside ? CSharpNames.typeParameter(tp) : rawArgument(tp, null)).toList();
+            } else {
+                int k = e.typeParameters().size();
+                if (end < k) return null;
+                arguments = outerArguments.subList(end - k, end);
+                end -= k;
+            }
+            parts.addFirst(segments[first + i] + (arguments.isEmpty() ? "" : "<" + String.join(", ", arguments) + ">"));
+        }
+        if (!sb.isEmpty()) sb.append('.');
+        return sb.append(String.join(".", parts)).append('.').append(segments[segments.length - 1]).append(ownPart)
+                .toString();
+    }
+
+    /**
+     * {@code outer} as the code being printed, or a type it is nested in, extends it: an inner class inherited from a
+     * generic superclass, {@code FilteringValueSelector<Solution_>.JustInTimeFilteringValueIterator}. Null when none
+     * does, or does so raw.
+     */
+    private static ParameterizedType inheritedOuter(TypeInfo current, TypeInfo outer) {
+        for (TypeInfo t = current; t != null; t = CstQueries.enclosing(t)) {
+            ParameterizedType seen = CstSupertypes.asSeen(t, outer);
+            if (seen != null) return seen.parameters().size() == outer.typeParameters().size() ? seen : null;
+        }
+        return null;
+    }
+
+    /** A nested class whose instances belong to an instance of the enclosing class, which C# keeps nested. */
+    private static boolean inner(TypeInfo t) {
+        return CstQueries.enclosing(t) != null && t.enclosingMethod() == null && !t.isStatic() && !t.isInterface()
+               && !t.typeNature().isEnum() && !t.typeNature().isRecord() && !CSharpNames.hoisted(t);
     }
 
     /** A library type C# prints without its type arguments: {@code Class<A>}'s {@code Type}. */
@@ -469,7 +605,7 @@ public final class CSharpTypeName {
     }
 
     /** {@code InnerScore<Score_>} with {@code Score_} erased: {@code InnerScore<?>}. */
-    private static ParameterizedType erasedToWildcards(ParameterizedType pt, List<TypeParameter> erased) {
+    static ParameterizedType erasedToWildcards(ParameterizedType pt, List<TypeParameter> erased) {
         if (pt.parameters().isEmpty()) return pt;
         boolean changed = false;
         List<ParameterizedType> arguments = new ArrayList<>();

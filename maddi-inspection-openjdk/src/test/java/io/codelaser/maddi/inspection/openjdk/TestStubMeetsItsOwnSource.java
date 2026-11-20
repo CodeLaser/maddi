@@ -17,19 +17,9 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static org.junit.jupiter.api.Assertions.*;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -41,8 +31,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.junit.jupiter.api.Assertions.*;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /**
  * ⛔⛔ <b>A STUB MET THE SOURCE IT STANDS IN FOR, AND THE SOURCE LOST.</b> {@code ClassSymbolScanner} mints a
@@ -148,11 +150,9 @@ public class TestStubMeetsItsOwnSource {
         assertEquals("(stub, no source set)", gap.prepAsSeenByProjectData(),
                 "with the gap the consumer resolves ProjectData.prep() to a stub -- if this ever stops being"
                 + " true the fixture has stopped minting one and the test above proves nothing");
-        // ⚠ Asserted as "a real source set", not by name. The control answers java.base, which is NOT the
-        // 'prep-classes' set it was given: ensureSourceSet's directory-prefix lookup takes the first
-        // sourceSetDirPrefixes entry whose key the path starts with, and that map is unordered. Noted as an
-        // observation, not fixed here -- what this control has to establish is that the gap run's stub is the
-        // gap, and a type on a real source set is exactly that.
+        // the class directory's own set: ensureSourceSet takes the longest directory prefix (it took the first entry
+        // of an unordered map, and answered java.base, whose 'file:/' is a prefix of everything)
+        assertEquals("prep-classes", control.prepAsSeenByProjectData());
         assertNotEquals("(stub, no source set)", control.prepAsSeenByProjectData(),
                 "without the gap Prep resolves to a real source set, so no stub is minted at all");
     }

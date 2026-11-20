@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.cst.io;
 
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 
 public class TestCodecType extends  CommonTest {
@@ -70,6 +71,17 @@ public class TestCodecType extends  CommonTest {
         assertEquals(encoded, codec.encodeType(context, type).toString());
         CodecImpl.D d = makeD(encoded);
         assertEquals(type, codec.decodeType(context, d));
+    }
+
+    // a wildcard whose bound is neither a type nor a type parameter is written in the long form of the null type
+    @DisplayName("[\"X\",0,[],\"E\"]: '? extends' over nothing reads as ?")
+    @Test
+    public void wildcardOverNothing() {
+        CodecImpl.D d = makeD("[\"X\",0,[],\"E\"]");
+        assertEquals(runtime.parameterizedTypeWildcard(), codec.decodeType(context, d));
+        CodecImpl.D inside = makeD("[\"Tjava.lang.String\",1,[[\"X\",0,[],\"E\"]]]");
+        assertEquals(runtime.newParameterizedType(runtime.stringTypeInfo(), List.of(runtime.parameterizedTypeWildcard()))
+                .copyWithArrays(1), codec.decodeType(context, inside));
     }
 
     @DisplayName("? super String")

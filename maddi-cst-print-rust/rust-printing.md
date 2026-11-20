@@ -30,13 +30,15 @@ report, and a test can supply any verdict it likes, a wrong one included.
 
 ## Strict on purpose
 
-Nothing is softened to please the borrow checker: no `clone()`, no `Rc<RefCell<…>>`. Where rustc rejects the
-output, it says where a verdict and the code disagree:
+Nothing is softened to please the borrow checker: no `clone()` of a mutable object, no `Rc<RefCell<…>>`. The one
+representation of sharing, `Shared<T>` (below, "Shared objects"), follows the verdicts: only what a method keeps
+is shared, and the borrow checker still judges every handle. Where rustc rejects the output, it says where a verdict
+and the code disagree:
 
 | rustc says | reading |
 |---|---|
 | E0596, E0594: cannot borrow or assign behind a `&` reference | a non-modifying (or unmodified) verdict the body contradicts: the **analyzer** is wrong |
-| E0382: use of a moved value | a dependent parameter: Java shares the object, Rust does not; the verdict is right, the **printer** needs another representation (`Rc`, a clone) |
+| E0382: use of a moved value | a dependent parameter: Java shares the object, Rust does not; the verdict is right, the **printer** needs another representation (`Shared<T>` for a kept class, a clone of a value) |
 | E0597, E0716: does not live long enough | a missed dependence |
 | E0502, E0499: overlapping borrows | aliasing plus modification |
 
@@ -121,9 +123,29 @@ Analyzer issues the oracle found, each with a minimal repro:
   impl repeat the trait's signature, so an implementation with other verdicts (`&self` where the trait has
   `&mut self`) is an inherent method with its own, and the trait's method delegates to it: the body is still judged
   against its own verdict, and `self.m()` resolves to the inherent method first.
-- A source superclass is composition (`INHERITANCE_AS_COMPOSITION`): a `base: Parent` field built by `super(…)`,
-  and an inherited field or method is reached through `.base` (`super.m()` too). A call from the parent to a method
-  the subclass overrides stays in the parent; a subclass is not accepted where the parent is expected.
+- A closed class hierarchy is one struct with a kind enum (`HIERARCHY_AS_ENUM`, `RustHierarchies`). Closed: a source
+  root without type parameters whose subclasses are all named source classes of its package, at any depth. Every
+  object of a member is an object of the root's struct, which holds the root's fields and `kind`; the kind's
+  variant per member carries a data struct for each class of its chain below the root
+  (`ExprentKind::RecordVar(VarExprentData, RecordVarExprentData)`), reached through the kind's accessors
+  (`self.kind.var_exprent().name`, `_mut` in a modifying place). A member type prints as the root's; a cast between
+  members is the object itself; `instanceof` is `matches!(e.kind, …)`, with a pattern variable
+  `let Some(v) = Some(&*e).filter(|o| matches!(o.kind, …))`, also in a let chain (`&&`). Constructors are the
+  root's associated functions (`new_assignment_exprent`): a subclass's starts from the parent's that `super(…)`
+  names and moves the parent's data into its own variant. The methods of all members are the root's: a method no
+  member overrides keeps its name; overridden ones are a family (overriding each other, or the same method outside
+  the hierarchy, as `toString` or an interface's), each implementation named after its class
+  (`body_record_var_exprent`, `super.body()` calls the parent's), and the family's name a method that matches on the
+  kind. It has the top method's verdict: an implementation that modifies where the top does not is rustc's error
+  (E0596) in the arm that calls it, which checks the analysis's verdicts of overrides. The members' interfaces are
+  implemented by the root, through the families; `equals` and `hashCode` in a hierarchy are not yet translated.
+- Any other source superclass is composition (`INHERITANCE_AS_COMPOSITION`): a `base: Parent` field built by
+  `super(…)`, and an inherited field or method is reached through `.base` (`super.m()` too). A call from the parent
+  to a method the subclass overrides stays in the parent; a subclass is not accepted where the parent is expected.
+- A JDK collection as superclass (`class Named<E> extends ArrayList<E>`, Rust's `Vec`, `VecDeque`, `HashMap`,
+  `HashSet`, `BTreeMap`, `BTreeSet`) is the struct's `base` field too, and the struct implements `Deref` and
+  `DerefMut` to it: what the class inherits is the collection's (`len`, `iter`, indexing), and a `&Named` passes
+  where a `&Vec` is taken. `super.add(e)` is `self.base.push(e)`, not an override; `super(n)`'s capacity is dropped.
 - A record is a `struct` with public fields, derived `Debug, Clone, PartialEq`, a positional `new`, and accessors.
 - An enum without state is a plain `enum` deriving `Copy`; its constants become camel-case variants.
 - A nested type is an item of its own, named after its enclosing types (`Outer.Inner` → `OuterInner`).
@@ -132,6 +154,27 @@ Analyzer issues the oracle found, each with a minimal repro:
   list: &'a Vec<String> }`, `&'a mut` when the object modifies it. The constructor takes that borrow, and the caller
   passes `&l`. Records keep their owned components. A struct with a lifetime, like a generic one, is called by its
   name rather than `Self`, which would fix the impl's lifetime or type arguments.
+- **Shared objects** (`RustShared`, gate `NORUSTSHARED`). A source class whose objects a method keeps (a dependent
+  parameter, or independent with hidden content) and a field or a collection in a field holds is held as
+  `crate::jrt::Shared<T>` wherever it is held: fernflower's `Statement`, `Exprent`, `StatEdge`, `BasicBlock`. A
+  closed hierarchy is shared as a whole, through its root. `Shared<T>` (jrt.rs) is Java's reference over an `Rc`: a
+  clone shares the object, `==` and `Hash` are identity (so `HashSet<Shared<Statement>>` is Java's identity set), and
+  it dereferences to the object, `&` and `&mut` alike, without `RefCell`'s run-time flag. That keeps the oracle: a
+  handle the verdicts call unmodified is a `&Shared<T>`, which cannot be written through (E0596,
+  `TestJavaToRustSharing.wrongVerdict`), and a read stays a read for LLVM. The price is `unsafe` inside jrt.rs: two
+  handles may both hand out `&mut` to one object, Java's aliasing, which Rust calls undefined behaviour (Bart's choice
+  over `Rc<RefCell<T>>`, 2026-11-10).
+  - `new T(..)` is `Shared::new(T::new(..))`; an owned use of a borrowed handle clones it, as an immutable value is
+    cloned; a kept argument read again is cloned, one read once is moved.
+  - `this` kept or passed where a `Shared` is expected is `Shared::of(self)`, the handle of the object `self` is; it
+    is valid only once the object is in its handle, so inside its own constructor it is reported
+    (`SHARED_THIS_IN_CONSTRUCTOR`).
+  - Java's `==` is `Shared::is`; `this == other` compares `self` with the object behind the handle; `a.equals(b)` is
+    the objects' own `PartialEq` (`Shared::equals`).
+  - `e.getDestination().preds.add(e)`: the argument's clone is taken first (`{ let __e = e.clone(); … }`), as the
+    receiver chain holds `e` mutably; a borrowed handle walking a chain (`n = n.parent`) re-borrows.
+  - Not shared: a view borrowing an object that is not shared (row 7: its lifetime stays), a class with its own
+    `equals` (Java's collections compare it by that; it keeps value semantics), records, enums, `@Immutable` types.
 - An eventually immutable type (`RustTypestate`: a `@Mark`, one transition) is a typestate: `struct Config<S =
   Before>` with a `PhantomData<S>`; constructors, statics and `@Only(before)` methods in `impl Config<Before>`, a
   method of either state in `impl<S> Config<S>`, `@Only(after)` methods in `impl Config<After>`. The mark takes
@@ -164,6 +207,14 @@ Analyzer issues the oracle found, each with a minimal repro:
 - `equals(Object)` is `impl PartialEq`, the usual preamble (`this == o`, `instanceof`, `getClass()`) left out
   because `other: &Self` already guarantees it; `hashCode()` stays a method and `impl Hash` feeds it to the hasher
   (with `impl Eq` when both are there). A call `a.equals(b)` is `a == b`.
+- A value of a source interface tested or cast to a source class (`obj instanceof Statement st`, `(SupertypeTarget) t`)
+  goes through the trait's conversions: for each class the program converts the interface's values to, the trait has
+  `fn as_statement(&self) -> Option<&Statement<'_>>` (and `_mut` for a struct without a lifetime), `None` by default
+  and `Some(self)` in the struct's impl; for a member below a hierarchy's root the conversion is the root's and the
+  kind is tested. `Any` cannot downcast a struct with a lifetime; these can. A pattern variable that is modified makes
+  the value it tests a modified one (the loop over a list of them `iter_mut`).
+- A pattern variable after a negated test (`if (!(e instanceof A a)) return …;`) is a `let … else`; a pattern in a
+  value (`return e instanceof A a && a.isX();`) is `is_some_and(|a| …)` on the binding's `Option`.
 - `o instanceof T t` of an `Object`, `T` a class without type parameters, is `if let Some(t) = o.downcast_ref::<T>()`
   (`downcast_mut` when `t` is modified, `Some(&t)` for a copy type); without a pattern variable it is `o.is::<T>()`.
   An interface, a generic type and a record pattern stay `todo!()`: `Any` cannot tell them apart.
@@ -195,7 +246,7 @@ Analyzer issues the oracle found, each with a minimal repro:
   a nullable one is `.as_deref()`. Owned, it stays a `Vec<T>`.
 - A struct holding itself by value, directly or through other structs, has no size (E0072): such a field is a
   `Box<T>`, `Option<Box<T>>` when nullable (`RustBoxes`), read as `(*self.f)` or `self.f.as_deref()`, written boxed.
-  A linked structure that Java shares (`node.next = other`) still fails: a Box owns, and sharing is a dependence.
+  A linked structure that Java shares (`node.setParent(other)`, kept) is a shared object instead, which has a size.
 - Java's `==` on objects of source classes is identity: `std::ptr::eq(a, b)`. Enum constants, strings and boxed
   primitives are values, compared with `==`.
 - A nullable value assigned where the verdicts hold the target non-null is unwrapped (`UNWRAP_AT_DEREFERENCE`).
@@ -217,6 +268,9 @@ Analyzer issues the oracle found, each with a minimal repro:
   temporary moved out; an untranslated `todo!(...)` is returned without a `&`.
 - A place written through (the object of a modifying call, an assignment's target) is reached exclusively: a
   nullable scope is `as_mut().unwrap()`, a map's value `get_mut(k)`; the arguments and indices in it are only read.
+  A local written through, also by way of a cast or a JDK accessor on it (`vlist.get(i).put(..)`, `e.getValue().clear()`),
+  is initialised as such a place (`get_mut`, `downcast_mut`), and a for-each whose elements are modified iterates
+  mutably (`iter_mut()`, a map's `iter_mut()`/`values_mut()`), the outer loop of a nested one too.
 - A getter returning one of its object's fields (`return items;`) that some caller modifies through
   (`b.items().clear()`) gets an exclusive twin, `items_mut(&mut self) -> &mut T`, which those callers call
   (`RustGetters`). An interface's getter (`items()` that a default method's `items().add(s)` modifies through) has
@@ -254,6 +308,10 @@ Analyzer issues the oracle found, each with a minimal repro:
   result new on one path and existing on the other: moved in, returned owned.
 - `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`
   (`TIME_AS_SYSTEM_TIME`): both change behaviour, and are reported.
+- An external type without a Rust counterpart (`URI`, `Throwable`, `Class`, a library's) is an opaque stand-in:
+  `crate::jrt::URI`, a unit struct in `jrt.rs` deriving `Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default`,
+  without type arguments. What holds one compiles; only a call into it (a method, a constructor) is rustc's error, in
+  the function that makes it. It has no state, so it is cloned where an immutable value would be.
 - The JDK maps onto `std`: the collections (`Vec`, `HashMap`, `HashSet`, `BTreeMap`, `VecDeque`), `Option`,
   `String`, and a table of methods (`RustJdk`). An index is a `usize` in Rust: `i as usize`, and a size goes back to
   `i32`, so the arithmetic around it stays Java's. Java's implicit numeric widening is spelled out.
@@ -264,7 +322,8 @@ the result better than a generic formatter would.
 
 ## Not yet
 
-Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` of an interface or generic type and record patterns,
+Inheritance from a JDK class other than a collection (`INHERITANCE`), dynamic dispatch through a parent outside a closed
+hierarchy, `equals`/`hashCode` in one, anonymous and local classes, `instanceof` of a generic type and record patterns,
 try/catch (`TRY_BODY_ONLY`), static state of other types (a `HashMap`, an object), generic bounds beyond `Clone`, sorting and collectors
 beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
 `UNSUPPORTED` message.

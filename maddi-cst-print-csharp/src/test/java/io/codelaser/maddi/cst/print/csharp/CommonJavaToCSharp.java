@@ -17,18 +17,9 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
-import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
-import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -41,9 +32,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 /** Parses a Java compilation unit with the openjdk front end and prints it as C#. */
 public abstract class CommonJavaToCSharp {
@@ -75,6 +76,21 @@ public abstract class CommonJavaToCSharp {
     /** The messages of the last {@link #translate(String, String)}. */
     protected List<PrintMessage<CSharpPrintCode>> messages = List.of();
 
+    /**
+     * Whether {@link #translate} has Roslyn judge the sample ({@link CSharpCheck}): on, unless a test turns it off
+     * before translating, saying why (a sample that prints Java where C# has no form, JAVA_FALLBACK).
+     */
+    protected boolean compile = true;
+
+    /** The nullable warnings of the last judged sample, where the policy's facts enable C#'s nullable types. */
+    protected List<CSharpCheck.Diagnostic> nullableWarnings = List.of();
+
+    @BeforeEach
+    public void compileByDefault() {
+        compile = true;
+        nullableWarnings = List.of();
+    }
+
     @BeforeEach
     public void testName(TestInfo info) {
         test = info.getTestMethod().map(Method::getName).orElseThrow();
@@ -92,7 +108,11 @@ public abstract class CommonJavaToCSharp {
         return false;
     }
 
-    /** {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs}; its messages kept. */
+    /**
+     * {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs} and, unless {@link
+     * #compile} is off, judged by Roslyn: a test's {@code contains} says what the printer wrote, this says that C#
+     * accepts it (an override that overrides nothing reads fine). Its messages kept.
+     */
     protected String translate(String name, String java) {
         Translation translation = translation(java);
         messages = translation.messages();
@@ -101,7 +121,9 @@ public abstract class CommonJavaToCSharp {
         try {
             Path dir = Path.of("build/csharp-samples");
             Files.createDirectories(dir);
-            Files.writeString(dir.resolve(fileName), csharp);
+            Path sample = dir.resolve(fileName);
+            Files.writeString(sample, csharp);
+            if (compile) compiles(sample, csharp);
             if (golden()) {
                 Path file = GOLDEN.resolve(fileName);
                 if (Boolean.getBoolean("csharp.golden.update") || !Files.exists(file)) {
@@ -119,6 +141,81 @@ public abstract class CommonJavaToCSharp {
             throw new UncheckedIOException(e);
         }
         return csharp;
+    }
+
+    /**
+     * The behavioural check: {@code java}, whose first type has a {@code static void main(String[])}, runs on the JVM
+     * and, translated, on .NET; both print the same lines and end with the same exception, the .NET one being what
+     * the translation maps the Java one to ({@link #DOTNET_EXCEPTIONS}). The translation is returned, for the test's
+     * own {@code contains}. Roslyn must accept it, as {@link #translate}'s.
+     */
+    protected String behaves(String name, String java) {
+        boolean compileBefore = compile;
+        compile = false;
+        String csharp;
+        try {
+            csharp = translate(name, java);
+        } finally {
+            compile = compileBefore;
+        }
+        String code = java.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("//[^\\n]*", "");
+        String pkg = code.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
+        String first = code.replaceAll("(?s)^.*?(?<![@\\w])(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
+        JavaRun.Result expected = JavaRun.run(pkg + "." + first, java);
+        Path sample = Path.of("build/csharp-samples").resolve(test + "-" + name + ".cs");
+        CSharpCheck.Judgment actual = CSharpCheck.instance().run(sample, policy, first);
+        List<CSharpCheck.Diagnostic> errors = actual.diagnostics().stream().filter(d -> !"N".equals(d.kind())).toList();
+        nullableWarnings = actual.diagnostics().stream().filter(d -> "N".equals(d.kind())).toList();
+        assertTrue(errors.isEmpty(), () -> "Roslyn rejects the printed C#:\n"
+                                           + errors.stream().map(Object::toString).collect(Collectors.joining("\n"))
+                                           + "\n--- in ---\n" + csharp);
+        String report = "\n--- Java printed ---\n" + String.join("\n", expected.output())
+                        + (expected.exception() == null ? "" : "\n(ended with " + expected.exception() + ": "
+                                                                 + expected.exceptionMessage() + ")")
+                        + "\n--- C# printed ---\n" + String.join("\n", actual.output())
+                        + (actual.exception() == null ? "" : "\n(ended with " + actual.exception() + ": "
+                                                               + actual.exceptionMessage() + ")")
+                        + "\n--- C# ---\n" + csharp;
+        assertEquals(String.join("\n", expected.output()), String.join("\n", actual.output()),
+                () -> "the translation behaves differently" + report);
+        if (expected.exception() == null) {
+            assertTrue(actual.exception() == null, () -> "the translation throws" + report);
+        } else {
+            List<String> allowed = DOTNET_EXCEPTIONS.getOrDefault(expected.exception(), List.of(expected.exception()));
+            assertTrue(actual.exception() != null && allowed.contains(actual.exception()),
+                    () -> "the translation ends with another exception than " + allowed + report);
+        }
+        return csharp;
+    }
+
+    /**
+     * The .NET exceptions a Java exception may be after translation: the library mapping's ({@code
+     * java.lang.NullPointerException -> NullReferenceException}), and the ones the runtime throws for the same fault
+     * (C#'s integer division by zero is a DivideByZeroException, an ArithmeticException).
+     */
+    private static final Map<String, List<String>> DOTNET_EXCEPTIONS = Map.ofEntries(
+            Map.entry("NullPointerException", List.of("NullReferenceException", "ArgumentNullException")),
+            Map.entry("ArithmeticException", List.of("ArithmeticException", "DivideByZeroException", "OverflowException")),
+            Map.entry("ArrayIndexOutOfBoundsException", List.of("IndexOutOfRangeException")),
+            Map.entry("IndexOutOfBoundsException", List.of("ArgumentOutOfRangeException")),
+            Map.entry("StringIndexOutOfBoundsException", List.of("ArgumentOutOfRangeException")),
+            Map.entry("ClassCastException", List.of("InvalidCastException")),
+            Map.entry("IllegalArgumentException", List.of("ArgumentException")),
+            Map.entry("IllegalStateException", List.of("InvalidOperationException")),
+            Map.entry("UnsupportedOperationException", List.of("NotSupportedException")),
+            Map.entry("NumberFormatException", List.of("FormatException")),
+            Map.entry("NoSuchElementException", List.of("InvalidOperationException")),
+            Map.entry("RuntimeException", List.of("Exception")),
+            Map.entry("ConcurrentModificationException", List.of("InvalidOperationException")));
+
+    /** Roslyn accepts {@code file}: no syntax error, no error; the nullable warnings are kept, not judged. */
+    private void compiles(Path file, String csharp) {
+        List<CSharpCheck.Diagnostic> diagnostics = CSharpCheck.instance().check(file, policy);
+        nullableWarnings = diagnostics.stream().filter(d -> "N".equals(d.kind())).toList();
+        List<CSharpCheck.Diagnostic> errors = diagnostics.stream().filter(d -> !"N".equals(d.kind())).toList();
+        assertTrue(errors.isEmpty(), () -> "Roslyn rejects the printed C#:\n"
+                                           + errors.stream().map(Object::toString).collect(Collectors.joining("\n"))
+                                           + "\n--- in ---\n" + csharp);
     }
 
     /** The C# printing of the compilation unit {@code java}: usings, namespace, and every type in it. */

@@ -17,11 +17,10 @@
 
 package io.codelaser.maddi.cst.api.expression;
 
+import java.util.List;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
 
 /**
  * Boolean disjunction of two or more operands ({@code a || b || ...}). Like {@link And}, a flat list so

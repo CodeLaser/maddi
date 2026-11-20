@@ -16,6 +16,14 @@
  */
 package io.codelaser.maddi.cst.print.translate;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -31,13 +39,6 @@ import io.codelaser.maddi.cst.api.variable.DependentVariable;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
 
 /**
  * Where a Java-to-X printer is, which the CST does not say: the printers are static and recursive, and created
@@ -86,7 +87,7 @@ public final class TranslationState<C extends PrintMessage.Code> {
      * A type parameter of the innermost type being printed, or of an enclosing one as far as each type in between
      * {@code seesEnclosing} its enclosing type's: Kotlin's nested (not inner) class does not.
      */
-    public boolean typeParameterInScope(TypeParameter typeParameter, java.util.function.Predicate<TypeInfo> seesEnclosing) {
+    public boolean typeParameterInScope(TypeParameter typeParameter, Predicate<TypeInfo> seesEnclosing) {
         for (TypeInfo t : types) {
             if (t.typeParameters().contains(typeParameter)) return true;
             if (!seesEnclosing.test(t)) return false;

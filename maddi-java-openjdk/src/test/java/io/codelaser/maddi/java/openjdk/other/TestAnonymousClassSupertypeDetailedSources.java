@@ -17,6 +17,14 @@
 
 package io.codelaser.maddi.java.openjdk.other;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.List;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -24,13 +32,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * An anonymous-class creation ({@code new Supertype(){...}}) must expose the WRITTEN supertype's source token in the
@@ -67,7 +68,9 @@ public class TestAnonymousClassSupertypeDetailedSources extends CommonTest {
         TypeInfo X = scan("a.b.X", input);
         ConstructorCall cc = returnedConstructorCall(X, "make");
         assertNotNull(cc.anonymousClass(), "expected an anonymous class");
-        assertNull(cc.constructor(), "an interface anonymous class has no constructor");
+        // the superclass constructor that runs (maddi#194): an interface has none, so Object's
+        assertFalse(cc.callsConstructorOfCreatedType());
+        assertEquals("java.lang.Object.<init>()", cc.constructor().fullyQualifiedName());
         TypeInfo supertype = cc.parameterizedType().typeInfo();
         assertEquals("java.lang.Runnable", supertype.fullyQualifiedName());
         List<Source> tokens = cc.source().detailedSources().details(supertype);

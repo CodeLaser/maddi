@@ -17,8 +17,10 @@
 
 package io.codelaser.maddi.inspection.api.resource;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * The build files that shaped an input configuration, hashed when the configuration was captured: a server compares
@@ -60,6 +62,6 @@ public record BuildFiles(String declaredBy, String root, List<String> globs, Map
 
     public BuildFiles {
         globs = List.copyOf(globs);
-        sha256 = java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(sha256)); // sorted: a stable file
+        sha256 = Collections.unmodifiableMap(new TreeMap<>(sha256)); // sorted: a stable file
     }
 }

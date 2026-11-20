@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinCompilerPluginsProvider
 import io.codelaser.maddi.kotlin.api.KotlinSession
 import io.codelaser.maddi.kotlin.api.KotlinProjectScanner
 import io.codelaser.maddi.kotlin.api.ConstructorDelegation
@@ -107,6 +108,11 @@ class KotlinProjectScan(
         // a source set is one K2 module, or -- a Kotlin-multiplatform target's fragments -- a dependsOn chain of them
         private val modulesBySourceSet = LinkedHashMap<SourceSet, List<KaSourceModule>>()
         private val session = buildStandaloneAnalysisAPISession(disposable) {
+            // the compiler plugins the build applied (Gradle's kotlin-dsl: sam-with-receiver, assignment), each to the
+            // modules of the sets compiled with it
+            val plugins = CompilerPlugins()
+            @OptIn(org.jetbrains.kotlin.analysis.api.KaPlatformInterface::class)
+            registerProjectService(KotlinCompilerPluginsProvider::class.java, plugins)
             val jvm = JvmPlatforms.defaultJvmPlatform
             buildKtModuleProvider {
                 platform = jvm
@@ -135,7 +141,7 @@ class KotlinProjectScan(
                 javaModule?.let { addModule(it) }
                 // dependency order => a dependent finds its already-built upstream module in the map
                 orderedSourceSets.forEach { ss ->
-                    val directories = ss.sourceDirectories().filter { Files.exists(it) }
+                    val directories = outermostRoots(ss.sourceDirectories().filter { Files.exists(it) })
                     val fragments = multiplatformFragments(directories)
                     val modules = ArrayList<KaSourceModule>()
                     (fragments?.map { listOf(it) } ?: listOf(directories)).forEachIndexed { i, roots ->
@@ -159,6 +165,7 @@ class KotlinProjectScan(
                             modules.lastOrNull()?.let { addDependsOnDependency(it) }
                         }
                         addModule(module)
+                        plugins.register(module, ss.kotlinPluginOptions())
                         modules += module
                     }
                     modulesBySourceSet[ss] = modules
@@ -174,6 +181,18 @@ class KotlinProjectScan(
 
         /** The converted types per source set, in the order the sets completed. */
         override val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
+
+        /**
+         * The roots, without one that lies inside another. kotlin-maven-plugin can list a directory and directories
+         * within it as the same set's sources (quarkus's grpc-kotlin-coroutine: `target/generated-sources` and
+         * `target/generated-sources/grpc`). K2 then read every file below the inner root twice, and the second
+         * registration of its types aborted the parse ("Duplicating type examples.HelloReplyKt"). kotlinc compiles
+         * each file once.
+         */
+        private fun outermostRoots(roots: List<Path>): List<Path> {
+            val normalized = roots.map { it.toAbsolutePath().normalize() }.distinct()
+            return normalized.filter { root -> normalized.none { other -> other != root && root.startsWith(other) } }
+        }
 
         private fun ktFiles(ss: SourceSet): List<KtFile> {
             val modules = checkNotNull(modulesBySourceSet[ss]) { "source set ${ss.name()} is not in this session" }

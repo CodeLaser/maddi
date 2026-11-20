@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -29,13 +36,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.type.DiamondEnum;
 import io.codelaser.maddi.cst.impl.variable.ThisImpl;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements TypePrinter {
 

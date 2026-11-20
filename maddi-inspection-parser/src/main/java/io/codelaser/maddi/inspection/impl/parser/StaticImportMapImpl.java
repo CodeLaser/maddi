@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.inspection.impl.parser;
 
+import java.util.*;
+
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.parser.StaticImportMap;
-
-import java.util.*;
 
 public class StaticImportMapImpl implements StaticImportMap {
 

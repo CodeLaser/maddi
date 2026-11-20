@@ -17,11 +17,14 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -38,10 +41,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.Wildcard;
 import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.output.QualificationImpl;
-
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class ParameterizedTypeImpl implements ParameterizedType {
     public static final ParameterizedType NULL_CONSTANT = new ParameterizedTypeImpl();
@@ -383,7 +382,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
      */
     private Stream<Element.TypeReference> annotationsReferenced() {
         return annotations.stream()
-                .map(io.codelaser.maddi.cst.api.expression.AnnotationExpression::typeInfo)
+                .map(AnnotationExpression::typeInfo)
                 .filter(Objects::nonNull)
                 .map(ti -> new ElementImpl.TypeReference(ti, Element.TypeReferenceNature.EXPLICIT, ti));
     }
@@ -737,7 +736,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         return WILDCARD_PARAMETERIZED_TYPE;
     }
 
-    private boolean bestOwnTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+    private boolean bestOwnTypeParameter(TypeParameter typeParameter) {
         TypeInfo best = bestTypeInfo();
         return best != null && typeParameter.getOwner() != null && typeParameter.getOwner().isLeft()
                && typeParameter.getOwner().getLeft() == best;

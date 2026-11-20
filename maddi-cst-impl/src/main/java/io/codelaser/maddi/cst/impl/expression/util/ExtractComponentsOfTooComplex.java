@@ -18,14 +18,14 @@
 package io.codelaser.maddi.cst.impl.expression.util;
 
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Predicate;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.HashSet;
-import java.util.Set;
-import java.util.function.Predicate;
 
 public class ExtractComponentsOfTooComplex implements Predicate<Element> {
     final Set<Expression> expressions = new HashSet<>();

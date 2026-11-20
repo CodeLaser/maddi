@@ -17,6 +17,24 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.analysis.api.AnalysisEngine;
 import io.codelaser.maddi.analysis.api.AnalysisEngines;
 import io.codelaser.maddi.analysis.api.AnalysisProblem;
@@ -24,39 +42,23 @@ import io.codelaser.maddi.analysis.api.ModificationOptions;
 import io.codelaser.maddi.analysis.api.ModificationRequest;
 import io.codelaser.maddi.analysis.api.PrepRequest;
 import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
-import java.io.File;
-import io.codelaser.maddi.util.Trie;
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
-import io.codelaser.maddi.kotlin.realm.K2Realm;
 import io.codelaser.maddi.graph.G;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
+import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
+import io.codelaser.maddi.util.Trie;
 
 /**
  * Prep-only runner for a mixed Java+Kotlin project. Parses the input configuration with
@@ -91,8 +93,21 @@ public class RunMixedPrepAnalyzer {
      * {@code kotlinmain.Main}), so this list grows with the options the mixed pipeline learns to honour —
      * and an option it does NOT honour is refused there by name, never quietly dropped.
      */
+    /**
+     * @param reachability the reachability pass (MODREACH) after the fixpoint, as the analysis engine's environment
+     *                     gates and the IDE daemon run it; it also records culprits when Culprits.ENABLED. Off here by
+     *                     default: the Kotlin runner's verdicts so far are the fixpoint's.
+     */
     public record Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
-                          boolean warnNearMisses, String analysisResultsTargetDir) {
+                          boolean warnNearMisses, String analysisResultsTargetDir, boolean ownership,
+                          boolean closedWorld, boolean reachability) {
+        public Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
+                       boolean warnNearMisses, String analysisResultsTargetDir, boolean ownership,
+                       boolean closedWorld) {
+            this(modification, analysisResultsDirs, parallel, warnNearMisses, analysisResultsTargetDir, ownership,
+                    closedWorld, false);
+        }
+
         public Options(boolean modification, List<String> analysisResultsDirs) {
             this(modification, analysisResultsDirs, false, false, null);
         }
@@ -100,6 +115,11 @@ public class RunMixedPrepAnalyzer {
         public Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
                        boolean warnNearMisses) {
             this(modification, analysisResultsDirs, parallel, warnNearMisses, null);
+        }
+
+        public Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
+                       boolean warnNearMisses, String analysisResultsTargetDir) {
+            this(modification, analysisResultsDirs, parallel, warnNearMisses, analysisResultsTargetDir, false, false);
         }
     }
 
@@ -179,8 +199,13 @@ public class RunMixedPrepAnalyzer {
             engine.resultsLoader(runtime, sourceSetOfRequest).load(analysisResultsDirs);
         }
         // after the archive is loaded, before anything is concluded: which library members the source calls, and
-        // whether a contract reached each (absent -Dmaddi.libraryCallDump: no walk, no cost)
-        writeLibraryCallDump(engine, runtime, Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+        // whether a contract reached each (absent -Dmaddi.libraryCallDump: no walk, no cost). Not without an archive:
+        // every member is DEFAULT then, and a prep-only run of the same corpus test class (coil's) overwrote the
+        // census its archive-loading run had just written
+        if (!analysisResultsDirs.isEmpty()) {
+            writeLibraryCallDump(engine, runtime,
+                    Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+        }
 
         // Fault-tolerant, as in run-openjdk's RunAnalyzer: one failing method must not deny analysis to a whole
         // corpus. The Kotlin front end has more rough edges than the Java one, so this matters more here, not
@@ -197,9 +222,12 @@ public class RunMixedPrepAnalyzer {
             LOGGER.info("Starting modification analysis over {} element(s)", order.size());
             ModificationOptions modificationOptions = new ModificationOptions(
                     30, // safety net; the loop exits on convergence/certification/plateau
-                    true, null, null,
+                    true,
+                    options.reachability() ? Boolean.TRUE : null, // the reachability pass needs object creations
+                    options.reachability() ? Boolean.TRUE : null,
                     true, // isolate a crash on one element rather than abort the run
-                    options.warnNearMisses(), false, false);
+                    options.warnNearMisses(), false, false)
+                    .withOwnership(options.ownership(), options.closedWorld());
             // the graph enables worklist narrowing
             engine.modification(new ModificationRequest(parsed.getJavaInspector(), order, callGraph, primaryTypes,
                     modificationOptions, null));
@@ -209,6 +237,7 @@ public class RunMixedPrepAnalyzer {
             // type's, and a dump that cannot show it cannot rule it out either (#34)
             writeVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
             writeMemberVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+            writeMemberCulprits(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
         }
         writeAnalysisResults(engine, options.analysisResultsTargetDir(), runtime, parsed, primaryTypes,
                 inputConfiguration);
@@ -321,7 +350,7 @@ public class RunMixedPrepAnalyzer {
             if (seen.put(m, true) != null || m.methodBody() == null) return;
             m.methodBody().visit(e -> {
                 MethodInfo callee = e instanceof MethodCall mc ? mc.methodInfo()
-                        : e instanceof ConstructorCall cc ? cc.constructor() : null;
+                        : e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType() ? cc.constructor() : null;
                 // the PRIMARY type's package: a nested or local type has none of its own
                 String pkg = callee == null ? null : callee.typeInfo().primaryType().packageName();
                 if (pkg != null && pkg.startsWith("kotlin") && callee.typeInfo().compilationUnit().externalLibrary()) {
@@ -361,14 +390,61 @@ public class RunMixedPrepAnalyzer {
     private static void writeMemberVerdicts(List<TypeInfo> types) throws IOException {
         String target = System.getProperty("maddi.memberVerdictDump");
         if (target == null || target.isBlank()) return;
-        List<String> lines = new java.util.ArrayList<>();
+        List<String> lines = new ArrayList<>();
         Map<Object, Boolean> seen = new IdentityHashMap<>();
         for (TypeInfo type : types) memberVerdicts(type, lines, seen);
-        java.util.Collections.sort(lines);
+        Collections.sort(lines);
         Path path = Path.of(target);
         if (path.getParent() != null) Files.createDirectories(path.getParent());
         Files.write(path, lines);
         LOGGER.info("Wrote {} member verdict(s) to {}", lines.size(), path);
+    }
+
+    /**
+     * The culprit of every member judged modified, to the file named by {@code -Dmaddi.memberCulpritDump} (absent: no
+     * file): {@code <kind> <member>} and then one {@code   file:line:col text} line per step, the element's own statement
+     * first. Culprits are recorded only when the environment has {@code CULPRITS} set (Culprits.ENABLED). An
+     * instrument, to explain a verdict that differs between two runs (TestKotlinVsJavaFernflower, maddi-mod#145).
+     */
+    private static void writeMemberCulprits(List<TypeInfo> types) throws IOException {
+        String target = System.getProperty("maddi.memberCulpritDump");
+        if (target == null || target.isBlank()) return;
+        Map<String, List<String>> byMember = new java.util.TreeMap<>();
+        Map<Object, Boolean> seen = new IdentityHashMap<>();
+        for (TypeInfo type : types) memberCulprits(type, byMember, seen);
+        List<String> lines = new ArrayList<>();
+        byMember.forEach((member, steps) -> {
+            lines.add(member);
+            lines.addAll(steps);
+        });
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, lines);
+        LOGGER.info("Wrote {} member culprit(s) to {}", byMember.size(), path);
+    }
+
+    private static void memberCulprits(TypeInfo type, Map<String, List<String>> byMember, Map<Object, Boolean> seen) {
+        if (seen.put(type, true) != null) return;
+        type.subTypes().forEach(sub -> memberCulprits(sub, byMember, seen));
+        type.fields().forEach(f -> culprit("F " + f.fullyQualifiedName(), f.analysis(), byMember));
+        type.methodStream().forEach(m -> {
+            culprit("M " + m.fullyQualifiedName(), m.analysis(), byMember);
+            m.parameters().forEach(p -> culprit("P " + m.fullyQualifiedName() + "#" + p.index(), p.analysis(), byMember));
+        });
+    }
+
+    private static void culprit(String member, io.codelaser.maddi.cst.api.analysis.PropertyValueMap analysis,
+                                Map<String, List<String>> byMember) {
+        Value.Culprit culprit = analysis.getOrNull(PropertyImpl.MODIFIED_CULPRIT, ValueImpl.CulpritImpl.class);
+        if (culprit == null || culprit.steps().isEmpty()) return;
+        byMember.put(member, culprit.steps().stream().map(st -> "  " + fileName(st.uri()) + ":" + st.line() + ":"
+                                                                + st.column() + " " + st.text()).toList());
+    }
+
+    private static String fileName(String uri) {
+        if (uri == null) return "?";
+        int slash = uri.lastIndexOf('/');
+        return slash < 0 ? uri : uri.substring(slash + 1);
     }
 
     private static void memberVerdicts(TypeInfo type, List<String> lines, Map<Object, Boolean> seen) {

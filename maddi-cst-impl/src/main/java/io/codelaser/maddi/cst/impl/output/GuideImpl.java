@@ -18,12 +18,12 @@
 package io.codelaser.maddi.cst.impl.output;
 
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.element.Guide;
-
-import java.util.concurrent.atomic.AtomicInteger;
 
 @ImmutableContainer
 public record GuideImpl(String name,

@@ -17,6 +17,18 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
@@ -27,14 +39,6 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * The JDK → BCL mapping: what a JDK type, a call of a JDK method and a JDK field are in C#. Its rules are data, the
@@ -238,6 +242,18 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.Collection.contains/1", (method, call) -> objectArgument(call) && !readOnlyReceiver(call)
                 ? rule("$0.ContainsObject($1)", COMPAT) : readOnlyReceiver(call)
                 ? rule("$0.Contains($1)", LINQ) : rule("$0.Contains($1)"));
+        // add(E) is a value in Java, always true on a List; C#'s List.Add and ICollection.Add are void, a set's Add
+        // is the boolean: the compatibility library's AddReturning where the value is used
+        chooser("java.util.Collection.add/1", (method, call) -> call != null && !setReceiver(call) && valueUsed(call)
+                ? rule("$0.AddReturning($1)", COMPAT) : rule("$0.Add($1)"));
+        // toArray(new T[0]), or of the list's size: a new array of the elements, LINQ's; toArray(a) of an array that
+        // exists, Java's rule of filling it when it holds them, the compatibility library's
+        chooser("java.util.Collection.toArray/1", (method, call) -> call == null || arrayCreationArgument(call, 0)
+                ? rule("$0.ToArray()", LINQ) : rule("$0.ToArray($1)", COMPAT));
+        // containsAll(Collection<?>): the argument is C#'s non-generic ICollection, without LINQ: the compatibility
+        // library's, over objects
+        chooser("java.util.Collection.containsAll/1", (method, call) -> nonGenericArgument(call, 0)
+                ? rule("$0.ContainsAll($1)", COMPAT) : rule("@1.All($0.Contains)", LINQ));
         Chooser remove = (method, call) -> objectArgument(call) ? rule("$0.RemoveObject($1)", COMPAT) : rule("$0.Remove($1)");
         chooser("java.util.Collection.remove/1", remove);
         chooser("java.util.List.remove(Object)", remove);
@@ -245,7 +261,15 @@ final class CSharpBcl implements LibraryMapping {
                 ? rule("$0.ContainsKeyObject($1)", COMPAT) : rule("$0.ContainsKey($1)"));
         chooser("java.util.Map.remove/1", (method, call) -> objectArgument(call)
                 ? new Rule("$0.RemoveKeyObject($1)", "$0.RemoveKeyObject($1)", List.of(COMPAT)).withNullableResult()
+                : valueType(call, 1) ? new Rule("$0.RemoveValue($1)", "$0.Remove($1)", List.of(COMPAT)).withNullableResult()
                 : new Rule("$0.RemoveAndGet($1)", "$0.Remove($1)", List.of(COMPAT)).withNullableResult());
+        // a value type's previous value is null when there was none, as Java's Integer: the V? variants; a statement
+        // keeps the file's rule
+        chooser("java.util.Map.put/2", (method, call) -> new Rule(valueType(call, 1) ? "$0.PutValue($1, $2)"
+                : "$0.Put($1, $2)", "$0[$1] = $2", List.of(COMPAT)).withNullableResult());
+        chooser("java.util.Map.putIfAbsent/2", (method, call) -> new Rule(valueType(call, 1)
+                ? "$0.PutIfAbsentValue($1, $2)" : "$0.PutIfAbsent($1, $2)", "$0.TryAdd($1, $2)", List.of(COMPAT))
+                .withNullableResult());
         // a collection of ? is non-generic in C#: LINQ needs its elements as objects
         chooser("java.util.Collection.stream/0", (method, call) -> unboundTyped(call) ? rule("$0.Cast<object>()", LINQ)
                 : rule("$0"));
@@ -426,6 +450,36 @@ final class CSharpBcl implements LibraryMapping {
         return !element.isJavaLangObject() && (element.wildcard() == null || !element.wildcard().isUnbound());
     }
 
+    /** Argument {@code index} creates an array, {@code new T[0]}, {@code new T[list.size()]}. */
+    private static boolean arrayCreationArgument(MethodCall call, int index) {
+        if (call.parameterExpressions().size() <= index) return false;
+        Expression e = CSharpExpressionPrinter.unwrap(call.parameterExpressions().get(index));
+        return e instanceof ConstructorCall cc && cc.anonymousClass() == null && cc.parameterizedType() != null
+               && cc.parameterizedType().arrays() > 0;
+    }
+
+    /** The call's method is a {@code java.util.Set}'s, or overrides one: C#'s {@code Add} returns the boolean. */
+    private static boolean setReceiver(MethodCall call) {
+        MethodInfo m = call.methodInfo();
+        return Stream.concat(Stream.of(m), m.overrides().stream())
+                .anyMatch(o -> "java.util.Set".equals(o.typeInfo().fullyQualifiedName()));
+    }
+
+    /** The call is not the statement it is in: its value goes somewhere. */
+    private static boolean valueUsed(MethodCall call) {
+        Statement statement = CSharpContext.state().currentStatement();
+        return !(statement instanceof ExpressionAsStatement eas
+                 && CSharpExpressionPrinter.unwrap(eas.expression()) == call);
+    }
+
+    /** Argument {@code index} is a collection of unbound wildcards, {@code Collection<?>}: C#'s non-generic interface. */
+    private static boolean nonGenericArgument(MethodCall call, int index) {
+        if (call == null || call.parameterExpressions().size() <= index) return false;
+        ParameterizedType argument = call.parameterExpressions().get(index).parameterizedType();
+        return argument != null && argument.arrays() == 0 && !argument.parameters().isEmpty()
+               && argument.parameters().stream().allMatch(a -> a.wildcard() != null && a.wildcard().isUnbound());
+    }
+
     private static boolean valueType(MethodCall call, int index) {
         if (call == null || call.object() == null) return false;
         ParameterizedType receiver = call.object().parameterizedType();
@@ -483,10 +537,7 @@ final class CSharpBcl implements LibraryMapping {
 
     /** The receiver is a collection parameter that is read-only in C# ({@link CSharpReadOnly}). */
     private static boolean readOnlyReceiver(MethodCall call) {
-        return call != null && call.object() != null
-               && CSharpExpressionPrinter.unwrap(call.object()) instanceof Expression e
-               && e instanceof VariableExpression ve
-               && ve.variable() instanceof ParameterInfo p && CSharpContext.program().readOnly(p);
+        return call != null && CSharpContext.program().readOnly(call.object());
     }
 
     /** The receiver is declared as a Number: C#'s IConvertible. */

@@ -17,13 +17,13 @@
 
 package io.codelaser.maddi.graph.op;
 
-import org.jheaps.AddressableHeap;
-import org.jheaps.tree.PairingHeap;
-
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
+
+import org.jheaps.AddressableHeap;
+import org.jheaps.tree.PairingHeap;
 
 public class DijkstraShortestPath {
 

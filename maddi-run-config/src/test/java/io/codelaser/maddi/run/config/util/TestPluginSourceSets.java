@@ -17,9 +17,7 @@
 
 package io.codelaser.maddi.run.config.util;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -33,7 +31,10 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
 
 /**
  * The construction both build plugins share. The assertions here are the ones that used to hold in neither

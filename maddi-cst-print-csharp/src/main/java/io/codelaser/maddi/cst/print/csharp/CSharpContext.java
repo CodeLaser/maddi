@@ -17,20 +17,6 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
-import io.codelaser.maddi.cst.api.statement.Statement;
-import io.codelaser.maddi.cst.api.type.NullableState;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import io.codelaser.maddi.cst.print.translate.TranslationState;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -41,6 +27,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import io.codelaser.maddi.cst.print.translate.TranslationState;
 
 /**
  * The state of one file's printing, shared by the printers: they are created through the cst-api factories, whose
@@ -69,6 +71,8 @@ final class CSharpContext {
         CSharpProgram program = CSharpProgram.NONE;
         final Map<ConstructorCall, ParameterizedType>
                 created = new IdentityHashMap<>();
+        /** The type a generic call's raw result goes into: its type arguments ({@link CSharpExpressionPrinter#converted}). */
+        final Map<MethodCall, ParameterizedType> callTargets = new IdentityHashMap<>();
         final Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new HashMap<>();
         final Deque<Scope> scopes = new ArrayDeque<>();
     }
@@ -195,6 +199,15 @@ final class CSharpContext {
         return STATE.get().created.get(cc);
     }
 
+    /** The type a generic call's raw result goes into ({@link CSharpExpressionPrinter#converted}). */
+    static void callTarget(MethodCall mc, ParameterizedType target) {
+        STATE.get().callTargets.put(mc, target);
+    }
+
+    static ParameterizedType callTarget(MethodCall mc) {
+        return STATE.get().callTargets.get(mc);
+    }
+
     /**
      * Whether C# can name {@code tp} where the printer is: a type parameter of a method being printed (not erased), or
      * of the current type or one it is nested in, or of one of their supertypes, short of a hoisted type and of a
@@ -214,7 +227,68 @@ final class CSharpContext {
             // a supertype's, as an inherited field's type has it: the subclass passes its own, of the same name, on
             if (at.equals(t) || CSharpNames.inherits(at, t)) return true;
         }
-        return false;
+        return capturedName(tp) != null;
+    }
+
+    /**
+     * The name of the type parameter a method being printed captures for {@code tp}: {@code TK} for the {@code K} of
+     * an {@code Unpacker<?> u} the method prints as {@code Unpacker<TK> u} ({@link CSharpWildcards#captured}), which
+     * Java's capture of the wildcard is. Null when {@code tp} is the current type's own, or no single captured
+     * parameter of its type has a wildcard there.
+     */
+    static String capturedName(TypeParameter tp) {
+        if (tp.getOwner() == null || !tp.getOwner().isLeft()) return null;
+        TypeInfo generic = tp.getOwner().getLeft();
+        for (TypeInfo at = currentType(); at != null; at = CstQueries.enclosing(at)) {
+            if (at.equals(generic) || CSharpNames.inherits(at, generic)) return null;
+        }
+        String found = null;
+        for (MethodInfo m : STATE.get().base.methods()) {
+            for (ParameterInfo p : m.parameters()) {
+                ParameterizedType pt = p.parameterizedType();
+                int k = tp.getIndex();
+                if (!generic.equals(pt.typeInfo()) || pt.arrays() != 0 || pt.parameters().size() <= k
+                    || pt.parameters().get(k).wildcard() == null || !CSharpWildcards.capturedParameter(m, p.index())) {
+                    continue;
+                }
+                List<String> names = CSharpWildcards.captured(m, null).names().get(p.index());
+                int wildcard = (int) pt.parameters().subList(0, k).stream().filter(a -> a.wildcard() != null).count();
+                if (names == null || wildcard >= names.size()) continue;
+                if (found != null && !found.equals(names.get(wildcard))) return null;
+                found = names.get(wildcard);
+            }
+        }
+        return found;
+    }
+
+    /**
+     * The type of {@code e} as C# has it where it reads a captured parameter ({@link #capturedName}): its wildcards
+     * the generic type's own type parameters, which print as the capture's names. Null for any other expression.
+     */
+    static ParameterizedType capturedType(Expression e) {
+        if (!(e instanceof VariableExpression ve) || !(ve.variable() instanceof ParameterInfo p)) return null;
+        MethodInfo m = p.methodInfo();
+        ParameterizedType pt = p.parameterizedType();
+        if (pt.typeInfo() == null || pt.arrays() != 0 || STATE.get().base.methods().stream().noneMatch(m::equals)
+            || !CSharpWildcards.capturedParameter(m, p.index())
+            || CSharpWildcards.captured(m, null).names().get(p.index()) == null) {
+            return null;
+        }
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (int k = 0; k < pt.parameters().size(); k++) {
+            ParameterizedType a = pt.parameters().get(k);
+            if (a.wildcard() == null) {
+                arguments.add(a);
+            } else {
+                TypeParameter own = pt.typeInfo().typeParameters().get(k);
+                if (!pt.typeInfo().equals(own.getOwner().isLeft() ? own.getOwner().getLeft() : null)
+                    || capturedName(own) == null) {
+                    return null;
+                }
+                arguments.add(own.asParameterizedType());
+            }
+        }
+        return pt.withParameters(arguments);
     }
 
     /**

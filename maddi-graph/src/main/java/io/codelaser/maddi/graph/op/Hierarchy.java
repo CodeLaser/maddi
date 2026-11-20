@@ -17,12 +17,12 @@
 
 package io.codelaser.maddi.graph.op;
 
-import io.codelaser.maddi.graph.V;
-
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.graph.V;
 
 /*
 Leaves are in list.getFirst()

@@ -17,10 +17,15 @@
 
 package io.codelaser.maddi.cst.impl.variable;
 
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
+
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Visitor;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -36,12 +41,6 @@ import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.QualifiedNameImpl;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
-
-import java.util.function.Predicate;
-import java.util.stream.Stream;
-
-import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
-import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
 
 public class ThisImpl extends VariableImpl implements This {
 

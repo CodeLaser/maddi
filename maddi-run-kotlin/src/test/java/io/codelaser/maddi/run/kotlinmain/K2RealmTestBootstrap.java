@@ -17,11 +17,13 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.kotlin.realm.K2Realm;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+
 import org.junit.platform.launcher.LauncherSession;
 import org.junit.platform.launcher.LauncherSessionListener;
 
-import java.io.UncheckedIOException;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
 
 /**
  * <b>Installs the K2 realm once, for every test in this module.</b> The Kotlin compiler is not on this JVM's
@@ -40,7 +42,7 @@ public class K2RealmTestBootstrap implements LauncherSessionListener {
     public void launcherSessionOpened(LauncherSession session) {
         try {
             K2Realm.installIfAbsent();
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             throw new UncheckedIOException(
                     "the test JVM could not build the K2 realm; see maddi-run-kotlin/build.gradle.kts, which"
                     + " passes -D" + K2Realm.CLASSPATH_PROPERTY + " from the k2Runtime configuration", e);

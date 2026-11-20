@@ -17,41 +17,7 @@
 
 package io.codelaser.maddi.inspection.integration;
 
-import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
-import io.codelaser.maddi.bytecode.java.asm.ByteCodeInspectorImpl;
-import io.codelaser.maddi.cst.api.element.CompilationUnit;
-import io.codelaser.maddi.cst.api.element.FingerPrint;
-import io.codelaser.maddi.cst.api.element.ModuleInfo;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.*;
-import io.codelaser.maddi.cst.api.output.Formatter;
-import io.codelaser.maddi.cst.api.output.FormattingOptions;
-import io.codelaser.maddi.cst.api.output.OutputBuilder;
-import io.codelaser.maddi.cst.api.output.Qualification;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
-import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.Context;
-import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.inspection.api.parser.Resolver;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.api.resource.*;
-import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
-import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
-import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import io.codelaser.maddi.inspection.resource.ResolveModuleDirectives;
-import io.codelaser.maddi.inspection.resource.SummaryImpl;
-import io.codelaser.maddi.parser.java.*;
-import io.codelaser.maddi.support.Either;
-import io.codelaser.maddi.graph.util.TimedLogger;
-import org.parsers.java.JavaParser;
-import org.parsers.java.Node;
-import org.parsers.java.ParseException;
-import org.parsers.java.ast.ModularCompilationUnit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -74,7 +40,42 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+import org.parsers.java.JavaParser;
+import org.parsers.java.Node;
+import org.parsers.java.ParseException;
+import org.parsers.java.ast.ModularCompilationUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.bytecode.java.asm.ByteCodeInspectorImpl;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.graph.util.TimedLogger;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.parser.Resolver;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.*;
+import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
+import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
+import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
+import io.codelaser.maddi.inspection.resource.ResolveModuleDirectives;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.inspection.resource.SummaryImpl;
+import io.codelaser.maddi.parser.java.*;
+import io.codelaser.maddi.support.Either;
 
 /*
 ---
@@ -110,7 +111,7 @@ public class JavaInspectorImpl implements JavaInspector {
      */
     public JavaInspectorImpl setEvalOptions(EvalOptions evalOptions) {
         if (runtime != null) throw new IllegalStateException("setEvalOptions after initialize has no effect");
-        this.evalOptions = java.util.Objects.requireNonNull(evalOptions);
+        this.evalOptions = Objects.requireNonNull(evalOptions);
         return this;
     }
 
@@ -433,7 +434,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private FingerPrint runtimeImageFingerPrint(String moduleName) {
         if (!computeFingerPrints) return MD5FingerPrint.NO_FINGERPRINT;
         return MD5FingerPrint.compute((java.lang.Runtime.version().toString() + ":" + moduleName)
-                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                .getBytes(StandardCharsets.UTF_8));
     }
 
 

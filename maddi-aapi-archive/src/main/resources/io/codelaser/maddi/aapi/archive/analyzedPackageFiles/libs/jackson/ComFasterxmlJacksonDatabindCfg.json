@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tcom.fasterxml.jackson.databind.cfg.MapperBuilder", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MaccessorNaming(1,com.fasterxml.jackson.databind.introspect.AccessorNamingStrategy.Provider)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":

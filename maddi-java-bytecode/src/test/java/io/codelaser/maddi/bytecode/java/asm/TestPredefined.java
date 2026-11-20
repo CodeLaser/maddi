@@ -17,11 +17,12 @@
 
 package io.codelaser.maddi.bytecode.java.asm;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 
 public class TestPredefined extends CommonJmodBaseTests {
 

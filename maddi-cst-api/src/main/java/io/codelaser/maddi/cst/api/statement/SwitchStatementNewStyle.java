@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
-import io.codelaser.maddi.annotation.Fluent;
-import io.codelaser.maddi.cst.api.expression.Expression;
-
 import java.util.Collection;
 import java.util.List;
+
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.expression.Expression;
 
 /**
  * The arrow-form {@code switch (selector) { case ... -> ...; }} statement (Java 14+), modelled as a list

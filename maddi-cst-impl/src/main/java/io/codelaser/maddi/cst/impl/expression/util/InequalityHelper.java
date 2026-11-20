@@ -18,11 +18,11 @@
 package io.codelaser.maddi.cst.impl.expression.util;
 
 
-import io.codelaser.maddi.cst.api.expression.*;
-import io.codelaser.maddi.cst.api.expression.util.OneVariable;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.expression.util.OneVariable;
 
 public class InequalityHelper {
 

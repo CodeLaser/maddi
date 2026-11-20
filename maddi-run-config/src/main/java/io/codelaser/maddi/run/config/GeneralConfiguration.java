@@ -24,6 +24,10 @@ import java.util.List;
 /**
  * @param translate       the language to translate the main sources to ({@code kotlin}, {@code csharp}); null: none
  * @param translateOutput the directory the translation is written to
+ * @param ownership       run the ownership pass: {@code @Fresh}, {@code @Borrowed}, {@code @Owned}
+ *                        (road-to-immutability §055), and feed it into the fixpoint
+ * @param closedWorld     with {@code ownership}: the sources are an application, no code outside them calls their
+ *                        public methods, so a parameter every caller hands over may be owned
  */
 public record GeneralConfiguration(boolean incrementalAnalysis,
                                    String analysisResultsDir,
@@ -35,7 +39,9 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
                                    boolean warnNearMisses,
                                    boolean skipKotlinSources,
                                    String translate,
-                                   String translateOutput) {
+                                   String translateOutput,
+                                   boolean ownership,
+                                   boolean closedWorld) {
 
     public static class Builder {
         private boolean incrementalAnalysis;
@@ -49,6 +55,8 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
         private String analysisResultsDir;
         private String translate;
         private String translateOutput;
+        private boolean ownership;
+        private boolean closedWorld;
 
         public Builder setIncrementalAnalysis(boolean incrementalAnalysis) {
             this.incrementalAnalysis = incrementalAnalysis;
@@ -110,10 +118,20 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
             return this;
         }
 
+        public Builder setOwnership(boolean ownership) {
+            this.ownership = ownership;
+            return this;
+        }
+
+        public Builder setClosedWorld(boolean closedWorld) {
+            this.closedWorld = closedWorld;
+            return this;
+        }
+
         public GeneralConfiguration build() {
             return new GeneralConfiguration(incrementalAnalysis, analysisResultsDir, List.copyOf(analysisSteps),
                     List.copyOf(debugTargets), quiet, parallel, jdkInternals, warnNearMisses, skipKotlinSources,
-                    translate, translateOutput);
+                    translate, translateOutput, ownership, closedWorld);
         }
     }
 }

@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.util;
 
-import io.codelaser.maddi.annotation.Independent;
-import io.codelaser.maddi.annotation.NotModified;
-
 import java.util.Iterator;
 import java.util.List;
 import java.util.Spliterators;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotModified;
 
 public class ZipLists {
     public record Z<X, Y>(X x, Y y) {

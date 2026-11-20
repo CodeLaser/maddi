@@ -26,6 +26,8 @@ java {
 // per-thread state of a file's printing, and queries on the CST that do not depend on the target language.
 dependencies {
     api(project(":maddi-cst-api"))
+    // MethodFamilies, the override families the printers decide together
+    api(project(":maddi-inspection-api"))
     // NullabilityFacts, which the use-site checks ask
     api(project(":maddi-cst-analysis"))
     // the OutputElement building blocks (OutputBuilderImpl, SymbolEnum, TextImpl, ...) the shared emission uses

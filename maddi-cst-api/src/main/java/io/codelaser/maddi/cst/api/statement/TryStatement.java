@@ -17,17 +17,15 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
-import io.codelaser.maddi.annotation.Independent;
+import java.util.List;
 
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
-
-import java.util.List;
 
 /**
  * The {@code try ... catch ... finally} statement, including try-with-resources. The {@code try} body is

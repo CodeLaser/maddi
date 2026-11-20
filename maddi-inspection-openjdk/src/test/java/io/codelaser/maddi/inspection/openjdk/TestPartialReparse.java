@@ -1,5 +1,26 @@
 package io.codelaser.maddi.inspection.openjdk;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
@@ -8,24 +29,6 @@ import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.run.rewire.ReparseOracle;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.JavaCompiler;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * The per-file re-parse within a source set ({@code JavaInspectorImpl.reparse}, {@code SourceSetAction.PARTIAL}):
@@ -46,12 +49,14 @@ public class TestPartialReparse {
             }
             """;
 
+    // a body and a private member: the declarations other types see are as before, so dependents may be rewired
+    // (a declaration edit is refused, JavaInspector.DeclarationsChangedException; see TestReparseWithDependents)
     @Language("java")
     private static final String BASE_EDITED = """
             package a;
             public class Base {
                 public String name() { return "base" + suffix(); }
-                public String suffix() { return "!"; }
+                private String suffix() { return "!"; }
             }
             """;
 
@@ -430,11 +435,11 @@ public class TestPartialReparse {
         JavaInspector inspector = inspector(set);
         // the cold parse's Doc too: it is rewired in round 1, and nothing may keep the original (the scanner's setup
         // claim did, InfoByFqn.replaceType)
-        java.lang.ref.WeakReference<TypeInfo> doc0 = new java.lang.ref.WeakReference<>(parse(inspector).findType("c.Doc"));
+        WeakReference<TypeInfo> doc0 = new WeakReference<>(parse(inspector).findType("c.Doc"));
         write(cSrc, "c/Other.java", "// round 1\n" + OTHER);
         ParseResult pr1 = reparse(inspector, Map.of("c.Other", INVALID, "c.Doc", REWIRE));
-        java.lang.ref.WeakReference<TypeInfo> doc1 = new java.lang.ref.WeakReference<>(pr1.findType("c.Doc"));
-        java.lang.ref.WeakReference<TypeInfo> other1 = new java.lang.ref.WeakReference<>(pr1.findType("c.Other"));
+        WeakReference<TypeInfo> doc1 = new WeakReference<>(pr1.findType("c.Doc"));
+        WeakReference<TypeInfo> other1 = new WeakReference<>(pr1.findType("c.Other"));
         pr1 = null;
         for (int round = 2; round <= 4; round++) {
             write(cSrc, "c/Other.java", "// round " + round + "\n" + OTHER);
@@ -531,6 +536,50 @@ public class TestPartialReparse {
         ParseResult coldResult = parse(cold);
         List<String> differences = ReparseOracle.differences(warm, warmResult, null, cold, coldResult, null);
         assertTrue(differences.isEmpty(), String.join("\n", differences));
+    }
+
+    // ---- a module next to a plain set
+
+    @DisplayName("the module descriptor of a kept (or rewired) source set survives a re-parse of another set")
+    @Test
+    public void testModuleInfoOfKeptSet() throws IOException {
+        for (boolean ignoreModule : new boolean[]{true, false}) {
+            Path modSrc = root.resolve("mod" + ignoreModule);
+            write(modSrc, "module-info.java", "module m { exports a; }\n");
+            write(modSrc, "a/Base.java", BASE);
+            write(modSrc, "a/Helper.java", HELPER);
+            SourceSet mod = new SourceSetImpl.Builder().setName("mod").setSourceDirectories(List.of(modSrc))
+                    .setUri(modSrc.toUri()).build();
+            Path appSrc = root.resolve("app" + ignoreModule);
+            write(appSrc, "c/App.java", "package c;\npublic class App { int n() { return 1; } }\n");
+            SourceSet app = new SourceSetImpl.Builder().setName("app").setSourceDirectories(List.of(appSrc))
+                    .setUri(appSrc.toUri()).setDependencies(List.of(mod)).build();
+            JavaInspector inspector = inspector(mod, app);
+            JavaInspector.ParseOptions cold = new JavaInspector.ParseOptions.Builder().setDetailedSources(true)
+                    .setIgnoreModule(ignoreModule).build();
+            ParseResult pr1 = inspector.parse(Map.of(), cold).parseResult();
+            assertNotNull(pr1.sourceSetToModuleInfoMap().get(mod), "cold parse, ignoreModule " + ignoreModule);
+
+            write(appSrc, "c/App.java", "package c;\npublic class App { int n() { return 2; } }\n");
+            JavaInspector.ParseOptions warm = new JavaInspector.ParseOptions.Builder().setDetailedSources(true)
+                    .setIgnoreModule(ignoreModule).setFailFast(true)
+                    .setInvalidated(ti -> "c.App".equals(ti.fullyQualifiedName()) ? INVALID : UNCHANGED).build();
+            ParseResult pr2 = inspector.parse(Map.of(), warm).parseResult();
+            assertNotNull(pr2.sourceSetToModuleInfoMap().get(mod), "mod KEEP, ignoreModule " + ignoreModule);
+
+            JavaInspector.ParseOptions rewire = new JavaInspector.ParseOptions.Builder().setDetailedSources(true)
+                    .setIgnoreModule(ignoreModule).setFailFast(true)
+                    .setInvalidated(ti -> "a.Helper".equals(ti.fullyQualifiedName()) ? REWIRE : UNCHANGED).build();
+            ParseResult pr3 = inspector.parse(Map.of(), rewire).parseResult();
+            assertNotNull(pr3.sourceSetToModuleInfoMap().get(mod), "mod REWIRE, ignoreModule " + ignoreModule);
+
+            write(modSrc, "a/Helper.java", HELPER.replace("42", "43"));
+            JavaInspector.ParseOptions partial = new JavaInspector.ParseOptions.Builder().setDetailedSources(true)
+                    .setIgnoreModule(ignoreModule).setFailFast(true)
+                    .setInvalidated(ti -> "a.Helper".equals(ti.fullyQualifiedName()) ? INVALID : UNCHANGED).build();
+            ParseResult pr4 = inspector.parse(Map.of(), partial).parseResult();
+            assertNotNull(pr4.sourceSetToModuleInfoMap().get(mod), "mod re-scanned, ignoreModule " + ignoreModule);
+        }
     }
 
     // ---- set-up

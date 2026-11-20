@@ -103,7 +103,9 @@ final class CSharpModifiers {
             case PUBLIC -> "public";
             // a static class has no protected members (CS1057): a generic class's companion's protected static,
             // which Java's subclasses reach, is the program's
-            case PROTECTED -> owner != null && owner.equals(CSharpContext.companion()) ? "internal" : "protected internal";
+            // nor does a struct, which has no subclasses (CS0666)
+            case PROTECTED -> owner != null && (owner.equals(CSharpContext.companion())
+                                                || CSharpContext.program().struct(owner)) ? "internal" : "protected internal";
             case PRIVATE -> "private";
             case PACKAGE -> "internal";
         };

@@ -17,14 +17,15 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Java types as Rust types, in three forms: owned ({@code String}, {@code Vec<T>}, {@code Box<dyn I>}), shared
@@ -55,6 +56,16 @@ final class RustTypes {
             Map.entry("java.math.BigDecimal", new Mapped("f64", null)),
             Map.entry("java.time.LocalDateTime", new Mapped("SystemTime", "std::time::SystemTime")),
             Map.entry("java.time.Instant", new Mapped("SystemTime", "std::time::SystemTime")),
+            // an in-memory byte stream in jrt.rs, with Java's big-endian reads (fernflower's class-file parsing)
+            Map.entry("java.io.DataInputStream", new Mapped("crate::jrt::DataInputStream", null)),
+            Map.entry("java.io.InputStream", new Mapped("crate::jrt::DataInputStream", null)),
+            Map.entry("java.util.BitSet", new Mapped("crate::jrt::BitSet", null)),
+            // jrt.rs's file system on std::fs and std::path (CodeLaser/maddi#203; RustJdk.files)
+            Map.entry("java.io.File", new Mapped("crate::jrt::File", null)),
+            Map.entry("java.nio.file.Path", new Mapped("crate::jrt::Path", null)),
+            Map.entry("java.nio.file.Paths", new Mapped("crate::jrt::Path", null)),
+            Map.entry("java.nio.file.Files", new Mapped("crate::jrt::Files", null)),
+            Map.entry("java.io.PrintStream", new Mapped("crate::jrt::PrintStream", null)),
             Map.entry("java.util.Collection", new Mapped("Vec", null)),
             Map.entry("java.lang.Iterable", new Mapped("Vec", null)),
             Map.entry("java.util.List", new Mapped("Vec", null)),
@@ -69,6 +80,8 @@ final class RustTypes {
             Map.entry("java.util.Map", new Mapped("HashMap", "std::collections::HashMap")),
             Map.entry("java.util.HashMap", new Mapped("HashMap", "std::collections::HashMap")),
             Map.entry("java.util.LinkedHashMap", new Mapped("HashMap", "std::collections::HashMap")),
+            // an enum's variants are Hash and Eq: an EnumMap is a HashMap keyed by them
+            Map.entry("java.util.EnumMap", new Mapped("HashMap", "std::collections::HashMap")),
             Map.entry("java.util.SortedMap", new Mapped("BTreeMap", "std::collections::BTreeMap")),
             Map.entry("java.util.NavigableMap", new Mapped("BTreeMap", "std::collections::BTreeMap")),
             Map.entry("java.util.TreeMap", new Mapped("BTreeMap", "std::collections::BTreeMap")),
@@ -93,6 +106,19 @@ final class RustTypes {
      * A source class or record the facts call {@code @Immutable} (no hidden content): printed with
      * {@code #[derive(Clone)]}, and cloned where an owned value is expected, as a string is.
      */
+    /*
+     The translated type derives or implements Clone: a primitive, a string, an immutable value (isImmutableValue), or a
+     JDK collection or array of such elements. A clone of a collection is a copy, not Java's shared object: only for a
+     result nothing modifies (RustFacts.ownedResult's family members).
+     */
+    static boolean cloneable(ParameterizedType type, RustFacts facts) {
+        if (type.arrays() > 0) return cloneable(type.copyWithoutArrays(), facts);
+        if (isCopy(type) || isString(type) || isImmutableValue(type, facts)) return true;
+        TypeInfo ti = type.typeInfo();
+        if (ti == null || !ti.fullyQualifiedName().startsWith("java.util.")) return false;
+        return !type.parameters().isEmpty() && type.parameters().stream().allMatch(p -> cloneable(p, facts));
+    }
+
     static boolean isImmutableValue(ParameterizedType type, RustFacts facts) {
         if (type.arrays() > 0) return false;
         if (type.isTypeParameter()) {
@@ -101,6 +127,13 @@ final class RustTypes {
             return owner.isLeft() && facts.immutableHc(owner.getLeft());
         }
         TypeInfo ti = type.typeInfo();
+        // an opaque stand-in has no state: a copy of it cannot be told from the shared one
+        if (isOpaque(ti)) return true;
+        // java.io.File and java.nio.file.Path are immutable: jrt.rs's derive Clone (CodeLaser/maddi#203)
+        if (ti != null && ("crate::jrt::File".equals(mapped(ti)) || "crate::jrt::Path".equals(mapped(ti)))) return true;
+        // a Shared handle: its clone is the shared object, as Java's reference is; so is a back-link's weak one
+        if (RustShared.current().isShared(type)) return true;
+        if (ti != null && RustShared.current().isBackLink(ti)) return true;
         return ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()
                && !ti.typeNature().isEnum() && (facts.immutable(ti) || facts.immutableHc(ti));
     }
@@ -118,7 +151,8 @@ final class RustTypes {
         if (ti.isPrimitiveExcludingVoid() || ti.isBoxedExcludingVoid()) return true;
         if ("java.math.BigDecimal".equals(ti.fullyQualifiedName())) return true;
         if ("SystemTime".equals(mapped(ti))) return true;
-        return ti.typeNature().isEnum() && RustTypePrinter.plainEnum(ti);
+        // a source enum is a Copy enum of unit variants (RustTypePrinter.enumType), its constant state a match
+        return ti.typeNature().isEnum() && (RustTypePrinter.plainEnum(ti) || !ti.compilationUnit().externalLibrary());
     }
 
     /** {@code Vec}, {@code HashMap}, … for a JDK collection type; {@code null} otherwise. */
@@ -145,6 +179,8 @@ final class RustTypes {
             String element = owned(type.copyWithArrays(type.arrays() - 1), context, where);
             return (form == Form.SHARED ? "&[" : "&mut [") + element + "]";
         }
+        // a back-link (RustShared): a handle in every form, cloned where it is passed on
+        if (ti != null && type.arrays() == 0 && RustShared.current().isBackLink(ti)) return backLink(type, context, where);
         if (form != Form.OWNED && ti != null && type.arrays() == 0 && isInterface(ti)) {
             // a borrowed closure is passed as '&|| …' or '&mut || …' (RustBodyPrinter.argument), never a borrowed Box
             String trait = isFunctional(ti) ? function(type, context, where) : "dyn " + named(type, context, where);
@@ -185,8 +221,18 @@ final class RustTypes {
             context.use("std::any::Any");
             return "(Box<dyn Any>, Box<dyn Any>)";
         }
+        if (RustShared.current().isBackLink(ti)) return backLink(type, context, where);
         if (isInterface(ti)) return "Box<dyn " + named(type, context, where) + ">";
         return named(type, context, where);
+    }
+
+    /*
+     A back-link interface's value, a weak handle of the one object implementing it (RustShared.isBackLink). In a
+     struct with a lifetime, the object may carry it too: the trait object is bounded by it.
+     */
+    private static String backLink(ParameterizedType type, RustContext context, Element where) {
+        String bound = context.type != null && context.borrows.hasLifetime(context.type) ? " + " + RustBorrows.LIFETIME : "";
+        return "crate::jrt::WeakShared<dyn " + named(type, context, where) + bound + ">";
     }
 
     /**
@@ -229,7 +275,18 @@ final class RustTypes {
     }
 
     private static boolean isInterface(TypeInfo ti) {
-        return ti.isInterface() && JDK.get(ti.fullyQualifiedName()) == null;
+        return ti.isInterface() && JDK.get(ti.fullyQualifiedName()) == null && !isOpaque(ti);
+    }
+
+    /**
+     * An external type without a Rust counterpart: printed as its opaque stand-in in {@code jrt.rs}
+     * ({@link RustContext#opaque}), a unit struct also for an interface. Mirrors the external branch of
+     * {@link #named}, after the special forms of {@link #owned}.
+     */
+    static boolean isOpaque(TypeInfo ti) {
+        return ti != null && ti.compilationUnit().externalLibrary() && JDK.get(ti.fullyQualifiedName()) == null
+               && !ti.isJavaLangObject() && !ti.isPrimitiveExcludingVoid() && !"java.util.Iterator".equals(ti.fullyQualifiedName())
+               && !isFunctional(ti) && !isEntry(ti) && !"java.util.stream".equals(ti.packageName());
     }
 
     /**
@@ -362,17 +419,22 @@ final class RustTypes {
                 return "Iterator<Item = " + owned(type.parameters().getFirst(), context, where) + ">";
             }
             context.message(RustPrintCode.UNMAPPED_JDK, where, ti.fullyQualifiedName());
-            base = ti.simpleName();
+            // an opaque stand-in (jrt.rs): what holds one still compiles, only what calls into it does not
+            return "crate::jrt::" + context.opaque(ti);
         } else {
             base = RustNames.type(ti);
-            String module = RustNames.module(ti.packageName());
+            String module = RustNames.module(ti);
             if (!module.equals(context.module)) context.use("crate::" + module + "::" + base);
             // a struct with borrowed fields: its lifetime, elided where a signature allows it; in its own impl, the
             // impl's, so that a static method returning one says what it borrows from
             if (context.borrows.hasLifetime(ti)) {
-                String lifetime = ti == context.type ? RustBorrows.LIFETIME : "'_";
-                return base + "<" + java.util.stream.Stream.concat(java.util.stream.Stream.of(lifetime),
+                // ... and so in a struct carrying the lifetime itself: its fields cannot elide it (E0106)
+                String lifetime = ti == context.type
+                                  || context.type != null && context.borrows.hasLifetime(context.type)
+                        ? RustBorrows.LIFETIME : "'_";
+                String withLifetime = base + "<" + Stream.concat(Stream.of(lifetime),
                         type.parameters().stream().map(p -> owned(p, context, where))).collect(Collectors.joining(", ")) + ">";
+                return RustShared.current().isShared(ti) ? "crate::jrt::Shared<" + withLifetime + ">" : withLifetime;
             }
         }
         String named;
@@ -386,6 +448,8 @@ final class RustTypes {
             context.use("std::rc::Rc");
             return "Rc<" + named + ">";
         }
+        // Java's shared object: a reference with Java's semantics (RustShared)
+        if (RustShared.current().isShared(ti)) return "crate::jrt::Shared<" + named + ">";
         return named;
     }
 

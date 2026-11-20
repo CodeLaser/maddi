@@ -17,11 +17,17 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Precedence;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -36,13 +42,6 @@ import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
 import io.codelaser.maddi.cst.impl.expression.util.InternalCompareToException;
 import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
-
-import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
 
 public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression {
     public final ParameterizedType parameterizedType;

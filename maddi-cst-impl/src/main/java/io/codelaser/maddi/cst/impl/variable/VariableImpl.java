@@ -17,6 +17,10 @@
 
 package io.codelaser.maddi.cst.impl.variable;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -24,10 +28,6 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.element.SourceImpl;
 import io.codelaser.maddi.cst.impl.output.QualificationImpl;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Stream;
 
 public abstract class VariableImpl implements Variable {
 

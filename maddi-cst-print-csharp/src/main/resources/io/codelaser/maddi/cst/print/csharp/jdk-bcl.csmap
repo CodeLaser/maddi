@@ -39,9 +39,11 @@ type java.util.TreeMap -> SortedDictionary using System.Collections.Generic
 type java.util.SortedMap -> SortedDictionary using System.Collections.Generic
 type java.util.Set -> ISet using System.Collections.Generic
 type java.util.AbstractSet -> ISet using System.Collections.Generic
-# .NET's HashSet enumerates in insertion order as long as nothing is removed
-type java.util.HashSet -> HashSet using System.Collections.Generic
-type java.util.LinkedHashSet -> HashSet using System.Collections.Generic
+# a LinkedHashSet iterates in insertion order also after a removal, as JavaLinkedHashSet does, where .NET's HashSet
+# reuses the removed element's slot; a HashSet is one too, so that Java's LinkedHashSet is the HashSet it extends
+# (Java's hash order is not emulated, see csharp-printing.md)
+type java.util.HashSet -> JavaLinkedHashSet using Maddi.JavaCompat
+type java.util.LinkedHashSet -> JavaLinkedHashSet using Maddi.JavaCompat
 type java.util.TreeSet -> SortedSet using System.Collections.Generic
 type java.util.SortedSet -> SortedSet using System.Collections.Generic
 # the navigable and sequenced interfaces are their one implementation's: TreeMap, TreeSet, LinkedHashMap and
@@ -49,7 +51,7 @@ type java.util.SortedSet -> SortedSet using System.Collections.Generic
 type java.util.NavigableMap -> SortedDictionary using System.Collections.Generic
 type java.util.NavigableSet -> SortedSet using System.Collections.Generic
 type java.util.SequencedMap -> OrderedDictionary using System.Collections.Generic
-type java.util.SequencedSet -> HashSet using System.Collections.Generic
+type java.util.SequencedSet -> JavaLinkedHashSet using Maddi.JavaCompat
 type java.util.EnumSet -> HashSet using System.Collections.Generic
 type java.util.Collection -> ICollection using System.Collections.Generic
 type java.util.AbstractCollection -> ICollection using System.Collections.Generic
@@ -66,6 +68,7 @@ type java.util.OptionalLong -> long?
 type java.util.OptionalDouble -> double?
 type java.util.stream.LongStream -> IEnumerable<long> using System.Collections.Generic
 type java.util.stream.DoubleStream -> IEnumerable<double> using System.Collections.Generic
+type java.util.stream.Stream.Builder -> JavaStreamBuilder using Maddi.JavaCompat
 type java.time.Instant -> DateTimeOffset using System
 # the values of java.time, java.net and java.math: BCL structs, as Instant is
 type java.time.LocalDate -> DateOnly using System
@@ -279,12 +282,10 @@ member java.util.Collection.size/0 -> $0.Count
 member java.util.Map.size/0 -> $0.Count
 member java.util.Collection.isEmpty/0 -> $0.Count == 0
 member java.util.Map.isEmpty/0 -> $0.Count == 0
-member java.util.Collection.add/1 -> $0.Add($1)
 member java.util.Collection.clear/0 -> $0.Clear()
 member java.util.Map.clear/0 -> $0.Clear()
 member java.util.Collection.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
 statement java.util.Collection.addAll/1 -> $0.AddAll($1)
-member java.util.Collection.containsAll/1 -> @1.All($0.Contains) using System.Linq
 member java.util.Collection.removeAll/1 -> $0.RemoveAllOf($1) using Maddi.JavaCompat
 statement java.util.Collection.removeAll/1 -> $0.RemoveAllOf($1)
 member java.util.Collection.retainAll/1 -> $0.RetainAll($1) using Maddi.JavaCompat
@@ -316,7 +317,6 @@ member java.util.SequencedCollection.getFirst/0 -> $0.First() using System.Linq
 member java.util.SequencedCollection.getLast/0 -> $0.Last() using System.Linq
 member java.util.List.copyOf/1 -> new List<{R0}>($1)
 # the array argument only gives Java the element type
-member java.util.Collection.toArray/1 -> $0.ToArray() using System.Linq
 member java.util.Deque.getFirst/0 -> $0[0]
 member java.util.LinkedList.getFirst/0 -> $0[0]
 member java.util.ArrayDeque.getFirst/0 -> $0[0]
@@ -414,15 +414,11 @@ statement java.util.ArrayDeque.remove/0 -> $0.RemoveAt(0)
 member java.util.Queue.remove/0 -> $0.RemoveFirst() using Maddi.JavaCompat
 statement java.util.Queue.remove/0 -> $0.RemoveAt(0)
 # Map
-member java.util.Map.put/2 ->? $0.Put($1, $2) using Maddi.JavaCompat
-statement java.util.Map.put/2 -> $0[$1] = $2
 member java.util.Map.containsValue/1 -> $0.Values.Contains($1) using System.Linq
 member java.util.Map.entrySet/0 -> $0
 member java.util.Map.keySet/0 -> $0.Keys
 member java.util.Map.values/0 -> $0.Values
 member java.util.Map.putAll/1 -> $0.PutAll($1) using Maddi.JavaCompat
-member java.util.Map.putIfAbsent/2 ->? $0.PutIfAbsent($1, $2) using Maddi.JavaCompat
-statement java.util.Map.putIfAbsent/2 -> $0.TryAdd($1, $2)
 member java.util.Map.computeIfAbsent/2 -> $0.ComputeIfAbsent($1, $2) using Maddi.JavaCompat
 member java.util.Map.compute/2 -> $0.Compute($1, $2) using Maddi.JavaCompat
 member java.util.Map.merge/3 -> $0.Merge($1, $2, $3) using Maddi.JavaCompat
@@ -456,6 +452,7 @@ member java.util.LinkedHashMap.newLinkedHashMap/1 -> new {R}($1)
 member java.util.HashSet.newHashSet/1 -> new {R}($1)
 member java.util.LinkedHashSet.newLinkedHashSet/1 -> new {R}($1)
 member java.util.Collections.emptyMap/0 -> new Dictionary<{R0}, {R1}>()
+member java.util.Collections.emptySortedMap/0 -> new SortedDictionary<{R0}, {R1}>()
 member java.util.Collections.singletonList/1 -> new List<{R0}> { $1 }
 member java.util.Collections.singleton/1 -> new HashSet<{R0}> { $1 }
 member java.util.Collections.singletonMap/2 -> new Dictionary<{R0}, {R1}> { [$1] = $2 }
@@ -478,8 +475,13 @@ member java.util.Arrays.stream/1 -> $1
 member java.util.Arrays.equals/2 -> JavaArrays.Equals($1, $2) using Maddi.JavaCompat
 member java.util.Arrays.hashCode/1 -> JavaArrays.HashCode($1) using Maddi.JavaCompat
 member java.util.Arrays.toString/1 -> JavaArrays.ToString($1) using Maddi.JavaCompat
+member java.util.Arrays.deepToString/1 -> JavaArrays.DeepToString($1) using Maddi.JavaCompat
 member java.util.Arrays.fill/2 -> Array.Fill($1, $2) using System
-member java.util.Arrays.sort/1 -> Array.Sort($1) using System
+# Java's natural order (a string's ordinal) and, for objects, a stable sort: the compatibility library's
+member java.util.Arrays.sort/1 -> JavaArrays.Sort($1) using Maddi.JavaCompat
+member java.util.Arrays.sort/2 -> JavaArrays.Sort($1, $2) using Maddi.JavaCompat
+member java.util.Arrays.sort/3 -> JavaArrays.Sort($1, $2, $3) using Maddi.JavaCompat
+member java.util.Arrays.sort/4 -> JavaArrays.Sort($1, $2, $3, $4) using Maddi.JavaCompat
 # navigation, by the compatibility library's extensions (JavaNavigable): an entry is a JavaEntry, null when none
 member java.util.NavigableMap.firstEntry/0 ->? $0.FirstEntry() using Maddi.JavaCompat
 member java.util.NavigableMap.lastEntry/0 ->? $0.LastEntry() using Maddi.JavaCompat
@@ -512,6 +514,7 @@ member java.util.SequencedMap.sequencedValues/0 -> $0.Values
 member java.util.SequencedMap.sequencedKeySet/0 -> $0.Keys
 member java.util.EnumSet.noneOf/1 -> new HashSet<{R0}>()
 member java.util.EnumSet.copyOf/1 -> new HashSet<{R0}>($1)
+member java.util.EnumSet.of -> new HashSet<{R0}> { $* }
 member java.util.Collections.rotate/2 -> JavaCollections.Rotate($1, $2) using Maddi.JavaCompat
 member java.util.Collections.shuffle/1 -> JavaCollections.Shuffle($1, Random.Shared) using Maddi.JavaCompat, System
 member java.util.Collections.shuffle/2 -> JavaCollections.Shuffle($1, $2) using Maddi.JavaCompat
@@ -534,6 +537,9 @@ member java.util.Objects.requireNonNull/1 -> $1 ?? throw new NullReferenceExcept
 statement java.util.Objects.requireNonNull/1 -> _ = $1 ?? throw new NullReferenceException()
 member java.util.Objects.requireNonNull/2 -> $1 ?? throw new NullReferenceException($2) using System
 statement java.util.Objects.requireNonNull/2 -> _ = $1 ?? throw new NullReferenceException($2)
+# the message of a Supplier: called only when the value is null
+member java.util.Objects.requireNonNull(Object,Supplier) -> $1 ?? throw new NullReferenceException($2()) using System
+statement java.util.Objects.requireNonNull(Object,Supplier) -> _ = $1 ?? throw new NullReferenceException($2())
 member java.util.Objects.requireNonNullElse/2 -> $1 ?? $2
 member java.util.Objects.requireNonNullElseGet/2 -> $1 ?? $2()
 member java.util.Objects.toString/1 -> JavaString.ValueOf($1) using Maddi.JavaCompat
@@ -579,6 +585,7 @@ member java.lang.String.getBytes/0 -> JavaString.GetBytes($0, Encoding.UTF8) usi
 member java.lang.String.repeat/1 -> string.Concat(Enumerable.Repeat($0, $1)) using System.Linq
 member java.lang.String.equalsIgnoreCase/1 -> string.Equals($0, $1, StringComparison.OrdinalIgnoreCase) using System
 member java.lang.String.compareTo/1 -> string.CompareOrdinal($0, $1)
+member java.lang.String.compareToIgnoreCase/1 -> JavaString.CompareToIgnoreCase($0, $1) using Maddi.JavaCompat
 member java.lang.String.toCharArray/0 -> $0.ToCharArray()
 member java.lang.String.concat/1 -> $0 + $1
 member java.lang.String.intern/0 -> string.Intern($0)
@@ -647,11 +654,13 @@ member java.lang.Character.toChars/1 -> char.ConvertFromUtf32($1).ToCharArray()
 
 # ---------------------------------------------------------------- numbers
 member java.lang.Integer.toString/1 -> $1.ToString()
+member java.lang.Integer.toString/2 -> JavaString.ToString($1, $2) using Maddi.JavaCompat
+member java.lang.Long.toString/2 -> JavaString.ToString($1, $2) using Maddi.JavaCompat
 member java.lang.Long.toString/1 -> $1.ToString()
 member java.lang.Short.toString/1 -> $1.ToString()
 member java.lang.Byte.toString/1 -> $1.ToString()
-member java.lang.Double.toString/1 -> $1.ToString()
-member java.lang.Float.toString/1 -> $1.ToString()
+member java.lang.Double.toString/1 -> JavaString.ValueOf($1) using Maddi.JavaCompat
+member java.lang.Float.toString/1 -> JavaString.ValueOf($1) using Maddi.JavaCompat
 member java.lang.Integer.compare/2 -> $1.CompareTo($2)
 member java.lang.Long.compare/2 -> $1.CompareTo($2)
 member java.lang.Short.compare/2 -> $1.CompareTo($2)
@@ -695,6 +704,9 @@ member java.lang.Double.doubleToRawLongBits/1 -> BitConverter.DoubleToInt64Bits(
 member java.lang.Double.longBitsToDouble/1 -> BitConverter.Int64BitsToDouble($1) using System
 member java.lang.Math.round/1 -> JavaMath.Round($1) using Maddi.JavaCompat
 # the methods .NET's Math has under the same name and with the same meaning; the others are unmapped
+# Java's abs of the minimum is the minimum, C#'s Math.Abs throws: the int's and the long's wrap
+member java.lang.Math.abs(int) -> JavaMath.Abs($1) using Maddi.JavaCompat
+member java.lang.Math.abs(long) -> JavaMath.Abs($1) using Maddi.JavaCompat
 member java.lang.Math.abs -> Math.Abs($*) using System
 member java.lang.Math.max -> Math.Max($*) using System
 member java.lang.Math.min -> Math.Min($*) using System
@@ -756,7 +768,7 @@ member java.util.stream.Stream.allMatch/1 -> $0.All($1) using System.Linq
 member java.util.stream.Stream.noneMatch/1 -> !$0.Any($1) using System.Linq
 member java.util.stream.Stream.count/0 -> $0.LongCount() using System.Linq
 member java.util.stream.Stream.distinct/0 -> $0.Distinct() using System.Linq
-member java.util.stream.Stream.sorted/0 -> $0.Order() using System.Linq
+member java.util.stream.Stream.sorted/0 -> $0.Order(JavaComparer<{R0}>.Natural) using System.Linq, Maddi.JavaCompat
 member java.util.stream.Stream.sorted/1 -> $0.Sorted($1) using Maddi.JavaCompat
 member java.util.stream.Stream.toList/0 -> $0.ToList() using System.Linq
 member java.util.stream.Stream.findFirst/0 -> $0.FirstOrDefault() using System.Linq
@@ -766,6 +778,15 @@ member java.util.stream.Stream.limit/1 -> $0.Take((int) @1) using System.Linq
 member java.util.stream.Stream.skip/1 -> $0.Skip((int) @1) using System.Linq
 member java.util.stream.Stream.empty/0 -> Enumerable.Empty<{R0}>() using System.Linq
 member java.util.stream.Stream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.IntStream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.LongStream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.DoubleStream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.LongStream.toArray/0 -> $0.ToArray() using System.Linq
+member java.util.stream.DoubleStream.toArray/0 -> $0.ToArray() using System.Linq
+member java.util.stream.Stream.builder/0 -> new JavaStreamBuilder<{R0}>() using Maddi.JavaCompat
+member java.util.stream.Stream.Builder.add/1 -> $0.Add($1)
+member java.util.stream.Stream.Builder.accept/1 -> $0.Accept($1)
+member java.util.stream.Stream.Builder.build/0 -> $0.Build()
 member java.util.stream.Stream.generate/1 -> JavaFunctions.Generate($1) using Maddi.JavaCompat
 member java.util.stream.BaseStream.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.stream.StreamSupport.stream/2 -> $1
@@ -800,8 +821,9 @@ member java.util.stream.IntStream.toArray/0 -> $0.ToArray() using System.Linq
 # Optional is the value itself, or null
 member java.util.Optional.isPresent/0 -> $0 != null
 member java.util.Optional.isEmpty/0 -> $0 == null
-member java.util.Optional.get/0 ->? $0
-member java.util.Optional.orElseThrow/0 -> $0 ?? throw new InvalidOperationException() using System
+# Java's get of an empty Optional throws, as orElseThrow does: NoSuchElementException is InvalidOperationException
+member java.util.Optional.get/0 -> $0 ?? throw new InvalidOperationException("No value present") using System
+member java.util.Optional.orElseThrow/0 -> $0 ?? throw new InvalidOperationException("No value present") using System
 member java.util.Optional.orElseThrow/1 -> $0 ?? throw $1()
 member java.util.Optional.orElse/1 -> $0 ?? $1
 member java.util.Optional.orElseGet/1 -> $0 ?? $1()
@@ -846,6 +868,7 @@ member java.util.function.ObjLongConsumer.accept -> $0($*)
 member java.util.function.Predicate.and/1 -> $0.And($1) using Maddi.JavaCompat
 member java.util.function.Predicate.or/1 -> $0.Or($1) using Maddi.JavaCompat
 member java.util.function.Predicate.negate/0 -> $0.Negate() using Maddi.JavaCompat
+member java.util.function.Predicate.not/1 -> JavaFunctions.Not<{R0}>($1) using Maddi.JavaCompat
 member java.util.function.BiPredicate.and/1 -> $0.And($1) using Maddi.JavaCompat
 member java.util.function.BiPredicate.or/1 -> $0.Or($1) using Maddi.JavaCompat
 member java.util.function.BiPredicate.negate/0 -> $0.Negate() using Maddi.JavaCompat
@@ -865,7 +888,7 @@ member java.util.Comparator.thenComparing/1 -> $0.ThenComparing($1) using Maddi.
 member java.util.Comparator.thenComparingInt/1 -> $0.ThenComparing($1) using Maddi.JavaCompat
 member java.util.Comparator.thenComparingLong/1 -> $0.ThenComparing($1) using Maddi.JavaCompat
 member java.util.Comparator.reversed/0 -> $0.Reversed() using Maddi.JavaCompat
-member java.util.Comparator.naturalOrder/0 -> Comparer<{R0}>.Default.Compare
+member java.util.Comparator.naturalOrder/0 -> JavaComparer<{R0}>.Natural.Compare using Maddi.JavaCompat
 member java.util.Comparator.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
 member java.util.Collections.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
 
@@ -917,7 +940,33 @@ member java.lang.System.lineSeparator/0 -> Environment.NewLine using System
 member java.lang.System.getProperty/1 ->? JavaSystem.GetProperty($1) using Maddi.JavaCompat
 member java.lang.System.getProperty/2 ->? JavaSystem.GetProperty($1, $2) using Maddi.JavaCompat
 member java.lang.System.exit/1 -> Environment.Exit($1) using System
+member java.lang.System.gc/0 -> GC.Collect() using System
 member java.lang.System.identityHashCode/1 -> RuntimeHelpers.GetHashCode($1) using System.Runtime.CompilerServices
+# Java's string conversion (String.valueOf) where C#'s differs: true, 1.0, [1, 2], null
+member java.io.PrintStream.println(boolean) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.println(double) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.println(float) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.println(Object) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.print(boolean) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.print(double) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.print(float) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintStream.print(Object) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.println(boolean) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.println(double) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.println(float) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.println(Object) -> $0.WriteLine(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.print(boolean) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.print(double) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.print(float) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.io.PrintWriter.print(Object) -> $0.Write(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.StringBuilder.append(boolean) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.StringBuilder.append(double) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.StringBuilder.append(float) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.StringBuilder.append(Object) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.append(boolean) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.append(double) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.append(float) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.append(Object) -> $0.Append(JavaString.ValueOf($1)) using Maddi.JavaCompat
 member java.io.PrintStream.println/1 -> $0.WriteLine($1)
 member java.io.PrintStream.println/0 -> $0.WriteLine()
 member java.io.PrintStream.print/1 -> $0.Write($1)

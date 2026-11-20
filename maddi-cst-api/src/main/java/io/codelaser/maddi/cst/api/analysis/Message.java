@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.cst.api.analysis;
 
+import java.util.List;
+
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.Info;
-
-import java.util.List;
 
 public interface Message {
 

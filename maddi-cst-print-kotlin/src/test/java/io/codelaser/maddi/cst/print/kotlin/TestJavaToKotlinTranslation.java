@@ -17,12 +17,14 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.stream.Collectors;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The Java forms that have no one-to-one Kotlin counterpart, one test per translation rule. The corpus-scale check,
@@ -36,7 +38,7 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     }
 
     private static String strip(String s) {
-        return s.lines().map(String::strip).collect(java.util.stream.Collectors.joining("\n"));
+        return s.lines().map(String::strip).collect(Collectors.joining("\n"));
     }
 
     @Language("java")

@@ -17,11 +17,20 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstantExpression;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.EnclosingInstance;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -32,11 +41,6 @@ import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * A Java inner class, a non-static member class, has an enclosing instance; a C# nested class has none. One that uses
@@ -102,10 +106,10 @@ final class CSharpInner {
                             uses[0] = true;
                         }
                     }
+                    // Outer.this as a value, Outer.this.m(), a member Outer inherits: maddi's rule (EnclosingInstance).
+                    // The written form was tested the wrong way round here, so a written Outer.this was never one.
                     case VariableExpression ve when ve.variable() instanceof This th -> {
-                        if (th.explicitlyWriteType() != null && !CstQueries.within(t, th.explicitlyWriteType())) {
-                            uses[0] = true;
-                        }
+                        if (!th.writeSuper() && EnclosingInstance.captures(th, t)) uses[0] = true;
                     }
                     case MethodCall mc -> {
                         if (!mc.methodInfo().isStatic() && mc.objectIsImplicit()
@@ -113,16 +117,10 @@ final class CSharpInner {
                             uses[0] = true;
                         }
                     }
-                    case ConstructorCall cc -> {
-                        // a sibling inner class, created with this one's enclosing instance
-                        if (cc.object() == null && cc.anonymousClass() == null && cc.constructor() != null) {
-                            TypeInfo created = cc.constructor().typeInfo();
-                            TypeInfo needed = CstQueries.enclosing(created);
-                            if (withOuter(created) && needed != null && !needed.equals(t) && !CSharpNames.inherits(t, needed)) {
-                                uses[0] = true;
-                            }
-                        }
-                    }
+                    // a sibling inner class with an outer, created with this one's enclosing instance: new Sibling(),
+                    // new Sibling() {…}, Sibling::new (EnclosingInstance.createdInnerClass)
+                    case ConstructorCall cc when createsSiblingWithOuter(cc, t) -> uses[0] = true;
+                    case MethodReference mr when createsSiblingWithOuter(mr, t) -> uses[0] = true;
                     default -> {
                     }
                 }
@@ -133,6 +131,13 @@ final class CSharpInner {
         return false;
     }
 
+
+    private static boolean createsSiblingWithOuter(Element creation, TypeInfo t) {
+        TypeInfo created = EnclosingInstance.createdInnerClass(creation);
+        if (created == null || !withOuter(created)) return false;
+        TypeInfo needed = CstQueries.enclosing(created);
+        return needed != null && !needed.equals(t) && !CSharpNames.inherits(t, needed);
+    }
 
     /**
      * A class whose instance fields are initialized in its constructors, as Java does after {@code super(…)}: an inner
@@ -145,6 +150,7 @@ final class CSharpInner {
             return false;
         }
         if (withOuter(t)) return true;
+        if (initializedAfterBase(t)) return true;
         for (FieldInfo f : t.fields()) {
             if (f.isStatic() || f.isSynthetic() || f.initializer() == null || f.initializer().isEmpty()) continue;
             boolean[] uses = {false};
@@ -162,6 +168,59 @@ final class CSharpInner {
                 return true;
             });
             if (uses[0]) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Java runs a class's field initializers after its superclass's constructor, C# before it. The difference shows
+     * where the class extends one of the program's classes and an initializer calls one of the program's methods (its
+     * side effects come before the superclass constructor's in C#), or a superclass constructor calls an overridable
+     * method (which in Java sees the field's default, in C# its initialized value).
+     */
+    private static boolean initializedAfterBase(TypeInfo t) {
+        ParameterizedType parent = t.parentClass();
+        if (parent == null || parent.isJavaLangObject() || parent.typeInfo() == null || !CSharpNames.translated(parent.typeInfo())) {
+            return false;
+        }
+        List<FieldInfo> initialized = t.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()
+                && f.initializer() != null && !f.initializer().isEmpty()).toList();
+        if (initialized.isEmpty()) return false;
+        if (initialized.stream().anyMatch(f -> callsAMethod(f.initializer()))) return true;
+        // a final field of a constant is a constant in Java too: the override sees its value
+        boolean nonConstant = initialized.stream().anyMatch(f -> !(f.isFinal()
+                && f.initializer() instanceof ConstantExpression<?>));
+        return nonConstant && superConstructorCallsOverridable(parent.typeInfo());
+    }
+
+    /** A call of one of the program's methods, whose side effects Java orders after the superclass constructor's. */
+    private static boolean callsAMethod(Element code) {
+        boolean[] calls = {false};
+        code.visit((Element e) -> {
+            if (e instanceof MethodCall mc && CSharpNames.translated(mc.methodInfo().typeInfo())) calls[0] = true;
+            return !calls[0];
+        });
+        return calls[0];
+    }
+
+    /** A constructor of {@code s} or of its superclasses calls an instance method of its own a subclass may override. */
+    private static boolean superConstructorCallsOverridable(TypeInfo s) {
+        for (TypeInfo c = s; c != null && CSharpNames.translated(c); ) {
+            for (MethodInfo constructor : c.constructors()) {
+                if (constructor.methodBody() == null) continue;
+                boolean[] calls = {false};
+                constructor.methodBody().visit((Element e) -> {
+                    if (e instanceof MethodCall mc && !mc.methodInfo().isStatic() && !mc.methodInfo().isConstructor()
+                        && (mc.objectIsImplicit() || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This)
+                        && !mc.methodInfo().isFinal() && !(mc.methodInfo().access() != null && mc.methodInfo().access().isPrivate())) {
+                        calls[0] = true;
+                    }
+                    return !calls[0];
+                });
+                if (calls[0]) return true;
+            }
+            ParameterizedType p = c.parentClass();
+            c = p == null || p.isJavaLangObject() ? null : p.typeInfo();
         }
         return false;
     }

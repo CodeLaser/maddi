@@ -1,5 +1,5 @@
 [
-{"format": "maddi-analysis-results", "version": 1},
+{"format": "maddi-analysis-results", "version": 2},
 
 {"name": "Tkotlin.jvm.JvmClassMappingKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MgetAnnotationClass(0,T)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":

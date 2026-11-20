@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -24,17 +31,13 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.print.rust.RustTypes.Form;
-
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * A dependent field: the object stores what its constructor is given, and the caller keeps it too. Java shares the
@@ -43,8 +46,8 @@ import java.util.Map;
  * the view does not outlive what it was given, nor sees it modified while it lives (E0502, E0505, E0597).
  * <p>
  * A field is borrowed when it is final, has no initializer, is of a type that is moved rather than copied or cloned,
- * and every constructor assigns it, once, a parameter the analysis calls dependent. Records keep their owned
- * components. Every other dependent parameter is moved in, and the caller's later use is rustc's E0382.
+ * and every constructor assigns it, once, a parameter the analysis calls dependent, unless the ownership pass calls
+ * the field owned (its callers hand the object over: moved in). Records keep their owned components. Every other dependent parameter is moved in, and the caller's later use is rustc's E0382.
  */
 final class RustBorrows {
     static final String LIFETIME = "'a";
@@ -61,8 +64,66 @@ final class RustBorrows {
         return fields.computeIfAbsent(typeInfo, this::compute);
     }
 
+    private final Map<TypeInfo, Boolean> lifetime = new HashMap<>();
+
+    /**
+     * Whether the struct carries the lifetime {@code 'a}: it borrows a field itself, or an instance field holds (also
+     * inside type arguments: {@code HashMap<String, Node<'a>>}) a struct that carries one. A struct field cannot elide
+     * it ({@code '_}, E0106). A cycle through the struct itself adds nothing.
+     */
     boolean hasLifetime(TypeInfo typeInfo) {
-        return typeInfo != null && !fields(typeInfo).isEmpty();
+        if (typeInfo == null) return false;
+        // a closed hierarchy is one struct: it carries the lifetime when any of its members does (RustHierarchies)
+        TypeInfo root = RustHierarchies.current().root(typeInfo);
+        TypeInfo struct = root != null ? root : typeInfo;
+        // reachability: a cache of answers made during a cycle would keep the 'no' of a struct still in progress
+        return lifetime.computeIfAbsent(struct, t -> reaches(t, new HashSet<>()));
+    }
+
+    // a struct reachable from t through instance fields (and their type arguments) borrows a field
+    private boolean reaches(TypeInfo t, Set<TypeInfo> seen) {
+        if (t.compilationUnit().externalLibrary() || t.isInterface()) return false;
+        RustHierarchies.Hierarchy h = RustHierarchies.current().hierarchy(t);
+        TypeInfo struct = h != null ? h.root() : t;
+        if (!seen.add(struct)) return false;
+        Boolean known = lifetime.get(struct);
+        if (known != null) return known;
+        for (TypeInfo member : h != null ? h.members() : List.of(t)) {
+            if (!fields(member).isEmpty()) return true;
+            for (FieldInfo f : member.fields()) {
+                if (!f.isStatic() && !f.isSynthetic() && mentions(f.type(), seen)) return true;
+            }
+            // a superclass outside the member's hierarchy is its 'base' field (inheritance as composition): its
+            // lifetime is the struct's
+            TypeInfo parent = member.parentClass() == null ? null : member.parentClass().typeInfo();
+            if (parent != null && !parent.isJavaLangObject() && !parent.compilationUnit().externalLibrary()
+                && (h == null || RustHierarchies.current().root(parent) != h.root()) && reaches(parent, seen)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean mentions(ParameterizedType type, Set<TypeInfo> seen) {
+        if (type.typeInfo() != null && reaches(type.typeInfo(), seen)) return true;
+        return type.parameters().stream().anyMatch(p -> mentions(p, seen));
+    }
+
+    /** An instance field of the type itself holds a struct carrying the lifetime. */
+    boolean fieldsMentionLifetime(TypeInfo typeInfo) {
+        if (typeInfo.compilationUnit().externalLibrary() || typeInfo.isInterface()) return false;
+        for (FieldInfo f : typeInfo.fields()) {
+            if (!f.isStatic() && !f.isSynthetic() && mentionsLifetime(f.type())) return true;
+        }
+        return false;
+    }
+
+    private boolean mentionsLifetime(ParameterizedType type) {
+        if (type.typeInfo() != null && !type.typeInfo().compilationUnit().externalLibrary()
+            && hasLifetime(type.typeInfo())) {
+            return true;
+        }
+        return type.parameters().stream().anyMatch(this::mentionsLifetime);
     }
 
     /** The form of a constructor parameter stored in a borrowed field; {@code null} for any other parameter. */
@@ -80,7 +141,7 @@ final class RustBorrows {
     private Map<FieldInfo, Form> compute(TypeInfo typeInfo) {
         Map<FieldInfo, Form> out = new LinkedHashMap<>();
         if (typeInfo.typeNature().isRecord() || typeInfo.isInterface() || typeInfo.typeNature().isEnum()
-            || RustTypePrinter.sourceParent(typeInfo) != null) {
+            || RustTypePrinter.sourceParent(typeInfo) != null || RustHierarchies.current().isSubMember(typeInfo)) {
             return out;
         }
         List<MethodInfo> constructors = typeInfo.constructors().stream().filter(c -> !c.isSynthetic()).toList();
@@ -88,7 +149,9 @@ final class RustBorrows {
         for (FieldInfo f : typeInfo.fields()) {
             if (f.isStatic() || f.isSynthetic() || !f.isFinal() || f.initializer() != null && !f.initializer().isEmpty()
                 || RustTypes.isCopy(f.type()) || RustTypes.isString(f.type()) || f.type().isTypeParameter()
-                || RustTypes.isImmutableValue(f.type(), facts) || RustTypes.isFunctional(f.type())) {
+                || RustTypes.isImmutableValue(f.type(), facts) || RustTypes.isFunctional(f.type())
+                // owned: every caller hands its object over, so it is moved in, not borrowed
+                || RustShared.owned(f)) {
                 continue;
             }
             boolean all = true;
@@ -104,14 +167,14 @@ final class RustBorrows {
         return out;
     }
 
-    private static boolean dependent(ParameterInfo pi) {
+    static boolean dependent(ParameterInfo pi) {
         Value.Independent independent = pi.analysis().getOrNull(PropertyImpl.INDEPENDENT_PARAMETER,
                 ValueImpl.IndependentImpl.class);
         return independent != null && independent.isDependent();
     }
 
     /** The parameter the constructor assigns to {@code f}, as a top-level {@code this.f = p}; else {@code null}. */
-    private static ParameterInfo assigned(MethodInfo constructor, FieldInfo f) {
+    static ParameterInfo assigned(MethodInfo constructor, FieldInfo f) {
         if (constructor.methodBody() == null) return null;
         ParameterInfo found = null;
         for (Statement s : constructor.methodBody().statements()) {

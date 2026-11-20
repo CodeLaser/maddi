@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
-
-import java.util.Set;
 
 /**
  * What the modification analysis's links say about a method's result, for a printer whose types state ownership

@@ -24,6 +24,7 @@ Bart Naudts <bart.naudts@codelaser.io>
 
 :allowsInterrupt: pass:normal[ `@AllowsInterrupt` ]
 :beforeMark: pass:normal[ `@BeforeMark` ]
+:borrowed: pass:normal[ `@Borrowed` ]
 :container:  pass:normal[ `@Container` ]
 :extensionClass: pass:normal[ `@ExtensionClass` ]
 :final:  pass:normal[ `@Final` ]
@@ -32,6 +33,7 @@ Bart Naudts <bart.naudts@codelaser.io>
 :finalFieldsAbsent: pass:normal[ `@FinalFields(absent=true)` ]
 :finalizer:  pass:normal[ `@Finalizer` ]
 :fluent: pass:normal[ `@Fluent` ]
+:fresh: pass:normal[ `@Fresh` ]
 :identity:  pass:normal[ `@Identity` ]
 :ignoreModifications:  pass:normal[ `@IgnoreModifications` ]
 :immutable: pass:normal[ `@Immutable` ]
@@ -49,6 +51,7 @@ Bart Naudts <bart.naudts@codelaser.io>
 :nullable: pass:normal[ `@Nullable` ]
 :nullMarked: pass:normal[ `@NullMarked` ]
 :only:  pass:normal[ `@Only` ]
+:owned: pass:normal[ `@Owned` ]
 :singleton: pass:normal[ `@Singleton` ]
 :sse: pass:normal[ `@StaticSideEffects` ]
 :testMark: pass:normal[ `@TestMark` ]
@@ -76,6 +79,9 @@ toc::[]
 endif::[]
 
 // Include all sections
+
+= Concepts
+
 include::{includedir}/010-introduction.adoc[leveloffset=+1]
 
 <<<
@@ -100,6 +106,10 @@ include::{includedir}/050-immutability.adoc[leveloffset=+1]
 
 <<<
 
+include::{includedir}/055-ownership.adoc[leveloffset=+1]
+
+<<<
+
 include::{includedir}/060-eventual.adoc[leveloffset=+1]
 
 <<<
@@ -116,8 +126,10 @@ include::{includedir}/085-nullability.adoc[leveloffset=+1]
 
 <<<
 
-// Part II: the tutorial ends here; the next two chapters describe the implementation
-// (the link system, and the iterating analyzer) at a technical level.
+// The tutorial ends here; the next chapters describe the implementation: the link system and the
+// iterating analyzer at a technical level, and the current state of the analyzer with its limitations.
+
+= Under the hood
 
 include::{includedir}/105-link-system.adoc[leveloffset=+1]
 
@@ -126,6 +138,12 @@ include::{includedir}/105-link-system.adoc[leveloffset=+1]
 include::{includedir}/108-convergence.adoc[leveloffset=+1]
 
 <<<
+
+include::{includedir}/109-analyzer-today.adoc[leveloffset=+1]
+
+<<<
+
+= In practice
 
 include::{includedir}/110-support-classes.adoc[leveloffset=+1]
 

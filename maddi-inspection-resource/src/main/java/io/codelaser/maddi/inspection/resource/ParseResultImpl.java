@@ -17,6 +17,11 @@
 
 package io.codelaser.maddi.inspection.resource;
 
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -25,11 +30,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
-
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class ParseResultImpl implements ParseResult {
     private static final Set<TypeInfo> NO_CHILDREN = Set.of();
@@ -47,14 +47,14 @@ public class ParseResultImpl implements ParseResult {
         this.sourceSetToModuleInfo = sourceSetToModuleInfo;
         this.sourceSetsByName = sourceSetsByName;
         this.types = types;
-        typesByFQN = types.stream()
+        typesByFQN = canonical(types.stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
-                .collect(Collectors.groupingBy(Info::fullyQualifiedName, Collectors.toList()));
+                .collect(Collectors.groupingBy(Info::fullyQualifiedName, Collectors.toList())));
         // keyed by the binary name a string literal holds, so that resolving one is a lookup rather than a parse:
         // a simple name containing a '$' is legal, which makes splitting the string on '$' wrong
-        typesByBinaryName = types.stream()
+        typesByBinaryName = canonical(types.stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
-                .collect(Collectors.groupingBy(TypeInfo::binaryName, Collectors.toList()));
+                .collect(Collectors.groupingBy(TypeInfo::binaryName, Collectors.toList())));
         Map<String, Set<TypeInfo>> mutableTypesOfPackage = new HashMap<>();
         types.forEach(ti -> mutableTypesOfPackage.computeIfAbsent(ti.packageName(),
                 t -> new HashSet<>()).add(ti));
@@ -71,12 +71,48 @@ public class ParseResultImpl implements ParseResult {
             }
             typesBySimpleName.computeIfAbsent(t.simpleName().toLowerCase(), ti -> new ArrayList<>()).add(t);
         });
-        typesBySimpleName.replaceAll((t, ts) -> List.copyOf(ts));
+        typesBySimpleName.replaceAll((t, ts) -> ts.stream().sorted(BY_SOURCE_SET).toList());
         this.typesBySimpleName = Map.copyOf(typesBySimpleName);
         this.children = Map.copyOf(children);
         this.packageParts = primaryTypesOfPackage.keySet().stream()
                 .flatMap(pkg -> Arrays.stream(pkg.split("\\.")))
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /*
+     ⛔ ONE NAME, SEVERAL SOURCE SETS: THE LIST IS IN A FIXED ORDER, NOT IN THE ORDER THE TYPES ARRIVED. `types` is a
+     HashSet, and copies of one FQN share a hash code, so they iterated in insertion order -- which an incremental
+     re-parse changes (Summary.addType removes and re-adds). A caller that took the first copy took a different one
+     from run to run: a refactor verb moving a type defined in three test sets rewrote the referrers of one copy, a
+     different one each time (CodeLaser/maddi#224). The order is by source-set name, then by the file's URI.
+     */
+    private static final Comparator<TypeInfo> BY_SOURCE_SET = Comparator
+            .comparing((TypeInfo t) -> sourceSetName(t), Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(t -> String.valueOf(t.compilationUnit().uri()));
+
+    private static String sourceSetName(TypeInfo typeInfo) {
+        SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
+        return sourceSet == null ? null : sourceSet.name();
+    }
+
+    private static Map<String, List<TypeInfo>> canonical(Map<String, List<TypeInfo>> map) {
+        map.replaceAll((k, list) -> list.size() == 1 ? List.of(list.getFirst())
+                : list.stream().sorted(BY_SOURCE_SET).toList());
+        return map;
+    }
+
+    @Override
+    public Map<String, List<TypeInfo>> duplicatePrimaryTypes() {
+        return duplicatePrimaryTypes(types);
+    }
+
+    /** See {@link ParseResult#duplicatePrimaryTypes()}; static so a parse can count them before it builds a result. */
+    public static Map<String, List<TypeInfo>> duplicatePrimaryTypes(Collection<TypeInfo> primaryTypes) {
+        Map<String, List<TypeInfo>> byFqn = new TreeMap<>();
+        primaryTypes.forEach(t -> byFqn.computeIfAbsent(t.fullyQualifiedName(), k -> new ArrayList<>()).add(t));
+        byFqn.values().removeIf(list -> list.size() < 2);
+        byFqn.replaceAll((k, list) -> list.stream().sorted(BY_SOURCE_SET).toList());
+        return Collections.unmodifiableMap(byFqn);
     }
 
     @Override

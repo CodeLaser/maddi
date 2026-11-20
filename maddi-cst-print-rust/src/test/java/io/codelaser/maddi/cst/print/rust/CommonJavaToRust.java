@@ -17,20 +17,8 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
-import io.codelaser.maddi.cst.api.analysis.Value;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.ParameterInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.type.NullableState;
-import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
-import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -40,11 +28,30 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
+
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnce;
 
 /**
  * Java parsed by the openjdk front end, printed as Rust, and compiled by rustc when one is on the {@code PATH}. The
@@ -61,10 +68,13 @@ public abstract class CommonJavaToRust {
         javaInspector = new JavaInspectorImpl();
         SourceSet sourceSet = new SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL)
                 .setUri(URI.create("file:/")).build();
-        SourceSet annotation = SourceSetImpl.sourceSetOf(io.codelaser.maddi.annotation.Immutable.class);
-        SourceSet support = SourceSetImpl.sourceSetOf(io.codelaser.maddi.support.SetOnce.class, annotation);
+        SourceSet annotation = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet support = SourceSetImpl.sourceSetOf(SetOnce.class, annotation);
+        // JUnit, for the translation of test classes
+        SourceSet opentest4j = SourceSetImpl.sourceSetOf(org.opentest4j.AssertionFailedError.class);
+        SourceSet junit = SourceSetImpl.sourceSetOf(org.junit.jupiter.api.Assertions.class, opentest4j);
         javaInspector.initialize(new InputConfigurationImpl.Builder().addSourceSets(sourceSet)
-                .addClassPath("jmod:java.base").addClassPathParts(annotation, support).build());
+                .addClassPath("jmod:java.base").addClassPathParts(annotation, support, opentest4j, junit).build());
         javaInspector.onlyPreload();
     }
 
@@ -75,6 +85,19 @@ public abstract class CommonJavaToRust {
         String first = code.replaceAll("(?s)^.*?(?<![@\\w])(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
         return List.copyOf(javaInspector.parse(Map.of(pkg + "." + first, java),
                 new JavaInspector.ParseOptions.Builder().build()).parseResult().primaryTypes());
+    }
+
+    /** The primary types of several compilation units, which may be in different packages. */
+    protected List<TypeInfo> parseAll(String... javas) {
+        Map<String, String> sources = new java.util.LinkedHashMap<>();
+        for (String java : javas) {
+            String code = java.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("//[^\\n]*", "");
+            String pkg = code.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
+            String first = code.replaceAll("(?s)^.*?(?<![@\\w])(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
+            sources.put(pkg + "." + first, java);
+        }
+        return List.copyOf(javaInspector.parse(sources, new JavaInspector.ParseOptions.Builder().build())
+                .parseResult().primaryTypes());
     }
 
     /** The translation of {@code types}, all of one package, written as a crate under {@code build/rust-samples}. */
@@ -88,20 +111,20 @@ public abstract class CommonJavaToRust {
     }
 
     /** The stored ownership verdicts, with the fields, parameters and methods named in {@code nullable} nullable. */
-    protected static RustFacts nullable(java.util.Set<String> nullable) {
-        return RustFacts.of(new io.codelaser.maddi.cst.impl.analysis.NullabilityFacts() {
+    protected static RustFacts nullable(Set<String> nullable) {
+        return RustFacts.of(new NullabilityFacts() {
             @Override
-            public io.codelaser.maddi.cst.api.type.ParameterizedType field(io.codelaser.maddi.cst.api.info.FieldInfo f) {
+            public ParameterizedType field(FieldInfo f) {
                 return nullable.contains(f.name()) ? f.type().withNullable(NullableState.NULLABLE) : null;
             }
 
             @Override
-            public io.codelaser.maddi.cst.api.type.ParameterizedType parameter(ParameterInfo p) {
+            public ParameterizedType parameter(ParameterInfo p) {
                 return nullable.contains(p.name()) ? p.parameterizedType().withNullable(NullableState.NULLABLE) : null;
             }
 
             @Override
-            public io.codelaser.maddi.cst.api.type.ParameterizedType returnType(MethodInfo m) {
+            public ParameterizedType returnType(MethodInfo m) {
                 return nullable.contains(m.name() + "()") ? m.returnType().withNullable(NullableState.NULLABLE) : null;
             }
         }, RustFacts.STORED);
@@ -137,6 +160,32 @@ public abstract class CommonJavaToRust {
             if (at >= 0) errors.add(line);
         }
         return errors;
+    }
+
+    /**
+     * The crate of the last {@link #translate} built as a test harness and run: the harness's output, ending in its
+     * {@code test result:} line; skips the test when rustc is not installed.
+     */
+    protected String rustTests() throws IOException, InterruptedException {
+        Path crate = Path.of("build/rust-samples", test).toAbsolutePath();
+        Path binary = crate.resolve("tests");
+        ProcessBuilder pb = new ProcessBuilder("rustc", "--edition", RustTranslator.EDITION, "--test", "-A", "warnings",
+                "--error-format", "short", "-o", binary.toString(), crate.resolve("src/lib.rs").toString())
+                .redirectErrorStream(true);
+        Process process;
+        try {
+            process = pb.start();
+        } catch (IOException e) {
+            assumeTrue(false, "rustc is not installed");
+            return "";
+        }
+        String output = new String(process.getInputStream().readAllBytes());
+        assertTrue(process.waitFor(2, TimeUnit.MINUTES), "rustc did not finish");
+        if (process.exitValue() != 0) return output;
+        Process run = new ProcessBuilder(binary.toString(), "--test-threads=1").redirectErrorStream(true).start();
+        String result = new String(run.getInputStream().readAllBytes());
+        assertTrue(run.waitFor(2, TimeUnit.MINUTES), "the tests did not finish");
+        return result;
     }
 
     // ---- the verdicts, as the analysis stores them
@@ -206,12 +255,12 @@ public abstract class CommonJavaToRust {
     /** {@code @Mark}, {@code @Only(before/after)} of the transition of {@code label}. */
     protected static void mark(TypeInfo type, String name, String label) {
         method(type, name).analysis().set(PropertyImpl.EVENTUAL_METHOD,
-                new ValueImpl.EventualImpl(java.util.Set.of(label), true, null, null));
+                new ValueImpl.EventualImpl(Set.of(label), true, null, null));
     }
 
     protected static void only(TypeInfo type, String name, String label, boolean after) {
         method(type, name).analysis().set(PropertyImpl.EVENTUAL_METHOD,
-                new ValueImpl.EventualImpl(java.util.Set.of(label), false, after, null));
+                new ValueImpl.EventualImpl(Set.of(label), false, after, null));
     }
 
     protected static void ignoreModifications(TypeInfo type, String name) {
@@ -229,7 +278,7 @@ public abstract class CommonJavaToRust {
     protected static void throughPassedFunction(ParameterInfo parameter, String... entries) {
         borrowed(parameter);
         parameter.analysis().set(PropertyImpl.MODIFIED_THROUGH_PASSED_FUNCTION,
-                new ValueImpl.SetOfStringsImpl(java.util.Set.of(entries)));
+                new ValueImpl.SetOfStringsImpl(Set.of(entries)));
     }
 
     /** The method returns {@code this}. */

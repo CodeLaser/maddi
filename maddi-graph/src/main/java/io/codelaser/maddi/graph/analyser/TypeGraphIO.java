@@ -17,16 +17,6 @@
 
 package io.codelaser.maddi.graph.analyzer;
 
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.V;
-import org.jgrapht.Graph;
-import org.jgrapht.graph.DefaultWeightedEdge;
-import org.jgrapht.graph.builder.GraphTypeBuilder;
-import org.jgrapht.nio.Attribute;
-import org.jgrapht.nio.DefaultAttribute;
-import org.jgrapht.nio.gml.GmlExporter;
-import org.jgrapht.nio.gml.GmlImporter;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,6 +27,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultWeightedEdge;
+import org.jgrapht.graph.builder.GraphTypeBuilder;
+import org.jgrapht.nio.Attribute;
+import org.jgrapht.nio.DefaultAttribute;
+import org.jgrapht.nio.gml.GmlExporter;
+import org.jgrapht.nio.gml.GmlImporter;
+
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.V;
 
 public class TypeGraphIO {
 

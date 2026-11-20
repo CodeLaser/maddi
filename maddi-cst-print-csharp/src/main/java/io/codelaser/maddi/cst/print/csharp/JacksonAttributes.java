@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
+
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.ClassExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Function;
 
 /**
  * The part of the {@code jackson:system-text-json} mapping that a template cannot write: {@code @JsonSubTypes}, a

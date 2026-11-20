@@ -17,18 +17,17 @@
 
 package io.codelaser.maddi.parser.java.erasure;
 
+import java.util.Objects;
+import java.util.Set;
+
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Precedence;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
-
-import java.util.Objects;
-import java.util.Set;
 
 public class ConstructorCallErasure extends ErasureExpressionImpl {
     private final ParameterizedType formalType;

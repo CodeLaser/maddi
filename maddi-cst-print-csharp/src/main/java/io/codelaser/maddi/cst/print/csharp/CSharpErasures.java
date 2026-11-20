@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -31,12 +37,6 @@ import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.CstSupertypes;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Java's {@code UniConstraintCollector<A, ?, Double>} of a program interface without a wildcard interface
@@ -117,28 +117,46 @@ final class CSharpErasures {
     }
 
     /**
-     * The interface's static adapter method and the adapter class:
-     * {@code static IC<A, object, R> Erased_(IC<A, RC, R> erased) => erased as IC<A, object, R> ?? new Erasure_(erased);}.
+     * The interface's static adapter method: {@code static IC<A, object, R> Erased_(IC<A, RC, R> erased) => erased
+     * as IC<A, object, R> ?? new CErasure_<A, RC, R>(erased);}. The adapter class is beside the interface
+     * ({@link #adapter(TypeInfo, Qualification)}): a variant interface may declare no nested class (CS8427).
      */
     static List<OutputBuilder> members(TypeInfo t, Qualification q) {
         List<TypeParameter> erased = erased(t);
         if (erased.isEmpty()) return List.of();
-        String name = CSharpNames.type(t);
-        String self = name + CSharpNames.typeParameters(t.typeParameters());
+        String self = CSharpNames.type(t) + CSharpNames.typeParameters(t.typeParameters());
+        String adapter = erase(self, erased);
+        return List.of(text("static " + adapter + " " + METHOD + "(" + self + " " + FIELD + ") => " + FIELD + " as "
+                            + adapter + " ?? new " + className(t) + CSharpNames.typeParameters(t.typeParameters())
+                            + "(" + FIELD + ");"));
+    }
+
+    /** The adapter class's name, {@code CollectorErasure_} for {@code ICollector}. */
+    private static String className(TypeInfo t) {
+        String name = CSharpNames.lambdaAdapterName(t);
+        return name.substring(0, name.length() - "Lambda".length()) + CLASS;
+    }
+
+    /**
+     * The adapter class beside the interface, {@code internal sealed class CErasure_<A, RC, R> : IC<A, object, R>
+     * { … }}, with the interface's type parameters and constraints; null for an interface without an adapter.
+     */
+    static OutputBuilder adapter(TypeInfo t, String access, Qualification q) {
+        List<TypeParameter> erased = erased(t);
+        if (erased.isEmpty()) return null;
+        String self = CSharpNames.type(t) + CSharpNames.typeParameters(t.typeParameters());
         String adapter = erase(self, erased);
         List<String> body = new ArrayList<>();
         body.add("private readonly " + self + " " + FIELD + ";");
-        body.add("internal " + CLASS + "(" + self + " " + FIELD + ") { this." + FIELD + " = " + FIELD + "; }");
+        body.add("internal " + className(t) + "(" + self + " " + FIELD + ") { this." + FIELD + " = " + FIELD + "; }");
         for (MethodInfo m : t.methods()) {
             if (instance(m)) body.add(forwarding(m, erased, q));
         }
-        List<OutputBuilder> members = new ArrayList<>();
-        members.add(text("static " + adapter + " " + METHOD + "(" + self + " " + FIELD + ") => " + FIELD + " as "
-                         + adapter + " ?? new " + CLASS + "(" + FIELD + ");"));
-        members.add(new OutputBuilderImpl().add(text("private sealed class " + CLASS + " : " + adapter))
-                .add(SpaceEnum.ONE)
-                .add(CSharpStatementPrinter.braces(body.stream().map(CSharpErasures::text).toList())));
-        return members;
+        StringBuilder header = new StringBuilder(access == null ? "" : access + " ").append("sealed class ")
+                .append(className(t)).append(CSharpNames.typeParameters(t.typeParameters())).append(" : ").append(adapter);
+        for (String constraint : CSharpTypeName.constraints(t.typeParameters(), q)) header.append(' ').append(constraint);
+        return new OutputBuilderImpl().add(text(header.toString())).add(SpaceEnum.ONE)
+                .add(CSharpStatementPrinter.braces(body.stream().map(CSharpErasures::text).toList()));
     }
 
     /** The adapter's implementation of {@code m}: a call of the adapted one's. */
@@ -165,7 +183,7 @@ final class CSharpErasures {
             return "public " + type + " " + signature + " => " + call + (facts && !type.endsWith("?") ? "!" : "") + ";";
         }
         if (CstQueries.mentionsAny(result, erased)) {
-            return "public " + type + " " + signature + " " + CSharpWildcardInterfaces.delegateBridge(m, call, erased, q);
+            return "public " + type + " " + signature + " " + CSharpWildcardInterfaces.delegateBridge(m, call, erased, q, type.endsWith("?"));
         }
         return "public " + type + " " + signature + " => " + call + ";";
     }

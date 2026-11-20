@@ -27,7 +27,8 @@ import org.junit.jupiter.api.Test
 /**
  * coil's last three: a destructuring whose `componentN` are top-level EXTENSION operators (`IntPair`), a `@JvmStatic`
  * member extension of a companion called through its import (okio's `ByteString.Companion.encodeUtf8`), and a
- * reference to a member of the enclosing extension's receiver passed as a receiver lambda (`apply(::draw)`).
+ * reference to a member of the enclosing extension's receiver passed as a receiver lambda (`apply(::draw)`), inlined
+ * since #98 as the call kotlinc makes: `$receiver.draw(canvas)`.
  */
 class CoilLastShapesTest : KotlinScanTestBase() {
 
@@ -69,7 +70,7 @@ class CoilLastShapesTest : KotlinScanTestBase() {
         assertEquals("""
             sum: int a=ClKt.component1(p),b=ClKt.component2(p); return a+b;
             h: return Bs.Companion.enc(${'$'}receiver);
-            paint: return StandardKt.apply(new Canvas(),${'$'}receiver::draw);
+            paint: Canvas ${'$'}this${'$'}apply=new Canvas(); {${'$'}receiver.draw(${'$'}this${'$'}apply);} return ${'$'}this${'$'}apply;
             """.trimIndent(), "sum: " + body("K", "sum") + "\nh: " + body("K", "h") + "\npaint: " + body("ClKt", "paint"))
     }
 

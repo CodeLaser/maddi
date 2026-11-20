@@ -17,17 +17,18 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
 import io.codelaser.maddi.support.SetOnce;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 public class MethodInspectionImpl extends InspectionImpl implements MethodInspection {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodInspectionImpl.class);
@@ -301,6 +302,11 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
 
         private String computeFQN() {
             String owner = methodInfo.typeInfo().fullyQualifiedName();
+            if (methodInfo.isSyntheticArrayConstructor()) {
+                // T[]::new: the array type's constructor, T[].<init>(int), so that it does not share its name with a
+                // constructor T(int) that T declares (CodeLaser/maddi#195). One int per dimension.
+                owner += "[]".repeat(returnType != null ? returnType.arrays() : parameters.size());
+            }
             try {
                 return owner + "." + methodInfo.name() + "(" + parameterTypesForFQN() + ")";
             } catch (RuntimeException re) {

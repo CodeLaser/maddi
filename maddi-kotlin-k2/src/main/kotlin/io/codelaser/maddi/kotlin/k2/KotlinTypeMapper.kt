@@ -43,6 +43,7 @@ import io.codelaser.maddi.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
+import org.jetbrains.kotlin.analysis.api.components.fakeOverrideOriginal
 import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
 import org.jetbrains.kotlin.analysis.api.components.packageScope
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
@@ -199,6 +200,14 @@ internal class KotlinTypeMapper(
      * Called where members are LOOKED UP, not where a type is mentioned, so a type only named stays a shell.
      * Not for a type this mapper built itself from K2 symbols (its own shells: [deepen]), nor for a source type.
      */
+    /**
+     * A type the Java front end MINTED because its own class path lacked it (`ClassSymbolScanner`'s "Creating stub type
+     * for …": no source set, no members). K2 can know the type -- the Kotlin source set may have the jar the Java one
+     * lacks -- so a stub is never taken for its model: every call through it would silently become a placeholder
+     * (`Duration.Companion.parse`, `Function1.invoke`; CodeLaser/maddi#76).
+     */
+    private fun isJavaStub(type: TypeInfo): Boolean = type.compilationUnit().sourceSet() == null
+
     internal fun withMembers(type: TypeInfo): TypeInfo {
         if (type.hasBeenInspected() || compiledTypesManager == null) return type
         val compilationUnit = type.compilationUnit()
@@ -361,14 +370,15 @@ internal class KotlinTypeMapper(
         // type, so the sibling-source lookup below would otherwise return it and break the JVM model (and the
         // enum/annotation parent invariants asserted at commit). So skip that lookup for mapped builtins.
         // already known (a sibling source type, or a previously loaded library type), else load it:
-        val typeInfo = (if (mapped) null else infoByFqn.getType(kotlinFqn, sourceSet))
+        val typeInfo = (if (mapped) null else infoByFqn.getType(kotlinFqn, sourceSet)?.takeUnless { isJavaStub(it) })
             ?: (if (!mapped && type.symbol.origin == KaSymbolOrigin.JAVA_SOURCE) javaSourceTypes?.invoke(kotlinFqn) else null)
             ?: run {
             // Phase 1 -- shared JDK/library core: delegate to the injected CompiledTypesManager (its
             // getOrLoad lazily loads from bytecode), so java.* is ONE TypeInfo instance across the Java and
             // Kotlin front-ends. Cache it locally; fall back to the K2-based load when absent (standalone) or
             // when the manager doesn't know the type (a Kotlin-only stdlib type).
-            (if (nestedInLoading(jvmFqn)) null else compiledTypesManager?.type(jvmFqn, librarySourceSet))?.also {
+            (if (nestedInLoading(jvmFqn)) null else compiledTypesManager?.type(jvmFqn, librarySourceSet)
+                ?.takeUnless { isJavaStub(it) })?.also {
                 // only register if absent: a SHARED registry (mixed setup) already holds this instance under its
                 // own (java.base) source set via the openjdk load, and re-putting the same instance trips the
                 // InfoByFqn duplicate assertion. Standalone: getType is null on first use, so we still cache.
@@ -567,6 +577,10 @@ internal class KotlinTypeMapper(
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
         properties.mapNotNull { convertLibraryPropertyGetter(typeInfo, it) }
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        // ...and a `var`'s static SETTER: `p.isAccessible = true` is `KCallablesJvm.setAccessible(p, true)` (Exposed's
+        // References.kt, maddi#220), which a facade of getters alone cannot resolve
+        properties.mapNotNull { convertLibraryPropertySetter(typeInfo, it) }
+            .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
         properties.filter { it.receiverParameter == null && (it as? KaKotlinPropertySymbol)?.isConst == true }
             .forEach { builder.addField(convertLibraryConstField(typeInfo, it)) }
         builder.computeAccess().commit()
@@ -601,6 +615,33 @@ internal class KotlinTypeMapper(
         }
         receiver?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner, method)) }
         builder.setReturnType(mapType(property.returnType, owner, method))
+            .setMethodBody(runtime.emptyBlock())
+            .setMissingData(runtime.methodMissingMethodBody())
+            .addMethodModifier(runtime.methodModifierPublic())
+            .addMethodModifier(runtime.methodModifierStatic())
+        builder.commitParameters().computeAccess().commit()
+        return method
+    }
+
+    /**
+     * A top-level library `var` (extension or not) as the static setter kotlinc compiles it to: `var C.x: T` becomes
+     * `setX(C, T): void` on the file facade. Null for a `val`, and for a setter that is not public API.
+     */
+    @OptIn(KaExperimentalApi::class) // javaSetterName
+    private fun KaSession.convertLibraryPropertySetter(owner: TypeInfo, property: KaPropertySymbol): MethodInfo? {
+        if (property.isVal) return null
+        val setter = property.setter ?: return null
+        if (setter.visibility == KaSymbolVisibility.PRIVATE || setter.visibility == KaSymbolVisibility.INTERNAL) return null
+        val name = property.javaSetterName?.asString() ?: ("set" + property.name.asString().replaceFirstChar { it.uppercaseChar() })
+        val method = runtime.newMethod(owner, name, runtime.methodTypeStaticMethod())
+        val builder = method.builder()
+        property.typeParameters.forEachIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method)
+                .also { builder.addTypeParameter(it) }.builder().setTypeBounds(listOf()).setVariance(mapVariance(tp.variance)).commit()
+        }
+        property.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner, method)) }
+        builder.addParameter("value", mapType(property.returnType, owner, method))
+        builder.setReturnType(runtime.voidParameterizedType())
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody())
             .addMethodModifier(runtime.methodModifierPublic())
@@ -644,14 +685,14 @@ internal class KotlinTypeMapper(
     internal fun KaSession.loadLibraryClass(symbol: KaNamedClassSymbol): TypeInfo? {
         val classId = symbol.classId ?: return null
         val jvmFqn = mapToJvmFqn(classId)
-        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { deepen(it); return it }
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.takeUnless { isJavaStub(it) }?.let { deepen(it); return it }
         // Shared-core delegation, exactly as in mapClassType: when a driver injected the Java front-end's
         // CompiledTypesManager, the library type may already have been built (and COMMITTED) from bytecode under
         // its own source set, which the registry lookup above — keyed by librarySourceSet — does not see.
         // Rebuilding it here then commits a second time: "Trying to overwrite final value". This path was
         // reachable only once the manager actually had contents; while its lazy loader was dead in Kotlin-only
         // runs it always missed, which is why a `Type.staticMember` access never tripped it before.
-        compiledTypesManager?.type(jvmFqn, librarySourceSet)?.let {
+        compiledTypesManager?.type(jvmFqn, librarySourceSet)?.takeUnless { isJavaStub(it) }?.let {
             if (infoByFqn.getType(jvmFqn, librarySourceSet) == null) infoByFqn.put(jvmFqn, it, librarySourceSet)
             return it
         }
@@ -670,7 +711,7 @@ internal class KotlinTypeMapper(
     }
 
     private fun KaSession.loadLibraryType(symbol: KaNamedClassSymbol, jvmFqn: String): TypeInfo {
-        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { deepen(it); return it }
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.takeUnless { isJavaStub(it) }?.let { deepen(it); return it }
         val typeInfo = runtime.newTypeInfo(
             libraryCompilationUnit(jvmFqn.substringBeforeLast('.', "")),
             jvmFqn.substringAfterLast('.')
@@ -707,6 +748,8 @@ internal class KotlinTypeMapper(
     // Object carries no such instance methods, so they must sit on each type. Bounded by depth so the
     // cascade terminates: types referenced beyond maxMemberDepth wait in [shells]. Depth 2 lets
     // a single chained call resolve (e.g. list.iterator().next() -- Iterator gets members too).
+    // Not flattened: a function inherited unchanged from a supertype that has members of its own: the call binds
+    // there, as it does on a class-file type ([inheritedFromLoadedSupertype], CodeLaser/maddi#218).
     private fun KaSession.loadLibraryMembers(typeInfo: TypeInfo, symbol: KaNamedClassSymbol) {
         val builder = typeInfo.builder()
         memberDepth++
@@ -749,6 +792,7 @@ internal class KotlinTypeMapper(
             val seen = mutableSetOf<String>()
             symbol.memberScope.declarations
                 .filterIsInstance<KaNamedFunctionSymbol>()
+                .filterNot { inheritedFromLoadedSupertype(symbol, it) }
                 .map { convertLibraryMethod(typeInfo, it) }
                 .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
             // a Java class's STATIC methods live in the static member scope, not the member scope: without them a
@@ -790,6 +834,31 @@ internal class KotlinTypeMapper(
             memberDepth--
             loadingMembers.remove(typeInfo)
         }
+    }
+
+    /**
+     * Whether [function], in [symbol]'s member scope, is inherited unchanged from a supertype that carries its own
+     * members, so that a call through [symbol] must bind to that supertype's method, as it does when the type is read
+     * from its class file. A copy owned by [symbol] took the call and left the supertype's contracts behind:
+     * `Json.Default.encodeToString(..)` missed `Json.encodeToString`'s (CodeLaser/maddi#218).
+     *
+     * The copy stays (false) when no such supertype can be relied on:
+     * - an intersection override, which two supertypes declare: one callee would be a guess;
+     * - a member of a MAPPED type (`kotlin.Any`, the collections, `CharSequence`): its JVM type has other members
+     *   (`java.lang.Object` is predefined without `equals`, `CharSequence.get` is `charAt`), so the copy is the one
+     *   that resolves;
+     * - a supertype not registered yet, or a [shells] one, memberless until something deepens it.
+     */
+    private fun KaSession.inheritedFromLoadedSupertype(symbol: KaNamedClassSymbol, function: KaNamedFunctionSymbol): Boolean {
+        if (function.origin == KaSymbolOrigin.INTERSECTION_OVERRIDE) return false
+        val declaring = function.fakeOverrideOriginal.callableId?.classId ?: return false
+        if (declaring == symbol.classId) return false
+        val jvmFqn = mapToJvmFqn(declaring)
+        if (jvmFqn != declaring.asFqNameString()) return false
+        val declaringType = infoByFqn.getType(jvmFqn, librarySourceSet)
+            ?: compiledTypesManager?.typeIfLoaded(jvmFqn, librarySourceSet)
+            ?: return false
+        return declaringType !in shells
     }
 
     /**

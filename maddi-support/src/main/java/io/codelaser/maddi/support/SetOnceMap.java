@@ -17,14 +17,14 @@
 
 package io.codelaser.maddi.support;
 
-import io.codelaser.maddi.annotation.*;
-import io.codelaser.maddi.annotation.eventual.Only;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.eventual.Only;
 
 /**
  * Example of an eventually level 2 immutable map, where each key can be put only once,

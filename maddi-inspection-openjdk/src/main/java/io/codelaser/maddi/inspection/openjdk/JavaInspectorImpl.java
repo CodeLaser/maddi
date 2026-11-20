@@ -1,39 +1,73 @@
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.lang.module.ModuleDescriptor;
+import java.lang.module.ModuleFinder;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.*;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+import java.util.zip.GZIPInputStream;
+
+import javax.tools.*;
+
+import org.jetbrains.annotations.NotNull;
+import org.parsers.java.JavaParser;
+import org.parsers.java.Node;
+import org.parsers.java.ast.ModularCompilationUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.sun.source.util.JavacTask;
+
+import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
-import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
-import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
-import io.codelaser.maddi.parser.java.ParseHelperImpl;
-import io.codelaser.maddi.parser.java.ParseModuleInfo;
-import org.parsers.java.JavaParser;
-import org.parsers.java.Node;
-import org.parsers.java.ast.ModularCompilationUnit;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
+import io.codelaser.maddi.graph.op.Linearize;
+import io.codelaser.maddi.inspection.api.util.DeclarationDependencies;
+import io.codelaser.maddi.inspection.api.util.DeclarationSignature;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
 import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
 import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
+import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
+import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
+import io.codelaser.maddi.inspection.resource.ParseResultImpl;
 import io.codelaser.maddi.inspection.resource.ResolveModuleDirectives;
 import io.codelaser.maddi.inspection.resource.SummaryImpl;
 import io.codelaser.maddi.java.openjdk.ClassSymbolScanner;
@@ -42,34 +76,8 @@ import io.codelaser.maddi.java.openjdk.MaddiDiagnosticCollector;
 import io.codelaser.maddi.java.openjdk.ScanCompilationUnits;
 import io.codelaser.maddi.java.openjdk.SourceSetInterleave;
 import io.codelaser.maddi.java.openjdk.UnresolvedSymbolException;
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.ImmutableGraph;
-import io.codelaser.maddi.graph.op.Linearize;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.tools.*;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.lang.module.ModuleDescriptor;
-import java.lang.module.ModuleFinder;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-import java.util.zip.GZIPInputStream;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
+import io.codelaser.maddi.parser.java.ParseHelperImpl;
+import io.codelaser.maddi.parser.java.ParseModuleInfo;
 
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
@@ -80,7 +88,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private final Map<SourceFile, List<TypeInfo>> sourceFiles = new HashMap<>();
     private CompiledTypesManager compiledTypesManager;
     private InputConfiguration inputConfiguration; // kept for tests
-    private io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
+    private InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
     // what reloadSources found added and removed since the last parse, for the next re-parse (see reparse)
     private final Set<SourceFile> addedSinceParse = new LinkedHashSet<>();
     private final Set<TypeInfo> removedSinceParse = new LinkedHashSet<>();
@@ -130,7 +138,7 @@ public class JavaInspectorImpl implements JavaInspector {
     // that is actually asking.
     private boolean strictSourceSetLoading;
     // census for the strict-mode audit; see recordFallBack. Concurrent: getOrLoad runs on parallel analyzer threads.
-    private final Set<String> fallBackResolutions = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<String> fallBackResolutions = ConcurrentHashMap.newKeySet();
 
     /**
      * How to stand up a {@link #loaderUnits} equivalent to the scan task that generation destroyed: the same source
@@ -146,6 +154,8 @@ public class JavaInspectorImpl implements JavaInspector {
     // low-count "tree.starImportScope is null" flakes that no concurrency fix could cure. Closed in
     // invalidateAllSources(), when every retained task is dropped.
     private final List<StandardJavaFileManager> openFileManagers = new ArrayList<>();
+    // the archive file systems those file managers share, one per jar (see SharedArchives); closed with them
+    private SharedArchives sharedArchives = new SharedArchives();
     private boolean parameterNames;
     private ParameterNameIndex parameterNameIndex; // lazily loaded when parameterNames is on
     private boolean jdkInternals; // "we're working with JDK internals": load jdk.internal.* types + open javac
@@ -181,7 +191,7 @@ public class JavaInspectorImpl implements JavaInspector {
      */
     public JavaInspectorImpl setEvalOptions(EvalOptions evalOptions) {
         if (runtime != null) throw new IllegalStateException("setEvalOptions after initialize has no effect");
-        this.evalOptions = java.util.Objects.requireNonNull(evalOptions);
+        this.evalOptions = Objects.requireNonNull(evalOptions);
         return this;
     }
 
@@ -202,6 +212,11 @@ public class JavaInspectorImpl implements JavaInspector {
     public static final ParseOptions FAIL_FAST = new ParseOptions.Builder().setFailFast(true).build();
     public static final ParseOptions DETAILED_SOURCES = new ParseOptions.Builder().setDetailedSources(true).build();
 
+    /** The archive file systems the file managers share now; -1 when they do not share (see SharedArchives). */
+    public int sharedArchiveCount() {
+        return sharedArchives.openArchives();
+    }
+
     @Override
     public void invalidateAllSources() {
         infoByFqn.removeAllSources();
@@ -214,6 +229,12 @@ public class JavaInspectorImpl implements JavaInspector {
             }
         }
         openFileManagers.clear();
+        try {
+            sharedArchives.close();
+        } catch (IOException e) {
+            LOGGER.debug("Ignoring exception closing the shared archives: {}", e.toString());
+        }
+        sharedArchives = new SharedArchives();
         lastScanUnits = null;
         lastScanUnitsGenerated = false;
         loaderUnits = null; // its file manager was in openFileManagers and has just been closed
@@ -567,6 +588,11 @@ public class JavaInspectorImpl implements JavaInspector {
                         + " on over warnings); first: {}{}", what, linearization.size(), summary.types().size(), ms,
                     errors, warnings, describe(first), more == 0 ? "" : " (and " + more + " more)");
         }
+        // the census of #224: a name declared in several source sets is one a by-name refactoring must not resolve blindly
+        int duplicates = ParseResultImpl.duplicatePrimaryTypes(summary.types()).size();
+        if (duplicates > 0) {
+            LOGGER.info("{}: {} fully qualified name(s) declared in more than one source set", what, duplicates);
+        }
         LOGGER.debug("{}: {} source-set disambiguation(s)", what, disambiguations() - disambiguationsBefore);
     }
 
@@ -766,6 +792,8 @@ public class JavaInspectorImpl implements JavaInspector {
                          List<SourceSet> linearization,
                          Invalidated invalidated) {
         this.lastRewireInfoMap = null; // reset: a parse with no rewiring exposes no map
+        // the evaluator's memos hold expressions of the generation this re-parse replaces (Eval.forgetMemos)
+        runtime.forgetMemos();
         // what the reload found new: those files are scanned with their set's changed ones
         Map<SourceSet, Set<URI>> addedFiles = new HashMap<>();
         for (SourceFile sourceFile : addedSinceParse) {
@@ -780,6 +808,8 @@ public class JavaInspectorImpl implements JavaInspector {
         Set<SourceSet> holdingRewire = new HashSet<>();
         Set<SourceSet> rescanned = new LinkedHashSet<>();
         Map<SourceSet, Set<URI>> partiallyRescanned = new LinkedHashMap<>();
+        // the previous generation of every type a scan replaces, for the declaration check before the rewire
+        Map<SourceSet, List<TypeInfo>> replaced = new HashMap<>();
 
         for (SourceSet sourceSet : linearization) {
             List<TypeInfo> types = typesBySourceSet.getOrDefault(sourceSet, List.of());
@@ -789,6 +819,7 @@ public class JavaInspectorImpl implements JavaInspector {
             LOGGER.debug("Re-parse: source set {} -> {} ({} primary type(s))", sourceSet.name(), action, types.size());
             switch (action) {
                 case RESCAN -> {
+                    replaced.put(sourceSet, List.copyOf(types));
                     types.forEach(compiledTypesManager::invalidate);
                     // ⛔ AND WHAT A DROPPED COMPILATION UNIT LEFT BEHIND. 'types' comes from sourceFiles, where a unit
                     // the previous scan dropped never arrives; its TypeInfo (registered, some members committed) is
@@ -809,6 +840,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     }
                     for (TypeInfo typeInfo : types) {
                         if (changedFiles.contains(typeInfo.compilationUnit().uri())) {
+                            replaced.computeIfAbsent(sourceSet, _ -> new ArrayList<>()).add(typeInfo);
                             compiledTypesManager.invalidate(typeInfo);
                         } else if (invalidated.apply(typeInfo) == REWIRE) {
                             toRewire.add(typeInfo);
@@ -831,12 +863,14 @@ public class JavaInspectorImpl implements JavaInspector {
                 case REWIRE -> {
                     summary.ensureSourceSet(sourceSet); // not scanned, but it is part of the result
                     validateClassOutput(summary, sourceSet);
+                    keptModuleInfo(summary, sourceSet, sourcesByFqn);
                     toRewire.addAll(types);
                     holdingRewire.add(sourceSet);
                 }
                 case KEEP -> {
                     summary.ensureSourceSet(sourceSet);
                     validateClassOutput(summary, sourceSet);
+                    keptModuleInfo(summary, sourceSet, sourcesByFqn);
                     types.forEach(summary::addType);
                 }
             }
@@ -851,6 +885,21 @@ public class JavaInspectorImpl implements JavaInspector {
         // the types the re-scans just produced: seeded, or rewired with the REWIRE types (see the javadoc above).
         // Without them the rewired copies would keep pointing at the objects they replaced (see InfoMap).
         Map<SourceSet, List<TypeInfo>> afterRescan = typesBySourceSet();
+        if (!toRewire.isEmpty() && !invalidated.rewireAcrossDeclarationChanges()) {
+            Set<String> moved = declarationsChanged(replaced, afterRescan);
+            if (!moved.isEmpty()) {
+                // only the REWIRE types that rely on a moved declaration: one that does not resolves as before, and
+                // its rewire is right (a write to an unrelated type of the set must not cost the set its re-parse).
+                // Nothing is rewired yet: the scanned types are live, the REWIRE types still their old objects.
+                Set<TypeInfo> affected = new LinkedHashSet<>();
+                for (TypeInfo typeInfo : toRewire) {
+                    if (dependsOnAny(typeInfo, moved)) affected.add(typeInfo);
+                }
+                if (!affected.isEmpty()) throw new DeclarationsChangedException(moved, affected);
+                LOGGER.debug("Re-parse: the declarations of {} changed; none of the {} type(s) to rewire depends on "
+                             + "them", moved, toRewire.size());
+            }
+        }
         Set<TypeInfo> rebuilt = new HashSet<>();
         Set<TypeInfo> rebuiltToRewire = new LinkedHashSet<>();
         for (SourceSet sourceSet : rescannedOrPartial(rescanned, partiallyRescanned)) {
@@ -884,6 +933,41 @@ public class JavaInspectorImpl implements JavaInspector {
                 .map(ti -> rewireNow.contains(ti) ? infoMap.typeInfo(ti) : ti).toList());
         LOGGER.debug("Re-parse: rewired {} primary type(s), {} of them re-scanned", rewired.size(),
                 rebuiltToRewire.size());
+    }
+
+    /*
+     The re-scanned primary types whose declarations are not those of the generation before: a dependent's names may
+     resolve differently now, so it cannot be rewired (DeclarationsChangedException). A type that is gone counts; a
+     type that is new does not, nothing referred to it.
+     */
+    private static Set<String> declarationsChanged(Map<SourceSet, List<TypeInfo>> replaced,
+                                                   Map<SourceSet, List<TypeInfo>> afterRescan) {
+        Set<String> moved = new TreeSet<>();
+        replaced.forEach((sourceSet, before) -> {
+            Map<String, TypeInfo> now = new HashMap<>();
+            for (TypeInfo typeInfo : afterRescan.getOrDefault(sourceSet, List.of())) {
+                now.put(typeInfo.fullyQualifiedName(), typeInfo);
+            }
+            for (TypeInfo old : before) {
+                TypeInfo current = now.get(old.fullyQualifiedName());
+                if (current == null || current != old
+                                       && !DeclarationSignature.of(old).equals(DeclarationSignature.of(current))) {
+                    moved.add(old.fullyQualifiedName());
+                }
+            }
+        });
+        return moved;
+    }
+
+    private static boolean dependsOnAny(TypeInfo typeInfo, Set<String> moved) {
+        try {
+            Set<String> dependencies = DeclarationDependencies.of(typeInfo);
+            return moved.stream().anyMatch(dependencies::contains);
+        } catch (RuntimeException e) {
+            // a walk that cannot finish cannot clear the type: re-parse it
+            LOGGER.warn("Re-parse: cannot compute the declaration dependencies of {}: {}", typeInfo, e.toString());
+            return true;
+        }
     }
 
     private static List<SourceSet> rescannedOrPartial(Set<SourceSet> rescanned,
@@ -1173,6 +1257,11 @@ public class JavaInspectorImpl implements JavaInspector {
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, lombok, classOutput,
                 false, false);
+        Throwable lombokProbe = LOMBOK_PROBE_FAILURE.get();
+        if (lombokProbe != null) {
+            LOMBOK_PROBE_FAILURE.remove();
+            summary.addParseException(new LombokFallback(sourceSet, lombokProbe));
+        }
         if (javacTask == null) {
             LOGGER.warn("Have no sources in source set {}", sourceSet.name());
             return;
@@ -1282,6 +1371,13 @@ public class JavaInspectorImpl implements JavaInspector {
         for (TypeInfo typeInfo : loaded) {
             // TODO completing is a choice, and may be an unnecessary and expensive operation.
             //  offer this choice to the user
+            // ⛔ A STUB THIS SCAN'S SOURCES HAVE SUPERSEDED. The preload pass runs on a task without the sources, so a
+            // preloaded class-path type annotated from them (the server's transform-support jar, carrying maddi's
+            // @NotModified while the project defines maddi-annotation as source) mints a stub, handed over here as a
+            // pending preload. visitClass then registered the real type over it. Committing the stub anyway loaded
+            // it from THIS task's symbol, the source annotation: annotation nature, no interfaces (its setup ran in
+            // the preload), and commit's java.lang.annotation.Annotation assert threw under -ea.
+            if (infoByFqn.isDisplacedStub(typeInfo)) continue;
             try {
                 if (typeInfo.isPrimaryType() && !typeInfo.hasBeenInspected()) {
                     commitLoaded(scanCompilationUnits, typeInfo);
@@ -1547,7 +1643,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         // NOT try-with-resources: the returned JavacTask holds this manager and is driven long after this
         // method returns (parse/analyze in scan(), lazy getOrLoad far later). See openFileManagers.
-        StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null);
+        StandardJavaFileManager fm = sharedArchives.newFileManager(javaCompiler, diagnostics, null, null);
         openFileManagers.add(fm);
         {
             Iterable<? extends JavaFileObject> allCompilationUnits = loaderOnly ? List.of()
@@ -1563,10 +1659,12 @@ public class JavaInspectorImpl implements JavaInspector {
             boolean hasModuleInfo = false;
             boolean haveSources = false;
             List<URI> handed = new ArrayList<>();
+            List<JavaFileObject> handedUnits = new ArrayList<>();
             for (JavaFileObject jfo : allCompilationUnits) {
                 if (jfo.toUri().getPath().endsWith("module-info.java")) hasModuleInfo = true;
                 haveSources = true;
                 handed.add(jfo.toUri());
+                handedUnits.add(jfo);
             }
             if (!loaderOnly) unitsHandedToJavac.put(sourceSet, handed);
             // "no sources" is the normal state of a loader task, and the whole point of it
@@ -1656,6 +1754,29 @@ public class JavaInspectorImpl implements JavaInspector {
             // error that aborts ENTER (seen on timefold-solver, where lombok sits in a single module's test deps).
             boolean lombokOnClassPath = lombok && !loaderOnly && sourceSet.dependencies().stream()
                     .anyMatch(d -> d.externalLibrary() && d.name().startsWith("lombok-"));
+            // ... and only for a source set whose sources use it. Every use of Lombok names it in the text (import
+            // lombok.*, @lombok.Getter, lombok.val), so a source set without the word cannot need the processor --
+            // while a jar merely on the class path (Spring Boot's dependency list brings lombok along) would still
+            // run it, and a Lombok too old for this JDK then crashes javac and turns a project that never uses
+            // Lombok into a LombokFallback parse error. A stray "lombok" in a comment only keeps today's behaviour.
+            // The processor sees the handed units only, so those are what is read. TestLombokFallback.
+            if (lombokOnClassPath && !mentionsLombok(handedUnits)) {
+                LOGGER.debug("Source set {} has lombok on its class path, but its sources do not use it: no"
+                             + " annotation processing", sourceSet.name());
+                lombokOnClassPath = false;
+            }
+            if (lombokOnClassPath && interleave != null) {
+                // ⛔ WITH A SECOND FRONT END THERE IS NO RETRY: Lombok runs inside analyze(), after the Kotlin session
+                // has declared its types against this set's units (see the catch in singleSourceSetOnThisThread), so a
+                // Lombok too old for this JDK aborted the whole mixed parse with javac's TypeTag::UNKNOWN (quarkus's
+                // lombok-1.18.36 on JDK 26). Ask first, once per jar: a set whose Lombok cannot run is parsed without
+                // it, and recorded as the same LombokFallback error the Java route records after its retry.
+                Throwable failure = lombokProbeFailure(sourceSet);
+                if (failure != null) {
+                    lombokOnClassPath = false;
+                    LOMBOK_PROBE_FAILURE.set(failure);
+                }
+            }
             if (lombokOnClassPath) {
                 // Run the real Lombok annotation processor inside javac: it mutates the AST (generating getters,
                 // setters, constructors, @Builder, loggers, ...) and the scanner then reads those members into the
@@ -1921,8 +2042,8 @@ public class JavaInspectorImpl implements JavaInspector {
         reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(), problem.toString(),
                 Summary.ClassOutputProblem.Kind.MISSING_OR_STALE, parsed.size(), missing.stream().sorted().toList(),
                 stale.stream().sorted().toList(),
-                newestClassFile == 0L ? null : java.time.Instant.ofEpochMilli(newestClassFile),
-                stale.isEmpty() ? null : java.time.Instant.ofEpochMilli(oldestStaleSource));
+                newestClassFile == 0L ? null : Instant.ofEpochMilli(newestClassFile),
+                stale.isEmpty() ? null : Instant.ofEpochMilli(oldestStaleSource));
     }
 
     private static List<String> fullyQualifiedNames(List<TypeInfo> types) {
@@ -1932,7 +2053,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private void reportClassOutputProblem(Summary summary, SourceSet sourceSet, SourceSet dependency, URI uri,
                                           String problem, Summary.ClassOutputProblem.Kind kind, int parsedTypes,
                                           List<String> missing, List<String> stale,
-                                          java.time.Instant newestClassFile, java.time.Instant oldestStaleSource) {
+                                          Instant newestClassFile, Instant oldestStaleSource) {
         String detail = "Source set '" + sourceSet.name() + "' resolves its references into '" + dependency.name()
                         + "' through class files, and " + problem
                         + ". Those references will not resolve, and the compilation units holding them are dropped."
@@ -2083,7 +2204,55 @@ public class JavaInspectorImpl implements JavaInspector {
                 fallbacks.stream().map(LombokFallback::sourceSetName).toList());
     }
 
+    // does any of these units contain the text "lombok"? Stops at the first that does.
+    private static boolean mentionsLombok(List<JavaFileObject> units) throws IOException {
+        for (JavaFileObject unit : units) {
+            if (unit.getCharContent(true).toString().contains("lombok")) return true;
+        }
+        return false;
+    }
+
     // does the cause chain point into Lombok's own code? (processor init/handler crash, not a source problem)
+    // createTask -> singleSourceSetOnThisThread: the probe's verdict for the set being created, on this thread
+    private static final ThreadLocal<Throwable> LOMBOK_PROBE_FAILURE = new ThreadLocal<>();
+    // per Lombok jar: empty when its processor runs on this JDK, else why not
+    private final Map<String, Optional<Throwable>> lombokProbes = new ConcurrentHashMap<>();
+
+    /**
+     * Whether the Lombok jar of [sourceSet] can run on the JDK maddi runs on: a one-class compilation with its
+     * processor, on its own task (javac loads processors per task, so a failed static initialiser is not left
+     * behind). Null when it runs, else the failure. Cached per jar.
+     */
+    private Throwable lombokProbeFailure(SourceSet sourceSet) {
+        SourceSet jar = sourceSet.dependencies().stream()
+                .filter(d -> d.externalLibrary() && d.name().startsWith("lombok-")).findFirst().orElse(null);
+        if (jar == null || jar.uri() == null) return null;
+        return lombokProbes.computeIfAbsent(jar.uri().toString(), k -> Optional.ofNullable(probeLombok(jar))).orElse(null);
+    }
+
+    private static Throwable probeLombok(SourceSet jar) {
+        javax.tools.JavaCompiler compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
+        // annotated: javac instantiates processors only in a round that has annotations to offer
+        JavaFileObject probe = new javax.tools.SimpleJavaFileObject(URI.create("string:///LombokProbe.java"),
+                JavaFileObject.Kind.SOURCE) {
+            @Override
+            public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+                return "@SuppressWarnings(\"unused\") class LombokProbe { private int x; }";
+            }
+        };
+        javax.tools.DiagnosticCollector<JavaFileObject> diagnostics = new javax.tools.DiagnosticCollector<>();
+        List<String> options = List.of("-proc:only", "-classpath", Path.of(jar.uri()).toString(),
+                "-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor");
+        try {
+            compiler.getTask(null, null, diagnostics, options, null, List.of(probe)).call();
+        } catch (RuntimeException | Error e) {
+            LOGGER.info("Lombok {} cannot run on JDK {}: {}", jar.name(), java.lang.Runtime.version().feature(),
+                    String.valueOf(e));
+            return e;
+        }
+        return null;
+    }
+
     private static boolean lombokFailure(Throwable t) {
         for (Throwable c = t; c != null; c = c.getCause() == c ? null : c.getCause()) {
             for (StackTraceElement ste : c.getStackTrace()) {
@@ -2124,6 +2293,20 @@ public class JavaInspectorImpl implements JavaInspector {
                         inMemory.stream())
                 .filter(jfo -> accept(sourceSet, workingDirectory, jfo))
                 .toList();
+    }
+
+    /*
+     The descriptor of a set the re-parse does not scan (KEEP, REWIRE). Each re-parse returns a new Summary, and only
+     a scan puts a descriptor in it: without this, every module that was not re-scanned lost its ModuleInfo after
+     the first re-parse, and refactor's module-info export reconciliation silently did nothing (an export of a package
+     dead-code removal had emptied stayed, and the module no longer compiled). The previous generation's ModuleInfo
+     is not reused: ResolveModuleDirectives commits its resolved service types once, and a rewire may have replaced
+     them. Read from disk, it also picks up an edit to module-info.java, which no type's invalidation reports.
+     */
+    private void keptModuleInfo(Summary summary, SourceSet sourceSet, Map<String, String> sourcesByFqn) {
+        ModuleInfo moduleInfo = parseModuleInfoDescriptor(summary, sourceSet,
+                sourcesByFqn == null ? Map.of() : sourcesByFqn);
+        if (moduleInfo != null) summary.putSourceSetToModuleInfo(sourceSet, moduleInfo);
     }
 
     /**
@@ -2287,7 +2470,7 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
+    public InfoMapView lastRewireInfoMap() {
         return lastRewireInfoMap;
     }
 

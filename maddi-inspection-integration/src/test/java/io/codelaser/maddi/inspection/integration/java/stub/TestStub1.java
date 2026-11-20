@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.inspection.integration.java.stub;
 
-import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.api.parser.Summary;
-import io.codelaser.maddi.inspection.integration.java.CommonTest;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 
 public class TestStub1 extends CommonTest {
 

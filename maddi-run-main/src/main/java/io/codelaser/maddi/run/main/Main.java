@@ -17,21 +17,6 @@
 
 package io.codelaser.maddi.run.main;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.cli.*;
-import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
-import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
-import io.codelaser.maddi.run.config.ShippedAnalysisResults;
-import io.codelaser.maddi.run.config.Configuration;
-import io.codelaser.maddi.run.config.report.ExitCode;
-import io.codelaser.maddi.run.config.GeneralConfiguration;
-import io.codelaser.maddi.run.config.util.JsonStreaming;
-import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,6 +24,23 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+
+import org.apache.commons.cli.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.GeneralConfiguration;
+import io.codelaser.maddi.run.config.ShippedAnalysisResults;
+import io.codelaser.maddi.run.config.report.ExitCode;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
 
 public class Main {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
@@ -61,6 +63,8 @@ public class Main {
     public static final String SOURCE_ENCODING = "source-encoding";
     public static final String INCREMENTAL_ANALYSIS = "incremental-analysis";
     public static final String WARN_NEAR_MISSES = "warn-near-misses";
+    public static final String OWNERSHIP = "ownership";
+    public static final String CLOSED_WORLD = "closed-world";
     public static final String SKIP_KOTLIN_SOURCES = "skip-kotlin-sources";
     public static final String ANALYSIS_STEPS = "analysis-steps";
 
@@ -213,6 +217,11 @@ public class Main {
         options.addOption("q", QUIET, false, "Silent mode. Do not write warnings, errors, etc. to stdout.");
         options.addOption(null, WARN_NEAR_MISSES, false, "Emit advisory warnings for types/methods that narrowly "
                 + "miss a property (e.g. would be @Container but for a single modifying parameter). Off by default.");
+        options.addOption(null, OWNERSHIP, false, "Run the ownership pass: @Fresh methods, @Borrowed parameters, "
+                + "@Owned fields (road-to-immutability §055). Off by default.");
+        options.addOption(null, CLOSED_WORLD, false, "With --" + OWNERSHIP + ": the sources are an application, no code "
+                + "outside them calls their public methods, so a parameter every caller hands over may be @Owned. "
+                + "Off by default: a library's public methods have callers maddi cannot see.");
         options.addOption(null, SKIP_KOTLIN_SOURCES, false, "Analyze the Java sources of a project that also "
                 + "holds Kotlin, accepting an incomplete result. Without it, a run that meets a .kt file refuses "
                 + "(exit " + EXIT_KOTLIN_SOURCES + ") rather than skipping it silently.");
@@ -224,6 +233,8 @@ public class Main {
         setBooleanProperty(kvMap, PARALLEL, builder::setParallel);
         setBooleanProperty(kvMap, INCREMENTAL_ANALYSIS, builder::setIncrementalAnalysis);
         setBooleanProperty(kvMap, WARN_NEAR_MISSES, builder::setWarnNearMisses);
+        setBooleanProperty(kvMap, OWNERSHIP, builder::setOwnership);
+        setBooleanProperty(kvMap, CLOSED_WORLD, builder::setClosedWorld);
         setBooleanProperty(kvMap, SKIP_KOTLIN_SOURCES, builder::setSkipKotlinSources);
         setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
         setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
@@ -238,6 +249,8 @@ public class Main {
         builder.setQuiet(cmd.hasOption(QUIET));
         builder.setIncrementalAnalysis(cmd.hasOption(INCREMENTAL_ANALYSIS));
         builder.setWarnNearMisses(cmd.hasOption(WARN_NEAR_MISSES));
+        builder.setOwnership(cmd.hasOption(OWNERSHIP));
+        builder.setClosedWorld(cmd.hasOption(CLOSED_WORLD));
         builder.setSkipKotlinSources(cmd.hasOption(SKIP_KOTLIN_SOURCES));
 
         String[] analysisSteps = cmd.getOptionValues(ANALYSIS_STEPS);

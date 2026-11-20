@@ -8,11 +8,9 @@ internal sealed class Graph {
     internal static Visitor Bound(Visitor v) => v.Invoke;
     internal static int One(string s) => 1;
     internal static void Tell(IListener l) { l.Changed("b"); }
-    internal static void Quiet() { Tell(new IListener.Lambda(n => { })); }
-    internal interface IListener {
-        void Changed(string node);
-        public sealed class Lambda(Action<string> f) : IListener { public void Changed(string node) => f(node); }
-    }
+    internal static void Quiet() { Tell(new ListenerLambda(n => { })); }
+    internal interface IListener { void Changed(string node); }
+    internal sealed class ListenerLambda(Action<string> f) : IListener { public void Changed(string node) => f(node); }
 
     internal sealed class Recorder : IListener {
         internal readonly List<string> seen = new List<string>();

@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.cst.api.analysis;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -25,13 +32,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.Variable;
-
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.stream.Stream;
 
 /*
 support for reading and writing the property-value pairs in many elements.
@@ -90,6 +90,20 @@ public interface Codec {
     EncodedValue encodeInfoOutOfContext(Context context, Info info);
 
     EncodedValue encodeInt(Context context, int value);
+
+    /**
+     * What this codec has registered while encoding, for back-references to definitions it wrote earlier (the link
+     * codec's marker variables). A writer that leaves out a value whose encoding failed half-way puts it back with
+     * {@link #restoreEncodingState}: otherwise a definition registered by the failed value stays registered, a later
+     * value refers back to it, and the file cannot be read. Default: no state.
+     */
+    default Object encodingState() {
+        return null;
+    }
+
+    default void restoreEncodingState(Object state) {
+        // no state
+    }
 
     EncodedValue encodeList(Context context, List<EncodedValue> encodedValues);
 

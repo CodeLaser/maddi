@@ -1,0 +1,21 @@
+# TestJavaToCSharpNacos with J2CS_NACOS_MAIN=common/main: nacos's common module printed as C# by maddi-cst-print-csharp and
+# judged by Roslyn (tools/csharp-check; see JavaToCSharpRatchet's javadoc). Lower is better for printerCrashes,
+# syntaxErrors, unmappedJdkUses and errors, higher for syntaxCleanFiles and compilingFiles; `types` must not move.
+# Write a better value here in the commit that earns it.
+#
+# 2026-11-05, first record, maddi a2e0360b9 (declaration-site variance in, CSharpVariance): application-style code,
+# a Spring service's common module, whose wildcards bound concrete types where timefold's bound type parameters. The
+# unmapped uses are mostly third-party libraries no mapping file covers yet (api: 309 com.google, 115 io.grpc, 49
+# of the JDK itself); the errors are their types (CS0246, CS0103) before anything of the translation's own. In common,
+# the types not found are mostly the api module's (Response, Payload, Request, NacosException, AbilityMode): a sibling
+# module is on the class path for the parse, and has no C# of its own while one module is translated. Next after
+# that: 131 CS0266 char to sbyte, one family.
+# 2026-11-05, maddi b13471627..a06af96cb: declaration-site variance and the first slices of the wildcard design's
+# part (b): 113 -> 114 compiling files, 1,077 -> 1,075 errors.
+types	212
+printerCrashes	0
+syntaxErrors	0
+syntaxCleanFiles	212
+compilingFiles	114
+unmappedJdkUses	594
+errors	1075

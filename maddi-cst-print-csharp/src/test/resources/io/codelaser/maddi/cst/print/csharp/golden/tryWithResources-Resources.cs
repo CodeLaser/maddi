@@ -12,7 +12,7 @@ internal sealed class Resources {
             using (var r = new Res())
             { return r.Read(); }
         } catch (Exception e) when (e is InvalidOperationException || e is NotSupportedException) { return -1; } finally {
-            System.gc();
+            GC.Collect();
         }
     }
 

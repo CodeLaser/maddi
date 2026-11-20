@@ -93,10 +93,30 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
      * source evaluates `1` first. Refused, and left counted.
      */
     @Test
-    fun anElvisInsideAnArgumentIsRefused() {
+    fun anElvisInsideAnArgumentIsLowered() {
         val p = parse("""
                 fun g(a: Int, b: String) = a
                 fun f(s: String?): Int { return g(1, s ?: return 0) }
+        """)
+        assertEquals(0, PlaceholderCensus.of(listOf(p)).total, PlaceholderCensus.of(listOf(p)).byKind.toString())
+    }
+
+    /** Under `&&` the argument runs only sometimes: its guard goes into the branch where it does. */
+    @Test
+    fun anElvisInAConditionalArgumentIsLowered() {
+        val p = parse("""
+                fun g(a: Int, b: String) = a > 0
+                fun f(c: Boolean, s: String?): Boolean { return c && g(1, s ?: return false) }
+        """)
+        assertEquals(0, PlaceholderCensus.of(listOf(p)).total, PlaceholderCensus.of(listOf(p)).byKind.toString())
+    }
+
+    /** ⛔ CONTROL. A loop's condition runs again on every iteration: no place before it runs it each time. Refused. */
+    @Test
+    fun anElvisInALoopConditionIsRefused() {
+        val p = parse("""
+                fun g(a: Int, b: String) = a > 0
+                fun f(s: String?): Boolean { while (g(1, s ?: return false)) { } ; return true }
         """)
         val census = PlaceholderCensus.of(listOf(p))
         assertEquals(setOf("k2-unsupported-expr:KtReturnExpression"), census.byKind.keys, census.byKind.toString())

@@ -60,15 +60,12 @@ class MixedInspector {
     /**
      * ⚠ The stub directory must outlive every call -- [sourceSet] names it as an external-library URI -- so it
      * cannot be deleted eagerly and this class has no close(). A shutdown hook is therefore the only correct
-     * point: the directory lives as long as the JVM might read it, and does not survive the run. Left behind,
+     * point: the directory lives as long as the JVM might read it, and does not survive the run. One hook for all
+     * instances, holding paths only ([StubDirectories]): a hook per instance kept the instance itself alive. Left behind,
      * one per instance, these accumulated in /tmp -- a tmpfs with a hard INODE cap -- until createTempDirectory
      * itself started failing with "No space left on device" on a filesystem 93% empty by bytes.
      */
-    private val stubDir = Files.createTempDirectory("mixed-stubs").also { dir ->
-        java.lang.Runtime.getRuntime().addShutdownHook(Thread {
-            runCatching { dir.toFile().deleteRecursively() }
-        })
-    }
+    private val stubDir = StubDirectories.create("mixed-stubs")
 
     /** The single shared source set both front-ends populate (its classpath includes the generated stubs). */
     val sourceSet = SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL).setUri(URI.create("file:/"))

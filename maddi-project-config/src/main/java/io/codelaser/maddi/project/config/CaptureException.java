@@ -18,6 +18,7 @@
 package io.codelaser.maddi.project.config;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -62,7 +63,7 @@ public final class CaptureException extends IOException {
                 if (last.size() == TAIL_LINES) last.removeFirst();
                 last.addLast(line);
             });
-        } catch (IOException | java.io.UncheckedIOException e) {
+        } catch (IOException | UncheckedIOException e) {
             return List.of();
         }
         return List.copyOf(last);

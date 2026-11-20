@@ -17,15 +17,16 @@
 
 package io.codelaser.maddi.inspection.resource;
 
-import io.codelaser.maddi.cst.api.element.CompilationUnit;
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /**
  * The shared type registry: fully-qualified name -> {@link TypeInfo}, with multi-source-set resolution
@@ -79,20 +80,24 @@ public class InfoByFqn {
 
     public synchronized void removeAllSources() {
         singleTypeByFqn.values().removeIf(InfoByFqn::isSourceType);
-        // rebuild, as removeType does: the lists in this map are immutable (List.of/Stream.toList), and removeIf on
-        // them threw UnsupportedOperationException before the inspector's file managers were closed (refactor
-        // server, maddi-audit, 2026-11-12)
+        /*
+         Rebuilt, as in removeType: the lists in this map are immutable (List.of, Stream.toList), and removeIf threw
+         UnsupportedOperationException, which stopped JavaInspectorImpl.invalidateAllSources at its first line (the
+         refactor server dropping hibernate-orm, CodeLaser/maddi#210). A name left with one type (a library copy of a
+         source type) goes back to singleTypeByFqn: getType asserts that a multi entry holds two or more.
+         */
         for (String fqn : List.copyOf(multiTypeByFqn.keySet())) {
-            List<TypeInfo> list = multiTypeByFqn.get(fqn);
-            List<TypeInfo> remaining = list.stream().filter(ti -> !isSourceType(ti)).toList();
-            if (remaining.size() == list.size()) continue;
-            if (remaining.isEmpty()) multiTypeByFqn.remove(fqn);
-            else if (remaining.size() == 1) {
+            List<TypeInfo> remaining = multiTypeByFqn.get(fqn).stream().filter(ti -> !isSourceType(ti)).toList();
+            if (remaining.size() >= 2) {
+                multiTypeByFqn.put(fqn, remaining);
+            } else {
                 multiTypeByFqn.remove(fqn);
-                singleTypeByFqn.put(fqn, remaining.getFirst());
-            } else multiTypeByFqn.put(fqn, remaining);
+                if (remaining.size() == 1) singleTypeByFqn.put(fqn, remaining.getFirst());
+            }
         }
         classScannerSetupDone.removeIf(InfoByFqn::isSourceType);
+        // nor does the set of the source set being loaded keep the dropped source types reachable
+        loadedForThisSourceSet.removeIf(InfoByFqn::isSourceType);
     }
 
     /**
@@ -201,24 +206,47 @@ public class InfoByFqn {
             }
             return;
         }
-        TypeInfo prev = singleTypeByFqn.put(fqn, typeInfo);
+        /*
+         ⛔ A NAME LIVES IN EXACTLY ONE OF THE TWO MAPS, AND A MULTI LIST NEVER LOSES ANOTHER SET'S COPY. The old code
+         put a copy registered for another set into singleTypeByFqn while a multi list existed, and the next own-set
+         copy found it as 'prev' and replaced the whole list by List.of(prev, new): every earlier copy was gone.
+         Harmless while a lookup took whatever copy it found; fatal once a set may only take a copy it reaches
+         (quarkus: some twenty integration-tests generate examples.GreeterGrpc, and two copies were left, so each test
+         set's own main copy was missing: ClassSymbolScanner#unreachableSourceCopy, TestSameFqnInUnrelatedSourceSets).
+         */
+        TypeInfo prev = singleTypeByFqn.get(fqn);
         // ...and a properly loaded type DOES displace a stub, silently: nothing was known about that name.
         if (prev != null && isStub(prev)) prev = null;
-        List<TypeInfo> list;
-        if (sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet())) {
-            if (prev != null) {
-                if (!prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())) {
-                    singleTypeByFqn.remove(fqn);
-                    multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
-                    LOGGER.debug("Create multi: {}", typeInfo.descriptor());
-                } else {
-                    throw new UnsupportedOperationException("Duplicating type " + typeInfo);
-                }
-            } else if ((list = multiTypeByFqn.get(fqn)) != null) {
-                multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
-                LOGGER.debug("Appended to multi: {}", typeInfo.descriptor());
-            }
-        } else if (prev != null) {
+        SourceSet set = typeInfo.compilationUnit().sourceSet();
+        boolean own = sourceSetOfCurrentTask.equals(set);
+        List<TypeInfo> list = multiTypeByFqn.get(fqn);
+        if (list != null) {
+            assert prev == null : "a name in both maps: " + fqn;
+            TypeInfo sameSet = list.stream().filter(t -> sameSourceSet(t, set)).findFirst().orElse(null);
+            if (sameSet != null && own) throw new UnsupportedOperationException("Duplicating type " + typeInfo);
+            // another set's (or a reload of a library's) copy: replace that set's entry, keep the others
+            multiTypeByFqn.put(fqn, Stream.concat(list.stream().filter(t -> t != sameSet), Stream.of(typeInfo))
+                    .toList());
+            LOGGER.debug("Appended to multi: {}", typeInfo.descriptor());
+            return;
+        }
+        if (prev == null) {
+            singleTypeByFqn.put(fqn, typeInfo);
+            return;
+        }
+        boolean sameSetAsPrev = sameSourceSet(prev, set);
+        if (own && sameSetAsPrev) throw new UnsupportedOperationException("Duplicating type " + typeInfo);
+        if (!sameSetAsPrev && (own || isSourceType(prev))) {
+            // two sets' copies: an own-set definition beside another set's, or another set's copy beside a source
+            // type, which only the sets reaching it may take
+            singleTypeByFqn.remove(fqn);
+            multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
+            LOGGER.debug("Create multi: {}", typeInfo.descriptor());
+            return;
+        }
+        // a library copy replaced: another version of the library, or the same jar re-read
+        singleTypeByFqn.put(fqn, typeInfo);
+        {
             LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
                     prev.compilationUnit().sourceSet(), typeInfo.compilationUnit().sourceSet());
             if (isDisplacedLibraryCopy(prev, typeInfo)) {
@@ -269,8 +297,30 @@ public class InfoByFqn {
             }
         }
         if (present != null) return present;
+        /*
+         ⛔ A DISPLACED COPY IS STILL THE ONE OF ITS JAR. Jar 1's type, overwritten by jar 2's while another source set
+         was scanned, and then read again from jar 1: the re-read must get the copy it had, not a third object. The
+         code parsed before the overwrite calls that copy, and a fresh one with the same (FQN, source set) took its
+         place in allTypes, so analysis results never reached it (nacos: slf4j-api 2.0.13 and 1.7.26, nacos-common's
+         Logger calls left without a summary after a load, TestInfoByFqnAllTypes).
+         */
+        TypeInfo displaced = displacedFromSameOrigin(fqn, typeInfo);
+        if (displaced != null) {
+            put(fqn, displaced, sourceSetOfCurrentTask);
+            displacedLibraryTypesByFqn.computeIfPresent(fqn, (k, list) -> {
+                List<TypeInfo> rest = list.stream().filter(t -> t != displaced).toList();
+                return rest.isEmpty() ? null : rest;
+            });
+            return displaced;
+        }
         put(fqn, typeInfo, sourceSetOfCurrentTask);
         return typeInfo;
+    }
+
+    private TypeInfo displacedFromSameOrigin(String fqn, TypeInfo typeInfo) {
+        List<TypeInfo> displaced = displacedLibraryTypesByFqn.get(fqn);
+        if (displaced == null) return null;
+        return displaced.stream().map(d -> sameOrigin(d, typeInfo)).filter(Objects::nonNull).findFirst().orElse(null);
     }
 
     private static TypeInfo sameOrigin(TypeInfo present, TypeInfo typeInfo) {
@@ -299,6 +349,68 @@ public class InfoByFqn {
      */
     private static boolean isStub(TypeInfo typeInfo) {
         return typeInfo.compilationUnit().sourceSet() == null;
+    }
+
+    /**
+     * A stub a real type has since superseded under its name: nothing resolves to it any more, and it must not be
+     * committed or published (TestMissingAnnotationClassFile).
+     */
+    public synchronized boolean isDisplacedStub(TypeInfo typeInfo) {
+        if (!isStub(typeInfo)) return false;
+        String fqn = typeInfo.fullyQualifiedName();
+        TypeInfo single = singleTypeByFqn.get(fqn);
+        return single != null ? single != typeInfo && !isStub(single) : multiTypeByFqn.containsKey(fqn);
+    }
+
+    private final Map<SourceSet, Set<SourceSet>> reachableSourceSets = new HashMap<>();
+
+    /**
+     * Whether {@code from} depends on {@code to}, directly or not, or is it; or depends on the class directory
+     * {@code to}'s sources compile into (see {@link #holdsClassOutputOf}). The transitive closure is computed once
+     * per source set.
+     */
+    public synchronized boolean reaches(SourceSet from, SourceSet to) {
+        if (from.equals(to)) return true;
+        Set<SourceSet> closure = reachableSourceSets.computeIfAbsent(from, f -> {
+            Set<SourceSet> c = new HashSet<>();
+            java.util.ArrayDeque<SourceSet> todo = new java.util.ArrayDeque<>(f.dependencies());
+            while (!todo.isEmpty()) {
+                SourceSet s = todo.poll();
+                if (c.add(s)) todo.addAll(s.dependencies());
+            }
+            return c;
+        });
+        if (closure.contains(to)) return true;
+        if (NO_CLASS_OUTPUT_REACH) return false;
+        for (SourceSet d : closure) {
+            if (holdsClassOutputOf(d, to)) return true;
+        }
+        return false;
+    }
+
+    /*
+     ⛔ A DEPENDENCY ON A SET'S CLASS OUTPUT IS A DEPENDENCY ON THAT SET (CodeLaser/maddi-mod#151). A configuration
+     may describe a module's sources and its class directory as two sets: guava's 'guava/9' holds guava/src (its URI
+     is target/classes/META-INF/versions/9, the multi-release set), while 'guava/main' is target/classes as an
+     external library, and guava-tests and guava-testlib depend on 'guava/main' only. javac compiles them against
+     the class files of exactly those sources, so the source types are the ones they see. Without this, every guava
+     type was an "unreachable source copy" for the test sets (1607 refusals), their calls bound to a second TypeInfo
+     loaded from the class file, and the link computation of six InvokableTest methods crashed on a null primary.
+     The dependency must hold the set's class directory itself or a directory containing it; the JDK never counts
+     (a 'file:/' URI contains every directory). Gate NOCLASSOUTPUTREACH (environment).
+     */
+    private static final boolean NO_CLASS_OUTPUT_REACH = System.getenv("NOCLASSOUTPUTREACH") != null;
+
+    static boolean holdsClassOutputOf(SourceSet dependency, SourceSet to) {
+        if (dependency.partOfJdk() || to.partOfJdk() || to.externalLibrary()) return false;
+        java.net.URI d = dependency.uri();
+        java.net.URI t = to.uri();
+        if (d == null || t == null || !"file".equals(d.getScheme()) || !"file".equals(t.getScheme())) return false;
+        String dp = d.getPath();
+        String tp = t.getPath();
+        if (dp == null || tp == null || dp.length() <= 1) return false;
+        String dir = dp.endsWith("/") ? dp : dp + "/";
+        return tp.equals(dp) || (tp.endsWith("/") ? tp : tp + "/").startsWith(dir);
     }
 
     public synchronized TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {

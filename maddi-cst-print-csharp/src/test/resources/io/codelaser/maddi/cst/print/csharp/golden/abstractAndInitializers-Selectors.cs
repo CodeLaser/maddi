@@ -24,8 +24,6 @@ public sealed class Selectors {
         public override int GetHashCode() => 1;
     }
     internal abstract class GenericSelector : AbstractDemandEnabledSelector { }
-    internal interface ISelector {
-        bool NeverEnding { get; }
-        public sealed class Lambda(Func<bool> f) : ISelector { public bool NeverEnding => f(); }
-    }
+    internal interface ISelector { bool NeverEnding { get; } }
+    internal sealed class SelectorLambda(Func<bool> f) : ISelector { public bool NeverEnding => f(); }
 }

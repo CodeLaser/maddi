@@ -17,6 +17,13 @@
 
 package io.codelaser.maddi.inspection.integration.java.method;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.function.Consumer;
+
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -28,12 +35,6 @@ import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.integration.java.CommonTest;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Test;
-
-import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethodCall0 extends CommonTest {
 

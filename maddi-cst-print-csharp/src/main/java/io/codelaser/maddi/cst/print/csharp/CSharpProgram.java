@@ -17,22 +17,6 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.ParameterInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.info.TypeModifier;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
-import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
-import io.codelaser.maddi.cst.api.variable.This;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.print.translate.CstSupertypes;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -45,6 +29,22 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeModifier;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 /**
  * What the printer knows of the whole translated program, beyond the file it prints: computed once, before the
@@ -138,6 +138,8 @@ public final class CSharpProgram {
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
+    private final Set<TypeInfo> bounds;
+    private final Map<TypeParameter, String> variance;
     private final Set<MethodInfo> overridden;
     private final Inheritance inheritance;
     private final Map<String, String> namespaceSegments;
@@ -149,19 +151,23 @@ public final class CSharpProgram {
     private final Map<MethodInfo, String> computedProperties;
     private final Map<MethodInfo, CSharpProperties.Property> accessors;
     private final CSharpFacts facts;
-    private final Set<ParameterInfo> readOnly;
+    private final CSharpReadOnly.Analysis readOnly;
+    private final Map<TypeInfo, List<MethodInfo>> referencedAs;
     private final Set<MethodInfo> erasedGenerics;
     private final Set<TypeInfo> exposedBases;
     private final Map<String, TypeInfo> packageInfos;
     private final List<TypeInfo> types;
     private final Set<TypeParameter> notNullKeys;
     private final CSharpWildcardInterfaces.Uses wildcardUses;
+    private final Set<TypeInfo> structs;
     private final Memo memo = new Memo();
 
     /** The decisions as the analyses make them, one after the other; what none has made yet is the NONE program's. */
     private static final class Builder {
         Set<TypeInfo> delegates = Set.of();
         Set<TypeInfo> extended = Set.of();
+        Set<TypeInfo> bounds = Set.of();
+        Map<TypeParameter, String> variance = Map.of();
         Set<MethodInfo> overridden = Set.of();
         Inheritance inheritance = Inheritance.OPEN;
         Map<String, String> namespaceSegments = Map.of();
@@ -171,13 +177,15 @@ public final class CSharpProgram {
         CSharpLibraries libraries = CSharpLibraries.DEFAULT;
         CSharpProperties.Analysis properties = CSharpProperties.Analysis.NONE;
         CSharpFacts facts = CSharpFacts.NONE;
-        Set<ParameterInfo> readOnly = Set.of();
+        CSharpReadOnly.Analysis readOnly = CSharpReadOnly.Analysis.NONE;
+        Map<TypeInfo, List<MethodInfo>> referencedAs = Map.of();
         Set<MethodInfo> erasedGenerics = Set.of();
         Set<TypeInfo> exposedBases = Set.of();
         Map<String, TypeInfo> packageInfos = Map.of();
         List<TypeInfo> types = List.of();
         Set<TypeParameter> notNullKeys = Set.of();
         CSharpWildcardInterfaces.Uses wildcardUses = CSharpWildcardInterfaces.Uses.NONE;
+        Set<TypeInfo> structs = Set.of();
 
         CSharpProgram build() {
             return new CSharpProgram(this);
@@ -187,6 +195,8 @@ public final class CSharpProgram {
     private CSharpProgram(Builder b) {
         delegates = b.delegates;
         extended = b.extended;
+        bounds = b.bounds;
+        variance = b.variance;
         overridden = b.overridden;
         inheritance = b.inheritance;
         namespaceSegments = b.namespaceSegments;
@@ -204,12 +214,14 @@ public final class CSharpProgram {
         this.accessors = Map.copyOf(accessors);
         facts = b.facts;
         readOnly = b.readOnly;
+        referencedAs = b.referencedAs;
         erasedGenerics = b.erasedGenerics;
         exposedBases = b.exposedBases;
         packageInfos = b.packageInfos;
         types = b.types;
         notNullKeys = b.notNullKeys;
         wildcardUses = b.wildcardUses;
+        structs = b.structs;
     }
 
     @SuppressWarnings("unused") // kept: the analysis under the default policy, for callers outside --translate
@@ -240,17 +252,21 @@ public final class CSharpProgram {
     private static CSharpProgram analyzeTranslated(Collection<TypeInfo> primaryTypes, Policy policy, Builder b) {
         CSharpContext.program(b.build());
         List<TypeInfo> all = new ArrayList<>();
-        primaryTypes.forEach(t -> collect(t, all));
+        primaryTypes.forEach(t -> all.addAll(CstQueries.allTypes(t)));
         // a method's result is nullable where an override's is (FamilyFacts)
         b.facts = FamilyFacts.of(b.facts, all);
         CSharpProgramIndex index = CSharpProgramIndex.of(all);
         Set<TypeInfo> candidates = new HashSet<>();
         Set<TypeInfo> implemented = new HashSet<>();
         Set<TypeInfo> extended = new HashSet<>();
+        Set<TypeInfo> bounds = new HashSet<>();
         Set<MethodInfo> overridden = new HashSet<>();
         for (TypeInfo t : all) {
             if (delegateShape(t)) candidates.add(t);
             if (t.parentClass() != null && t.parentClass().typeInfo() != null) extended.add(t.parentClass().typeInfo());
+            Stream.concat(t.typeParameters().stream(), t.methods().stream().flatMap(m -> m.typeParameters().stream()))
+                    .flatMap(tp -> tp.typeBounds().stream()).filter(bd -> bd.typeInfo() != null && bd.arrays() == 0)
+                    .forEach(bd -> bounds.add(bd.typeInfo()));
             Stream.concat(t.methods().stream(), t.constructors().stream())
                     .forEach(m -> m.overrides().stream().filter(o -> o != m).forEach(overridden::add));
             // an anonymous class that becomes a lambda is no implementation
@@ -260,6 +276,8 @@ public final class CSharpProgram {
             }
         }
         candidates.removeAll(implemented);
+        // C# constrains a type parameter by an interface, not by a delegate (CS0701)
+        candidates.removeAll(bounds);
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
         b.namespaceSegments = namespaceSegments(primaryTypes, all, policy.libraries());
@@ -267,9 +285,11 @@ public final class CSharpProgram {
         b.prefixedHoisted = prefixedHoisted(all);
         b.typeTokens = typeTokens(index);
         b.delegates = delegates;
+        b.variance = CSharpVariance.analyze(all, delegates);
         // the analyses below name types as the printing will
         CSharpContext.program(b.build());
         b.extended = Set.copyOf(extended);
+        b.bounds = Set.copyOf(bounds);
         b.overridden = Set.copyOf(overridden);
         if (policy.accessors() == Accessors.PROPERTIES) {
             // a superclass's method that implements a subclass's interface is a method there too
@@ -278,6 +298,7 @@ public final class CSharpProgram {
             b.properties = CSharpProperties.analyze(index, implementing, delegates);
         }
         b.readOnly = CSharpReadOnly.analyze(index, policy.facts(), delegates);
+        b.referencedAs = index.referencedAs();
         b.erasedGenerics = erasedGenerics(index);
         b.exposedBases = exposedBases(all);
         Map<String, TypeInfo> packageInfos = new HashMap<>();
@@ -289,7 +310,11 @@ public final class CSharpProgram {
         if (policy.facts().nullabilityAnalysed()) b.notNullKeys = CSharpNotNullKeys.analyze(all);
         // which wildcards are a wildcard interface: the capture of a method's parameter asks which classes are open
         CSharpContext.program(b.build());
-        b.wildcardUses = CSharpWildcardInterfaces.wildcarded(all);
+        Set<MethodInfo> erased = b.erasedGenerics;
+        b.wildcardUses = CSharpWildcardInterfaces.wildcarded(all, erased::contains);
+        // which classes are structs: what is open, a bound, a delegate or self-bounded is known now
+        CSharpContext.program(b.build());
+        b.structs = CSharpStructs.analyze(primaryTypes, all);
         return b.build();
     }
 
@@ -399,13 +424,13 @@ public final class CSharpProgram {
 
     /**
      * Every type parameter of {@code m} self-bounded by a program type, which has a wildcard interface
-     * ({@code Score_ extends Score<Score_>}, not {@code Comparable<? super R>}), none mentioned by a parameter, one by
-     * the result.
+     * ({@code Score_ extends Score<Score_>}, not {@code Comparable<? super R>}), none mentioned by a parameter: the
+     * result's, or the body's only ({@code <Score_ …> void doMove(MoveScope<Solution_> scope)}), from which C# infers
+     * nothing at a call.
      */
     private static boolean selfBoundErasable(MethodInfo m) {
         List<TypeParameter> typeParameters = m.typeParameters();
         return !typeParameters.isEmpty() && CSharpNames.translated(m.typeInfo())
-               && typeParameters.stream().anyMatch(tp -> CstQueries.mentions(m.returnType(), tp))
                && typeParameters.stream().allMatch(tp -> tp.typeBounds().stream().anyMatch(b -> CstQueries.mentions(b, tp)
                     && b.typeInfo() != null && CSharpNames.translated(b.typeInfo()))
                     && m.parameters().stream().noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp)));
@@ -423,7 +448,27 @@ public final class CSharpProgram {
 
     /** The parameter is a read-only collection in C# ({@link CSharpReadOnly}). */
     boolean readOnly(ParameterInfo parameter) {
-        return readOnly.contains(parameter);
+        return readOnly.parameters().contains(parameter);
+    }
+
+    /** The field holds a collection read-only in C#, {@code IReadOnlyList<T>}: see {@link CSharpReadOnly}. */
+    boolean readOnly(FieldInfo field) {
+        return readOnly.fields().contains(field);
+    }
+
+    /** The method's result is a collection read-only in C#, {@code IReadOnlyList<T>}: see {@link CSharpReadOnly}. */
+    boolean readOnly(MethodInfo method) {
+        return readOnly.methods().contains(method);
+    }
+
+    /** {@code e} reads a read-only parameter or field, or calls a method with a read-only result. */
+    boolean readOnly(Expression e) {
+        return switch (e == null ? null : CSharpExpressionPrinter.unwrap(e)) {
+            case VariableExpression ve when ve.variable() instanceof ParameterInfo p -> readOnly(p);
+            case VariableExpression ve when ve.variable() instanceof FieldReference fr -> readOnly(fr.fieldInfo());
+            case MethodCall mc -> readOnly(mc.methodInfo());
+            case null, default -> false;
+        };
     }
 
     /** {@code where T : notnull}: a type parameter that is, or is passed as, a dictionary's key (CSharpNotNullKeys). */
@@ -493,6 +538,11 @@ public final class CSharpProgram {
                 }
             }
         }
+        // genuineVariable(String name, Class<V> type) next to genuineVariable(String name): both would be
+        // GenuineVariable<V>(string name) (CS0111), so the token stays a parameter
+        tokens.forEach((m, token) -> {
+            if (m.typeInfo().methods().stream().anyMatch(o -> o != m && collidesWithoutToken(m, token, o))) rejected.add(m);
+        });
         tokens.forEach((m, token) -> {
             for (List<Expression> arguments : index.calls(m)) {
                 if (!concreteClass(arguments.get(token).parameterizedType())) rejected.add(m);
@@ -525,6 +575,25 @@ public final class CSharpProgram {
         return found;
     }
 
+    /** {@code o} has {@code m}'s name, generic arity and parameters, but for m's type token. */
+    private static boolean collidesWithoutToken(MethodInfo m, int token, MethodInfo o) {
+        if (!o.name().equals(m.name()) || o.typeParameters().size() != m.typeParameters().size()
+            || o.parameters().size() != m.parameters().size() - 1) {
+            return false;
+        }
+        for (int i = 0, j = 0; i < m.parameters().size(); i++) {
+            if (i == token) continue;
+            if (!sameErasure(m.parameters().get(i).parameterizedType(), o.parameters().get(j++).parameterizedType())) return false;
+        }
+        return true;
+    }
+
+    private static boolean sameErasure(ParameterizedType a, ParameterizedType b) {
+        if (a.arrays() != b.arrays() || a.isTypeParameter() != b.isTypeParameter()) return false;
+        if (a.isTypeParameter()) return a.typeParameter().getIndex() == b.typeParameter().getIndex();
+        return Objects.equals(a.typeInfo(), b.typeInfo());
+    }
+
     /** {@code Class<X>} of a known {@code X}: the type argument of a call. */
     static boolean concreteClass(ParameterizedType pt) {
         return pt != null && pt.arrays() == 0 && pt.typeInfo() != null
@@ -555,6 +624,16 @@ public final class CSharpProgram {
         final Map<TypeInfo, List<CSharpHierarchy.LeftAbstract>> leftAbstract = new ConcurrentHashMap<>();
         /** C#'s names of the methods of named types ({@link CSharpNames#method}). */
         final Map<MethodInfo, String> methodNames = new ConcurrentHashMap<>();
+        /** The openers of a type's code ({@link CSharpOpeners#sites}). */
+        final Map<TypeInfo, List<CSharpOpeners.Site>> openers = new ConcurrentHashMap<>();
+        /** The opener of a creation ({@link CSharpOpeners#site}). */
+        final Map<io.codelaser.maddi.cst.api.expression.ConstructorCall, CSharpOpeners.Site> openerSites =
+                java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+        /** The openers of a type's calls ({@link CSharpCallOpeners#sites}). */
+        final Map<TypeInfo, List<CSharpCallOpeners.Site>> callOpeners = new ConcurrentHashMap<>();
+        /** The opener of a call ({@link CSharpCallOpeners#site}). */
+        final Map<io.codelaser.maddi.cst.api.expression.MethodCall, CSharpCallOpeners.Site> callOpenerSites =
+                java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
     }
 
     Memo memo() {
@@ -650,11 +729,39 @@ public final class CSharpProgram {
         return wildcardUses.reached().getOrDefault(typeInfo, Set.of());
     }
 
+    /** The methods the program's method references name as a value of the functional type. */
+    List<MethodInfo> referencedAs(TypeInfo functional) {
+        return referencedAs.getOrDefault(functional, List.of());
+    }
+
+    /** The member is reached through the wildcard of some type, its own or a subtype's. */
+    boolean reachedThroughAnyWildcard(Object member) {
+        return wildcardUses.reached().values().stream().anyMatch(s -> s.contains(member));
+    }
+
     public boolean delegate(TypeInfo typeInfo) {
         return delegates.contains(typeInfo);
     }
 
+    /** A class or record of the program that C# declares as a {@code readonly struct} ({@link CSharpStructs}). */
+    public boolean struct(TypeInfo typeInfo) {
+        return typeInfo != null && structs.contains(typeInfo);
+    }
+
     /** A class that may have subclasses: one of the program extends it, or the policy keeps it open. */
+    /**
+     * The class bounds a type parameter somewhere in the program ({@code R extends Defaults<R>}): C# allows no
+     * {@code sealed} class as a constraint (CS0701), so it is not sealed, whatever Java says.
+     */
+    public boolean boundsTypeParameter(TypeInfo typeInfo) {
+        return bounds.contains(typeInfo);
+    }
+
+    /** The variance C# declares on a program interface's or delegate's type parameter: {@code out}, {@code in}, or null ({@link CSharpVariance}). */
+    String variance(TypeParameter typeParameter) {
+        return variance.get(typeParameter);
+    }
+
     public boolean open(TypeInfo typeInfo) {
         return switch (inheritance) {
             case OPEN -> true;
@@ -715,15 +822,4 @@ public final class CSharpProgram {
     }
 
     /** The type, its nested types, and the local and anonymous types its code declares, at any depth. */
-    private static void collect(TypeInfo t, List<TypeInfo> all) {
-        all.add(t);
-        t.subTypes().forEach(st -> collect(st, all));
-        for (Element element : CstQueries.code(t)) {
-            element.visit((Element e) -> {
-                if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) collect(cc.anonymousClass(), all);
-                if (e instanceof LocalTypeDeclaration ltd) collect(ltd.typeInfo(), all);
-                return true;
-            });
-        }
-    }
 }

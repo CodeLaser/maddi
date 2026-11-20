@@ -17,10 +17,10 @@
 
 package io.codelaser.maddi.callgraph;
 
-import org.junit.jupiter.api.Test;
-
 import static io.codelaser.maddi.callgraph.ComputeCallGraph.*;
 import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
 
 public class TestComputeCallGraph {
     // every count odd and every weight distinct, so no field can be read from its neighbour's bits unnoticed; the

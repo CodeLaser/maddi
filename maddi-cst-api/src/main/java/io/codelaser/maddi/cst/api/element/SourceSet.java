@@ -143,6 +143,16 @@ public interface SourceSet {
         return null;
     }
 
+    /**
+     * The compiler-plugin options of this set's kotlinc invocation, each {@code plugin:<id>:<key>=<value>} as
+     * kotlinc's {@code -P} takes it (Gradle's kotlin-dsl: {@code plugin:org.jetbrains.kotlin.samWithReceiver:annotation=
+     * org.gradle.api.HasImplicitReceiver}); empty when none. Which plugins they configure says which ones the build
+     * applied; the plugin jars themselves are the analyzer's own.
+     */
+    default java.util.List<String> kotlinPluginOptions() {
+        return java.util.List.of();
+    }
+
     /** {@code kotlinc -jvm-target} of this set's build, as a feature release (8, 17); {@code <= 0} when not stated. */
     default int jvmTarget() {
         return 0;

@@ -17,34 +17,55 @@
 
 package io.codelaser.maddi.run.j2k;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.lang.classfile.Attributes;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.ClassModel;
+import java.lang.classfile.MethodModel;
+import java.lang.classfile.constantpool.ClassEntry;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.print.kotlin.KotlinTranslator;
 import io.codelaser.maddi.cst.print.kotlin.KotlinPrintCode;
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
+import io.codelaser.maddi.cst.print.kotlin.KotlinTranslator;
 import io.codelaser.maddi.cst.print.kotlin.KotlinWorld;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.util.corpus.Corpora;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * ⛔ THE RATCHET FOR JAVA → KOTLIN TRANSLATION, shared: a corpus's main sources, parsed by the openjdk front end,
@@ -237,7 +258,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     public void run(Corpus corpus, KotlinPrintOptions given) throws Exception {
         // main and test sources are compiled as one Kotlin code base: a member's uses are all in sight
         KotlinPrintOptions options = given.world().isFile() ? given.withWorld(KotlinWorld.of(
-                java.util.stream.Stream.concat(corpus.types().stream(), corpus.testTypes().stream()).toList())) : given;
+                Stream.concat(corpus.types().stream(), corpus.testTypes().stream()).toList())) : given;
         Path out = Path.of("build/j2k", name);
         deleteRecursively(out);
         Printed main = print(corpus, corpus.types(), options, out.resolve("src"));
@@ -267,7 +288,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     private static List<Path> copyKotlin(Path from, Path to) throws IOException {
         if (!Files.isDirectory(from)) return List.of();
         List<Path> copied = new ArrayList<>();
-        try (java.util.stream.Stream<Path> walk = Files.walk(from)) {
+        try (Stream<Path> walk = Files.walk(from)) {
             for (Path kt : walk.filter(p -> p.toString().endsWith(".kt")).sorted().toList()) {
                 Path target = to.resolve(from.relativize(kt).toString());
                 Files.createDirectories(target.getParent());
@@ -329,7 +350,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         String runner = System.getProperty("maddi.test.junitConsoleClasspath");
         String vintage = System.getProperty("maddi.test.junitVintageClasspath");
         if (corpus.junit4() && runner != null && vintage != null && !vintage.isBlank()) {
-            runner = runner + java.io.File.pathSeparator + vintage;
+            runner = runner + File.pathSeparator + vintage;
         }
         boolean compileOnly = compileOnly() || !runTests;
         if (testSet.isPresent() && Files.isDirectory(Path.of(testSet.get().uri()))
@@ -463,7 +484,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         if (release > 0) args.add("-Xjdk-release=" + (release == 8 ? "1.8" : String.valueOf(release)));
         else args.addAll(List.of("-jvm-target", "21"));
         args.addAll(List.of(
-                "-classpath", String.join(java.io.File.pathSeparator, cp),
+                "-classpath", String.join(File.pathSeparator, cp),
                 "-d", dir.resolve("classes").toAbsolutePath().toString()));
         files.forEach(f -> args.add(f.toString()));
         Path argFile = dir.resolve("kotlinc.args");
@@ -507,7 +528,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     /** The Kotlin standard library the compiler came with: what compiled classes run against. */
     private static String stdlib() {
         String compilerClassPath = compilerClassPath();
-        return Arrays.stream(compilerClassPath.split(java.io.File.pathSeparator))
+        return Arrays.stream(compilerClassPath.split(File.pathSeparator))
                 .filter(p -> Path.of(p).getFileName().toString().matches("kotlin-stdlib-[0-9.]+\\.jar"))
                 .findFirst().orElseThrow(() -> new AssertionError("no kotlin-stdlib in " + compilerClassPath));
     }
@@ -546,7 +567,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
             failing.retainAll(remaining);
             // the next round starts afresh: this round's errors, why its files were left out, stay beside it
             Files.copy(dir.resolve("kotlinc.log"), dir.resolveSibling(dir.getFileName() + "-round" + (round + 1) + ".log"),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    StandardCopyOption.REPLACE_EXISTING);
             if (failing.isEmpty()) fail("compile 3 failed without an error in a file it compiled; see " + dir);
             leftOut.add(List.copyOf(failing));
             remaining.removeAll(failing);
@@ -574,20 +595,20 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         Map<Path, String> found = new TreeMap<>();
         for (Map.Entry<String, Path> original : originals.entrySet()) {
             if (kotlin.containsKey(original.getKey())) continue;
-            java.lang.classfile.ClassModel model = java.lang.classfile.ClassFile.of().parse(original.getValue());
+            ClassModel model = ClassFile.of().parse(original.getValue());
             Set<String> declared = model.methods().stream().filter(JavaToKotlinRatchet::overridable)
                     .map(m -> m.methodName().stringValue() + m.methodType().stringValue())
                     .collect(Collectors.toSet());
-            Optional<java.lang.classfile.constantpool.ClassEntry> superclass = model.superclass();
+            Optional<ClassEntry> superclass = model.superclass();
             while (superclass.isPresent()) {
                 String name = superclass.get().asInternalName();
                 Path file = kotlin.containsKey(name) ? kotlin.get(name) : originals.get(name);
                 if (file == null) break; // the JDK's, a library's
-                java.lang.classfile.ClassModel superModel = java.lang.classfile.ClassFile.of().parse(file);
+                ClassModel superModel = ClassFile.of().parse(file);
                 if (kotlin.containsKey(name)) {
-                    for (java.lang.classfile.MethodModel m : superModel.methods()) {
+                    for (MethodModel m : superModel.methods()) {
                         String signature = m.methodName().stringValue() + m.methodType().stringValue();
-                        if (overridable(m) && (m.flags().flagsMask() & java.lang.classfile.ClassFile.ACC_FINAL) != 0
+                        if (overridable(m) && (m.flags().flagsMask() & ClassFile.ACC_FINAL) != 0
                             && declared.contains(signature)) {
                             Path source = source(superModel, name, files);
                             if (source != null) {
@@ -603,20 +624,20 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         return found;
     }
 
-    private static boolean overridable(java.lang.classfile.MethodModel m) {
+    private static boolean overridable(MethodModel m) {
         int flags = m.flags().flagsMask();
-        return (flags & (java.lang.classfile.ClassFile.ACC_STATIC | java.lang.classfile.ClassFile.ACC_PRIVATE)) == 0
+        return (flags & (ClassFile.ACC_STATIC | ClassFile.ACC_PRIVATE)) == 0
                && !m.methodName().stringValue().startsWith("<");
     }
 
     /** The .kt file a Kotlin class came from: its package's directory and its SourceFile attribute. */
-    private static Path source(java.lang.classfile.ClassModel model, String internalName, List<Path> files) {
-        Optional<String> sourceFile = model.findAttribute(java.lang.classfile.Attributes.sourceFile())
+    private static Path source(ClassModel model, String internalName, List<Path> files) {
+        Optional<String> sourceFile = model.findAttribute(Attributes.sourceFile())
                 .map(a -> a.sourceFile().stringValue());
         if (sourceFile.isEmpty()) return null;
         int slash = internalName.lastIndexOf('/');
         String relative = (slash < 0 ? "" : internalName.substring(0, slash + 1)) + sourceFile.get();
-        return files.stream().filter(f -> f.toString().replace(java.io.File.separatorChar, '/').endsWith("/" + relative))
+        return files.stream().filter(f -> f.toString().replace(File.separatorChar, '/').endsWith("/" + relative))
                 .findFirst().orElse(null);
     }
 
@@ -626,7 +647,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         if (!Files.isDirectory(dir)) return byName;
         try (Stream<Path> walk = Files.walk(dir)) {
             for (Path f : walk.filter(p -> p.toString().endsWith(".class")).toList()) {
-                String name = dir.relativize(f).toString().replace(java.io.File.separatorChar, '/');
+                String name = dir.relativize(f).toString().replace(File.separatorChar, '/');
                 byName.put(name.substring(0, name.length() - ".class".length()), f);
             }
         }
@@ -677,7 +698,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         boolean noneIn(List<String> chunk) {
             if (!those) return false;
             return classes.stream().map(c -> c.lastIndexOf('.') < 0 ? "" : c.substring(0, c.lastIndexOf('.')))
-                    .noneMatch(pkg -> within(pkg, chunk.get(1)) && java.util.stream.IntStream.range(2, chunk.size())
+                    .noneMatch(pkg -> within(pkg, chunk.get(1)) && IntStream.range(2, chunk.size())
                             .filter(i -> "--exclude-package".equals(chunk.get(i - 1)))
                             .noneMatch(i -> within(pkg, chunk.get(i))));
         }
@@ -702,7 +723,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         for (Map.Entry<String, List<Path>> e : classFiles(testClasses).entrySet()) {
             Set<String> names = new HashSet<>();
             for (Path f : e.getValue()) {
-                String bytes = new String(Files.readAllBytes(f), java.nio.charset.StandardCharsets.ISO_8859_1);
+                String bytes = new String(Files.readAllBytes(f), StandardCharsets.ISO_8859_1);
                 Matcher m = CLASS_NAME.matcher(bytes);
                 while (m.find()) names.add(topLevel(m.group().replace('/', '.')));
             }
@@ -727,7 +748,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         if (!Files.isDirectory(dir)) return byTopLevel;
         try (Stream<Path> walk = Files.walk(dir)) {
             for (Path f : walk.filter(p -> p.toString().endsWith(".class")).toList()) {
-                String name = dir.relativize(f).toString().replace(java.io.File.separatorChar, '.');
+                String name = dir.relativize(f).toString().replace(File.separatorChar, '.');
                 byTopLevel.computeIfAbsent(topLevel(name.substring(0, name.length() - ".class".length())),
                         k -> new ArrayList<>()).add(f);
             }
@@ -843,7 +864,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         Files.createDirectories(dir);
         List<String> cp = testClassPath(corpus, kotlinClasses, testClasses, runner);
         Path argFile = dir.resolve("java.args");
-        Files.write(argFile, List.of("-cp", "\"" + String.join(java.io.File.pathSeparator, cp) + "\""));
+        Files.write(argFile, List.of("-cp", "\"" + String.join(File.pathSeparator, cp) + "\""));
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path reports = dir.resolve("reports");
         Path log = dir.resolve("tests.log");
@@ -886,7 +907,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         cp.add(testClasses.toString());
         cp.addAll(libraries(corpus.config()));
         if (corpus.siblings()) cp.addAll(siblingClasses(corpus));
-        cp.addAll(Arrays.asList(runner.split(java.io.File.pathSeparator)));
+        cp.addAll(Arrays.asList(runner.split(File.pathSeparator)));
         return cp;
     }
 
@@ -901,7 +922,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         Path cache = Path.of(System.getProperty("user.home"), ".cache", "maddi-j2k-baseline")
                 .resolve(baselineKey(testClassPath(corpus, null, testClasses, runner), corpus.junit4()));
         if (Files.isRegularFile(cache)) {
-            try (java.io.DataInputStream in = new java.io.DataInputStream(new java.io.BufferedInputStream(
+            try (DataInputStream in = new DataInputStream(new BufferedInputStream(
                     Files.newInputStream(cache)))) {
                 Tests tests = new Tests(readList(in), readList(in), readList(in));
                 LOGGER.info("tests on the original classes: the baseline in {}", cache);
@@ -915,14 +936,14 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
             try {
                 Files.createDirectories(cache.getParent());
                 Path tmp = Files.createTempFile(cache.getParent(), "baseline", ".tmp");
-                try (java.io.DataOutputStream out = new java.io.DataOutputStream(new java.io.BufferedOutputStream(
+                try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(
                         Files.newOutputStream(tmp)))) {
                     writeList(out, tests.passed());
                     writeList(out, tests.failed());
                     writeList(out, tests.skipped());
                 }
-                Files.move(tmp, cache, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
-                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Files.move(tmp, cache, StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException notKept) {
                 LOGGER.warn("baseline not kept in {}: {}", cache, notKept.toString());
             }
@@ -931,8 +952,8 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     }
 
     private static String baselineKey(List<String> classPath, boolean junit4) throws Exception {
-        java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-        java.util.function.Consumer<String> add = v -> md.update((v + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        Consumer<String> add = v -> md.update((v + "\n").getBytes(StandardCharsets.UTF_8));
         add.accept(System.getProperty("java.version"));
         add.accept(String.valueOf(junit4));
         for (String entry : classPath) {
@@ -951,12 +972,12 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         return HexFormat.of().formatHex(md.digest());
     }
 
-    private static void writeList(java.io.DataOutputStream out, List<String> list) throws IOException {
+    private static void writeList(DataOutputStream out, List<String> list) throws IOException {
         out.writeInt(list.size());
         for (String s : list) out.writeUTF(s);
     }
 
-    private static List<String> readList(java.io.DataInputStream in) throws IOException {
+    private static List<String> readList(DataInputStream in) throws IOException {
         int n = in.readInt();
         List<String> list = new ArrayList<>(n);
         for (int i = 0; i < n; i++) list.add(in.readUTF());
@@ -982,11 +1003,11 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
 
     private static Tests parseReport(Path xml) throws Exception {
         List<String> passed = new ArrayList<>(), failed = new ArrayList<>(), skipped = new ArrayList<>();
-        org.w3c.dom.Document doc = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder()
+        Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
                 .parse(xml.toFile());
-        org.w3c.dom.NodeList cases = doc.getElementsByTagName("testcase");
+        NodeList cases = doc.getElementsByTagName("testcase");
         for (int i = 0; i < cases.getLength(); i++) {
-            org.w3c.dom.Element tc = (org.w3c.dom.Element) cases.item(i);
+            Element tc = (Element) cases.item(i);
             String id = tc.getAttribute("classname") + "#" + tc.getAttribute("name");
             if (tc.getElementsByTagName("failure").getLength() > 0 || tc.getElementsByTagName("error").getLength() > 0) {
                 failed.add(id);

@@ -17,13 +17,14 @@
 
 package io.codelaser.maddi.run.config.util;
 
-import io.codelaser.maddi.cst.api.element.SourceSet;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
 
 /**
  * The JDK class path parts both build plugins contribute. Each used to build them itself, and each

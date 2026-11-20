@@ -1,8 +1,38 @@
 package io.codelaser.maddi.java.openjdk;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.module.ModuleFinder;
+import java.lang.module.ModuleReference;
+import java.net.JarURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.util.Elements;
+import javax.tools.JavaFileObject;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.tree.JCTree;
+
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -19,32 +49,6 @@ import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
 import io.codelaser.maddi.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.Optional;
-import java.lang.module.ModuleFinder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.util.Elements;
-import javax.tools.JavaFileObject;
-import java.io.File;
-import java.io.IOException;
-import java.net.JarURLConnection;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class ClassSymbolScanner implements ConvertType, TypeData {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassSymbolScanner.class);
@@ -53,6 +57,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Elements elements;
     private final Types types;
     private final SourceSet sourceSetOfCurrentTask;
+    // the source sets this (Java) inspector scans; another front-end's (Kotlin's) are not among them
+    private final Set<SourceSet> scannedSourceSets;
     /**
      * The shared-JDK loader: resolves and COMMITS a platform type on the task the shared {@code java.*} model is
      * built on (the preload pass's, at the run's shared release), so that a platform type first touched lazily by
@@ -158,6 +164,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.infoByFqn = Objects.requireNonNull(infoByFqn);
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
+        this.scannedSourceSets = Set.copyOf(inputConfiguration.sourceSets());
         this.diagnosticCollector = maddiDiagnosticCollector;
         this.parameterNameIndex = parameterNameIndex;
         this.jdkInternals = jdkInternals;
@@ -596,7 +603,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
         if (recursionPrevention.add(newTypeInfo)) {
             //The following completely loads 'cs', so leave it here even though it can move nearer to its usage
-            List<? extends Element> members = elements.getAllMembers(cs);
+            List<? extends Element> members = withDeclaredMethods(cs, elements.getAllMembers(cs));
             flagHelper.type(cs, builder);
             if (infoByFqn.markClassScannerSetupDone(newTypeInfo)) {
                 // ensure that the enclosing types have at least been lazily loaded; so that we can compute access
@@ -1026,7 +1033,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
      */
     private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+("
             + SourceSetImpl.ARCHIVE_EXTENSIONS.stream().sorted().map(Pattern::quote)
-                    .collect(java.util.stream.Collectors.joining("|"))
+                    .collect(Collectors.joining("|"))
             + "))!/.*");
 
     // javac's authoritative source-vs-binary provenance of a type. NOTE: cs.sourcefile is NOT reliable here, as
@@ -1056,10 +1063,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return known;
         }
         if ("file".equals(uri.getScheme())) {
+            // the LONGEST prefix: the map is unordered, and a set whose URI is a parent directory (java.base's
+            // 'file:/' in the tests) matched every class directory, whichever entry came first
             SourceSet dir = sourceSetDirPrefixes.entrySet().stream()
                     .filter(e -> uri.getPath().startsWith(e.getKey()))
+                    .max(Comparator.comparingInt(e -> e.getKey().length()))
                     .map(Map.Entry::getValue)
-                    .findFirst().orElse(null);
+                    .orElse(null);
             if (dir != null) return dir;
         }
         Symbol.ModuleSymbol module = findModule(cs);
@@ -1125,9 +1135,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     private static final class SystemPackages {
         static final Map<String, String> MODULE_BY_PACKAGE = ModuleFinder.ofSystem().findAll().stream()
-                .map(java.lang.module.ModuleReference::descriptor)
+                .map(ModuleReference::descriptor)
                 .flatMap(d -> d.packages().stream().map(p -> Map.entry(p, d.name())))
-                .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue,
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue,
                         (a, b) -> a));
     }
 
@@ -1195,6 +1205,30 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         Symbol.ModuleSymbol module = findModule(cs);
         if (module == null || module.isUnnamed()) return true;
         return getSourceSet(module.name.toString()) != null;
+    }
+
+    /**
+     * {@code getAllMembers} filters what javac takes for hidden, and drops BOTH methods of a pair that differs by
+     * return type only: kotlinx-datetime's compat {@code LocalDate} declares {@code Month getMonth()} and
+     * {@code java.time.Month getMonth()}, neither a bridge, and the loaded type had no {@code getMonth} at all
+     * (Exposed's {@code value.month.number}, CodeLaser/maddi#220). A Java compiler emits such a pair only as a bridge;
+     * Kotlin's {@code @JvmName} and binary-compatibility shims emit it as two real methods. The type's own methods
+     * that javac dropped are added back; everything kept ({@link #addMemberToType}) is the type's own anyway.
+     */
+    private static List<? extends Element> withDeclaredMethods(Symbol.ClassSymbol cs, List<? extends Element> members) {
+        Set<Element> present = Collections.newSetFromMap(new IdentityHashMap<>());
+        present.addAll(members);
+        List<Element> missing = new ArrayList<>();
+        for (Symbol s : cs.members().getSymbols(Scope.LookupKind.NON_RECURSIVE)) {
+            if (s instanceof Symbol.MethodSymbol ms && ms.owner == cs && !present.contains(ms)
+                && (ms.flags() & (Flags.SYNTHETIC | Flags.BRIDGE)) == 0) {
+                missing.add(ms);
+            }
+        }
+        if (missing.isEmpty()) return members;
+        List<Element> all = new ArrayList<>(members);
+        all.addAll(missing.reversed()); // getSymbols lists a scope newest first: declaration order
+        return all;
     }
 
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member, LoadMode loadMode) {
@@ -1762,6 +1796,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return new ConvertType.SAMDescriptor(methodInfo, samSymbol, methodType);
     }
 
+    /*
+     Set while converting the inferred type of a 'var' (the VAR_TYPE branch of convertTree): an intersection
+     becomes an intersection type rather than its supertype, as the tree javac synthesized up to 26 did (#189).
+     */
+    private static final ThreadLocal<Boolean> KEEP_INTERSECTIONS = ThreadLocal.withInitial(() -> false);
+
     @Override
     public ParameterizedType convert(Type type) {
         return convert(type, null);
@@ -1803,6 +1843,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                                                                        + " supertype_field or alternatives)", type));
         }
         if (type instanceof Type.IntersectionClassType ict) {
+            if (KEEP_INTERSECTIONS.get()) {
+                List<ParameterizedType> bounds = new ArrayList<>();
+                for (Type component : ict.getExplicitComponents()) {
+                    ParameterizedType pt = convert(component, visited);
+                    if (!pt.isJavaLangObject()) bounds.add(pt);
+                }
+                if (bounds.size() == 1) return bounds.getFirst();
+                if (!bounds.isEmpty()) return runtime.newIntersectionType(null, bounds);
+            }
             if (ict.supertype_field != null) {
                 return convert(ict.supertype_field, visited);
             }
@@ -1882,6 +1931,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     // the type variable is owned by a type declared inside a method body, which is not registered
                     // under a canonical FQN; resolve it through the element stack instead of asserting.
                     owner = methodLocalType(typeVar.tsym.owner);
+                }
+                if (owner == null && typeVar.tsym.owner instanceof Symbol.ClassSymbol ownerCs
+                    && ownerCs.type instanceof Type.ClassType ownerCt) {
+                    /*
+                     not registered (any more): load it as a reference to the type would be. Two versions of one
+                     library on two class paths overwrite each other in the registry, and an overwrite drops the
+                     nested types by name prefix, while javac's symbols still name them: quarkus' protobuf-java 3 and
+                     4, "Cannot find owner com.google.protobuf.GeneratedMessage.Builder of type variable BuilderT"
+                     985 times (TestSameFqnInUnrelatedSourceSets.twoVersionsOfALibrary).
+                     */
+                    owner = classTypeInfo(ownerCt);
                 }
                 assert owner != null : "Cannot find owner " + fullyQualifiedName
                         + " of type variable " + typeParameterName;
@@ -2014,11 +2074,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             assert pt != null;
             TypeInfo ti = pt.typeInfo();
             assert ti != null;
-            // G<String>.In, an inner class named through a parameterized outer type: the outer type's arguments come
-            // first in parameters(), as the bytecode inspector has them (ParameterizedTypePrinter.distributeTypeParameters).
-            // javac's type of In carries them only on its enclosing type (a class type only for an inner class), which
-            // classType does not look at.
-            if (fieldAccess.type instanceof Type.ClassType ct
+            // G<String>.In, an inner class named through a parameterized outer type: convert() has put the outer
+            // type's arguments first in parameters() (classType, #142). Under the gate, the written form only, as before.
+            if (OUTER_ARGUMENTS_OFF && fieldAccess.type instanceof Type.ClassType ct
                 && ct.getEnclosingType() instanceof Type.ClassType outer && outer.isParameterized()) {
                 List<ParameterizedType> parameters = new ArrayList<>(convert(outer).parameters());
                 parameters.addAll(pt.parameters());
@@ -2138,7 +2196,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
          ⚠ Matched by NAME: Tree.Kind.VAR_TYPE and JCVarType do not exist before 27, and maddi still compiles on 25.
          */
         if ("VAR_TYPE".equals(type.getKind().name()) && type instanceof JCTree varTree && varTree.type != null) {
-            return convert(varTree.type);
+            /*
+             ⛔ AN INFERRED INTERSECTION STAYS AN INTERSECTION (#189). 'var c = b ? "x" : o.getClass()' infers
+             Serializable & Constable, 'var l = List.of("a", 1)' a List of one. Up to 26 javac synthesized a type
+             tree for it, whose JCTypeIntersection the branch above turns into an intersection, at any depth; on 27
+             the JCVarType carries the inferred Type, and convert() reduces every IntersectionClassType to its
+             supertype_field, Object. While converting it, keep the intersections as the tree path does.
+             */
+            boolean outer = KEEP_INTERSECTIONS.get();
+            KEEP_INTERSECTIONS.set(true);
+            try {
+                return convert(varTree.type);
+            } finally {
+                KEEP_INTERSECTIONS.set(outer);
+            }
         }
         String resolved = type instanceof JCTree jct && jct.type != null
                 ? jct.type + " (" + jct.type.getClass().getName() + ", tag " + jct.type.getTag() + ")"
@@ -2221,15 +2292,47 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             throw new UnsupportedOperationException("Cannot map javac's type '" + ct + "' (tsym "
                                                     + (ct.tsym == null ? "null" : ct.tsym.getQualifiedName()
                                                        + ", owner " + ct.tsym.owner) + ") onto a TypeInfo"
-                                                    + offClassPathHint(ct));
+                                                    + offClassPathHint(ct) + registeredCopies(ct));
         }
-        if (ct.getTypeArguments().isEmpty()) {
+        List<ParameterizedType> outerArguments = outerArguments(ct, visited);
+        if (ct.getTypeArguments().isEmpty() && outerArguments.isEmpty()) {
             return typeInfo.asSimpleParameterizedType();
         }
-        List<ParameterizedType> typeParameters = ct.getTypeArguments().stream()
-                .map(ta -> convert(ta, visited))
-                .toList();
-        return runtime.newParameterizedType(typeInfo, typeParameters);
+        List<ParameterizedType> typeParameters = new ArrayList<>(outerArguments);
+        ct.getTypeArguments().forEach(ta -> typeParameters.add(convert(ta, visited)));
+        return runtime.newParameterizedType(typeInfo, List.copyOf(typeParameters));
+    }
+
+    /*
+     ⛔ AN INNER CLASS OF A GENERIC CLASS CARRIES THE OUTER TYPE'S ARGUMENTS (#142). 'Store<String>.Entry' is the type
+     of 'store.add("x")', of a field 'Entry first' read through 'store', of a 'var'; javac has String only on the
+     ClassType's enclosing type, and this method dropped it, so every resolved use was a bare 'Holder.Store.Entry'
+     while the written one had its argument. The convention is the written form's (and the bytecode inspector's):
+     the outer type's arguments come first in parameters() (ParameterizedTypePrinter.distributeTypeParameters).
+     ⚠ NOT INSIDE THE OUTER TYPE ITSELF: there the enclosing type is 'Store<T>' with Store's own type variables, and
+     'Entry' is how the source writes it. Only an instantiation is carried. Gate NOOUTERARGUMENTS (environment).
+     */
+    private List<ParameterizedType> outerArguments(Type.ClassType ct, Set<Type> visited) {
+        if (OUTER_ARGUMENTS_OFF || !(ct.getEnclosingType() instanceof Type.ClassType outer)
+            || !outer.isParameterized() || isOwnInstantiation(outer)) {
+            return List.of();
+        }
+        return convert(outer, visited).parameters();
+    }
+
+    private static final boolean OUTER_ARGUMENTS_OFF = System.getenv("NOOUTERARGUMENTS") != null;
+
+    // the outer type as its own body sees it, 'Store<T>' inside Store<T>, at every level of nesting
+    private static boolean isOwnInstantiation(Type.ClassType outer) {
+        for (Type t = outer; t instanceof Type.ClassType c; t = c.getEnclosingType()) {
+            com.sun.tools.javac.util.List<Type> actual = c.getTypeArguments();
+            com.sun.tools.javac.util.List<Type> formal = c.tsym.type.getTypeArguments();
+            if (actual.size() != formal.size()) return false;
+            for (int i = 0; i < actual.size(); i++) {
+                if (actual.get(i) != formal.get(i)) return false;
+            }
+        }
+        return true;
     }
 
     private ParameterizedType anonymousClassType(Symbol.ClassSymbol cs, Set<Type> visited) {
@@ -2321,6 +2424,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private TypeInfo classTypeInfo(Type.ClassType ct) {
         Symbol.ClassSymbol cs = nested((Symbol.ClassSymbol) ct.tsym);
         String fullyQualifiedType = cs.toString();
+        /*
+         A named local class first: javac prints its symbol as the bare simple name, which is also the name of a
+         top-level type in the default package. quarkus: qute's ParserTest declares a local 'class Dummy', and the
+         unrelated arc/tcks/cdi-tck-signature declares a top-level Dummy; the registry answered with that one
+         (TestSameFqnInUnrelatedSourceSets).
+         */
+        if (cs.owner instanceof Symbol.MethodSymbol && !cs.getSimpleName().toString().isBlank()
+            && elementStack.findOrNull(cs.getSimpleName().toString()) instanceof TypeInfo local) {
+            return local;
+        }
         TypeInfo known = getType(fullyQualifiedType);
         TypeInfo typeInfo;
         Symbol.ClassSymbol topCs;
@@ -2349,8 +2462,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 assert isStub(known) || sourceSetOfCurrentTask.equals(knownCu.sourceSet())
                         : "a type of a file this set is parsing resolved to " + knownCu.sourceSet() + "'s copy: " + known;
                 if (cs.sourcefile != null
-                    && !knownCu.uri().equals(topCs.sourcefile.toUri())) {
-                    // so if the source file does not agree with known, we must load the class file
+                    && (isStub(known) || !knownCu.uri().equals(topCs.sourcefile.toUri()))) {
+                    // so if the source file does not agree with known, we must load the class file. A stub (no URI)
+                    // never agrees: a preloaded class file named this source type before the scan, and a use met
+                    // before its declaration must not get the placeholder (TestMissingAnnotationClassFile); the load
+                    // reuses the file's registered CompilationUnit, and visitClass adopts the result
                     typeInfo = lazilyLoadTypeFromClassFile(cs);
                 } else {
                     typeInfo = known;
@@ -2525,7 +2641,46 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             || sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet())) {
             return typeInfo;
         }
-        return declaredByOwnSources(fullyQualifiedName) ? null : typeInfo;
+        if (declaredByOwnSources(fullyQualifiedName)) return null;
+        return unreachableSourceCopy(typeInfo) ? null : typeInfo;
+    }
+
+    /*
+     ⛔ A SOURCE TYPE OF A SET THIS SET DOES NOT DEPEND ON IS NOT ONE IT CAN SEE. javac compiles each set against its
+     own class path; two sets that do not depend on each other may each have a type of the same name, and this set
+     sees its own (from its class path) or none. quarkus: several integration-tests generate the same gRPC classes
+     (examples.MutinyGreeterGrpc), and reactive-messaging-pulsar, which has them compiled from its dependency
+     grpc-proto4, resolved to oidc-wiremock's source copy; the class file then arrived as a "second definition"
+     and its unit was dropped (TestSameFqnInUnrelatedSourceSets). Answering "not registered" sends the caller down
+     the path javac took. Libraries and the JDK keep the old, looser lookup: a jar is matched to its set by name.
+     */
+    // what the registry holds under the name, for a "Cannot map": each copy's source set, and whether this set reaches it
+    private String registeredCopies(Type.ClassType ct) {
+        if (!(ct.tsym instanceof Symbol.ClassSymbol cs)) return "";
+        String fqn = nested(cs).toString();
+        List<TypeInfo> all = infoByFqn.allTypes(fqn);
+        Symbol.ClassSymbol top = primary(cs);
+        String origin = top.classfile != null ? String.valueOf(top.classfile.toUri())
+                : top.sourcefile != null ? String.valueOf(top.sourcefile.toUri()) : "?";
+        return "; javac's origin " + origin + "; registered copies of " + fqn + ": " + all.stream()
+                .map(t -> t.compilationUnit().sourceSet() == null ? "(stub)"
+                        : t.compilationUnit().sourceSet().name()
+                          + (infoByFqn.reaches(sourceSetOfCurrentTask, t.compilationUnit().sourceSet()) ? " (reached)" : ""))
+                .toList();
+    }
+
+    /*
+     ⛔ ONLY A SET THIS INSPECTOR SCANS (see getType for the rule). A type another front-end registered is shared on
+     purpose: the mixed inspector (maddi-inspection-mixed) replaces a Java set's Kotlin-set dependencies by the stub
+     directory, so the Kotlin set is no dependency here, yet the K2 TypeInfo IS the type javac sees through its stub.
+     Refusing it loaded the stub's class file as a second TypeInfo (gate 2026-11-19: TestMixedProjectInspector, six
+     tests on TypeInfo identity; maddi-mod TestMixedBoundaryVerdicts, a Java caller bound to the stub copy).
+     */
+    private boolean unreachableSourceCopy(TypeInfo typeInfo) {
+        SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
+        return sourceSet != null && !sourceSet.externalLibrary() && !sourceSet.partOfJdk()
+               && scannedSourceSets.contains(sourceSet)
+               && !infoByFqn.reaches(sourceSetOfCurrentTask, sourceSet);
     }
 
     // the name, or the name of a type enclosing it ('.' for a member type, '$' for an anonymous one), is a top-level

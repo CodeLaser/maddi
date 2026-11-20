@@ -17,6 +17,12 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
+
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -33,12 +39,6 @@ import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Supplier;
-import java.util.regex.Pattern;
 
 /**
  * Renders a {@link CSharpBcl} template. The pieces are printed when the template names them, and only then: printing
@@ -89,6 +89,16 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                         while (k < template.length() && Character.isDigit(template.charAt(k))) k++;
                         b.add(inner(index, Integer.parseInt(template.substring(j + 1, k))));
                         i = k;
+                        continue;
+                    }
+                    if (c == '$' && index > 0 && call != null && index <= call.parameterExpressions().size()
+                        && j + 1 < template.length() && template.charAt(j) == '.'
+                        && Character.isLetter(template.charAt(j + 1))
+                        && !CSharpExpressionPrinter.templateReceiverAtom(call.parameterExpressions().get(index - 1))) {
+                        // $1.ToString(): the argument as a receiver, (weight + 1).ToString(), as $0 is
+                        b.add(SymbolEnum.LEFT_PARENTHESIS).add(arguments.get(index - 1).get())
+                                .add(SymbolEnum.RIGHT_PARENTHESIS);
+                        i = j;
                         continue;
                     }
                     if (c == '$' && index > 0 && call != null && template.startsWith("()", j)) {
@@ -373,6 +383,11 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
      * operator ({@code -@0}), whose result needs parentheses as a receiver or operand.
      */
     static boolean atomic(String template) {
+        // an object creation, new FileInfo($1): C# takes new X(…).Member as the member of the creation
+        if (template.startsWith("new ") && template.length() > 4 && Character.isLetter(template.charAt(4))
+            && template.endsWith(")") && template.indexOf('[') < 0 && atomic(template.substring(4))) {
+            return true;
+        }
         if (!template.isEmpty() && "!-+~".indexOf(template.charAt(0)) >= 0
             || template.startsWith("(") && !template.startsWith("($")) {
             return false;

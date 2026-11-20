@@ -17,7 +17,11 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
-import io.codelaser.maddi.cst.impl.type.ParameterizedTypePrinter;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.element.*;
@@ -25,7 +29,6 @@ import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Precedence;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -44,12 +47,8 @@ import io.codelaser.maddi.cst.impl.expression.util.InternalCompareToException;
 import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.type.DiamondEnum;
+import io.codelaser.maddi.cst.impl.type.ParameterizedTypePrinter;
 import io.codelaser.maddi.util.ListUtil;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCall {
     private final MethodInfo constructor;
@@ -362,7 +361,9 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
         if (reject(predicate)) return Stream.of();
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<Element.TypeReference> typeStream;
-        if (constructor == null) {
+        if (constructor == null || anonymousClass != null) {
+            // an anonymous creation's constructor is the superclass's (maddi#194): the supertype is referenced by the
+            // anonymous class itself, below
             typeStream = Stream.of();
         } else {
             TypeInfo qualifier = detailedSources == null ? constructor.typeInfo()

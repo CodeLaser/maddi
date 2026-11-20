@@ -41,7 +41,7 @@ public class AccessExample_1 {
         public String toString() { // must be public, overrides public method
             return "i=" + I1.I + ", j=" + I1.J + ", ik=" + I1.I2.IK
                     + ", jk=" + AccessExample_1.I1.I2.JK
-                    + ", jk=" + io.codelaser.maddi.inspection.integration.java.importhelper.access.AccessExample_1.I1.I2.JK; // all in the same primary type
+                    + ", jk=" + AccessExample_1.I1.I2.JK; // all in the same primary type
         }
     }
 }

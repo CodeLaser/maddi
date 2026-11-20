@@ -17,17 +17,27 @@
 
 package io.codelaser.maddi.cst.impl.variable;
 
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.Cast;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -44,13 +54,6 @@ import io.codelaser.maddi.cst.impl.expression.VariableExpressionImpl;
 import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.type.DiamondEnum;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
-
-import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
 
 public class FieldReferenceImpl extends VariableImpl implements FieldReference {
     @NotNull
@@ -138,15 +141,59 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
         if (scopeVariable != null) {
             scopeFqn = scopeVariable.fullyQualifiedName();
         } else {
-            String suffix;
-            if (scope.source() != null) {
-                suffix = scope.source().compact2();
-            } else {
-                suffix = "" + Math.abs(scope.hashCode());
-            }
-            scopeFqn = "scope" + suffix;
+            scopeFqn = "scope" + position(scope) + content(scope) + owner(scope);
         }
         return fieldInfo.fullyQualifiedName() + "#" + scopeFqn;
+    }
+
+    private static String position(Expression scope) {
+        return scope.source() != null ? scope.source().compact2() : "" + Math.abs(scope.hashCode());
+    }
+
+    /**
+     * What the scope IS, after where it is: its shape, the methods it calls, the constructors it invokes and the types it
+     * casts to, without its variables. ⛔ The position alone names no file and no method, and {@code equals} compares
+     * fully qualified names only, so two field references whose non-variable scopes started at the same line:col in two
+     * different methods were ONE variable. A dedup run's two synthetic loop-body methods each read
+     * {@code ((List<…>) ld).variables} at the same position, one cast to {@code List<Expression>}, the other to
+     * {@code List<?>}, and an equals-keyed map handed one method the other's field reference, its foreign cast
+     * included, depending on the order of analysis (hibernate, cold against hot).
+     * <p>⛔ NOT THE VARIABLES. The analysis rewrites a scope's variables and keeps its position, and the rewritten field
+     * reference must remain the same variable: 'parent.self().data' is rebuilt as '$__sv_$__rv0.self().data', and with
+     * the variables in the name the modification no longer reached 'parent' (TestModificationThroughCallResult).
+     */
+    private static String content(Expression scope) {
+        StringBuilder sb = new StringBuilder();
+        scope.visit((Element e) -> {
+            String part = switch (e) {
+                case MethodCall mc -> mc.methodInfo().fullyQualifiedName();
+                case ConstructorCall cc -> cc.constructor() == null ? null : cc.constructor().fullyQualifiedName();
+                case Cast c -> "(" + c.parameterizedType().detailedString() + ")";
+                default -> null;
+            };
+            if (part != null) sb.append(sb.isEmpty() ? "<" : ";").append(part);
+            return true;
+        });
+        return sb.isEmpty() ? "" : sb.append('>').toString();
+    }
+
+    /**
+     * For a scope WITHOUT a source position only: the methods whose parameters it reads. ⛔ Synthetic code (a dedup run's
+     * extracted loop bodies, every generated method) is all at 0-0:0-0, so two loop bodies over the same element type,
+     * `((List<X>) c.variables[0])` in one and `((List<X>) ld0.variables[0])` in another, had one name, and one method
+     * was handed the other's parameter (hibernate, visitOverLoopBody0 / visitSelfRenderingExpressionLoopBody0).
+     * Real source keeps its name: there the position separates the methods, and the variables stay out (see content).
+     */
+    private static String owner(Expression scope) {
+        if (scope.source() != null && !SourceImpl.NO_SOURCE.compact2().equals(scope.source().compact2())) return "";
+        java.util.TreeSet<String> methods = new java.util.TreeSet<>();
+        scope.visit((Element e) -> {
+            if (e instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi && pi.methodInfo() != null) {
+                methods.add(pi.methodInfo().fullyQualifiedName());
+            }
+            return true;
+        });
+        return methods.isEmpty() ? "" : "@" + String.join(";", methods);
     }
 
     @Override

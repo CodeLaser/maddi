@@ -17,6 +17,17 @@
 
 package io.codelaser.maddi.inspection.impl.parser;
 
+import static io.codelaser.maddi.inspection.api.parser.TypeContext.SUBTYPE_HIERARCHY_IN_CONSTRUCTOR_PRIORITY;
+import static io.codelaser.maddi.inspection.impl.parser.ListMethodAndConstructorCandidates.IGNORE_PARAMETER_NUMBERS;
+import static io.codelaser.maddi.inspection.impl.parser.ReevaluateErasedExpressions.containsErasedExpressions;
+
+import java.util.*;
+import java.util.function.IntFunction;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -36,16 +47,6 @@ import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.inspection.api.parser.*;
 import io.codelaser.maddi.support.Either;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
-import java.util.function.IntFunction;
-import java.util.stream.Collectors;
-
-import static io.codelaser.maddi.inspection.api.parser.TypeContext.SUBTYPE_HIERARCHY_IN_CONSTRUCTOR_PRIORITY;
-import static io.codelaser.maddi.inspection.impl.parser.ListMethodAndConstructorCandidates.IGNORE_PARAMETER_NUMBERS;
-import static io.codelaser.maddi.inspection.impl.parser.ReevaluateErasedExpressions.containsErasedExpressions;
 
 public class MethodResolutionImpl implements MethodResolution {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodResolutionImpl.class);

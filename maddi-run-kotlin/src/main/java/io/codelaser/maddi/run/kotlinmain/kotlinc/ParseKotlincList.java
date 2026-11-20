@@ -1,13 +1,7 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import io.codelaser.maddi.run.config.compile.CompileListToInputConfiguration;
-import io.codelaser.maddi.run.config.compile.CompileInvocation;
-import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
-import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,6 +10,14 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
+import io.codelaser.maddi.run.config.compile.CompileListToInputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
 
 /**
  * Reads a build log containing {@code kotlinc} command lines and reconstructs an {@link InputConfiguration}.
@@ -101,6 +103,7 @@ public class ParseKotlincList {
     private static final Pattern MVN_SOURCES = Pattern.compile(".*Compiling Kotlin sources from \\[(.*)]");
     private static final Pattern MVN_CLASSPATH = Pattern.compile(".*\\[DEBUG] Classpath:\\s*(.*)");
     private static final Pattern MVN_CLASSES_DIR = Pattern.compile(".*Classes directory is (.*)");
+    private static final Pattern PLUGIN_OPTION = Pattern.compile("(?:^|\\s)-P\\s+(\\S+)");
     private static final Pattern MVN_MODULE = Pattern.compile(".*Module name is (.*)");
 
     /**
@@ -127,6 +130,16 @@ public class ParseKotlincList {
 
         /** @return the invocation this line completes, or {@code null} (not a Kotlin line, or a block in progress) */
         public Kotlinc accept(String line) {
+            Matcher args = block == null ? null : GRADLE.matcher(line);
+            if (args != null && args.matches()) {
+                // kotlin-maven-plugin 2.x logs "[DEBUG] Kotlin compiler args: …" INSIDE its block, between "Classes
+                // directory is" and "Module name is". Taken as a Gradle line it replaced the block with an
+                // invocation without -d, which no javac line folds with: every Kotlin module of quarkus became a
+                // Java "main" plus a Kotlin "main2". The block stays; the args contribute their -P plugin options.
+                Matcher p = PLUGIN_OPTION.matcher(args.group(1));
+                while (p.find()) block.pluginOptions.addAll(Kotlinc.pluginOptions(p.group(1)));
+                return null;
+            }
             Kotlinc single = convertSingleLine(line);
             if (single != null) {
                 block = null;
@@ -162,9 +175,11 @@ public class ParseKotlincList {
         List<String> classpath = List.of();
         String destination;
         String moduleName;
+        final List<String> pluginOptions = new ArrayList<>();
 
         Kotlinc build() {
-            return destination == null ? null : Kotlinc.mavenBlock(destination, sourceDirs, classpath, moduleName);
+            return destination == null ? null
+                    : Kotlinc.mavenBlock(destination, sourceDirs, classpath, moduleName, pluginOptions);
         }
     }
 
@@ -188,6 +203,6 @@ public class ParseKotlincList {
 
     private static List<String> splitPath(String path) {
         if (path.isBlank()) return List.of();
-        return Arrays.stream(path.split(java.io.File.pathSeparator)).filter(s -> !s.isBlank()).toList();
+        return Arrays.stream(path.split(File.pathSeparator)).filter(s -> !s.isBlank()).toList();
     }
 }

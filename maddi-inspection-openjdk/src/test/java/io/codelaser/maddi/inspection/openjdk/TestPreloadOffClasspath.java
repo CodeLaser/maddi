@@ -17,19 +17,21 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-
-import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 /**
  * A preload must survive a class-path part it cannot attribute.
@@ -73,7 +75,7 @@ public class TestPreloadOffClasspath {
         // SourceSetImpl.sourceSetOf(ImmutableContainer.class) here would name it correctly and attribute fine.
         SourceSet misnamed = new SourceSetImpl.Builder()
                 .setName("maddi-annotation")
-                .setUri(artifactOf(io.codelaser.maddi.annotation.ImmutableContainer.class))
+                .setUri(artifactOf(ImmutableContainer.class))
                 .setExternalLibrary(true).build();
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()

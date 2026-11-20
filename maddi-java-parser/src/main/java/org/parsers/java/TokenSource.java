@@ -20,13 +20,14 @@
 */
 package org.parsers.java;
 
-import java.nio.charset.Charset;
+import static java.nio.charset.StandardCharsets.*;
+
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
-import java.nio.charset.CharacterCodingException;
-import static java.nio.charset.StandardCharsets.*;
 import java.util.Arrays;
 import java.util.BitSet;
 

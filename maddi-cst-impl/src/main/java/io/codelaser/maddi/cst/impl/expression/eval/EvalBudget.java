@@ -87,7 +87,22 @@ public class EvalBudget {
     }
 
     public static void exit() {
-        STATE.get()[0]--;
+        if (--STATE.get()[0] == 0) {
+            for (Runnable hook : END_OF_OPERATION) hook.run();
+        }
+    }
+
+    /*
+     Per-thread memos scoped to one top-level operation (ExpressionComparator's, EvalNegation's) drop their state here,
+     on the thread that ran the operation. Cleared on the next operation's start only, the last operation's expressions
+     stayed reachable from the ThreadLocal for as long as the thread lived: a long-lived server thread kept the last
+     model it touched alive after the model was dropped (150 MB on retrofit, after an idioms run).
+     */
+    private static final java.util.List<Runnable> END_OF_OPERATION = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /** Run {@code hook} on the operation's thread whenever a top-level operation ends. */
+    public static void onEndOfOperation(Runnable hook) {
+        END_OF_OPERATION.add(hook);
     }
 
     /** Consume one unit of work; true when the current top-level operation is over budget. */

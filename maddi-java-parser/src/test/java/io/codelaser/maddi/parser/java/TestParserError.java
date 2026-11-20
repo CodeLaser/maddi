@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.parser.java;
 
-import io.codelaser.maddi.inspection.api.parser.Context;
-import io.codelaser.maddi.inspection.api.parser.Summary;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.Summary;
 
 public class TestParserError extends CommonTestParse {
 

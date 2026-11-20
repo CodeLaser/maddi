@@ -29,7 +29,7 @@ public sealed class Selectors {
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => Iterator().AsEnumerator();
     }
 
-    internal interface ISelector<T> : IEnumerable<T> {
+    internal interface ISelector<out T> : IEnumerable<T> {
         long Size { get; }
         IJavaIterator<T> Iterator();
         IEnumerator<T> IEnumerable<T>.GetEnumerator() => Iterator().AsEnumerator();

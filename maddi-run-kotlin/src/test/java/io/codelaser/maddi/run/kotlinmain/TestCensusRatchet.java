@@ -16,12 +16,12 @@
  */
 package io.codelaser.maddi.run.kotlinmain;
 
-import org.junit.jupiter.api.Test;
-import org.opentest4j.AssertionFailedError;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 
 /**
  * ⚠ The ratchet is an assertion, and an assertion nobody has seen fail is a guess. The corpus runs can only

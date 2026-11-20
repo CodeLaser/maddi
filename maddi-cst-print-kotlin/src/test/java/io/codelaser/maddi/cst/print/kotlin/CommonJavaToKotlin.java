@@ -17,24 +17,40 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.zip.ZipFile;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.BeforeEach;
-
-import java.io.IOException;
-import java.net.URI;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Java in, Kotlin out: parses a Java compilation unit with the openjdk front end and prints it with
@@ -78,12 +94,12 @@ public abstract class CommonJavaToKotlin {
     }
 
     /** As {@link #kotlin(String)}, after {@code beforePrint} has seen the parsed type (to set analysis results on it). */
-    protected String kotlin(String java, java.util.function.Consumer<TypeInfo> beforePrint) {
+    protected String kotlin(String java, Consumer<TypeInfo> beforePrint) {
         return kotlin(java, KotlinPrintOptions.DEFAULT, beforePrint);
     }
 
     /** As {@link #kotlin(String, java.util.function.Consumer)}, with print options. */
-    protected String kotlin(String java, KotlinPrintOptions options, java.util.function.Consumer<TypeInfo> beforePrint) {
+    protected String kotlin(String java, KotlinPrintOptions options, Consumer<TypeInfo> beforePrint) {
         KotlinCompilationUnitPrinter.Result result = translate(java, options, beforePrint);
         Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
         return formatter.write(result.output());
@@ -96,7 +112,7 @@ public abstract class CommonJavaToKotlin {
     protected String kotlin(String java, Map<String, String> others) {
         String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
         String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
-        Map<String, String> sources = new java.util.HashMap<>(others);
+        Map<String, String> sources = new HashMap<>(others);
         sources.put(pkg + "." + first, java);
         TypeInfo typeInfo = javaInspector.parse(sources, new JavaInspector.ParseOptions.Builder().build())
                 .parseResult().primaryTypes().stream().filter(t -> t.fullyQualifiedName().equals(pkg + "." + first))
@@ -118,7 +134,7 @@ public abstract class CommonJavaToKotlin {
      * the {@link KotlinWorld}: the code translated together.
      */
     protected String kotlinInWorld(String java, KotlinPrintOptions options,
-                                   java.util.function.Consumer<TypeInfo> beforePrint) {
+                                   Consumer<TypeInfo> beforePrint) {
         KotlinCompilationUnitPrinter.Result result = translate(java, types -> options.withWorld(KotlinWorld.of(types)),
                 beforePrint);
         Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
@@ -126,13 +142,13 @@ public abstract class CommonJavaToKotlin {
     }
 
     private KotlinCompilationUnitPrinter.Result translate(String java, KotlinPrintOptions options,
-                                                          java.util.function.Consumer<TypeInfo> beforePrint) {
+                                                          Consumer<TypeInfo> beforePrint) {
         return translate(java, types -> options, beforePrint);
     }
 
     private KotlinCompilationUnitPrinter.Result translate(String java,
-                                                          java.util.function.Function<List<TypeInfo>, KotlinPrintOptions> options,
-                                                          java.util.function.Consumer<TypeInfo> beforePrint) {
+                                                          Function<List<TypeInfo>, KotlinPrintOptions> options,
+                                                          Consumer<TypeInfo> beforePrint) {
         // keyed by the first type's name, as parse(fqn, input) does; the other primary types of the file come along
         String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
         String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
@@ -169,16 +185,16 @@ public abstract class CommonJavaToKotlin {
      */
     protected static void compiles(String kotlin, List<String> libraryPackages) {
         String compilerClassPath = System.getProperty("maddi.test.kotlinCompilerClasspath");
-        org.junit.jupiter.api.Assertions.assertTrue(compilerClassPath != null && !compilerClassPath.isBlank(),
+        Assertions.assertTrue(compilerClassPath != null && !compilerClassPath.isBlank(),
                 "no -Dmaddi.test.kotlinCompilerClasspath: run this through Gradle");
-        String stdlib = java.util.Arrays.stream(compilerClassPath.split(java.io.File.pathSeparator))
-                .filter(e -> java.nio.file.Path.of(e).getFileName().toString().matches("kotlin-stdlib-[0-9.]+\\.jar"))
+        String stdlib = Arrays.stream(compilerClassPath.split(File.pathSeparator))
+                .filter(e -> Path.of(e).getFileName().toString().matches("kotlin-stdlib-[0-9.]+\\.jar"))
                 .findFirst().orElseThrow(() -> new AssertionError("no kotlin-stdlib in " + compilerClassPath));
         try {
-            java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("maddi-kotlinc");
-            java.nio.file.Path source = dir.resolve("Snippet.kt");
-            java.nio.file.Files.writeString(source, kotlin);
-            java.nio.file.Path javaBin = java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java");
+            Path dir = Files.createTempDirectory("maddi-kotlinc");
+            Path source = dir.resolve("Snippet.kt");
+            Files.writeString(source, kotlin);
+            Path javaBin = Path.of(System.getProperty("java.home"), "bin", "java");
             Process process = new ProcessBuilder(javaBin.toString(), "-Xmx1g", "-cp", compilerClassPath,
                     "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler", "-no-stdlib", "-no-reflect", "-jvm-target", "21",
                     "-classpath", stdlib + libraryJars(libraryPackages), "-d", dir.resolve("classes").toString(),
@@ -186,8 +202,8 @@ public abstract class CommonJavaToKotlin {
                     .redirectErrorStream(true).start();
             String output = new String(process.getInputStream().readAllBytes());
             int exit = process.waitFor();
-            String errors = output.lines().filter(l -> l.contains("error:")).collect(java.util.stream.Collectors.joining("\n"));
-            org.junit.jupiter.api.Assertions.assertTrue(exit == 0 && errors.isEmpty(),
+            String errors = output.lines().filter(l -> l.contains("error:")).collect(Collectors.joining("\n"));
+            Assertions.assertTrue(exit == 0 && errors.isEmpty(),
                     () -> "kotlinc rejects the printed Kotlin:\n" + errors + "\n--- in ---\n" + kotlin);
         } catch (IOException | InterruptedException e) {
             throw new AssertionError("kotlinc did not run", e);
@@ -198,15 +214,15 @@ public abstract class CommonJavaToKotlin {
     private static String libraryJars(List<String> packages) {
         StringBuilder sb = new StringBuilder();
         for (String pkg : packages) {
-            String jar = java.util.Arrays.stream(System.getProperty("java.class.path").split(java.io.File.pathSeparator))
+            String jar = Arrays.stream(System.getProperty("java.class.path").split(File.pathSeparator))
                     .filter(e -> e.endsWith(".jar")).filter(e -> {
-                        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(e)) {
+                        try (ZipFile zip = new ZipFile(e)) {
                             return zip.getEntry(pkg + "/") != null || zip.stream().anyMatch(z -> z.getName().startsWith(pkg + "/"));
                         } catch (IOException ex) {
                             return false;
                         }
                     }).findFirst().orElseThrow(() -> new AssertionError("no jar with " + pkg + " on the test runtime"));
-            sb.append(java.io.File.pathSeparator).append(jar);
+            sb.append(File.pathSeparator).append(jar);
         }
         return sb.toString();
     }
@@ -226,16 +242,16 @@ public abstract class CommonJavaToKotlin {
     }
 
     protected static void notModified(TypeInfo type, String... methodNames) {
-        java.util.Set<String> names = java.util.Set.of(methodNames);
-        io.codelaser.maddi.cst.print.kotlin.KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit(
-                (io.codelaser.maddi.cst.api.element.Element e) -> {
-                    if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo() != null
+        Set<String> names = Set.of(methodNames);
+        KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit(
+                (Element e) -> {
+                    if (e instanceof MethodCall mc && mc.methodInfo() != null
                         && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.")
                         && names.contains(mc.methodInfo().name())
                         && !mc.methodInfo().analysis().haveAnalyzedValueFor(
-                            io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD)) {
-                        mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
-                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                            PropertyImpl.NON_MODIFYING_METHOD)) {
+                        mc.methodInfo().analysis().set(PropertyImpl.NON_MODIFYING_METHOD,
+                                ValueImpl.BoolImpl.TRUE);
                     }
                     return true;
                 }));

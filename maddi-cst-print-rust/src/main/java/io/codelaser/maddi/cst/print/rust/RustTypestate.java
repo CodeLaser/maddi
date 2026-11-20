@@ -17,12 +17,13 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.TreeSet;
+
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Side;
-
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Eventual immutability ({@code @Mark}, {@code @Only}, road to immutability §060) as Rust's typestate pattern. The
@@ -46,7 +47,7 @@ final class RustTypestate {
     static boolean typestate(TypeInfo typeInfo, RustContext context) {
         if (typeInfo == null || typeInfo.isInterface() || typeInfo.typeNature().isRecord()
             || typeInfo.typeNature().isEnum() || !typeInfo.typeParameters().isEmpty()
-            || typeInfo.compilationUnit().externalLibrary() || RustTypePrinter.sourceParent(typeInfo) != null
+            || typeInfo.compilationUnit().externalLibrary() || RustTypePrinter.sourceParent(typeInfo) != null || RustHierarchies.current().isMember(typeInfo)
             || context.borrows.hasLifetime(typeInfo)
             || typeInfo.interfacesImplemented().stream().anyMatch(i -> !i.typeInfo().compilationUnit().externalLibrary())) {
             return false;
@@ -58,7 +59,7 @@ final class RustTypestate {
             if (side == Side.ANY) continue;
             if (m.isStatic() || side == Side.MARK && !m.isVoid()) return false;
             mark |= side == Side.MARK;
-            labels.add(String.join(",", new java.util.TreeSet<>(context.facts.marks(m))));
+            labels.add(String.join(",", new TreeSet<>(context.facts.marks(m))));
         }
         return mark && labels.size() == 1;
     }

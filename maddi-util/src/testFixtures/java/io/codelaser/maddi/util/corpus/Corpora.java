@@ -16,8 +16,6 @@
  */
 package io.codelaser.maddi.util.corpus;
 
-import org.junit.jupiter.api.Assumptions;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
@@ -26,6 +24,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.junit.jupiter.api.Assumptions;
 
 /**
  * Finds a test corpus on this machine: its checkout, and the {@code inputConfiguration.json} that was

@@ -41,9 +41,24 @@ public class KotlinReflect {
 
         @NotModified
         boolean isInstance(Object value);
+
+        /* census 2026-11-16 (maddi-mod#15): reading the object's singleton creates nothing, changes nothing */
+        @NotModified
+        T getObjectInstance();
+
+        @NotModified
+        boolean isAbstract();
     }
 
     interface KCallable$<R> {
+        @NotModified
+        String getName();
+
+        @NotModified
+        java.util.List<kotlin.reflect.KParameter> getParameters();
+    }
+
+    interface KParameter$ {
         @NotModified
         String getName();
     }

@@ -1,5 +1,14 @@
 package io.codelaser.maddi.java.openjdk;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import javax.tools.Diagnostic;
+
+import org.jetbrains.annotations.Nullable;
+
 import com.sun.source.doctree.*;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LineMap;
@@ -7,17 +16,11 @@ import com.sun.source.util.DocSourcePositions;
 import com.sun.source.util.DocTreeScanner;
 import com.sun.tools.javac.tree.DCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
-import org.jetbrains.annotations.Nullable;
-
-import javax.tools.Diagnostic;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public record ScanJavaDoc(Runtime runtime,
                           TypeData typeData,

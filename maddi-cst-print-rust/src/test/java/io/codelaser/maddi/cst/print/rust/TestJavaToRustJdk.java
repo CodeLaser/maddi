@@ -18,18 +18,19 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
-import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
-import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
-import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 /** The JDK as std: comparators, a map's value modified in place, Object values, null-safe string calls. */
 public class TestJavaToRustJdk extends CommonJavaToRust {
@@ -151,6 +152,625 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "impl<F: Fn(&str, i32) -> String> EventsFactory for F {");
         contains(rust, "Self::fire(&|e: &str| { println!(\"{}\", e); }, \"start\");");
         contains(rust, "let f = |a: &str, n: i32| a.repeat(n as usize);");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String CLASS_FILE_STREAM = """
+            package a.b;
+            import java.io.ByteArrayInputStream;
+            import java.io.DataInputStream;
+            import java.io.IOException;
+            import java.io.InputStream;
+            public class Cls {
+                // fernflower's DataInputFullStream
+                public static class Full extends DataInputStream {
+                    public Full(byte[] bytes) { super(new ByteArrayInputStream(bytes)); }
+                    public void discard(int n) throws IOException { Util.discardBytes(this, n); }
+                }
+                public static class Util {
+                    public static void discardBytes(InputStream stream, int length) throws IOException {
+                        if (stream.skip(length) != length) throw new IOException("premature end of stream");
+                    }
+                    // InterpreterUtil.readBytes
+                    public static byte[] readBytes(InputStream stream, int length) throws IOException {
+                        byte[] bytes = new byte[length];
+                        int n = 0, off = 0;
+                        while (n < length) {
+                            int count = stream.read(bytes, off + n, length - n);
+                            if (count < 0) throw new IOException("premature end of stream");
+                            n += count;
+                        }
+                        return bytes;
+                    }
+                }
+                public static class Pool {
+                    // ConstantPool(DataInputStream in)
+                    public static int magic(DataInputStream in) throws IOException { return in.readInt(); }
+                }
+                // StructClass.create: a nullable stream, unwrapped at each read
+                public static int versions(Full in) throws IOException {
+                    in.discard(4);
+                    int minor = in.readUnsignedShort();
+                    return minor + in.readUnsignedShort();
+                }
+                public static int header(byte[] bytes) throws IOException {
+                    Full in = new Full(bytes);
+                    int magic = Pool.magic(in);
+                    int minor = in.readUnsignedShort();
+                    in.discard(2);
+                    int count = in.readUnsignedByte();
+                    return magic == 0xCAFEBABE ? minor + count : -1;
+                }
+            }
+            """;
+
+    @DisplayName("a class extending DataInputStream reads big-endian through its base, and passes as a DataInputStream")
+    @Test
+    public void classFileStream() throws Exception {
+        List<TypeInfo> types = parse(CLASS_FILE_STREAM);
+        TypeInfo cls = types.getFirst();
+        modifying(cls.findSubType("Full"), "discard");
+        modified(method(cls.findSubType("Util"), "discardBytes").parameters().getFirst());
+        modified(method(cls.findSubType("Pool"), "magic").parameters().getFirst());
+        modified(method(cls.findSubType("Util"), "readBytes").parameters().getFirst());
+        modified(method(cls, "versions").parameters().getFirst());
+        nonModifying(cls, "header", "versions");
+        RustTranslator.Result result = translate(types, nullable(Set.of("in")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was an empty struct, and a unit-struct DataInputStream without methods: every read unresolved
+        contains(rust, "pub base: crate::jrt::DataInputStream,");
+        contains(rust, "base: crate::jrt::DataInputStream::from_bytes(");
+        contains(rust, "stream.read(&mut bytes, off + n, length - n)");
+        contains(rust, "let minor = r#in.as_mut().unwrap().read_unsigned_short();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String BIT_SETS = """
+            package a.b;
+            import java.util.BitSet;
+            public class Offsets {
+                // fernflower's Exprent.bytecode
+                public BitSet bytecode = null;
+                public void addBytecodeOffsets(BitSet bytecodeOffsets) {
+                    if (bytecodeOffsets != null) {
+                        if (bytecode == null) bytecode = new BitSet();
+                        bytecode.or(bytecodeOffsets);
+                    }
+                }
+                public static BitSet range(int offset, int length) {
+                    BitSet offsets = new BitSet();
+                    offsets.set(offset);
+                    offsets.set(offset, offset + length);
+                    return offsets;
+                }
+                // ConstantPool's passes
+                public static int count(int size) {
+                    BitSet pass = new BitSet(size);
+                    pass.set(1);
+                    pass.set(size - 1);
+                    int idx = 0, n = 0;
+                    while ((idx = pass.nextSetBit(idx + 1)) > 0) n++;
+                    return n + (pass.get(0) ? 100 : 0) + pass.length();
+                }
+                public static Object file(String name) { return new java.io.File(name); }
+                // Exprent.fillBytecodeRange / measureBytecode: a nullable set passed on, in a loop and after it
+                public java.util.List<Offsets> kids = new java.util.ArrayList<>();
+                public void fillBytecodeRange(BitSet values) {
+                    for (Offsets o : kids) o.fillBytecodeRange(values);
+                    measure(values);
+                }
+                public void measure(BitSet values) {
+                    if (values != null && bytecode != null) values.or(bytecode);
+                }
+                // a nullable field where an Option<&mut BitSet> is expected
+                public void into(Offsets other) { other.fillBytecodeRange(bytecode); }
+            }
+            """;
+
+    @DisplayName("java.util.BitSet as jrt.rs's: set, set(from, to), or of a nullable field, nextSetBit, length")
+    @Test
+    public void bitSets() throws Exception {
+        List<TypeInfo> types = parse(BIT_SETS);
+        TypeInfo offsets = types.getFirst();
+        modifying(offsets, "addBytecodeOffsets");
+        borrowed(method(offsets, "addBytecodeOffsets").parameters().getFirst());
+        nonModifying(offsets, "range", "count", "file", "fillBytecodeRange", "measure");
+        modifying(offsets, "into");
+        exclusive(method(offsets, "fillBytecodeRange").parameters().getFirst());
+        exclusive(method(offsets, "measure").parameters().getFirst());
+        borrowed(method(offsets, "into").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("bytecode", "bytecodeOffsets", "values")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "pub bytecode: Option<crate::jrt::BitSet>,");
+        contains(rust, "offsets.set_range(offset, offset + length);");
+        contains(rust, "let mut pass = crate::jrt::BitSet::with_capacity(size);");
+        // java.io.File is jrt.rs's own since #203 (it was an opaque stand-in without a constructor, rustc's one error)
+        contains(rust, "crate::jrt::File::new(");
+        contains(rust, "o.fill_bytecode_range(values.as_deref_mut());");
+        contains(rust, "other.fill_bytecode_range(self.bytecode.as_mut());");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String BULK = """
+            package a.b;
+            import java.util.HashSet;
+            import java.util.List;
+            import java.util.Set;
+            public class Bulk {
+                // fernflower's ExceptionDeobfuscator: sets intersected and subtracted
+                public static void intersect(Set<Integer> common, List<Integer> successors) {
+                    common.retainAll(successors);
+                }
+                public static void subtract(Set<String> all, Set<String> stacked) {
+                    all.removeAll(stacked);
+                }
+                public static boolean covers(Set<String> all, List<String> some) {
+                    return all.containsAll(some);
+                }
+                public static void drop(List<Integer> list, Set<Integer> gone) {
+                    list.removeAll(gone);
+                }
+                // ControlFlowGraph's 'HashSet<BasicBlock> setBoth = new HashSet<>(common); setBoth.retainAll(range)':
+                // HashSet inherits retainAll from AbstractCollection
+                public static int both(Set<Integer> common, List<Integer> range) {
+                    HashSet<Integer> setBoth = new HashSet<>(common);
+                    setBoth.retainAll(range);
+                    return setBoth.size();
+                }
+            }
+            """;
+
+    @DisplayName("removeAll, retainAll and containsAll of sets and lists")
+    @Test
+    public void bulkOperations() throws Exception {
+        List<TypeInfo> types = parse(BULK);
+        TypeInfo bulk = types.getFirst();
+        modifying(bulk, "intersect", "subtract", "drop");
+        nonModifying(bulk, "covers", "both");
+        method(bulk, "both").parameters().forEach(CommonJavaToRust::borrowed);
+        exclusive(method(bulk, "intersect").parameters().get(0));
+        borrowed(method(bulk, "intersect").parameters().get(1));
+        exclusive(method(bulk, "subtract").parameters().get(0));
+        borrowed(method(bulk, "subtract").parameters().get(1));
+        method(bulk, "covers").parameters().forEach(CommonJavaToRust::borrowed);
+        exclusive(method(bulk, "drop").parameters().get(0));
+        borrowed(method(bulk, "drop").parameters().get(1));
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, ".retain(|__e| __c.contains(__e));");
+        contains(rust, ".retain(|__e| !__c.contains(__e));");
+        contains(rust, ".iter().all(|__e| ");
+        contains(rust, "set_both.retain(|__e| __c.contains(__e));");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String NULLABLE_KEY = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Keyed {
+                private final Map<String, Integer> sizes = new HashMap<>();
+                private String name;
+                // fernflower's getMapRootClasses().get(field.getClassname()): a key that may be null
+                public Integer size() { return sizes.get(name); }
+                public boolean known() { return sizes.containsKey(name); }
+                public void forget() { sizes.remove(name); }
+                public void set(String n) { name = n; sizes.put(n, 1); }
+            }
+            """;
+
+    @DisplayName("a map looked up by a nullable key: absent for null, as Java's HashMap")
+    @Test
+    public void nullableKey() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_KEY);
+        TypeInfo keyed = types.getFirst();
+        nonModifying(keyed, "size", "known");
+        modifying(keyed, "forget", "set");
+        RustTranslator.Result result = translate(types, nullable(Set.of("name", "size()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "self.name.as_ref().and_then(|__k| self.sizes.get(__k))");
+        contains(rust, "self.name.as_ref().is_some_and(|__k| self.sizes.contains_key(__k))");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String ENUM_MAP = """
+            package a.b;
+            import java.util.EnumMap;
+            import java.util.Map;
+            public class Edges {
+                public enum EdgeType { REGULAR, BREAK, CONTINUE }
+                // fernflower's Statement.mapSuccEdges
+                private final Map<EdgeType, Integer> counts = new EnumMap<>(EdgeType.class);
+                public void count(EdgeType t) { counts.put(t, counts.getOrDefault(t, 0) + 1); }
+                public Integer get(EdgeType t) { return counts.get(t); }
+                // ExprProcessor: 'EdgeType.BREAK.equals(edge.getType())'
+                public static boolean isBreak(EdgeType t) { return EdgeType.BREAK.equals(t); }
+            }
+            """;
+
+    @DisplayName("an EnumMap: a HashMap keyed by the enum; an enum's equals, ==")
+    @Test
+    public void enumMap() throws Exception {
+        List<TypeInfo> types = parse(ENUM_MAP);
+        TypeInfo edges = types.getFirst();
+        modifying(edges, "count");
+        nonModifying(edges, "get", "isBreak");
+        RustTranslator.Result result = translate(types, nullable(Set.of("get()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "counts: HashMap::new(),");
+        contains(rust, "EdgesEdgeType::Break == ");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String OBJECT_ARGUMENT = """
+            package a.b;
+            public class Consts {
+                private String name;
+                // fernflower's new ConstExprent(VarType.VARTYPE_INT, 1, bytecode): an Object the callee only reads
+                public static boolean present(Object value) { return value != null; }
+                public boolean all() { return present(1) && present("s") && present(name); }
+                public void setName(String n) { name = n; }
+            }
+            """;
+
+    @DisplayName("a value passed where a borrowed Object is expected: a box of its own, borrowed")
+    @Test
+    public void objectArgument() throws Exception {
+        List<TypeInfo> types = parse(OBJECT_ARGUMENT);
+        TypeInfo consts = types.getFirst();
+        nonModifying(consts, "present", "all");
+        modifying(consts, "setName");
+        borrowed(method(consts, "present").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("value", "name", "n")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "Self::present(Some(&(Box::new(1) as Box<dyn Any>)))");
+        contains(rust, ".map(|v| Box::new(v) as Box<dyn Any>).as_ref()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String NULLABLE_ELEMENT = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.HashSet;
+            import java.util.List;
+            import java.util.Set;
+            public class Visited {
+                private final Set<String> seen = new HashSet<>();
+                private final List<String> order = new ArrayList<>();
+                private String current;
+                // fernflower's '!setVisited.contains(succ)', succ nullable
+                public boolean known() { return seen.contains(current) || order.contains(current); }
+                public void forget() { seen.remove(current); }
+                public void visit(String s) { current = s; seen.add(s); order.add(s); }
+            }
+            """;
+
+    @DisplayName("a set or list asked about a nullable element: false for null")
+    @Test
+    public void nullableElement() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_ELEMENT);
+        TypeInfo visited = types.getFirst();
+        nonModifying(visited, "known");
+        modifying(visited, "forget", "visit");
+        RustTranslator.Result result = translate(types, nullable(Set.of("current")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "self.current.as_ref().is_some_and(|__k| self.seen.contains(__k))");
+        contains(rust, "self.current.as_ref().is_some_and(|__k| self.seen.remove(__k))");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String BOXED = """
+            package a.b;
+            public class Boxed {
+                private Integer index;
+                private final Integer count = 3;
+                // fernflower's 'index.intValue()', 'Integer.valueOf(x).equals(y)', Integer.toHexString
+                public int value() { return index.intValue() + count.intValue(); }
+                public boolean same(Integer other) { return count.equals(other); }
+                public int order(Integer other) { return count.compareTo(other); }
+                public static Integer box(int i) { return Integer.valueOf(i); }
+                public static String hex(int i) { return Integer.toHexString(i); }
+                public void set(Integer n) { index = n; }
+                // ConstExprent's float and double constants
+                public static float tiny() { return Float.MIN_VALUE; }
+                public static double inf() { return Double.NEGATIVE_INFINITY; }
+                public static short top() { return Short.MAX_VALUE; }
+            }
+            """;
+
+    @DisplayName("an Integer's methods and statics: the int itself")
+    @Test
+    public void boxedNumbers() throws Exception {
+        List<TypeInfo> types = parse(BOXED);
+        TypeInfo boxed = types.getFirst();
+        nonModifying(boxed, "value", "same", "order", "box", "hex", "tiny", "inf", "top");
+        modifying(boxed, "set");
+        RustTranslator.Result result = translate(types, nullable(Set.of("index", "other", "n")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "format!(\"{:x}\", i)");
+        contains(rust, "f32::from_bits(1)");
+        contains(rust, "f64::NEG_INFINITY");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String TEXTS = """
+            package a.b;
+            import java.util.Locale;
+            public class Texts {
+                // fernflower's DotExporter: 'id.replaceAll("_try", "999")', a regex without metacharacters
+                public static String id(String id) { return id.replaceAll("_try", "999"); }
+                // ConverterHelper: 'value.toLowerCase(Locale.ENGLISH)'
+                public static String lower(String s) { return s.toLowerCase(Locale.ENGLISH); }
+                public static String upper(String s) { return s.toUpperCase(Locale.ROOT); }
+                // MergeHelper: 'stat.getExprents().addAll(0, ifstat.getExprents())'
+                public static void prepend(java.util.List<String> to, java.util.List<String> from) { to.addAll(0, from); }
+            }
+            """;
+
+    @DisplayName("replaceAll with a literal pattern; a case mapping with a Locale")
+    @Test
+    public void stringMappings() throws Exception {
+        List<TypeInfo> types = parse(TEXTS);
+        TypeInfo texts = types.getFirst();
+        nonModifying(texts, "id", "lower", "upper");
+        modifying(texts, "prepend");
+        exclusive(method(texts, "prepend").parameters().get(0));
+        borrowed(method(texts, "prepend").parameters().get(1));
+        for (String m : List.of("id", "lower", "upper")) borrowed(method(texts, m).parameters().getFirst());
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "id.replace(\"_try\", \"999\")");
+        contains(rust, "s.to_lowercase()");
+        contains(rust, "to.splice(0..0, from.iter().cloned())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String BORROWED_NULLABLE = """
+            package a.b;
+            public class Names {
+                // StructGeneralAttribute.createAttribute: '"Code".equals(name)', name a nullable borrowed string
+                public static int kind(String name) { return "Code".equals(name) ? 1 : 0; }
+                // Instruction.create(..., int[] operands, ...): a nullable borrowed array passed on
+                public static int count(int[] operands) { return inner(operands); }
+                static int inner(int[] ops) { return ops == null ? 0 : ops.length; }
+            }
+            """;
+
+    @DisplayName("a nullable borrowed string compared, a nullable borrowed array passed on: stable Rust")
+    @Test
+    public void borrowedNullable() throws Exception {
+        List<TypeInfo> types = parse(BORROWED_NULLABLE);
+        TypeInfo names = types.getFirst();
+        nonModifying(names, "kind", "count", "inner");
+        borrowed(method(names, "kind").parameters().getFirst());
+        borrowed(method(names, "count").parameters().getFirst());
+        borrowed(method(names, "inner").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("name", "operands", "ops")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String EQUALS_LEVELS = """
+            package a.b;
+            public class Descs {
+                private String descriptor;
+                private Kind kind;
+                // ClassWriter.isSyntheticRecordMethod: a nullable field's string against a computed one
+                public boolean synthetic(String name) {
+                    return descriptor != null && descriptor.equals("()" + name);
+                }
+                // PPandMMHelper: a nullable object's own equals, the other side non-null
+                public boolean sameKind(Kind other) {
+                    return kind != null && kind.equals(other);
+                }
+            }
+            class Kind {
+                private final int k;
+                Kind(int k) { this.k = k; }
+                @Override public boolean equals(Object o) { return o instanceof Kind other && other.k == k; }
+                @Override public int hashCode() { return k; }
+            }
+            """;
+
+    @DisplayName("equals with operands at different levels: a String against a &String, a nullable receiver")
+    @Test
+    public void equalsLevels() throws Exception {
+        List<TypeInfo> types = parse(EQUALS_LEVELS);
+        TypeInfo descs = types.getFirst();
+        nonModifying(descs, "synthetic", "sameKind");
+        RustTranslator.Result result = translate(types, nullable(Set.of("descriptor", "kind")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, ".unwrap() == ");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String FILE_SYSTEM = """
+            package a.b;
+            import java.io.File;
+            import java.io.IOException;
+            import java.nio.charset.StandardCharsets;
+            import java.nio.file.FileVisitResult;
+            import java.nio.file.Files;
+            import java.nio.file.Path;
+            import java.nio.file.SimpleFileVisitor;
+            import java.nio.file.attribute.BasicFileAttributes;
+            public class Fixture {
+                private Path tempDir;
+                private Path targetDir;
+                public void setUp() throws IOException {
+                    tempDir = Files.createTempDirectory("fixture_");
+                    targetDir = Files.createDirectories(tempDir.resolve("decompiled"));
+                    File target = targetDir.toFile();
+                    File child = new File(target, "x.txt");
+                    Files.writeString(child.toPath(), "hello");
+                }
+                public String read(String name) throws IOException {
+                    Path p = targetDir.resolve(name);
+                    if (!Files.isRegularFile(p)) return null;
+                    return Files.readString(p, StandardCharsets.UTF_8);
+                }
+                public void tearDown() throws IOException {
+                    if (tempDir != null) deleteRecursively(tempDir);
+                }
+                public static String home() { return System.getProperty("idea.home.path"); }
+                public static String normalize(String s) { return s.stripTrailing(); }
+                private static void deleteRecursively(Path file) throws IOException {
+                    Files.walkFileTree(file, new SimpleFileVisitor<>() {
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                            Files.delete(file);
+                            return FileVisitResult.CONTINUE;
+                        }
+                        @Override
+                        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                            Files.delete(dir);
+                            return FileVisitResult.CONTINUE;
+                        }
+                    });
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#203: fernflower's test fixture, on jrt.rs's File, Path and Files (std::fs, std::path). The
+     * overloaded File constructor has its own names; options a call only tunes (a Charset) are left out; the
+     * delete-everything visitor is remove_dir_all.
+     */
+    @DisplayName("java.io.File, java.nio.file.Path and Files on std: a test fixture's temporary directory")
+    @Test
+    public void fileSystem() throws Exception {
+        List<TypeInfo> types = parse(FILE_SYSTEM);
+        TypeInfo fixture = types.getFirst();
+        modifying(fixture, "setUp", "tearDown");
+        nonModifying(fixture, "read");
+        borrowed(method(fixture, "read").parameters().getFirst());
+        borrowed(method(fixture, "deleteRecursively").parameters().getFirst());
+        nonModifying(fixture, "home", "normalize");
+        borrowed(method(fixture, "normalize").parameters().getFirst());
+        RustTranslator.Result result = translate(types, nullable(Set.of("tempDir", "targetDir", "read()", "home()")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "crate::jrt::Files::create_temp_directory(\"fixture_\")");
+        contains(rust, "crate::jrt::File::child(");
+        contains(rust, "crate::jrt::Files::delete_recursively(");
+        contains(rust, "crate::jrt::system_property(");
+        contains(rust, ".trim_end().to_string()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String SET_UP_CHAIN = """
+            package a.b;
+            import java.io.PrintStream;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Base {
+                public static class Logger {
+                    private final PrintStream stream;
+                    public Logger(PrintStream stream) { this.stream = stream; }
+                    public void write(String message) { stream.println("[x] " + message); }
+                }
+                public static class Fixture {
+                    private Map<String, Object> options;
+                    private Logger logger;
+                    public void setUp(Map<String, Object> customOptions) {
+                        Map<String, Object> o = new HashMap<>();
+                        o.put("log", "warn");
+                        o.putAll(customOptions);
+                        options = o;
+                        logger = new Logger(System.out);
+                        logger.write("set up");
+                    }
+                }
+                private Fixture fixture;
+                protected Map<String, Object> getOptions() { return new HashMap<>(); }
+                public void setUp() {
+                    fixture = new Fixture();
+                    fixture.setUp(getOptions());
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#203, behind the file system: what stood between fernflower's tests and their fixture. A held
+     * System.out (PrintStreamLogger), putAll on a map of Object values (Box&lt;dyn Any&gt;, copied by clone_any), and
+     * 'fixture.setUp(getDecompilerOptions())', whose argument reads self while the receiver holds it (E0502).
+     */
+    @DisplayName("a held System.out, putAll of Object values, and an argument calling self while the receiver holds it")
+    @Test
+    public void setUpChain() throws Exception {
+        List<TypeInfo> types = parse(SET_UP_CHAIN);
+        TypeInfo base = types.getFirst();
+        TypeInfo fixture = base.findSubType("Fixture");
+        TypeInfo logger = base.findSubType("Logger");
+        modifying(base, "setUp");
+        nonModifying(base, "getOptions");
+        modifying(fixture, "setUp");
+        borrowed(method(fixture, "setUp").parameters().getFirst());
+        nonModifying(logger, "write");
+        borrowed(method(logger, "write").parameters().getFirst());
+        kept(logger.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        RustTranslator.Result result = translate(types, nullable(Set.of("fixture", "options", "logger")));
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "crate::jrt::PrintStream::stdout()");
+        contains(rust, "crate::jrt::clone_any(v)");
+        contains(rust, "let __a0 = self.get_options();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String OPTIONS = """
+            package a.b;
+            import java.util.Map;
+            public class Options {
+                // SingleClassesTest.getDecompilerOptions: Object values, a string beside an int
+                public Map<String, Object> entries() {
+                    return Map.ofEntries(Map.entry("ren", "1"), Map.entry("mpm", 20000));
+                }
+                public Map<String, Object> pairs() {
+                    return Map.of("ren", "1", "mpm", 20000);
+                }
+                public Map<String, String> strings() {
+                    return Map.ofEntries(Map.entry("ren", "1"));
+                }
+            }
+            """;
+
+    @DisplayName("Map.ofEntries and Map.of: a HashMap from pairs, a value of Map<K, Object> boxed")
+    @Test
+    public void mapOfEntries() throws Exception {
+        List<TypeInfo> types = parse(OPTIONS);
+        nonModifying(types.getFirst(), "entries", "pairs", "strings");
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        // was 'HashMap::of_entries(...)': E0599
+        contains(rust, "HashMap::from([(\"ren\".to_string(), Box::new(\"1\".to_string()) as Box<dyn Any>), (\"mpm\".to_string(), Box::new(20000) as Box<dyn Any>)])");
+        contains(rust, "HashMap::from([(\"ren\".to_string(), \"1\".to_string())])");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 }

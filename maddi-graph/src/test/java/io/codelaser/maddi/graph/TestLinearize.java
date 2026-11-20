@@ -17,17 +17,16 @@
 
 package io.codelaser.maddi.graph;
 
-import io.codelaser.maddi.graph.G;
-import io.codelaser.maddi.graph.V;
-import io.codelaser.maddi.graph.op.BreakCycles;
-import io.codelaser.maddi.graph.op.Linearize;
-import io.codelaser.maddi.graph.op.GreedyEdgeRemoval;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+
+import io.codelaser.maddi.graph.op.BreakCycles;
+import io.codelaser.maddi.graph.op.GreedyEdgeRemoval;
+import io.codelaser.maddi.graph.op.Linearize;
 
 public class TestLinearize {
 

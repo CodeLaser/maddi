@@ -17,16 +17,17 @@
 
 package io.codelaser.maddi.parser.java;
 
-import io.codelaser.maddi.cst.api.info.MethodInfo;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
+import static io.codelaser.maddi.parser.java.TestRecordPatternGrammar.assertParses;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.parsers.java.JavaParser;
 import org.parsers.java.ParseException;
 
-import static io.codelaser.maddi.parser.java.TestRecordPatternGrammar.assertParses;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /*
  * The receiver parameter (JLS 8.4.1): 'X this' as the first formal parameter of an instance method, or

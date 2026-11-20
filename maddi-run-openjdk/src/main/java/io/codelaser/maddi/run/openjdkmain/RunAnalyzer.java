@@ -17,6 +17,27 @@
 
 package io.codelaser.maddi.run.openjdkmain;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.codelaser.maddi.analysis.api.AnalysisEngine;
 import io.codelaser.maddi.analysis.api.AnalysisEngines;
 import io.codelaser.maddi.analysis.api.AnalysisHintsShadows;
@@ -28,17 +49,16 @@ import io.codelaser.maddi.analysis.api.ModificationRequest;
 import io.codelaser.maddi.analysis.api.NullabilityTarget;
 import io.codelaser.maddi.analysis.api.PrepOutcome;
 import io.codelaser.maddi.analysis.api.PrepRequest;
-import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
+import io.codelaser.maddi.callgraph.CallGraphContributions;
 import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
-import io.codelaser.maddi.run.rewire.RunRewireTests;
-import io.codelaser.maddi.run.config.Configuration;
-import io.codelaser.maddi.run.config.report.ErrorReport;
 import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
-import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.impl.analysis.LinkFacts;
+import io.codelaser.maddi.cst.impl.analysis.ModificationFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 import io.codelaser.maddi.cst.print.csharp.CSharpFacts;
 import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
@@ -48,32 +68,20 @@ import io.codelaser.maddi.cst.print.kotlin.KotlinTranslator;
 import io.codelaser.maddi.cst.print.kotlin.KotlinWorld;
 import io.codelaser.maddi.cst.print.rust.RustFacts;
 import io.codelaser.maddi.cst.print.rust.RustTranslator;
-import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
-import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
 import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.report.ErrorReport;
+import io.codelaser.maddi.run.rewire.RunRewireTests;
 import io.codelaser.maddi.util.Trie;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class RunAnalyzer implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(RunAnalyzer.class);
@@ -102,26 +110,28 @@ public class RunAnalyzer implements Runnable {
                 false, false, null, false, null);
         return new RunRewireTests.WarmAnalysis() {
             @Override
-            public void analyze(JavaInspector inspector, ParseResult parseResult, io.codelaser.maddi.graph.G<Info> graph,
-                                Set<TypeInfo> seedTypes, Set<TypeInfo> carryFrom,
-                                Set<TypeInfo> seedPrevious) {
+            public boolean analyze(JavaInspector inspector, ParseResult parseResult, G<Info> graph,
+                                   Set<TypeInfo> seedTypes, Set<TypeInfo> carryFrom,
+                                   Set<TypeInfo> seedPrevious) {
                 List<Info> order = new ComputeAnalysisOrder().go(graph, parallel);
                 Set<Info> seed = null;
                 if (seedTypes != null) {
-                    Set<TypeInfo> types = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+                    Set<TypeInfo> types = Collections.newSetFromMap(new IdentityHashMap<>());
                     types.addAll(seedTypes);
-                    seed = new java.util.HashSet<>();
+                    seed = new HashSet<>();
                     for (Info info : order) {
-                        if (info instanceof io.codelaser.maddi.cst.api.element.ModuleInfo) continue;
+                        if (info instanceof ModuleInfo) continue;
                         TypeInfo type = info instanceof TypeInfo ti ? ti : info.typeInfo();
                         if (type != null && types.contains(type.primaryType())) seed.add(info);
                     }
                 }
                 try {
-                    engine().modification(new ModificationRequest(inspector, order, graph,
-                            parseResult.primaryTypes(), options, null, seed, carryFrom, seedPrevious));
-                } catch (java.io.IOException e) {
-                    throw new java.io.UncheckedIOException(e);
+                    // a seeded analysis says which elements it analysed; one that fell back to the cold analysis of
+                    // everything has no scope, as a cold one
+                    return engine().modification(new ModificationRequest(inspector, order, graph,
+                            parseResult.primaryTypes(), options, null, seed, carryFrom, seedPrevious)).scope() != null;
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
                 }
             }
 
@@ -175,7 +185,7 @@ public class RunAnalyzer implements Runnable {
     // is left as configured.
     private static void setLogbackRootLevelToInfoIfPresent() {
         try {
-            org.slf4j.Logger root = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+            Logger root = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
             Class<?> logbackLogger = Class.forName("ch.qos.logback.classic.Logger");
             if (logbackLogger.isInstance(root)) {
                 Class<?> level = Class.forName("ch.qos.logback.classic.Level");
@@ -315,20 +325,20 @@ public class RunAnalyzer implements Runnable {
                 int oracleEvery = Integer.getInteger("maddi.rewire.oracleEvery", 0);
                 // the warm inspector's preps keep their per-type call graph from one re-parse to the next; the
                 // oracle's cold inspector walks its own in full
-                io.codelaser.maddi.callgraph.CallGraphContributions contributions =
-                        new io.codelaser.maddi.callgraph.CallGraphContributions();
-                java.util.function.BiFunction<JavaInspector, ParseResult, io.codelaser.maddi.graph.G<Info>> prepFn =
+                CallGraphContributions contributions =
+                        new CallGraphContributions();
+                BiFunction<JavaInspector, ParseResult, G<Info>> prepFn =
                         (inspector, pr) -> engine().prep(new PrepRequest(inspector.runtime(),
                                 Set.copyOf(pr.primaryTypes()), pr.sourceSetToModuleInfoMap().values(),
                                 externalsToAccept, parseOptions.parallel(), true,
                                 inspector == javaInspector ? contributions : null)).callGraph().graph();
-                java.util.function.Supplier<JavaInspector> coldInspector = () -> {
+                Supplier<JavaInspector> coldInspector = () -> {
                     JavaInspector cold = new JavaInspectorImpl(true, false);
                     cold.setJdkInternals(configuration.generalConfiguration().jdkInternals());
                     try {
                         cold.initialize(inputConfiguration);
-                    } catch (java.io.IOException e) {
-                        throw new java.io.UncheckedIOException(e);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
                     }
                     cold.preload("java.base::java.util");
                     return cold;
@@ -343,6 +353,14 @@ public class RunAnalyzer implements Runnable {
                     // the incremental path produced something a cold parse does not: that is a defect, not a finding
                     LOGGER.error("Rewire tests: {} oracle difference(s) in {} check(s)",
                             rewireResult.oracleDifferences().size(), rewireResult.oracleChecks());
+                    exitValue = Main.EXIT_INTERNAL_EXCEPTION;
+                }
+                // maddi.rewire.requireIncremental (default false): every seeded analysis must stay incremental. A
+                // fall-back to the cold analysis is correct but slow; on a corpus whose edits are known to stay
+                // incremental it means an analyzer change made a warm run settle elsewhere than a cold one
+                if (Boolean.getBoolean("maddi.rewire.requireIncremental") && rewireResult.coldFallbacks() > 0) {
+                    LOGGER.error("Rewire tests: {} of {} re-parse(s) fell back to the cold analysis",
+                            rewireResult.coldFallbacks(), rewireResult.reparses());
                     exitValue = Main.EXIT_INTERNAL_EXCEPTION;
                 }
                 if (printMemory) {
@@ -370,7 +388,10 @@ public class RunAnalyzer implements Runnable {
                     true, // environment gates
                     true) // store the analysis fingerprints
                     // the facts the nullability pass reads, for a translation
-                    .withNullability(configuration.generalConfiguration().translate() != null);
+                    .withNullability(configuration.generalConfiguration().translate() != null)
+                    // @Fresh/@Borrowed/@Owned; the OWNERSHIP and OWNERSHIP_WORLD environment gates still apply too
+                    .withOwnership(configuration.generalConfiguration().ownership(),
+                            configuration.generalConfiguration().closedWorld());
             ModificationOutcome modificationOutcome;
             try {
                 modificationOutcome = engine().modification(new ModificationRequest(javaInspector, order,
@@ -417,10 +438,10 @@ public class RunAnalyzer implements Runnable {
     private boolean translationConfigured() {
         String translate = configuration.generalConfiguration().translate();
         if (translate == null) return true;
-        if (!Main.TRANSLATE_KOTLIN.equals(translate) && !Main.TRANSLATE_CSHARP.equals(translate)
-            && !Main.TRANSLATE_RUST.equals(translate)) {
-            LOGGER.error("--{} {}: choose '{}', '{}' or '{}'", Main.TRANSLATE, translate, Main.TRANSLATE_KOTLIN,
-                    Main.TRANSLATE_CSHARP, Main.TRANSLATE_RUST);
+        if (!Main.TRANSLATE_KOTLIN.equals(translate) && !Main.TRANSLATE_KOTLIN_STUBS.equals(translate)
+            && !Main.TRANSLATE_CSHARP.equals(translate) && !Main.TRANSLATE_RUST.equals(translate)) {
+            LOGGER.error("--{} {}: choose '{}', '{}', '{}' or '{}'", Main.TRANSLATE, translate, Main.TRANSLATE_KOTLIN,
+                    Main.TRANSLATE_KOTLIN_STUBS, Main.TRANSLATE_CSHARP, Main.TRANSLATE_RUST);
             return false;
         }
         if (configuration.generalConfiguration().translateOutput() == null) {
@@ -431,7 +452,8 @@ public class RunAnalyzer implements Runnable {
     }
 
     /**
-     * The main sources, translated into {@code --translate-output}, with the nullability pass's facts when the
+     * The main sources (for Rust also the test sources, as {@code #[test]}s), translated into
+     * {@code --translate-output}, with the nullability pass's facts when the
      * modification analysis ran ({@code order} not null). A printer crash on one compilation unit is reported, and
      * the others are written. {@code translation-report.txt} beside the sources lists the crashes and the printer's
      * messages.
@@ -443,12 +465,14 @@ public class RunAnalyzer implements Runnable {
         List<TypeInfo> all = summary.parseResult().primaryTypes().stream()
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
         List<TypeInfo> main = all.stream().filter(t -> !t.compilationUnit().sourceSet().test()).toList();
-        boolean kotlin = Main.TRANSLATE_KOTLIN.equals(translate);
+        boolean stubs = Main.TRANSLATE_KOTLIN_STUBS.equals(translate);
+        boolean kotlin = stubs || Main.TRANSLATE_KOTLIN.equals(translate);
         boolean rust = Main.TRANSLATE_RUST.equals(translate);
         // Rust, like Kotlin, has no platform type: what the analysis does not call nullable is not an Option
         NullabilityFacts facts = order == null ? null
                 : engine().nullabilityFacts(order, kotlin || rust ? NullabilityTarget.KOTLIN : NullabilityTarget.CSHARP);
-        LOGGER.info("Translating {} types to {} in {}, {}", main.size(), translate, out,
+        LOGGER.info("Translating {} types to {} in {}, {}", Main.TRANSLATE_RUST.equals(translate) ? all.size()
+                : main.size(), translate, out,
                 facts == null ? "without nullability facts" : "with the nullability pass's facts");
         List<String> crashes;
         List<String> messages;
@@ -456,8 +480,13 @@ public class RunAnalyzer implements Runnable {
         if (kotlin) {
             // main and test sources are one Kotlin code base: what a file may assume of the others
             KotlinPrintOptions options = (facts == null ? KotlinPrintOptions.DEFAULT
-                    : new KotlinPrintOptions(facts, KotlinPrintOptions.NullCheck.ASSERT)).withWorld(KotlinWorld.of(all));
+                    : new KotlinPrintOptions(facts, KotlinPrintOptions.NullCheck.ASSERT)).withWorld(KotlinWorld.of(all))
+                    .withBodies(stubs ? KotlinPrintOptions.Bodies.STUB : KotlinPrintOptions.Bodies.PRINT);
             KotlinTranslator.Result result = KotlinTranslator.translate(javaInspector.runtime(), main, options, out);
+            if (stubs) {
+                LOGGER.info("{} method bodies stubbed, described in {}", result.stubs().size(),
+                        out.resolve(KotlinTranslator.BODIES_FILE));
+            }
             crashes = result.crashes();
             messages = result.messages().stream().map(Object::toString).toList();
             files = result.files().size();
@@ -466,13 +495,14 @@ public class RunAnalyzer implements Runnable {
             // where a result comes from (a new object, a borrow of what) from the links of this run
             LinkFacts links = order == null ? LinkFacts.NONE : engine().linkFacts(order);
             RustFacts rustFacts = RustFacts.of(facts == null ? NullabilityFacts.STORED : facts, RustFacts.STORED, links);
-            RustTranslator.Result result = RustTranslator.translate(main, rustFacts, out);
+            // the test sources too: Rust cannot run the Java tests against the crate, its own #[test]s can
+            RustTranslator.Result result = RustTranslator.translate(all, rustFacts, out);
             crashes = result.crashes();
             messages = result.messages().stream().map(Object::toString).toList();
             files = result.files().size();
         } else {
             CSharpProgram.Policy policy = facts == null ? CSharpProgram.Policy.DEFAULT
-                    : CSharpProgram.Policy.DEFAULT.withFacts(CSharpFacts.of(facts, ParameterInfo::isUnmodified));
+                    : CSharpProgram.Policy.DEFAULT.withFacts(CSharpFacts.of(facts, ModificationFacts.STORED));
             CSharpTranslator.Result result = CSharpTranslator.translate(javaInspector.runtime(), main, policy, out);
             CSharpTranslator.writeProject(policy, out);
             crashes = result.crashes();

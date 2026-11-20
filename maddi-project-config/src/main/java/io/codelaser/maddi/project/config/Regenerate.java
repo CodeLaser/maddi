@@ -17,11 +17,11 @@
 
 package io.codelaser.maddi.project.config;
 
-import io.codelaser.maddi.inspection.api.resource.BuildFiles;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
 
 /**
  * How to make a project's configuration again, when its build files changed: run {@code command} in

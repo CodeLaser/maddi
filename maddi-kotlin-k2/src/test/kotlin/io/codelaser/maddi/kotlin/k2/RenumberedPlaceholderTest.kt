@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test
 /**
  * A placeholder that is a call's ARGUMENT survives [KotlinBodyConverter.normalizeIndices]. The renumbering translates
  * the body, and MethodCall's translation removed every argument that was an empty expression -- which a placeholder
- * is. Unread code vanished from the CST and from the census with it: `ServiceLoader.load(T::class.java)` (a reified
- * class literal) became `load(getJava())` whenever the body needed renumbering, which every inlined scope function
+ * is. Unread code vanished from the CST and from the census with it: `ServiceLoader.load(T::class.java)` (then a
+ * placeholder; now `listOf(c++)`, the value of a postfix increment on a user `inc()`, plays its part) became `load(getJava())` whenever the body needed renumbering, which every inlined scope function
  * (#88) does, and detekt's `loadExtensions` lost its verdict to the call with one argument too few.
  */
 class RenumberedPlaceholderTest : KotlinScanTestBase() {
@@ -34,13 +34,14 @@ class RenumberedPlaceholderTest : KotlinScanTestBase() {
     fun aPlaceholderArgumentIsKeptAndCounted() {
         val types = KotlinScan(runtime, sourceSet).parse("r/R.kt", """
             package r
-            inline fun <reified T : Any> plain(): List<T> = java.util.ServiceLoader.load(T::class.java).toList()
-            inline fun <reified T : Any> viaAlso(): List<T> = java.util.ServiceLoader.load(T::class.java).toList().also { println(it.size) }
+            class C { operator fun inc(): C = C() }
+            fun plain(c0: C): List<C> { var c = c0; return listOf(c++) }
+            fun viaAlso(c0: C): List<C> { var c = c0; return listOf(c++).also { println(it) } }
             """.trimIndent() + "\n")
         val body = { name: String -> types.flatMap { it.methods() }.first { it.name() == name }.methodBody().toString() }
-        assertEquals("{return CollectionsKt.toList(ServiceLoader.load(JvmClassMappingKt.getJavaClass(k2-unsupported-expr:KtClassLiteralExpression)));}",
+        assertEquals("{C c=c0;return CollectionsKt.listOf(k2-postfix-operator-value);}",
             body("plain"))
-        assertEquals("{List<Object> it=CollectionsKt.toList(ServiceLoader.load(JvmClassMappingKt.getJavaClass(k2-unsupported-expr:KtClassLiteralExpression)));{System.out.println(it.size);}return it;}",
+        assertEquals("{C c=c0;List<C> it=CollectionsKt.listOf(k2-postfix-operator-value);{System.out.println(it);}return it;}",
             body("viaAlso"))
         assertEquals(2, PlaceholderCensus.of(types).total)
     }

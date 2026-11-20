@@ -32,6 +32,11 @@ public enum RustPrintCode implements PrintMessage.Code {
      * through it. A call from the parent to a method the subclass overrides stays in the parent: no dynamic dispatch.
      */
     INHERITANCE_AS_COMPOSITION(Severity.LOSS),
+    /**
+     * A closed class hierarchy as one struct whose {@code kind} enum holds each class's own fields
+     * ({@link RustHierarchies}): an overridden method dispatches on the kind, {@code instanceof} tests it.
+     */
+    HIERARCHY_AS_ENUM(Severity.INFO),
     /** A static field that is not a constant: Rust has no mutable statics without {@code unsafe}. Left out. */
     STATIC_STATE(Severity.ERROR),
     /**
@@ -57,6 +62,11 @@ public enum RustPrintCode implements PrintMessage.Code {
     SYNCHRONIZED(Severity.LOSS),
     /** A dereference of a value the nullability verdicts call nullable: {@code .unwrap()}, Java's NPE as a panic. */
     UNWRAP_AT_DEREFERENCE(Severity.INFO),
+    /**
+     * {@code this} kept inside its own constructor, of a shared type (RustShared): {@code Shared::of} needs the object
+     * in its handle, which it is only after the constructor returns; a panic or worse at run time.
+     */
+    SHARED_THIS_IN_CONSTRUCTOR(Severity.BEHAVIOUR_CHANGE),
     /** A cast of an {@code Object}: {@code downcast_ref}, which panics where Java throws ClassCastException. */
     DOWNCAST(Severity.INFO),
     /** A reference cast: Rust has no downcast of a struct; the value is printed uncast. */

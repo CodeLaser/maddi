@@ -1,0 +1,188 @@
+[
+{"format": "maddi-analysis-results", "version": 2},
+
+{"name": "Tkotlinx.coroutines.flow.Flow", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "Mcollect(0,kotlinx.coroutines.flow.FlowCollector,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}}]}},
+
+{"name": "Tkotlinx.coroutines.flow.FlowKt__CollectKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mcollect(0,kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$collect(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "McollectIndexed(1,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function3,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$collectIndexed(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "McollectLatest(2,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$collectLatest(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "McollectLatest(3,kotlinx.coroutines.flow.SharedFlow,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$collectLatest(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MemitAll(4,kotlinx.coroutines.flow.FlowCollector,kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$emitAll(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pflow(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MlaunchIn(5,kotlinx.coroutines.flow.Flow,kotlinx.coroutines.CoroutineScope)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$launchIn(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pscope(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]}]},
+
+{"name": "Tkotlinx.coroutines.flow.FlowKt__CollectionKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Massociate(0,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$associate(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MassociateBy(1,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$associateBy(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MassociateBy(2,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$associateBy(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueTransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(3)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MassociateByTo(3,kotlinx.coroutines.flow.Flow,M,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$associateByTo(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(3)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MassociateByTo(4,kotlinx.coroutines.flow.Flow,M,kotlin.jvm.functions.Function2,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$associateByTo(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueTransform(3)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(4)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MassociateTo(5,kotlinx.coroutines.flow.Flow,M,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$associateTo(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(3)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MassociateWith(6,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$associateWith(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "PvalueSelector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MassociateWithTo(7,kotlinx.coroutines.flow.Flow,M,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$associateWithTo(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueSelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(3)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MgroupBy(8,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$groupBy(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MgroupBy(9,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$groupBy(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueTransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(3)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MgroupByTo(10,kotlinx.coroutines.flow.Flow,M,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$groupByTo(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(3)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MgroupByTo(11,kotlinx.coroutines.flow.Flow,M,kotlin.jvm.functions.Function2,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$groupByTo(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueTransform(3)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(4)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MtoCollection(12,kotlinx.coroutines.flow.Flow,C,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$toCollection(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MtoList(13,kotlinx.coroutines.flow.Flow,java.util.List,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$toList(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Pdestination(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MtoSet(14,kotlinx.coroutines.flow.Flow,java.util.Set,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$toSet(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Pdestination(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]}]},
+
+{"name": "Tkotlinx.coroutines.flow.FlowKt__CountKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mcount(0,kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$count(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "Mcount(1,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$count(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]}]},
+
+{"name": "Tkotlinx.coroutines.flow.FlowKt__ReduceKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mfirst(0,kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$first(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "Mfirst(1,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$first(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MfirstOrNull(2,kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$firstOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MfirstOrNull(3,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$firstOrNull(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "Mfold(4,kotlinx.coroutines.flow.Flow,R,kotlin.jvm.functions.Function3,kotlin.coroutines.Continuation)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$fold(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(3)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "Mlast(5,kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$last(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MlastOrNull(6,kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$lastOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "Mreduce(7,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function3,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$reduce(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Poperation(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "P$completion(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "Msingle(8,kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$single(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MsingleOrNull(9,kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$singleOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "P$completion(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]}]},
+
+{"name": "Tkotlinx.coroutines.flow.FlowKt__TransformKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mchunked(0,kotlinx.coroutines.flow.Flow,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$chunked(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mfilter(1,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$filter(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MfilterIsInstance(2,kotlinx.coroutines.flow.Flow,kotlin.reflect.KClass)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$filterIsInstance(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pklass(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MfilterNot(3,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$filterNot(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MfilterNotNull(4,kotlinx.coroutines.flow.Flow)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "P$this$filterNotNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+ {"name": "Mmap(5,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$map(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MmapNotNull(6,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$mapNotNull(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MonEach(7,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$onEach(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MrunningFold(8,kotlinx.coroutines.flow.Flow,R,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$runningFold(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MrunningReduce(9,kotlinx.coroutines.flow.Flow,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$runningReduce(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mscan(10,kotlinx.coroutines.flow.Flow,R,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "P$this$scan(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MwithIndex(11,kotlinx.coroutines.flow.Flow)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "P$this$withIndex(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}}]}
+]
