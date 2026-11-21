@@ -69,6 +69,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
      */
     private final Map<StatementTree, LabeledStatementTree> labelledStatementOf = new IdentityHashMap<>();
     private final Map<JCTree.JCVariableDecl, Source> wholeFieldDeclarationSources = new IdentityHashMap<>();
+    // corrected end positions for type trees javac stretched over a postfix annotation; see clampBeforePostfixAnnotations
+    private final Map<Tree, Long> endPositionOverrides = new IdentityHashMap<>();
     // fields whose commit createField deferred, so that ScanCompilationUnits can resolve their javadoc first
     private final List<FieldInfo> deferredFieldCommits = new ArrayList<>();
     private final CompilationUnit.Builder compilationUnitBuilder;
@@ -1280,12 +1282,69 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 if (targetsTypeUse(annotationTree)) typeAnnotations.add(ae);
                 if (targetsDeclaration(annotationTree)) declarationConsumer.accept(ae);
             }
+            clampBeforePostfixAnnotations(at);
         } else {
             rt = node;
             typeAnnotations = List.of();
         }
         ParameterizedType pt = convertType.convertTree(rt, dsb);
         return typeAnnotations.isEmpty() ? pt : pt.withAnnotations(List.copyOf(typeAnnotations));
+    }
+
+    /**
+     * ⛔ JAVAC STRETCHES A VARARGS ELEMENT TYPE OVER THE VARARGS ANNOTATION. In {@code Alpha @NonNull ... alphas}
+     * the parser reads {@code Alpha}, then the annotation, finds no {@code [} and pushes the annotation back for
+     * the ellipsis; but it records {@code Alpha}'s end position after that, at the end of {@code @NonNull}. The
+     * array form {@code Alpha @NonNull [] alphas} is not affected. So the detailed source of {@code a.Alpha} read
+     * {@code Alpha @NonNull}, and a refactoring that replaced that span by {@code a.Alpha} wrote
+     * {@code @NonNull a.Alpha ... alphas}, which does not compile (refactor-base's MoveType; timefold's
+     * {@code withMoveSelectorConfigs(@NonNull MoveSelectorConfig @NonNull ... c)}).
+     * <p>
+     * ▶ Every tree inside the annotated type's underlying type that javac ends at or after the first annotation
+     * written AFTER it is ended at the last token before that annotation instead. The annotations are the
+     * evidence; where javac's positions are right, nothing changes.
+     */
+    private void clampBeforePostfixAnnotations(JCTree.JCAnnotatedType at) {
+        JCTree underlying = at.getUnderlyingType();
+        long underlyingStart = sourcePositions.getStartPosition(compilationUnitTree, underlying);
+        if (underlyingStart == Diagnostic.NOPOS) return;
+        long limit = Long.MAX_VALUE;
+        for (JCTree.JCAnnotation annotation : at.getAnnotations()) {
+            long start = sourcePositions.getStartPosition(compilationUnitTree, annotation);
+            if (start != Diagnostic.NOPOS && start > underlyingStart) limit = Math.min(limit, start);
+        }
+        if (limit == Long.MAX_VALUE) return;
+        String text = scanJavaDoc.sourceText().get();
+        if (text == null || limit > text.length()) return;
+        long newEnd = endOfLastTokenBefore(text, (int) limit);
+        long finalLimit = limit;
+        new TreeScanner<Void, Void>() {
+            @Override
+            public Void scan(Tree tree, Void unused) {
+                if (tree == null) return null;
+                long start = sourcePositions.getStartPosition(compilationUnitTree, tree);
+                long end = sourcePositions.getEndPosition(compilationUnitTree, tree);
+                if (start != Diagnostic.NOPOS && start < newEnd && end != Diagnostic.NOPOS && end > finalLimit) {
+                    endPositionOverrides.put(tree, newEnd);
+                }
+                return super.scan(tree, unused);
+            }
+        }.scan(underlying, null);
+    }
+
+    // the (exclusive) end of the last token before 'pos', skipping white space and comments
+    private static long endOfLastTokenBefore(String text, int pos) {
+        int i = pos;
+        while (true) {
+            while (i > 0 && Character.isWhitespace(text.charAt(i - 1))) i--;
+            if (i >= 2 && text.charAt(i - 1) == '/' && text.charAt(i - 2) == '*') {
+                int open = text.lastIndexOf("/*", i - 3);
+                if (open < 0) return i;
+                i = open;
+            } else {
+                return i;
+            }
+        }
     }
 
     /**
@@ -3945,7 +4004,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
         long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
         if (startPos == 0 && endPos == 0) return runtime.noSource(); // empty source file, for example
-        return sourceForNode(index, startPos, endPos);
+        Long override = endPositionOverrides.get(node);
+        return sourceForNode(index, startPos, override == null ? endPos : override);
     }
 
     private List<Comment> commentsForNode(Source source) {
