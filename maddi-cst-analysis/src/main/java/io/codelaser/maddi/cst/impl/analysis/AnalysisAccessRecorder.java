@@ -278,9 +278,42 @@ public final class AnalysisAccessRecorder {
     }
 
     static void readAll() {
+        boolean first = false;
         for (Recording r = CURRENT.get(); r != null; r = r.enclosing) {
-            if (r.unusable == null) r.unusable = "readAll";
+            if (r.unusable == null) {
+                r.unusable = "readAll";
+                first = true;
+            }
         }
+        if (first && READALL_TRACE) traceReadAll();
+    }
+
+    /*
+     DIAGNOSTIC, gate READALLTRACE (presence): who makes recordings unusable by reading a whole property map? Counts
+     the caller frames (the first ones outside the analysis map) of every readAll that spoils a recording; printed
+     at exit, most frequent first.
+     */
+    private static final boolean READALL_TRACE = System.getenv("READALLTRACE") != null;
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>
+            READALL_CALLERS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    static {
+        if (READALL_TRACE) {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> READALL_CALLERS.entrySet().stream()
+                    .sorted((x, y) -> y.getValue().get() - x.getValue().get()).limit(30)
+                    .forEach(e -> System.out.println("READALLTRACE " + e.getValue().get() + " " + e.getKey()))));
+        }
+    }
+
+    private static void traceReadAll() {
+        String key = StackWalker.getInstance().walk(frames -> frames
+                .dropWhile(f -> f.getClassName().startsWith(AnalysisAccessRecorder.class.getName())
+                                || f.getClassName().endsWith("PropertyValueMapImpl"))
+                .limit(5)
+                .map(f -> f.getClassName().substring(f.getClassName().lastIndexOf('.') + 1) + "." + f.getMethodName()
+                          + ":" + f.getLineNumber())
+                .reduce((x, y) -> x + " < " + y).orElse("?"));
+        READALL_CALLERS.computeIfAbsent(key, _ -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();
     }
 
     public static boolean active() {
