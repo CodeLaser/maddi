@@ -430,6 +430,21 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     /**
+     * Let go of the last scan's javac task, with every syntax tree and source buffer it holds, once nothing will parse
+     * again: compiled-type loads then go to a source-free task built on demand, as after generation. A batch run calls
+     * this after its parse; on closed-core (22k primary types) the retained task was 1.7 GB of a 5.7 GB live heap.
+     * The IDE keeps the task: it re-parses and loads against it again and again.
+     */
+    public void releaseScanTask() {
+        if (lastScanUnits == null || lastScanUnitsGenerated) return;
+        LoaderSpec spec = loaderSpecBySourceSet.get(lastScanUnits.sourceSet());
+        if (spec == null) return; // cannot rebuild a loader: keep the task
+        loaderUnits = null;
+        loaderSpec = spec;
+        lastScanUnits = null;
+    }
+
+    /**
      * The javac task that may still be asked to resolve a compiled type: the most recent scan's while it is intact,
      * otherwise a source-free replacement built on demand. Source-set agnostic — the historical behaviour, kept as
      * the fall-back of {@link #loadCompiledTypeOrNull}.

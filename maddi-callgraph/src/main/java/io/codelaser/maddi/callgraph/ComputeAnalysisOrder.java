@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -66,6 +67,47 @@ public class ComputeAnalysisOrder {
      * first), then the cycle groups, then the periphery attached to cycles (its hierarchy levels are
      * dependency-ordered). Same subgraph and element set as {@link #go(G)}; FQN-sorted for determinism.
      */
+    /*
+     A cycle group larger than this is cut into chunks that run concurrently. One sequential unit was right for the
+     cycles of a normal code base; closed-core has a cycle of some 10K of its 25K types, and its first iteration
+     ran on one thread for hours while the others idled. The link computer's lock-free mode (lockComputeDisabled)
+     already handles a member whose callee another thread has not linked yet: it computes it on demand and writes
+     it TolerantWrite-guarded, and RecursionPrevention ends the recursion; the later passes, parallel anyway, reach
+     the fixpoint. CYCLESPLIT=<n> sets the size; gate NOCYCLESPLIT keeps every cycle one unit.
+     */
+    static final int CYCLE_SPLIT = System.getenv("NOCYCLESPLIT") != null ? Integer.MAX_VALUE
+            : System.getenv("CYCLESPLIT") == null ? 512 : Integer.parseInt(System.getenv("CYCLESPLIT"));
+
+    /** A cycle group in chunks of about {@link #CYCLE_SPLIT} elements; a primary type's elements stay together. */
+    static List<List<Info>> splitLargeCycle(List<Info> unit) {
+        if (unit.size() <= CYCLE_SPLIT) return List.of(unit);
+        List<List<Info>> chunks = chunks(unit, CYCLE_SPLIT, info -> info.typeInfo().primaryType());
+        LOGGER.info("Cycle group of {} elements split into {} chunks for the parallel first iteration", unit.size(),
+                chunks.size());
+        return chunks;
+    }
+
+    /**
+     * Consecutive chunks of at least {@code size} elements (the last one may be smaller), in the list's order; a new
+     * chunk only starts where the group key changes, so elements with the same key in a row are never split.
+     */
+    static <T> List<List<T>> chunks(List<T> list, int size, Function<T, Object> groupKey) {
+        List<List<T>> chunks = new ArrayList<>();
+        List<T> current = new ArrayList<>();
+        Object currentKey = null;
+        for (T t : list) {
+            Object key = groupKey.apply(t);
+            if (current.size() >= size && !key.equals(currentKey)) {
+                chunks.add(List.copyOf(current));
+                current = new ArrayList<>();
+            }
+            current.add(t);
+            currentKey = key;
+        }
+        if (!current.isEmpty()) chunks.add(List.copyOf(current));
+        return chunks;
+    }
+
     public static List<List<List<Info>>> waves(G<Info> callGraph) {
         Set<V<Info>> subSet = callGraph.vertices().stream()
                 .filter(v -> !(v.t() instanceof ModuleInfo))
@@ -84,6 +126,7 @@ public class ComputeAnalysisOrder {
                 .map(c -> (List<Info>) c.vertices().stream().map(V::t).sorted(cmp).toList())
                 .filter(u -> !u.isEmpty())
                 .sorted(Comparator.comparing(u -> u.getFirst().fullyQualifiedName()))
+                .flatMap(u -> splitLargeCycle(u).stream())
                 .toList();
         if (!cycleUnits.isEmpty()) waves.add(cycleUnits);
         for (Set<V<Info>> level : result.attachedToCycles().list()) {
