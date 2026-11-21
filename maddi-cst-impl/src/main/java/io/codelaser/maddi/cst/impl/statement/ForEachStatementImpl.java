@@ -184,7 +184,7 @@ public class ForEachStatementImpl extends StatementImpl implements ForEachStatem
         if (translatedLvc != initializer
             || expression != translated
             || translatedBlock.getFirst() != block
-            || translationMap.isClearAnalysis() && !analysis().isEmpty()
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()
             || tAnnotations != annotations()) {
             ForEachStatementImpl fs = new ForEachStatementImpl(comments(), source(), tAnnotations, label(),
                     translatedLvc, translated, ensureBlock(translatedBlock));

@@ -131,7 +131,7 @@ public class ExpressionAsStatementImpl extends StatementImpl implements Expressi
         if (hasBeenTranslated(direct, this)) return direct;
         Expression tex = expression.translate(translationMap);
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
-        if (tex != expression || translationMap.isClearAnalysis() && !analysis().isEmpty()
+        if (tex != expression || !analysis().isEmpty() && translationMap.isClearAnalysis()
             || tAnnotations != annotations()) {
             if (tex == null || tex.isEmpty()) return List.of();
             ExpressionAsStatement newEas

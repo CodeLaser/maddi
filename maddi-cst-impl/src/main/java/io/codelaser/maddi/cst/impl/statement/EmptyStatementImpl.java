@@ -100,7 +100,7 @@ public class EmptyStatementImpl extends StatementImpl implements EmptyStatement 
         List<Statement> direct = translationMap.translateStatement(this);
         if (hasBeenTranslated(direct, this)) return direct;
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
-        if (translationMap.isClearAnalysis() && !analysis().isEmpty()
+        if (!analysis().isEmpty() && translationMap.isClearAnalysis()
             || tAnnotations != annotations()) {
             EmptyStatement es = new EmptyStatementImpl(comments(), source(), tAnnotations, label());
             return translationMap.postTranslationHandler(this, List.of(es));

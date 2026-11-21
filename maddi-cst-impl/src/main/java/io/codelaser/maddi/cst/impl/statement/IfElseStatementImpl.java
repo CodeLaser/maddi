@@ -213,7 +213,7 @@ public class IfElseStatementImpl extends StatementImpl implements IfElseStatemen
         Block tElse = (Block) elseBlock.translate(translationMap).getFirst();
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         if (tex != expression || tIf != block || tElse != elseBlock
-            || translationMap.isClearAnalysis() && !analysis().isEmpty()
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()
             || tAnnotations != annotations()) {
             IfElseStatement ie = new IfElseStatementImpl(comments(), source(), tAnnotations, label(), tex,
                     tIf, tElse);

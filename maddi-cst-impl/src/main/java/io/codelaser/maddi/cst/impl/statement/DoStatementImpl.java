@@ -155,7 +155,7 @@ public class DoStatementImpl extends StatementImpl implements DoStatement {
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         if (tex != expression || hasBeenTranslated(translatedBlock, block)
             || tAnnotations != annotations()
-            || translationMap.isClearAnalysis() && !analysis().isEmpty()) {
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()) {
             DoStatement newDo = new DoStatementImpl(comments(), source(), tAnnotations, label(), tex,
                     ensureBlock(translatedBlock));
             if (!translationMap.isClearAnalysis()) newDo.analysis().setAll(analysis());

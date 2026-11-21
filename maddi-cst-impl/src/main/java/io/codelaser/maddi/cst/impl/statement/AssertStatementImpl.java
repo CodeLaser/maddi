@@ -144,7 +144,7 @@ public class AssertStatementImpl extends StatementImpl implements AssertStatemen
         Expression msg = message.translate(translationMap);
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         if (tex != expression || msg != message
-            || translationMap.isClearAnalysis() && !analysis().isEmpty()
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()
             || tAnnotations != annotations()) {
             AssertStatement as = new AssertStatementImpl(comments(), source(), tAnnotations, label(), tex, msg);
             if (!translationMap.isClearAnalysis()) as.analysis().setAll(analysis());

@@ -159,7 +159,7 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         if (tEntries != entries || tSelector != selector
             || tAnnotations != annotations()
-            || translationMap.isClearAnalysis() && !analysis().isEmpty()) {
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()) {
             SwitchStatementNewStyleImpl ssns = new SwitchStatementNewStyleImpl(comments(), source(),
                     tAnnotations, label(), tSelector, tEntries);
             if (!translationMap.isClearAnalysis()) ssns.analysis().setAll(analysis());

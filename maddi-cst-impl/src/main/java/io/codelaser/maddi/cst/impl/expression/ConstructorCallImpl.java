@@ -429,7 +429,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
             && trTypeArgs == typeArguments
             && translatedInitializer == arrayInitializer
             && tAnonymous == anonymousClass
-            && (!translationMap.isClearAnalysis() || analysis.isEmpty())) {
+            && (analysis.isEmpty() || !translationMap.isClearAnalysis())) {
             return this;
         }
         Source source = source();

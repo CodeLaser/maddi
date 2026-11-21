@@ -602,7 +602,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
             return direct;
         }
         ParameterizedType tReturnType = translationMap.translateType(returnType());
-        boolean change = tReturnType != returnType() || translationMap.isClearAnalysis() && !analysis().isEmpty();
+        boolean change = tReturnType != returnType() || !analysis().isEmpty() && translationMap.isClearAnalysis();
 
         ParameterizedType ownerPt = typeInfo.asSimpleParameterizedType();
         boolean ownerChange = translationMap.translateType(ownerPt) != ownerPt;

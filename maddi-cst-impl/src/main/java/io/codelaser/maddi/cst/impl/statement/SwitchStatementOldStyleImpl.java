@@ -325,7 +325,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
         Statement tBlock = block.translate(translationMap).getFirst();
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         if (tBlock != block || tSelector != selector || translatedLabels != switchLabels
-            || translationMap.isClearAnalysis() && !analysis().isEmpty()
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()
             || tAnnotations != annotations()) {
             SwitchStatementOldStyleImpl ssos = new SwitchStatementOldStyleImpl(comments(), source(),
                     tAnnotations, label(), tSelector, (Block) tBlock, translatedLabels);
