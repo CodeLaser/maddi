@@ -938,6 +938,13 @@ public class ComputeCallGraph {
         for (AnnotationExpression ae : pt.annotations()) {
             TypeInfo to = ae.typeInfo();
             if (to != from && accept(to)) builder.mergeEdge(from, to, edgeValue);
+            // ... and its ARGUMENTS, as doAnnotations does for a declaration annotation:
+            // `List<@WithConverter(TrimmedStringConverter.class) String>` depends on the converter. Without this the
+            // edge existed nowhere, and seam / split analyses called a carve acyclic while a moved config interface
+            // still named a staying converter this way (Quarkus c07, modularization campaign QE-31).
+            for (AnnotationExpression.KV kv : ae.keyValuePairs()) {
+                kv.value().visit(new Visitor(from));
+            }
         }
         TypeInfo best = pt.bestTypeInfo();
         if (best != null) {
