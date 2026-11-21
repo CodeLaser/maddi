@@ -192,7 +192,7 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
         List<Expression> list = parameterExpressions.stream()
                 .map(e -> e.translate(translationMap)).collect(translationMap.toList(parameterExpressions));
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
-        if (list != parameterExpressions || !analysis().isEmpty() && translationMap.isClearAnalysis()
+        if (list != parameterExpressions || translationMap.isClearAnalysis() && !analysis().isEmpty()
             || tAnnotations != annotations()) {
             ExplicitConstructorInvocation eci = new ExplicitConstructorInvocationImpl(comments(),
                     source(), tAnnotations, label(), isSuper, methodInfo, synthetic, parameterExpressions);

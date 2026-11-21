@@ -262,7 +262,7 @@ public class BlockImpl extends StatementImpl implements Block {
             assert direct.size() == 1 && direct.getFirst() instanceof Block;
             return direct;
         }
-        boolean change = !analysis().isEmpty() && translationMap.isClearAnalysis();
+        boolean change = translationMap.isClearAnalysis() && !analysis().isEmpty();
         List<Statement> tStatements = new ArrayList<>(2 * statements.size());
         for (Statement statement : statements) {
             List<Statement> tStatement = statement.translate(translationMap);

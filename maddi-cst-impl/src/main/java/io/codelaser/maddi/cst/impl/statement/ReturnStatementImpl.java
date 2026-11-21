@@ -189,7 +189,7 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
         if (hasBeenTranslated(direct, this)) return direct;
         Expression tex = expression.translate(translationMap);
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
-        if (tex != expression || !analysis().isEmpty() && translationMap.isClearAnalysis()
+        if (tex != expression || translationMap.isClearAnalysis() && !analysis().isEmpty()
             || tAnnotations != annotations()) {
             ReturnStatementImpl rs = new ReturnStatementImpl(comments(), source(), tAnnotations, label(), tex,
                     exitLevels, goToLabel);

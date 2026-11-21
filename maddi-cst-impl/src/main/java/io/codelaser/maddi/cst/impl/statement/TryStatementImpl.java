@@ -447,7 +447,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
                 .collect(translationMap.toList(catchClauses));
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         if (tMain != block || tFinally != finallyBlock || tCatch != catchClauses
-            || tResources != resources || !analysis().isEmpty() && translationMap.isClearAnalysis()
+            || tResources != resources || translationMap.isClearAnalysis() && !analysis().isEmpty()
             || tAnnotations != annotations()) {
             TryStatementImpl ts = new TryStatementImpl(comments(), source(), tAnnotations, label(), tResources,
                     tMain, tCatch, tFinally);

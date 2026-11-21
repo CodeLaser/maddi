@@ -298,7 +298,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         TypeInfo tOwner = translationMap.translateType(owner.asSimpleParameterizedType()).typeInfo();
         ParameterizedType tType = translationMap.translateType(type());
 
-        if (tOwner != owner || tInit != init || tType != type() || !analysis().isEmpty() && translationMap.isClearAnalysis()) {
+        if (tOwner != owner || tInit != init || tType != type() || translationMap.isClearAnalysis() && !analysis().isEmpty()) {
             FieldInfoImpl newField = new FieldInfoImpl(name, isStatic, tType, tOwner);
             newField.builder()
                     .setInitializer(tInit)

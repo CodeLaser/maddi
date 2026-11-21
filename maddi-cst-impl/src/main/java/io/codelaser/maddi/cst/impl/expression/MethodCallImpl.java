@@ -439,7 +439,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
             && !parametersChanged
             && newModificationTimes.equals(modificationTimes)
             && !typeArgumentsChanged
-            && (propertyValueMap.isEmpty() || !translationMap.isClearAnalysis())) {
+            && (!translationMap.isClearAnalysis() || propertyValueMap.isEmpty())) {
             return this;
         }
         MethodCall translatedMc = new MethodCallImpl(comments(), source(), translatedObject, objectIsImplicit,
