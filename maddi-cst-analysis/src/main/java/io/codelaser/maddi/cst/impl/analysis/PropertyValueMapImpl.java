@@ -272,7 +272,13 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
 
     @Override
     public synchronized boolean isEmpty() {
-        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.readAll();
+        boolean empty = data == null || data instanceof Map<?, ?> m && m.isEmpty();
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, AnalysisAccessRecorder.EMPTINESS, empty);
+        return empty;
+    }
+
+    @Override
+    public synchronized Object peekEmptiness() {
         return data == null || data instanceof Map<?, ?> m && m.isEmpty();
     }
 }
