@@ -381,10 +381,20 @@ public class ParameterizedTypeImpl implements ParameterizedType {
      * need an import for.
      */
     private Stream<Element.TypeReference> annotationsReferenced() {
-        return annotations.stream()
-                .map(AnnotationExpression::typeInfo)
-                .filter(Objects::nonNull)
-                .map(ti -> new ElementImpl.TypeReference(ti, Element.TypeReferenceNature.EXPLICIT, ti));
+        return annotations.stream().flatMap(ae -> {
+            Stream<Element.TypeReference> type = ae.typeInfo() == null ? Stream.of()
+                    : Stream.of(new ElementImpl.TypeReference(ae.typeInfo(), Element.TypeReferenceNature.EXPLICIT,
+                    ae.typeInfo()));
+            // ⛔ AND WHAT ITS ARGUMENTS NAME. `List<@WithConverter(TrimmedStringConverter.class) String>` uses
+            // TrimmedStringConverter in code: it needs its import, and every graph built from typesReferenced needs
+            // the edge. Without the arguments it existed nowhere but in the text (Quarkus c07, QE-31 in the
+            // modularization campaign): a move dropped the import as "javadoc-only" in 7 files, and the planning
+            // verbs called a split acyclic while a moved type still used a staying converter this way.
+            // A declaration annotation already walks its arguments (AnnotationExpressionImpl.typesReferenced).
+            Stream<Element.TypeReference> arguments = ae.keyValuePairs().stream()
+                    .flatMap(kv -> kv.value().typesReferenced(e -> true));
+            return Stream.concat(type, arguments);
+        });
     }
 
     @Override
