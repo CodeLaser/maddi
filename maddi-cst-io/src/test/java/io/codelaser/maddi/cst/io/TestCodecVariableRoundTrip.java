@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.io;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,29 @@ public class TestCodecVariableRoundTrip extends CommonTest {
         FieldReference fr = runtime.newFieldReference(f);
         String encoded = "[\"F\",[\"Ta.b.C\",\"Ff(0)\"]]";
         assertEquals(encoded, codec.encodeVariable(context, fr).toString());
+        assertEquals(fr, codec.decodeVariable(context, makeD(encoded)));
+    }
+
+    @DisplayName("field reference, explicit 'this.f' is written as 'f' (F, maddi-mod#103)")
+    @Test
+    public void testFieldReferenceExplicitThis() {
+        context.push(typeInfo);
+        FieldReference fr = runtime.newFieldReference(f,
+                runtime.newVariableExpression(runtime.newThis(typeInfo.asParameterizedType())), f.type());
+        assertEquals(runtime.newFieldReference(f), fr);
+        String encoded = "[\"F\",[\"Ta.b.C\",\"Ff(0)\"]]";
+        assertEquals(encoded, codec.encodeVariable(context, fr).toString());
+        assertEquals(fr, codec.decodeVariable(context, makeD(encoded)));
+    }
+
+    @DisplayName("field reference, 'super.f' keeps its scope (F)")
+    @Test
+    public void testFieldReferenceSuperScope() {
+        context.push(typeInfo);
+        FieldReference fr = runtime.newFieldReference(f,
+                runtime.newVariableExpression(runtime.newThis(typeInfo.asParameterizedType(), null, true)), f.type());
+        String encoded = codec.encodeVariable(context, fr).toString();
+        assertTrue(encoded.startsWith("[\"F\",[\"Ta.b.C\",\"Ff(0)\"],["), encoded);
         assertEquals(fr, codec.decodeVariable(context, makeD(encoded)));
     }
 

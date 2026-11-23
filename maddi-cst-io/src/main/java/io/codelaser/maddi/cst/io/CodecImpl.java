@@ -1118,7 +1118,7 @@ public class CodecImpl implements Codec {
             case FieldReference fr -> {
                 EncodedValue f = encodeString(context, "F");
                 EncodedValue encodedFieldInfo = encodeInfoOutOfContext(context, fr.fieldInfo());
-                if (fr.isDefaultScope()) {
+                if (fr.isDefaultScope() || isPlainThisScope(fr)) {
                     yield encodeList(context, List.of(f, encodedFieldInfo));
                 }
                 yield encodeList(context, List.of(f, encodedFieldInfo, encodeExpression(context, fr.scope())));
@@ -1144,6 +1144,21 @@ public class CodecImpl implements Codec {
             default -> throw new UnsupportedOperationException("No codec for the variable "
                                                                + variable.getClass().getSimpleName() + " " + variable);
         };
+    }
+
+    /*
+     An explicit 'this.x' is the same variable as a plain 'x' (equal, interned interchangeably), so it is written the
+     same way: which of the two instances survives must not decide the output (CodeLaser/maddi-mod#103,
+     SSAConstructorSparseEx.processExprent printed 'this.phi' in one analysis, 'phi' in the next). Only the 'this'
+     of the field's own type without 'super' or an explicit outer type: anything else keeps its scope.
+     */
+    private static boolean isPlainThisScope(FieldReference fr) {
+        return !fr.isStatic()
+               && fr.scope() instanceof VariableExpression ve
+               && ve.variable() instanceof This thisVar
+               && !thisVar.writeSuper()
+               && thisVar.explicitlyWriteType() == null
+               && thisVar.typeInfo().equals(fr.fieldInfo().owner());
     }
 
     private EncodedValue encodeWildcard(Context context, Wildcard wildcard) {
