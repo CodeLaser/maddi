@@ -137,8 +137,6 @@ public final class AnalysisAccessRecorder {
         private final Map<Slot, Object> writes = new HashMap<>();
         // REPRODUCEDTRACE: where a slot that was read first was then written
         private Map<Slot, String> writeSites;
-        // owners created during this computation: their slots are its own output, never an input (see created)
-        private Set<Owner> fresh;
         private String unusable;
         private Object context;
         // filled by stop()
@@ -225,12 +223,7 @@ public final class AnalysisAccessRecorder {
             return s.length() > 200 ? s.substring(0, 200) + "..." : s;
         }
 
-        private boolean isFresh(Owner owner) {
-            return fresh != null && fresh.contains(owner);
-        }
-
         private void read(Slot slot, Object value) {
-            if (isFresh(slot.owner)) return;
             if (!writes.containsKey(slot)) reads.putIfAbsent(slot, value == null ? ABSENT : value);
         }
 
@@ -263,7 +256,6 @@ public final class AnalysisAccessRecorder {
             reads.clear();
             writes.clear();
             writeSites = null;
-            fresh = null;
         }
     }
 
@@ -290,7 +282,6 @@ public final class AnalysisAccessRecorder {
         CURRENT.set(recording.enclosing);
         recording.reads.clear();
         recording.writes.clear();
-        recording.fresh = null;
         recording.unusable = "abandoned";
     }
 
@@ -307,7 +298,6 @@ public final class AnalysisAccessRecorder {
         if (r == null) return;
         Slot slot = new Slot(owner, key);
         for (; r != null; r = r.enclosing) {
-            if (r.isFresh(owner)) continue;
             if (REPRODUCED_TRACE && r.reads.containsKey(slot) && !r.writes.containsKey(slot)) {
                 if (r.writeSites == null) r.writeSites = new HashMap<>();
                 r.writeSites.put(slot, callers(AnalysisAccessRecorder.class.getName(), 6));
@@ -316,28 +306,9 @@ public final class AnalysisAccessRecorder {
         }
     }
 
-    /**
-     * {@code owner} was created by the computations being recorded on this thread: what they read from it, they or
-     * a nested computation wrote there first, and a later run creates a new one. Its slots are left out of those
-     * recordings: recorded, a read before the first write (an overwrite check finding nothing) followed by that
-     * write made every such computation "reproduced", unusable for the cache. A skipped computation leaves the
-     * previous run's objects in place, which hold what this one would have written.
-     */
-    public static void created(Owner owner) {
-        if (!FRESH_OWNERS) return;
-        for (Recording r = CURRENT.get(); r != null; r = r.enclosing) {
-            if (r.fresh == null) r.fresh = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-            r.fresh.add(owner);
-        }
-    }
-
-    // gate NOFRESHOWNERS: record the slots of owners created during the computation, as before
-    private static final boolean FRESH_OWNERS = System.getenv("NOFRESHOWNERS") == null;
-
-    static void readAll(Owner owner) {
+    static void readAll() {
         boolean first = false;
         for (Recording r = CURRENT.get(); r != null; r = r.enclosing) {
-            if (r.isFresh(owner)) continue;
             if (r.unusable == null) {
                 r.unusable = "readAll";
                 first = true;
