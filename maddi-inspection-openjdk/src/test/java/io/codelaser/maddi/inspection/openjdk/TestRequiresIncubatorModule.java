@@ -18,12 +18,17 @@
 package io.codelaser.maddi.inspection.openjdk;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.lang.module.ModuleFinder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -98,6 +103,98 @@ public class TestRequiresIncubatorModule {
         assertParses(dir, false, OLDER_RELEASE);
     }
 
+    /**
+     * A required module that the release the set compiles against does not have: jdk.incubator.vector arrived in 16,
+     * so release 15 has no such module. javac refuses {@code --add-modules} of a module it cannot find ("module not
+     * found") and rejects the whole task, so the module is added only when the platform javac compiles against has
+     * it -- the running JDK has it, release 15 does not. A class that does not use the module parses either way.
+     */
+    @DisplayName("a required module the set's release does not have is not added, the rest of the set parses")
+    @Test
+    public void requiredModuleMissingFromRelease(@TempDir Path dir) throws IOException {
+        Path src = dir.resolve("src");
+        Files.createDirectories(src.resolve("spi"));
+        Files.writeString(src.resolve("module-info.java"), MODULE_INFO);
+        Files.writeString(src.resolve("spi/Plain.java"), "package spi;\npublic class Plain { }\n");
+        SourceSet spi = new SourceSetImpl.Builder().setName("spi/main").setSourceDirectories(List.of(src))
+                .setUri(src.toUri()).setModule(true).setSourceRelease(15).build();
+        Summary summary = parse(spi, true);
+
+        List<String> problems = Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
+                .map(e -> e.uri() + ": " + e.getMessage()).toList();
+        assertEquals(List.of(), problems, "the parse reports these problems; it should report none");
+        assertEquals(List.of("spi.Plain"), summary.types().stream().map(TypeInfo::fullyQualifiedName).sorted().toList(),
+                "the classes the parse produced; spi.Plain is the only class in the source set");
+    }
+
+    /**
+     * The test source set of a module has no module-info.java of its own. Maven compiles it INTO the main module
+     * ({@code --patch-module}), so the main module's {@code requires} apply to the tests as well, and the build's
+     * javac line for the tests has no {@code --add-modules} either. The test set inherits the required modules of
+     * the source set of its own build unit that has the descriptor.
+     */
+    @DisplayName("a test set without module-info uses the modules its build unit's main module requires")
+    @Test
+    public void testSetOfTheModule(@TempDir Path dir) throws IOException {
+        Path main = dir.resolve("spi/src/main/java");
+        Path test = dir.resolve("spi/src/test/java");
+        Files.createDirectories(main.resolve("spi"));
+        Files.createDirectories(test.resolve("spi"));
+        Files.writeString(main.resolve("module-info.java"), MODULE_INFO);
+        Files.writeString(main.resolve("spi/Plain.java"), "package spi;\npublic class Plain { }\n");
+        Files.writeString(test.resolve("spi/EncodingTest.java"), ENCODING.replace("class Encoding", "class EncodingTest"));
+        String buildUnit = dir.resolve("spi").toString();
+        SourceSet mainSet = new SourceSetImpl.Builder().setName("spi/main").setBuildUnit(buildUnit)
+                .setSourceDirectories(List.of(main)).setUri(main.toUri()).setModule(true)
+                .setSourceRelease(OLDER_RELEASE).build();
+        SourceSet testSet = new SourceSetImpl.Builder().setName("spi/test").setBuildUnit(buildUnit).setTest(true)
+                .setSourceDirectories(List.of(test)).setUri(test.toUri()).setDependencies(List.of(mainSet))
+                .setSourceRelease(OLDER_RELEASE).build();
+        InputConfiguration ic = new InputConfigurationImpl.Builder().addSourceSets(mainSet, testSet)
+                .addClassPath("jmod:java.base").build();
+        JavaInspector javaInspector = new JavaInspectorImpl();
+        javaInspector.initialize(ic);
+        Summary summary = javaInspector.parse(Map.of(), new JavaInspector.ParseOptions.Builder()
+                .setFailFast(false).setIgnoreModule(true).build());
+
+        List<String> problems = Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
+                .map(e -> e.uri() + ": " + e.getMessage()).toList();
+        assertEquals(List.of(), problems, "the parse reports these problems; it should report none");
+        assertEquals(List.of("spi.EncodingTest", "spi.Plain"),
+                summary.types().stream().map(TypeInfo::fullyQualifiedName)
+                        .filter(n -> !n.endsWith(".package-info")).sorted().toList(),
+                "the classes the parse produced: spi.Plain in main, spi.EncodingTest in test");
+    }
+
+    @DisplayName("the modules of a release come from javac's release data: jdk.incubator.vector from 16 on")
+    @Test
+    public void modulesOfRelease() {
+        Set<String> release15 = JavaInspectorImpl.modulesOfRelease(15);
+        Set<String> release17 = JavaInspectorImpl.modulesOfRelease(17);
+        assertTrue(release15.contains("java.base") && release17.contains("java.base"),
+                "java.base is a module of every release with modules");
+        assertFalse(release15.contains("jdk.incubator.vector"), "release 15 has no jdk.incubator.vector");
+        assertTrue(release17.contains("jdk.incubator.vector"), "release 17 has jdk.incubator.vector");
+    }
+
+    @DisplayName("the modules of a JRE come from its runtime image")
+    @Test
+    public void modulesOfJre() {
+        Set<String> modules = JavaInspectorImpl.modulesOfJre(Path.of(System.getProperty("java.home")));
+        assertEquals(ModuleFinder.ofSystem().findAll().stream().map(r -> r.descriptor().name())
+                        .collect(Collectors.toSet()), modules,
+                "left: the running JDK's modules as ModuleFinder lists them; right: as read from its image");
+    }
+
+    private static Summary parse(SourceSet sourceSet, boolean ignoreModule) throws IOException {
+        InputConfiguration ic = new InputConfigurationImpl.Builder().addSourceSets(sourceSet)
+                .addClassPath("jmod:java.base").build();
+        JavaInspector javaInspector = new JavaInspectorImpl();
+        javaInspector.initialize(ic);
+        return javaInspector.parse(Map.of(), new JavaInspector.ParseOptions.Builder()
+                .setFailFast(false).setIgnoreModule(ignoreModule).build());
+    }
+
     private static void assertParses(Path dir, boolean ignoreModule, int sourceRelease) throws IOException {
         Path src = dir.resolve("src");
         Files.createDirectories(src.resolve("spi"));
@@ -106,12 +203,7 @@ public class TestRequiresIncubatorModule {
         // as trino's configuration has it: a module, and no addModules
         SourceSet spi = new SourceSetImpl.Builder().setName("core/trino-spi/main").setSourceDirectories(List.of(src))
                 .setUri(src.toUri()).setModule(true).setSourceRelease(sourceRelease).build();
-        InputConfiguration ic = new InputConfigurationImpl.Builder().addSourceSets(spi)
-                .addClassPath("jmod:java.base").build();
-        JavaInspector javaInspector = new JavaInspectorImpl();
-        javaInspector.initialize(ic);
-        Summary summary = javaInspector.parse(Map.of(), new JavaInspector.ParseOptions.Builder()
-                .setFailFast(false).setIgnoreModule(ignoreModule).build());
+        Summary summary = parse(spi, ignoreModule);
 
         List<String> problems = Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
                 .map(e -> e.uri() + ": " + e.getMessage()).toList();

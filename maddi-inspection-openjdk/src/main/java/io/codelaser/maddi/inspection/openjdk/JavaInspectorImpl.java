@@ -11,6 +11,8 @@ import java.lang.module.ModuleDescriptor;
 import java.lang.module.ModuleFinder;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -21,6 +23,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipFile;
 
 import javax.tools.*;
 
@@ -1814,6 +1817,8 @@ public class JavaInspectorImpl implements JavaInspector {
             // when the alternative JRE resolves to the running JDK.
             Path altJre = inputConfiguration == null ? null : inputConfiguration.alternativeJREDirectory();
             if (altJre != null && isRunningJdk(altJre)) altJre = null;
+            // the release javac compiles against when it is not the running JDK's; 0 when it is (see below)
+            int platformRelease = 0;
             if (jdkInternals) {
                 if (altJre != null) {
                     LOGGER.warn("Ignoring alternative JRE {} while compiling {} against JDK internals: internals are" +
@@ -1861,6 +1866,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     options.add("--source=" + running);
                 } else if (configured > 0 && configured != running) {
                     options.add("--release=" + configured);
+                    platformRelease = configured;
                 } else {
                     options.add("--enable-preview");
                     options.add("--release=" + running);
@@ -1878,10 +1884,22 @@ public class JavaInspectorImpl implements JavaInspector {
             // --add-modules for it; in the unnamed module nothing resolves it, and an incubator module is outside
             // the default root set. trino's core/trino-spi (`requires jdk.incubator.vector;`, release 25): four
             // units dropped with "package jdk.incubator.vector is not visible". TestRequiresIncubatorModule.
-            // Not under jdkInternals: its --limit-modules may leave the module unobservable, and javac refuses an
-            // --add-modules of a module it cannot observe.
+            // ⛔ Only a module the platform javac compiles against HAS: javac refuses an --add-modules of a module it
+            // cannot find ("module not found") and rejects the whole task, so a set that requires a module its
+            // release lacks would lose every unit, not just the ones using it. Hence not under jdkInternals either:
+            // its --limit-modules may leave the module unobservable.
             if (!loaderOnly && !sharedJdkPreload && !jdkInternals && (ignoreModule || !hasModuleInfo)) {
-                addModules.addAll(jdkModulesRequiredBy(sourceSet, sourcesByFqn));
+                Set<String> platform = platformModules(altJre, platformRelease);
+                List<String> required = jdkModulesRequiredBy(sourceSet, sourcesByFqn);
+                if (required.isEmpty()) {
+                    // A set without a descriptor of its own -- the tests of a module -- is compiled by Maven INTO the
+                    // module of its build unit (--patch-module), so that module's `requires` apply to it as well.
+                    required = sourceSet.dependencies().stream()
+                            .filter(d -> !d.externalLibrary() && sourceSet.buildUnit() != null
+                                         && sourceSet.buildUnit().equals(d.buildUnit()))
+                            .flatMap(d -> jdkModulesRequiredBy(d, Map.of()).stream()).distinct().toList();
+                }
+                required.stream().filter(platform::contains).forEach(addModules::add);
             }
             if (!addModules.isEmpty()) {
                 options.add("--add-modules=" + String.join(",", addModules));
@@ -1898,16 +1916,56 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     /**
-     * The modules the source set's {@code module-info.java} requires that the JDK provides, in declaration order;
-     * empty when the set has no descriptor. Read with the syntactic descriptor parse, into a summary of its own: this
-     * only chooses javac options; the descriptor the parse result keeps is read after the compilation.
+     * The modules the source set's {@code module-info.java} requires, in declaration order; empty when the set has no
+     * descriptor. Read with the syntactic descriptor parse, into a summary of its own: this only chooses javac
+     * options; the descriptor the parse result keeps is read after the compilation.
      */
     private List<String> jdkModulesRequiredBy(SourceSet sourceSet, Map<String, String> sourcesByFqn) {
         ModuleInfo moduleInfo = parseModuleInfoDescriptor(new SummaryImpl(false), sourceSet, sourcesByFqn);
         if (moduleInfo == null) return List.of();
-        ModuleFinder system = ModuleFinder.ofSystem();
-        return moduleInfo.requires().stream().map(ModuleInfo.Requires::name)
-                .filter(name -> system.find(name).isPresent()).distinct().toList();
+        return moduleInfo.requires().stream().map(ModuleInfo.Requires::name).distinct().toList();
+    }
+
+    private static final Map<String, Set<String>> PLATFORM_MODULES = new ConcurrentHashMap<>();
+
+    /**
+     * The modules of the platform javac compiles against: the alternative JRE's ({@code --system}), else release
+     * {@code release}'s ({@code --release}, when not 0), else the running JDK's. Empty when they cannot be read, so
+     * that nothing is added on a platform this cannot see.
+     */
+    static Set<String> platformModules(Path altJre, int release) {
+        if (altJre != null) return PLATFORM_MODULES.computeIfAbsent("jre:" + altJre, k -> modulesOfJre(altJre));
+        if (release > 0) return PLATFORM_MODULES.computeIfAbsent("release:" + release, k -> modulesOfRelease(release));
+        return PLATFORM_MODULES.computeIfAbsent("running", k -> ModuleFinder.ofSystem().findAll().stream()
+                .map(ref -> ref.descriptor().name()).collect(Collectors.toUnmodifiableSet()));
+    }
+
+    // a JDK's modules are the directories under /modules of its runtime image, which the jrt file system serves for
+    // any JDK given as java.home
+    static Set<String> modulesOfJre(Path jre) {
+        try (FileSystem jrt = FileSystems.newFileSystem(URI.create("jrt:/"), Map.of("java.home", jre.toString()));
+             Stream<Path> modules = Files.list(jrt.getPath("/modules"))) {
+            return modules.map(m -> m.getFileName().toString()).collect(Collectors.toUnmodifiableSet());
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warn("Cannot list the modules of JRE {}, adding no required module: {}", jre, e.getMessage());
+            return Set.of();
+        }
+    }
+
+    // javac's --release data, lib/ct.sym of the running JDK: entries <releases>/<module>/..., where <releases> holds
+    // one character per release the entry belongs to, the release in base 36 (9, A = 10, ... Q = 26)
+    static Set<String> modulesOfRelease(int release) {
+        char letter = Character.toUpperCase(Character.forDigit(release, 36));
+        Path ctSym = Path.of(System.getProperty("java.home"), "lib", "ct.sym");
+        try (ZipFile zip = new ZipFile(ctSym.toFile())) {
+            return zip.stream().map(entry -> entry.getName().split("/"))
+                    .filter(parts -> parts.length > 2 && parts[0].indexOf(letter) >= 0)
+                    .map(parts -> parts[1]).collect(Collectors.toUnmodifiableSet());
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warn("Cannot read the modules of release {} from {}, adding no required module: {}", release,
+                    ctSym, e.getMessage());
+            return Set.of();
+        }
     }
 
     /**
