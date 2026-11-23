@@ -42,7 +42,8 @@ import io.codelaser.maddi.cst.api.analysis.Value;
  *
  * <p>A slot that was first read and then written is an input that the computation's own output replaces; it is
  * only reusable when the two are equal (the computation reproduced its input). Reading a whole map
- * ({@link PropertyValueMapImpl#propertyValueStream()}) makes the recording unusable.
+ * ({@link PropertyValueMapImpl#propertyValueStream()}) makes the recording unusable; asking whether a map is empty
+ * ({@link PropertyValueMapImpl#isEmpty()}) is a read of one slot, {@link #EMPTINESS}.
  */
 public final class AnalysisAccessRecorder {
     // volatile not needed: armed once, before the analysis threads start
@@ -73,8 +74,25 @@ public final class AnalysisAccessRecorder {
      * Holds recordable state: one value per key, which the recorder can look at again later without recording that
      * access.
      */
+    /**
+     * The key of the slot "is this map empty?": translating a call expression asks it of the call's own analysis
+     * (return the call itself, or a copy with cleared analysis), and as a whole-map read it made every link
+     * computation that translates a call unusable for the cache -- the heaviest methods most of all.
+     */
+    public static final Object EMPTINESS = new Object() {
+        @Override
+        public String toString() {
+            return "<isEmpty>";
+        }
+    };
+
     public interface Owner {
         Object peek(Object key);
+
+        /** the current answer to {@link #EMPTINESS}, without recording the access */
+        default Object peekEmptiness() {
+            throw new UnsupportedOperationException("no emptiness slot on " + getClass());
+        }
 
         /*
         equals() alone is not enough: some values compare by key only (methodLinks), and a computation reading an
@@ -107,7 +125,7 @@ public final class AnalysisAccessRecorder {
         }
 
         Object peek() {
-            Object now = owner.peek(key);
+            Object now = key == EMPTINESS ? owner.peekEmptiness() : owner.peek(key);
             return now == null ? ABSENT : now;
         }
     }
@@ -278,9 +296,42 @@ public final class AnalysisAccessRecorder {
     }
 
     static void readAll() {
+        boolean first = false;
         for (Recording r = CURRENT.get(); r != null; r = r.enclosing) {
-            if (r.unusable == null) r.unusable = "readAll";
+            if (r.unusable == null) {
+                r.unusable = "readAll";
+                first = true;
+            }
         }
+        if (first && READALL_TRACE) traceReadAll();
+    }
+
+    /*
+     DIAGNOSTIC, gate READALLTRACE (presence): who makes recordings unusable by reading a whole property map? Counts
+     the caller frames (the first ones outside the analysis map) of every readAll that spoils a recording; printed
+     at exit, most frequent first.
+     */
+    private static final boolean READALL_TRACE = System.getenv("READALLTRACE") != null;
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>
+            READALL_CALLERS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    static {
+        if (READALL_TRACE) {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> READALL_CALLERS.entrySet().stream()
+                    .sorted((x, y) -> y.getValue().get() - x.getValue().get()).limit(30)
+                    .forEach(e -> System.out.println("READALLTRACE " + e.getValue().get() + " " + e.getKey()))));
+        }
+    }
+
+    private static void traceReadAll() {
+        String key = StackWalker.getInstance().walk(frames -> frames
+                .dropWhile(f -> f.getClassName().startsWith(AnalysisAccessRecorder.class.getName())
+                                || f.getClassName().endsWith("PropertyValueMapImpl"))
+                .limit(5)
+                .map(f -> f.getClassName().substring(f.getClassName().lastIndexOf('.') + 1) + "." + f.getMethodName()
+                          + ":" + f.getLineNumber())
+                .reduce((x, y) -> x + " < " + y).orElse("?"));
+        READALL_CALLERS.computeIfAbsent(key, _ -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();
     }
 
     public static boolean active() {
