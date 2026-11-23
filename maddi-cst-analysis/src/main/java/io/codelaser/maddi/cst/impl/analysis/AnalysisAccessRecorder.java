@@ -192,8 +192,17 @@ public final class AnalysisAccessRecorder {
                 Slot slot = computation.slots[i];
                 if (!computation.written[i] || ignore.contains(keyName(slot.key))) continue;
                 if (!mine.containsKey(slot)) {
-                    return "new output " + keyName(slot.key) + " = " + abbreviate(computation.values[i]) + "; "
-                           + firstDivergence(computation);
+                    // is the owner itself new (an object this computation made), or did the hit not write there?
+                    boolean ownerKnown = false;
+                    for (Slot m : mine.keySet()) {
+                        if (m.owner == slot.owner) {
+                            ownerKnown = true;
+                            break;
+                        }
+                    }
+                    return "new output " + keyName(slot.key) + " = " + abbreviate(computation.values[i])
+                           + (ownerKnown ? " (on an owner the hit's recording knows)" : " (on an owner new to it)")
+                           + "; " + firstDivergence(computation);
                 }
                 Object v = mine.get(slot);
                 if (!same(slot, v, computation.values[i])) {
