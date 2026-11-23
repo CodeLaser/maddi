@@ -245,14 +245,6 @@ public final class AnalysisAccessRecorder {
             List<Boolean> w = new ArrayList<>(reads.size() + writes.size());
             reads.forEach((slot, then) -> {
                 boolean alsoWritten = writes.containsKey(slot);
-                if (alsoWritten && REPRODUCED_OK && !same(slot, slot.peek(), then)) {
-                    // the computation's own previous output, replaced: kept as output. The next run is skipped only
-                    // while the slot still holds what this one wrote there
-                    list.add(slot);
-                    vals.add(slot.peek());
-                    w.add(true);
-                    return;
-                }
                 if (alsoWritten && !same(slot, slot.peek(), then) && unusable == null) {
                     unusable = "reproduced:" + keyName(slot.key);
                     if (REPRODUCED_TRACE) traceReproduced(slot, then, slot.peek(),
@@ -370,14 +362,6 @@ public final class AnalysisAccessRecorder {
      written with another value by the same computation? Counts per property, owner class and write site; printed at
      exit with one example of the two values, most frequent first.
      */
-    /*
-     EXPERIMENT, gate REPRODUCEDOK (presence): a slot read and then overwritten with another value by the same
-     computation (an overwrite check on its own previous output) is recorded as an output, with its final value,
-     instead of making the recording unusable. Saves the run that only confirms a changed output; sound only if the
-     computation's result does not depend on its own previous output (LINKCACHECHECK).
-     */
-    private static final boolean REPRODUCED_OK = System.getenv("REPRODUCEDOK") != null;
-
     private static final boolean REPRODUCED_TRACE = System.getenv("REPRODUCEDTRACE") != null;
     private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>
             REPRODUCED = new java.util.concurrent.ConcurrentHashMap<>();
