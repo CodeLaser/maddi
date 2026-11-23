@@ -1871,8 +1871,20 @@ public class JavaInspectorImpl implements JavaInspector {
             // `--add-modules jdk.incubator.vector` and the other 46 must not -- without it the two units using
             // the vector API do not resolve and are dropped; with it granted to every set, the parse would
             // accept source those builds would reject.
-            if (!sourceSet.addModules().isEmpty()) {
-                options.add("--add-modules=" + String.join(",", sourceSet.addModules()));
+            Set<String> addModules = new LinkedHashSet<>(sourceSet.addModules());
+            // ...and the JDK modules the set's own module-info.java requires, when this task compiles the set into
+            // the unnamed module (ignoreModule, or the descriptor is not among the handed units). Compiled as the
+            // module its build compiles, javac resolves a `requires` by itself, so the build's javac line has no
+            // --add-modules for it; in the unnamed module nothing resolves it, and an incubator module is outside
+            // the default root set. trino's core/trino-spi (`requires jdk.incubator.vector;`, release 25): four
+            // units dropped with "package jdk.incubator.vector is not visible". TestRequiresIncubatorModule.
+            // Not under jdkInternals: its --limit-modules may leave the module unobservable, and javac refuses an
+            // --add-modules of a module it cannot observe.
+            if (!loaderOnly && !sharedJdkPreload && !jdkInternals && (ignoreModule || !hasModuleInfo)) {
+                addModules.addAll(jdkModulesRequiredBy(sourceSet, sourcesByFqn));
+            }
+            if (!addModules.isEmpty()) {
+                options.add("--add-modules=" + String.join(",", addModules));
             }
             // ...and --add-exports, the set's own, for the same reason: maddi-java-openjdk compiles against javac's
             // internals with five of them, and without them 8 of its 17 units were dropped. Not on the shared-JDK
@@ -1883,6 +1895,19 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }
+    }
+
+    /**
+     * The modules the source set's {@code module-info.java} requires that the JDK provides, in declaration order;
+     * empty when the set has no descriptor. Read with the syntactic descriptor parse, into a summary of its own: this
+     * only chooses javac options; the descriptor the parse result keeps is read after the compilation.
+     */
+    private List<String> jdkModulesRequiredBy(SourceSet sourceSet, Map<String, String> sourcesByFqn) {
+        ModuleInfo moduleInfo = parseModuleInfoDescriptor(new SummaryImpl(false), sourceSet, sourcesByFqn);
+        if (moduleInfo == null) return List.of();
+        ModuleFinder system = ModuleFinder.ofSystem();
+        return moduleInfo.requires().stream().map(ModuleInfo.Requires::name)
+                .filter(name -> system.find(name).isPresent()).distinct().toList();
     }
 
     /**
