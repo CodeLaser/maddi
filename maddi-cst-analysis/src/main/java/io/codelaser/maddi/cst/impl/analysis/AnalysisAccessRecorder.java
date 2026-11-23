@@ -135,6 +135,8 @@ public final class AnalysisAccessRecorder {
         // in order of first access: LINKCACHECHECK reports the first read where two computations diverge
         private final Map<Slot, Object> reads = new LinkedHashMap<>();
         private final Map<Slot, Object> writes = new HashMap<>();
+        // REPRODUCEDTRACE: where a slot that was read first was then written
+        private Map<Slot, String> writeSites;
         private String unusable;
         private Object context;
         // filled by stop()
@@ -189,7 +191,19 @@ public final class AnalysisAccessRecorder {
             for (int i = 0; i < computation.slots.length; i++) {
                 Slot slot = computation.slots[i];
                 if (!computation.written[i] || ignore.contains(keyName(slot.key))) continue;
-                if (!mine.containsKey(slot)) return "new output " + keyName(slot.key) + " = " + computation.values[i];
+                if (!mine.containsKey(slot)) {
+                    // is the owner itself new (an object this computation made), or did the hit not write there?
+                    boolean ownerKnown = false;
+                    for (Slot m : mine.keySet()) {
+                        if (m.owner == slot.owner) {
+                            ownerKnown = true;
+                            break;
+                        }
+                    }
+                    return "new output " + keyName(slot.key) + " = " + abbreviate(computation.values[i])
+                           + (ownerKnown ? " (on an owner the hit's recording knows)" : " (on an owner new to it)")
+                           + "; " + firstDivergence(computation);
+                }
                 Object v = mine.get(slot);
                 if (!same(slot, v, computation.values[i])) {
                     return keyName(slot.key) + ": " + v + " -> " + computation.values[i] + "; " + firstDivergence(computation);
@@ -231,8 +245,18 @@ public final class AnalysisAccessRecorder {
             List<Boolean> w = new ArrayList<>(reads.size() + writes.size());
             reads.forEach((slot, then) -> {
                 boolean alsoWritten = writes.containsKey(slot);
+                if (alsoWritten && REPRODUCED_OK && !same(slot, slot.peek(), then)) {
+                    // the computation's own previous output, replaced: kept as output. The next run is skipped only
+                    // while the slot still holds what this one wrote there
+                    list.add(slot);
+                    vals.add(slot.peek());
+                    w.add(true);
+                    return;
+                }
                 if (alsoWritten && !same(slot, slot.peek(), then) && unusable == null) {
                     unusable = "reproduced:" + keyName(slot.key);
+                    if (REPRODUCED_TRACE) traceReproduced(slot, then, slot.peek(),
+                            writeSites == null ? "?" : writeSites.getOrDefault(slot, "?"));
                 }
                 list.add(slot);
                 vals.add(then);
@@ -251,6 +275,7 @@ public final class AnalysisAccessRecorder {
             for (int i = 0; i < written.length; i++) written[i] = w.get(i);
             reads.clear();
             writes.clear();
+            writeSites = null;
         }
     }
 
@@ -292,7 +317,13 @@ public final class AnalysisAccessRecorder {
         Recording r = CURRENT.get();
         if (r == null) return;
         Slot slot = new Slot(owner, key);
-        for (; r != null; r = r.enclosing) r.writes.putIfAbsent(slot, Boolean.TRUE);
+        for (; r != null; r = r.enclosing) {
+            if (REPRODUCED_TRACE && r.reads.containsKey(slot) && !r.writes.containsKey(slot)) {
+                if (r.writeSites == null) r.writeSites = new HashMap<>();
+                r.writeSites.put(slot, callers(AnalysisAccessRecorder.class.getName(), 6));
+            }
+            r.writes.putIfAbsent(slot, Boolean.TRUE);
+        }
     }
 
     static void readAll() {
@@ -332,6 +363,50 @@ public final class AnalysisAccessRecorder {
                           + ":" + f.getLineNumber())
                 .reduce((x, y) -> x + " < " + y).orElse("?"));
         READALL_CALLERS.computeIfAbsent(key, _ -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();
+    }
+
+    /*
+     DIAGNOSTIC, gate REPRODUCEDTRACE (presence): which slots make recordings unusable as "reproduced" -- read, then
+     written with another value by the same computation? Counts per property, owner class and write site; printed at
+     exit with one example of the two values, most frequent first.
+     */
+    /*
+     EXPERIMENT, gate REPRODUCEDOK (presence): a slot read and then overwritten with another value by the same
+     computation (an overwrite check on its own previous output) is recorded as an output, with its final value,
+     instead of making the recording unusable. Saves the run that only confirms a changed output; sound only if the
+     computation's result does not depend on its own previous output (LINKCACHECHECK).
+     */
+    private static final boolean REPRODUCED_OK = System.getenv("REPRODUCEDOK") != null;
+
+    private static final boolean REPRODUCED_TRACE = System.getenv("REPRODUCEDTRACE") != null;
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>
+            REPRODUCED = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, String> REPRODUCED_EXAMPLE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    static {
+        if (REPRODUCED_TRACE) {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> REPRODUCED.entrySet().stream()
+                    .sorted((x, y) -> y.getValue().get() - x.getValue().get()).limit(30)
+                    .forEach(e -> System.out.println("REPRODUCEDTRACE " + e.getValue().get() + " " + e.getKey()
+                                                     + "\n    e.g. " + REPRODUCED_EXAMPLE.get(e.getKey())))));
+        }
+    }
+
+    private static void traceReproduced(Slot slot, Object then, Object now, String writeSite) {
+        String key = keyName(slot.key) + " on " + slot.owner.getClass().getSimpleName() + " written at " + writeSite;
+        REPRODUCED.computeIfAbsent(key, _ -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();
+        REPRODUCED_EXAMPLE.putIfAbsent(key, Recording.abbreviate(then) + " -> " + Recording.abbreviate(now));
+    }
+
+    private static String callers(String skipPrefix, int n) {
+        return StackWalker.getInstance().walk(frames -> frames
+                .dropWhile(f -> f.getClassName().startsWith(skipPrefix)
+                                || f.getClassName().endsWith("PropertyValueMapImpl"))
+                .limit(n)
+                .map(f -> f.getClassName().substring(f.getClassName().lastIndexOf('.') + 1) + "." + f.getMethodName()
+                          + ":" + f.getLineNumber())
+                .reduce((x, y) -> x + " < " + y).orElse("?"));
     }
 
     public static boolean active() {
