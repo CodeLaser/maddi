@@ -191,7 +191,10 @@ public final class AnalysisAccessRecorder {
             for (int i = 0; i < computation.slots.length; i++) {
                 Slot slot = computation.slots[i];
                 if (!computation.written[i] || ignore.contains(keyName(slot.key))) continue;
-                if (!mine.containsKey(slot)) return "new output " + keyName(slot.key) + " = " + computation.values[i];
+                if (!mine.containsKey(slot)) {
+                    return "new output " + keyName(slot.key) + " = " + abbreviate(computation.values[i]) + "; "
+                           + firstDivergence(computation);
+                }
                 Object v = mine.get(slot);
                 if (!same(slot, v, computation.values[i])) {
                     return keyName(slot.key) + ": " + v + " -> " + computation.values[i] + "; " + firstDivergence(computation);
