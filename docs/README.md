@@ -126,7 +126,8 @@ The state of the Eclipse plugin is in [`maddi-eclipse/README.md`](../maddi-eclip
 
 | Document | Status | What it covers |
 |---|---|---|
-| [release-notes-0.9.6.md](project/release-notes-0.9.6.md) | draft | 0.9.6: the whole of maddi relicensed to Apache-2.0, copyright CodeLaser BV; multi-pattern case labels. |
+| [release-notes-0.9.7.md](project/release-notes-0.9.7.md) | draft | 0.9.7: a faster modification engine, incremental re-analysis, ownership (`@Fresh`, `@Borrowed`, `@Owned`), the VS Code extension, much better Kotlin. |
+| [release-notes-0.9.6.md](project/release-notes-0.9.6.md) | release | 0.9.6: the whole of maddi relicensed to Apache-2.0, copyright CodeLaser BV; multi-pattern case labels. |
 | [release-notes-0.9.5.md](project/release-notes-0.9.5.md) | release | 0.9.5: Java → Kotlin and Java → C# translation, the nullability analysis, Kotlin close to parity, JDK 27. |
 | [release-notes-0.9.1.md](project/release-notes-0.9.1.md) | release | 0.9.1: every package renamed `org.e2immu.*` → `io.codelaser.maddi.*`; first release with the build plugins and CLI. |
 | [history-rewrite-2026-08-04.md](project/history-rewrite-2026-08-04.md) | note | Every commit SHA in the repository changed on 2026-08-04: `git filter-repo` removed the customer names from all 2,187 commits and 25 branches, blob contents and messages alike, verified by pickaxe, by decompressing all 13,512 blobs, and over every commit message. Records what it cost — **126 cited SHAs**, all 177 citation sites rewritten in the same change — what to do with a stale clone, and why the commit hook exists so this is never needed twice. The old→new map is held by the maintainer, not committed: it is an index of pre-rewrite hashes, which a forge may still serve. |

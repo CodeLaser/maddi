@@ -197,25 +197,27 @@ The point is less the translation than the check. The printer does not soften an
 method that modifies is E0596.
 
 
-## Where it stands (0.9.6)
+## Where it stands (0.9.7)
 
 | Part | State |
 |---|---|
 | Concepts, and the book | Stable |
 | Java front end | Robust, on JDK 25-27. Works with OpenJDK and Temurin. |
-| Kotlin front end | Close to parity with Java; ships in the `maddi-kotlin` CLI; based on the K2 compiler. |
+| Kotlin front end | Close to parity with Java; ships in the `maddi-kotlin` CLI and runs from the Gradle plugin; based on the K2 compiler. |
 | Linking engine; modification and immutability analysis | Runs to a certified fixpoint on the proving-ground corpus (Timefold, LangChain4j, Fernflower, Guava, ActiveMQ, Jenkins, Camel) |
+| Ownership (`@Fresh`, `@Borrowed`, `@Owned`) | New in 0.9.7, opt-in |
+| Incremental re-analysis (IDE, MCP) | New in 0.9.7, experimental, Java only |
 | Nullability | Reaches users through the translations and @Nullable/@NotNull annotations |
 | Java → Kotlin translation | Whole-program, measured on six corpora |
 | Java → C# translation | Experimental |
 | Java → Rust translation | Experimental, mostly aimed at internal testing |
 | Gradle and Maven plugins, CLI | Published |
-| MCP server | New in 0.9.6 |
-| IntelliJ plugin | New in 0.9.6 |
-| Eclipse plugin | New in 0.9.6 |
+| MCP server | Published |
+| IntelliJ plugin | Published |
+| Eclipse plugin | Published |
 | VS Code plugin | Build from source only, experimental |
 
-What changed since 0.9.5: [release notes](docs/project/release-notes-0.9.6.md).
+What changed since 0.9.6: [release notes](docs/project/release-notes-0.9.7.md).
 
 ## The annotations
 
