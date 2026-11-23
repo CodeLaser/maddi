@@ -51,6 +51,10 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
     private static final int ARRAY_MAX = 8;
     private Object data;
 
+    public PropertyValueMapImpl() {
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.created(this);
+    }
+
     private static int arraySize(Object[] kv) {
         int n = 0;
         while (2 * n < kv.length && kv[2 * n] != null) n++;
@@ -145,7 +149,7 @@ public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRec
     @Override
     public synchronized Stream<PropertyValue> propertyValueStream() {
         // snapshot under the lock; the returned stream is safe to consume without it
-        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.readAll();
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.readAll(this);
         List<PropertyValue> list = new ArrayList<>();
         forEach((key, value) -> list.add(new PropertyValue(key, value)));
         return list.stream();
