@@ -225,8 +225,13 @@ public record ScanJavaDoc(Runtime runtime,
                 case DCTree.DCThrows t -> t.getExceptionName() == null ? "" : t.getExceptionName().getSignature();
                 case DCTree.DCLink l -> l.getReference() == null ? "" : l.getReference().getSignature();
                 case DCTree.DCParam p -> p.getName().toString();
-                case DCTree.DCSee s -> s.getReference() == null ? "" : s.getReference().stream().map(this::content)
-                        .collect(Collectors.joining("; "));
+                // ⛔ javac hands a labelled `@see Ref label words` back as [Reference, Text...]: joining them made the
+                // content "Ref; label words", which resolves to nothing, so the tag carried no reference and every
+                // consumer that judges a reference (a move's unreachable-@see quoting among them) skipped it. The
+                // reference is the first tree when it is one; a quoted or HTML @see keeps the joined text.
+                case DCTree.DCSee s -> s.getReference() == null || s.getReference().isEmpty() ? ""
+                        : s.getReference().getFirst() instanceof DCTree.DCReference r ? r.getSignature()
+                        : s.getReference().stream().map(this::content).collect(Collectors.joining("; "));
                 // ⭐ without a case of its own, {@value #X} fell to the default and its content became the WHOLE
                 // tag text -- so `tag.toString()` re-wrapped it into `{@value {@value #X}}`, and no consumer
                 // could read the reference out of it. It is a member reference like any other (G30 arm (a):
