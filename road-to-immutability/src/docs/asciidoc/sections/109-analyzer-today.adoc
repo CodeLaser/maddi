@@ -279,7 +279,7 @@ receiver, even though its default without information would read as modifying.
 (CodeLaser/maddi-mod#113), in the mode of the element (CodeLaser/maddi-mod#130).
 It is not made through a call: `input` in `useAddNewLine` is computed {nm}, where the example shows {modified}.
 Neither is it made through a field: in the last example of <<containers>>, the parameter `message` of
-`ErrorRegistry.add` is computed {nm}, and the type a {container}.
+`ErrorLog.add` is computed {nm}, and the type a {container}.
 * A lambda's modification of its parameter is not propagated through the `visit` method of an interface in source
 code: `list` in `addNewLine` is computed {nm}, where the examples show {modified} and `@Modified(hc=true)`.
 

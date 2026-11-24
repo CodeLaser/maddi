@@ -173,7 +173,7 @@ It is not because a method does not _visibly_ modify its argument, that no modif
 .Example {counter:example}, a modification to an argument, occurring outside the method that received it
 [source,java]
 ----
-class ErrorRegistry {
+class ErrorLog {
     @Modified
     private final List<ErrorMessage> messages = new ArrayList<>();
 
@@ -199,7 +199,7 @@ The `changeFirst` method modifies the object graph of that field, so an object t
 `message` can be modified after `add` has returned.
 The modification therefore travels, exactly as it does in <<linking-dependence>>: from the method `changeFirst`, to
 the field `messages`, and finally to the parameter `message` of `add`, which is marked {modified} as a result.
-`ErrorRegistry` is not a container, and objects passed to it are not safe from modification.
+`ErrorLog` is not a container, and objects passed to it are not safe from modification.
 
 The analyzer makes this journey by following objects as they flow from parameters into fields; that is the subject of the next section.
 Because modification of parameters is computed this way, the definition above is equivalent to the more practical

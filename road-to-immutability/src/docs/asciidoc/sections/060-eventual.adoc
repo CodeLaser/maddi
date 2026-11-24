@@ -181,10 +181,12 @@ returns `true` on _before_.
 * Finally, the eventuality of the type shows in the `after="..."` parameter of {finalFields}, {immutable} or the
 shorthand {immutableContainer}.
 
-In each of these annotations, the actual value of the `...` in the `after=` or `before=` parameters is the name of the
-field.
-
-In case there are multiple fields involved, their names are represented in a comma-separated fashion.
+In each of these annotations, the value of the `...` in the `after=` or `before=` parameters is a label that names the
+transition.
+A computed label is the name of the field that guards the transition; in case there are multiple fields involved,
+their names are represented in a comma-separated fashion.
+A contract on a type without fields, such as an interface, chooses a name.
+Either way, the {mark}, {only} and `after=` annotations of one transition carry the same label.
 
 The {mark} and {only} annotations can also be assigned to parameters, in the event that marked methods are called
 on a parameter of eventually immutable type.

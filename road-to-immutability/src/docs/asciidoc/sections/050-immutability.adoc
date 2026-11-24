@@ -518,7 +518,7 @@ class EmptyClass { }
 class ImplementsMarker implements Marker { }
 
 @ImmutableContainer
-class ExtendsEmptyClass extends ImplementsMarker { }
+class ExtendsEmptyClass extends EmptyClass { }
 ----
 
 <1> Interfaces, and classes that are neither `final` nor `sealed`, are extensible, so the analyzer writes `hc=true` on every type in this example.
@@ -1141,8 +1141,9 @@ A caller of a {sse} method _inherits_ the static side effect, transitively.
 This is how the confinement guard tells reconfiguring a stream from using it: `sink.reconfigure()` on an
 {ignoreModifications} field, where `reconfigure()` calls `System.setOut`, receives {sse}, and the guard flags the call
 as leaving the ignored part; `sink.println(x)`, calling only the confined `println`, passes.
-As with {ignoreModifications}, the annotation is a contract on a library method, and is computed, never trusted, on a
-method with source.
+{sse} is a contract where there is no body to compute it from: a library method, or an abstract one.
+On a method with source, the analyzer computes it; an author who writes it there asserts it, and the assertion is
+taken as a contract.
 
 [#value-based-classes]
 == Value-based classes

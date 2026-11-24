@@ -179,7 +179,8 @@ the callee's own contract says which side of the transition it belongs to. Marks
 implementation to its abstract method (`AbstractMethodAnalyzerImpl.methodEventual`), so interfaces are
 certified too. `@TestMark` implies `@NotModified` — observing the state is not changing it.
 Independence is relaxed after the mark only when the leaked object is ITSELF eventually immutable.
-Mark labels are field *names* (a mark is often inherited). Eventuality is deliberately kept OUT of the
+Mark labels name the transition: computed ones are the guarding field *names*, comma-separated (a mark is often
+inherited); a contract on a type without fields chooses a name; all annotations of one transition agree. Eventuality is deliberately kept OUT of the
 `IMMUTABLE_TYPE` lattice for now. `@BeforeMark` is not read yet. The analyzer's own code follows the
 pattern heavily (builder-commit CST, write-once property maps).
 Plan and staging: `docs/design/eventual-immutability.md`.
