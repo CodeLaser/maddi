@@ -305,6 +305,8 @@ fields, at any depth (`Util.accessibleTypes`).
 The modification is structural when the written object's type is compatible with one of them, meaning assignable
 either way (`Util.mayBeAccessibleContent`).
 Before #130, only the owner's own fields were compared (CodeLaser/maddi-mod#117).
+Since CodeLaser/maddi-mod#159, the type arguments the owner's types wrote on their fields are accessible types as well
+(`List<Item> items` adds `Item`), except for the owner itself: a parameter that is a list keeps its elements hidden.
 
 The analyzer makes three approximations, accepted on 2026-11-19.
 The method names refer to the two examples of <<structural-elements>>.
@@ -320,16 +322,19 @@ The gap: a call that writes a JDK container that both the element and the owner 
 guards this case.
 
 (b) The owner's own type is one of its accessible types only when a field leads back to it.::
-`St` is an accessible type of `St` because of `parent`, while `Leaf` is not one of `Leaf`: its only route back is
-the hidden list `children`. So `clearLeaves` is not structural. +
-The gap: a heap in which a leaf is in its own `children` list is missed. The run-time check would see such a write
-as structural.
+`St` is an accessible type of `St` because of `parent`, `Leaf` one of `Leaf` because of `List<Leaf> children`, so
+`clearLeaves` is structural. +
+The gap: an object of the owner's type held only as hidden content (in a field typed `Object` or by a type
+parameter) is missed. The run-time check would see such a write as structural.
 
 (c) The fixpoint engine does not know whether a modification was a direct write or a call.::
-The reachability pass, on by default, knows the exact write: in `reset`, `e.labeled = true` writes the edge's own
-`boolean`, so only `Edge` is compared. The fixpoint engine (`setModificationViaReachability(false)`) knows only
-that the edge is modified, so it compares as in (a). There an `Edge` holds a `St`, and `reset` comes out structural:
-sound, but coarser.
+The reachability pass, on by default, knows the exact write: `e.labeled = true` writes the edge's own `boolean`, so
+only `Edge` is compared. The fixpoint engine (`setModificationViaReachability(false)`) knows only that the edge is
+modified, so it compares as in (a): sound, but coarser. Until #159, `reset` showed the difference; now that `Edge` is
+an accessible type of `St`, it is structural in both. +
+For a field of the receiver, the fixpoint engine asks the question with the receiver's type as the owner, as the
+reachability pass does: in `Holder.touchAll()`, `for (Item i : touched) i.touch()` modifies the receiver structurally
+and the field `touched`, a list whose elements changed, deeply only.
 
 The method `lift` of that example is fernflower's `LabelHelper.liftClosures`.
 

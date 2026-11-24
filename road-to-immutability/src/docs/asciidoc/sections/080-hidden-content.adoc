@@ -277,16 +277,18 @@ The verdicts on the parameters are:
 |(3) `nodes` in `clearList` |modified |not modified: the list itself only changes in its elements
 |(4) `box` in `clearBox` |modified |not modified: to `Box`, the elements of `items` are its type parameter `T`
 |(5) `node` in `addChild` |modified |modified
-|(6) `leaf` in `clearLeaves` |modified |not modified
+|(6) `leaf` in `clearLeaves` |modified |modified
 |===
 
 * *(1) and (2)* can write to the same object (`node.first == node.children.get(0)`), so one cannot be structural
 and the other not: `Node.first` makes a `Node` accessible content of a `Node`, and a modified child may be that
 object.
-* *(6)*, the same code without `first`, is structurally unmodified: no field leads from a `Leaf` to a `Leaf`, so
-a child is not accessible content of the leaf.
-* *(3) versus (4)*: the instantiation `Box<Node>` does not make `Node` accessible content of `Box`, and the field
-`first` of type `T` is hidden content.
+* *(6)*, the same code without `first`, is structural as well. To the list, its elements are hidden content; but it
+was `Leaf` that wrote `List<Leaf>`, so to a `Leaf` its children are `Leaf` objects, accessible content, as `Counters`
+of <<accessible-hidden-content>> sees the `Counter` objects in its map.
+* *(3) versus (4)*: in (3) the parameter is the list itself, and to a list its elements are hidden content. In (4)
+the instantiation `Box<Node>` is the caller's, not `Box`'s: to `Box`, the elements of `items` are its type parameter
+`T`, and so is the field `first`.
 * *(3)* is the case where a Kotlin programmer would write `List`, and not `MutableList`, for the parameter.
 
 [#structural-definition]
@@ -300,14 +302,18 @@ The definition of <<accessible-hidden-content>> goes by declared types. Applied 
 `p` by _some_ path of accessible fields, whatever route the method took to reach it.
 . Accessible fields are judged by _declared_ types: the fields that the declared type of `p` -- or of the field the
 path came through -- declares, together with those of its supertypes. A field that only a subclass declares is
-hidden content, whatever the run-time class; so are fields typed by a type parameter or `Object`, and the elements
-of a container.
+hidden content, whatever the run-time class; so are fields typed by a type parameter or `Object`.
+. The elements of a container are hidden content of the container, but accessible content of the type that declared
+the field with that type argument: `List<Item> items` makes an `Item` accessible content of its owner, which wrote
+`Item`. When `p` is the container itself, its elements stay hidden content of `p`.
 ****
 
 The first point is why (1) and (2) above must agree: the method reached the child through the list, but the same
 object can be reached through the field `first`.
 The second point follows the reasoning of <<accessible-hidden-content>>: what a subclass adds is outside the control,
 and outside the responsibility, of the code that sees only the parent type.
+The third is the same reasoning from the other side: the type that chose `Item` for the elements of its list is in
+control of them, as `Counters` is of its counters (CodeLaser/maddi-mod#159).
 
 The paths can be longer than one field, as the next example shows.
 
@@ -327,10 +333,10 @@ static void touchAll(Bag b) { for (Item i : b.items) i.touch(); }             //
 ----
 <1> Structural. `e.dest` is a `St`, and a `St` is accessible content of `s` through `s.parent` and `s.first`, so the
 write may be to the state of `s.parent`.
-<2> Not structural. No accessible field of `St`, at any depth, is declared `Edge`. `IfSt.ifedge` is such a field, but
-only a subclass declares it: to a `St`, it is hidden content, even when `s.parent` is an `IfSt` at run time.
-<3> Structural. To an `IfSt`, `ifedge` is accessible content, and a listed edge may be that edge.
-<4> Not structural. Nothing accessible from a `Bag` is an `Item`.
+<2> Structural. `St` wrote `List<Edge>`, so an edge in `s.edges` is accessible content of `s`. `IfSt.ifedge` plays no
+part: only a subclass declares it, and to a `St` it is hidden content, even when `s.parent` is an `IfSt` at run time.
+<3> Structural, for the same reason, and because to an `IfSt`, `ifedge` is accessible content as well.
+<4> Structural. `Bag` wrote `List<Item>`: its items are accessible content of the bag.
 
 A static analyzer does not see the objects, only their types: it must decide whether a modified object _may_ be
 accessible content of the owner.
