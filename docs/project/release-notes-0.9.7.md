@@ -241,6 +241,10 @@ A new pass, run after the modification analysis converges, says who may hold an 
   - `ParseResult` has a new method, `duplicatePrimaryTypes()`;
   - `maddi-project-config` is published from maddi.
 - **The IDE plugins and their daemon must have the same version**, as in 0.9.6.
+- **The IDE plugins, the VS Code extension and the MCP server start the daemon as `java` on its jars**, no longer
+  through its start script, whose Windows version failed on a long install path
+  ([maddi-dist#9](https://github.com/CodeLaser/maddi-dist/issues/9)). JVM options in `JAVA_OPTS` or
+  `MADDI_IDE_DAEMON_OPTS` no longer reach it; the heap is the plugins' daemon heap setting.
 
 ## Installing
 
@@ -267,6 +271,7 @@ Kotlin sources, JDK 26 or later.
 - Ownership is off by default on the command line and in the build plugins.
 - elasticsearch is slower than in 0.9.6.
 - The VS Code extension and the Eclipse plugin analyse Java only; the VS Code extension is a preview.
+- The IDE plugins and the VS Code extension have not been run on Windows yet.
 - The explanations are recorded only for the IDE and the MCP server; the command line does not show them yet.
 - Java → C# and Java → Rust are experimental: judged on compilation, and for C# on a few sample programs.
 
