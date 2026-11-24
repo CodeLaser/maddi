@@ -170,7 +170,8 @@ This typically means that all methods that assign or modify fields become off-li
 Eventuality for rules 2 and 3 seems too far-fetched.
 We address the topic of eventual immutability fully in the section <<eventual-immutability>>.
 * When the type has fields which allow hidden content, or the type is extendable (a class that is neither `final` nor `sealed`, or an interface; see <<inheritance>>), the extra parameter `hc=true` will be added to the annotation.
-The presence of this parameter is for instructive purposes only.
+It marks a level of its own, between {finalFields} and immutability without hidden content: the type guarantees the part it controls, while its hidden content can still be modified by others.
+A type that is immutable without hidden content, such as `java.lang.String`, is what we call _deeply_ immutable.
 
 Let us go to examples immediately.
 
@@ -411,6 +412,7 @@ They know that a setter will make an assignment, but they'll expect a getter to 
 No getter should ever be modifying.
 
 The other direction is more interesting, while equally simple to explain: deriving from a parent class cannot increase the immutability level.
+The one exception is the hidden content that a type has only because it can be extended: `java.lang.Object` is immutable with hidden content for that reason alone, and a `final` class deriving from it can be immutable without.
 A method overriding one marked {modified} does not have to be modifying, and may be explicitly marked {nm}: an override may strengthen a contract.
 The converse, from {nm} to {modified}, is never allowed:
 
@@ -722,7 +724,7 @@ static class OneWithOne<T> implements NonEmptyList<T> {
 ----
 
 Obviously, an {immutableContainer} implementation is not possible.
-The immutability status of a class cannot be better than that of its superclass, and no implementation of `setFirst` that does what its name promises can avoid a modification.
+The immutability status of a class cannot be better than that of its supertypes, apart from the hidden content that extensibility brings, and no implementation of `setFirst` that does what its name promises can avoid a modification.
 
 We end the section by showing how concrete implementations of the `accept` method in `Consumer` can make modifications.
 First, modifications to the parameter:
