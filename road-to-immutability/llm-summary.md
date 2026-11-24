@@ -2,7 +2,9 @@
 
 Dense, load-bearing summary of `src/docs/asciidoc/` (the authoritative terminology source for maddi's
 immutability/modification/linking vocabulary). Read this instead of the full book; open a specific
-chapter only when detail is missing here. Last checked against the code and the book: 2026-10-23 (release 0.9.5).
+chapter only when detail is missing here. Last checked against the book: 2026-11-24 (a consistency read-through of
+the whole booklet, at release 0.9.7). Statements about the code carry their own dates; open questions are listed at
+the end.
 
 ## Core vocabulary
 
@@ -11,12 +13,20 @@ chapter only when detail is missing here. Last checked against the code and the 
   file's core), **nullability** (§Nullability, since 2026-10) and the Java→Kotlin / Java→C# **translations**, which
   read the verdicts (read-only collection types from the structural twins and unmodifiable views; `?`/`!!` from
   nullability). Apache-2.0 licensed.
-- **Mutable** means "not immutable at any positive level"; `@Mutable` is the explicit bottom verdict.
+- **Mutable** means "not immutable at any positive level": `MUTABLE` is the bottom of the lattice. There is no
+  `@Mutable` annotation in `maddi-annotation`; the `@Mutable` in test output is a label of the test helpers.
 - **Content** of an object = the objects reachable from its fields (the object graph), split into:
   - **accessible content** — what the DECLARED type (and its supertypes) gives access to: its fields and methods;
-  - **hidden content** — content that exists but cannot be named structurally: type parameters,
-    extensible (non-final) types, the elements of shallowly-analyzed containers. Leaf immutables
-    (String, primitives, boxed) have NO hidden content; containers of immutables DO.
+  - **hidden content** — everything else (book 045, by declared type since 2026-11-24): all of an object held
+    through an unbound type parameter or `Object`, and whatever a subtype or implementation adds to a declared
+    type. Leaf immutables (String, primitives, boxed) have NO hidden content; containers of immutables DO.
+  - **OPEN, CodeLaser/maddi-mod#159**: are the elements of a container that its HOLDER instantiated with a concrete
+    type (`Map<String, Counter>` in `Counters`) accessible or hidden for that holder? Accessible: book 045
+    (`Counters` is `@FinalFields`), 060, and the independence code (`FieldAnalyzerImpl`: "the transported content
+    decides dependence, not the container"; `add(StringBuilder)` into a list field is `@Dependent`). Hidden: book 080
+    `structural-definition` and `Util.accessibleTypes` (`clearLeaves`, `touchAll(Bag)`, `reset(St)` not structural).
+    The `List.copyOf`/`Map.copyOf` shapes come out `@Immutable(hc=true)` even when mutable elements are handed out.
+    Do not treat either reading as settled.
 - **`@IgnoreModifications` = manual hidden content** (road §050 "Ignoring modifications as manual hidden
   content"): a field of concrete (mutable) type whose modifications the author disclaims. Same lattice effect
   as a type-parameter field (→ at best `@Immutable(hc=true)`, never hc-free); it differs only in *provenance* —
@@ -92,13 +102,38 @@ Levels (property `IMMUTABLE_TYPE`), ordered: `NO_VALUE(-1, undecided)` < `MUTABL
 `FINAL_FIELDS(1)` < `IMMUTABLE_HC(2)` = `@Immutable(hc=true)` < `IMMUTABLE(3)` = `@Immutable`.
 
 Rules (each level requires the previous):
-- **Rule 0 (→ FINAL_FIELDS)**: all instance fields effectively final — never assigned outside the
+- **Rule 0 (→ FINAL_FIELDS)**: all fields effectively final (static ones too, see below) — never assigned outside the
   construction phase. "Construction phase" = constructors + methods only reachable from constructors
   (*part of construction*). Assignments to a nested type's fields by the ENCLOSING type, a sibling
   nested type, or a lambda anywhere in the primary type all count (whole-primary-type scan).
   A synthetic/annotated setter also breaks finality.
 - **Rule 1 (→ level 2)**: no field's content is modified by the type's own methods.
 - **Rule 2 (→ level 2)**: every field is private OR of (at least hc-)immutable type.
+- **Rule 3 (→ level 2)**: no parameter of a non-private method or constructor, and no return value of a non-private
+  method, is dependent on the fields. A type that stores externally supplied mutable objects (dependent constructor)
+  or returns its mutable content (dependent accessor, e.g. record accessors) caps at FINAL_FIELDS.
+- **`hc=true` is a level of its own**, not decoration (book 050): the type guarantees the part it controls, its
+  hidden content can still be modified by others. A subtype cannot be better than its supertypes, EXCEPT for the
+  hidden content that extensibility alone brings (`Object` is hc, a final class deriving from it need not be).
+- **Eventually**: rules 0 and 1 by a mark; rule 3 when the exposed object is itself eventually immutable (computed)
+  or when the field is emptied at the transition (`Lazy`'s `supplier = null`: a null field has no content; the book's
+  argument in 110, NOT computed, the analyzer says dependent). Rule 2 is never eventual.
+- **Overriding**: from `@Modified` to `@NotModified` is allowed, the converse never (book 050 §Inheritance). Enforced
+  by `GuardAnalyzerImpl`: `contract-conflict` for an authored `@Modified` over an inherited `@NotModified` (with or
+  without a body), `contract-violation` for a modifying implementation or override; since 2026-11-24
+  (`guardLibraryContract`, `TestOverrideWeakensContract`) also against the ANNOTATED APIs: a modifying `size()`,
+  `equals()` or `toString()` in any class is an error. A library contract is checked, it does not DECIDE a bodiless
+  source method (`ContractResolution` reads source annotations only). `override-weakens-computed` is the warning for
+  an override that modifies where the parent is computed, not contracted, `@NotModified`.
+- **A parameter whose type is a type parameter is `@NotModified` by default** (a type parameter counts as
+  immutable-hc; `ShallowMethodAnalyzer.computeParameterUnmodified`): `Collection.add(E)`, `Comparable.compareTo(T)`
+  carry nothing. `Consumer.accept(@Modified T t)`, `Function.apply(@Modified T t)` are written out in the archive.
+  The argument passed to a functional parameter stays unmodified in that method; the call site supplying a concrete
+  function gets the modification (`PassedFunction`).
+- **An abstract method of a source interface with NO implementation is computed `@NotModified`**, and such an
+  interface `@Immutable(hc=true)`: the fold runs over zero implementations. The book's "abstract methods are
+  `@Modified` unless annotated" describes the annotated APIs. This, not hidden content, is why the book's `Counters`
+  (045) is computed immutable in `TestBook045Linking`; with a concrete mutable element class it is `@FinalFields`.
 - **Level 2 vs 3 (hidden content)**: `@Immutable` (hc-free, level 3) additionally requires that every
   instance field's type is itself deeply immutable (level 3) -- INHERITED instance fields included, of source
   and jar superclasses alike (a superclass's own hc verdict is not consulted: `Record`/`Enum` are hc because
@@ -122,8 +157,6 @@ Rules (each level requires the previous):
   in the independence that FEEDS the immutability rule (`independentIgnoringSelfFields`) -- never for rule 0
   (assignability). The PUBLISHED independence still counts them: dependent while the type is undecided, and after
   it is decided independent if the type is immutable, dependent if not (a mutable `Node` returning `next`).
-- Exposure matters: a type that stores externally supplied mutable objects (dependent constructor) or
-  returns its mutable content (dependent accessor, e.g. record accessors) caps at FINAL_FIELDS.
 - A mutable supertype makes the subtype mutable; an undecided supertype blocks the decision (see cycle
   breaking). **Superclasses and jar/hints supertypes cap by their verdict; SOURCE INTERFACES are WALKED**
   (2026-09-23, `TypeImmutableAnalyzerImpl`, gate `INTERFACEWALK=0` for A/B): an interface's FINAL_FIELDS comes from
@@ -162,10 +195,13 @@ immutability verdicts are derived.
   `≤`/`≥`/`∩` object-graph (weakest); `↗`/`↖` decoration (functional interfaces). Reciprocals appear
   in pairs. `*` after a variable = modified there. `0:`/`1:` = parameter index.
 - **Two field models**: parsed types link to real fields (`box.t`); shallow/JDK types link to
-  **virtual fields** `§xs`/`§es`/`§kvs` (= named hidden content). `§m` = the modification component
+  **virtual fields** (= the container type's hidden content, named): for a type-parameter payload `§` + the
+  lower-cased names + `s` (`§xs`, `§ts`, `§es`, `§kvs`), for a concrete payload `§$` + `s` per level (`§$s` for
+  `List<String>`, `§$$s` for a map; `vf/virtual-fields.md`). `§m` = the modification component
   ("the mutable aspect, wherever it lives").
-- **Method link summary (mlv)**: per method — return links, per-parameter links, modified set; e.g. a
-  setter: `[0:box*.t←1:x*] --> -  MOD[0:box,1:x]`. Applied at each call site by translating formal
+- **Method link summary (mlv)**: per method — return links, per-parameter links, modified set; e.g.
+  `void set(Box<X> box, X x) { box.set(x); }`: `[0:box*.t←1:x*, 1:x*→0:box*.t] --> -   MOD[0:box, 1:x]`
+  (linking-manual §5; book 105 prints this summary but describes it as the instance setter `void set(X x)`). Applied at each call site by translating formal
   this/params to actual receiver/args (`LinkMethodCall` is the central class).
 - **Functional interfaces**: capture site wraps a lambda/method-ref into a synthetic FI variable
   (`$_fi`, `Λ`) carrying its links; application site (`forEach`, `map`, SAM invocation) *lifts* those
@@ -241,7 +277,7 @@ immutability verdicts are derived.
   (the shipped `openjdk.jar` + `libs.jar`; `--preload-analysis-results-dirs none` opts out, `default,<dir>` adds),
   pre-seeding the property store. Without them the positive
   immutability side barely concludes.
-- **Fault tolerance**: statement/method-level containment (degrade to shallow summary), tight-ceiling
+- **Fault tolerance**: method-level containment (a failing method is marked degraded, see below), tight-ceiling
   cycle protection (throw + shallow fallback; generous ceilings cause downstream grind), producer-side
   skip guards for unrepresentable link shapes (e.g. stacked `x.§m.§m` faces).
   A degraded method (`DEGRADED_ANALYSIS_METHOD`) carries no links, so the field analyzer does not read
@@ -279,10 +315,12 @@ immutability verdicts are derived.
 - **Contracts**: JSpecify/JetBrains/Checker/JSR-305/Lombok annotations and `@NullMarked` scope are read
   (`DeclaredNullability`); a nullable contract seeds, a non-null one stops null (the caller's error). The JDK
   hints carry JSpecify's annotated JDK, one level down (`nullableArguments`).
-- **Java output** (`NullabilityDecorator`, flavours JSpecify/Checker/JetBrains/JSR-305/maddi): TOP-LEVEL state
-  only today (an array's elements in a TYPE_USE flavour; type arguments `List<@Nullable String>` not yet);
+- **Java output** (`NullabilityDecorator`, flavours JSpecify/Checker/JetBrains/JSR-305/maddi): the TOP-LEVEL state, and an
+  array's elements in a TYPE_USE flavour; type arguments reach Java only through maddi's own `nullableArguments`
+  (`List<@Nullable String>` not yet);
   `@NullUnmarked` for an UNSPECIFIED method only in JSpecify; an UNSPECIFIED field is written `@Nullable`.
-  Not exposed on the CLI/plugins in 0.9.5 (reaches users through `--translate`).
+  Not an option of the CLI (it reaches users through `--translate`); the IDE daemon reads it (`AnnotationTagger`,
+  `WarmAnalysisService`, seen 2026-11-24).
 - **Presets**: `NULL_MARKED` (Java annotations), `KOTLIN` (= NULL_MARKED + `assertContentWrites`,
   `callResults`, `assertAtDeclaration`, `libraryCallbacks`: the printer asserts `!!` at a content write or a
   declaration instead of making the slot nullable; each moves an NPE, never removes one), C# = KOTLIN +
@@ -326,10 +364,11 @@ immutability verdicts are derived.
 - `@Fresh`/`@Borrowed` are contracts on bodiless and library methods (a few JDK ones: `Arrays.copyOf`,
   `toArray()`, `ArrayList.clone`, `Map.entry`); `@Owned` is never read as a contract. Absence of links must read
   as shared, never owned. Book examples pinned by `TestBook055Ownership`. Chapter 060
-  §"Ownership and eventual immutability" (not computed): a closed-world public constructor storing a handed-over
-  list gives an owned field, yet the type stays `@FinalFields`/dependent, as immutability does not read ownership;
-  with a private constructor maddi already proves the type immutable. With the feed, the closed-world public
-  constructor's type is `@Immutable(hc=true)` too.
+  §"Ownership and eventual immutability": with a private constructor the type is immutable without help; with a
+  public constructor in a closed world the feed (above) makes the handed-over parameter no dependence, and the type
+  `@Immutable(hc=true)`. A builder's `build()` is computed `@Finalizer` only in a closed world: its callers are
+  elsewhere, and in a library `@Finalizer` on it is a contract. The book's sequencing rules are two: a finalizer on a
+  field only inside a finalizer of its owner; not on a parameter unless it is transferred.
 
 ## Engine facts an LLM should not re-derive wrongly
 
@@ -367,8 +406,9 @@ immutability verdicts are derived.
   an optimistic @Independent (since 2026-09).
 - **Chapter "Other annotations" is mostly aspirational — do not assume those annotations work.**
   Only `@Identity`/`@Fluent` are computed there (`TypeModIndyAnalyzerImpl`; `@Fluent` also via `@GetSet`).
-  `@UtilityClass` and `@Finalizer` are read as *contracts* by `AnnotationToProperty` (and shown by
-  `DecoratorImpl`) but never inferred; `@UtilityClass` forces IMMUTABLE + INDEPENDENT on the type. `@Singleton`
+  `@UtilityClass` is read as a *contract* by `AnnotationToProperty` (and shown by `DecoratorImpl`) but never
+  inferred; it forces IMMUTABLE + INDEPENDENT on the type. (`@Finalizer` is in chapter 055, not here: a contract, and
+  computed by the ownership pass, see §Ownership.) `@Singleton`
   and `@ExtensionClass` exist in `maddi-annotation` but have no property and are read by nothing. Not in the
   book at all, but live (read by `AnnotationToProperty`): `@Commutable`, `@GetSet`, `@Docstring(s)`. `@NotNull`/`@Nullable` left the chapter on 2026-10-23: they ARE computed, by the nullability
   pass (chapter 085 below).
@@ -397,6 +437,9 @@ immutability verdicts are derived.
   queries (`isDebugEnabled`, `getName`, `atLevel`…) are `@NotModified`; `setLevel` and configuration stay plain
   modifying. `@StaticSideEffects` is ONLY for a modification of static state the caller does not own
   (`System.setOut`) — never contracted on an instance method like `logger.info`, nor on `java.util.logging`.
+  MISMATCH with the book: 050 §"Escapes that cannot be seen" presents `logger.addAppender(a)` (and the table above it
+  `logger.setLevel`) as escapes recorded by a `@StaticSideEffects` contract; the archive has `setLevel` plain
+  `@Modified` (checked 2026-11-24).
 - **No `java.util.function` special case in the source analysis.** The implicit `@IgnoreModifications` on
   functional-interface parameters is a SHALLOW default (`ShallowMethodAnalyzer.computeParameterIgnoreModifications`,
   `FunctionTypes.isLibraryFunctionType`: `java.util.function`, `Runnable`, Kotlin's function types, plus an interface
@@ -421,7 +464,7 @@ immutability verdicts are derived.
 ## Document map (src/docs/asciidoc/sections/)
 
 Tutorial: 010 introduction · 020 final fields · 030 modification · 040 containers ·
-045 linking & dependence · 050 immutability (incl. §Unmodifiable views) · **055 ownership** (computed behind
+045 dependence (anchor `linking-dependence`) · 050 immutability (incl. §Unmodifiable views) · **055 ownership** (computed behind
 `OWNERSHIP`, incl. §Finalizers; this file's §Ownership) · 060 eventual (computed; §Eventual) ·
 070 modification part 2 · 080 hidden content · **085 nullability** (computed; this file's §Nullability).
 Technical: **105 the link system** · **108 convergence (iterating analyzer)** · **109 the analyzer today** (status per
@@ -429,3 +472,13 @@ annotation, switches, deviations from the definitions, measurements, pinning tes
 the current implementation; the tutorial chapters state principles and carry no issue numbers, dates, gates or test names).
 Practice: 110 support classes · 115 the analyzer's own code · 120 other annotations ·
 appendix A annotation overview. (090/100 exist on disk but are excluded: pre-sv terminology.)
+
+## Open questions (2026-11-24)
+
+- CodeLaser/maddi-mod#159: container elements of a concrete type, accessible or hidden for the holder (see §Core
+  vocabulary); with it the `copyOf` shapes, the receiver gap of the fixpoint engine's structural verdict, and whether
+  a modification of hidden content only (`list.forEach(consumer)` on a field) should count against rule 1.
+- CodeLaser/maddi-mod#160: the function-type convention (implicit `@IgnoreModifications`) in source code.
+- CodeLaser/maddi-mod#161: an explicit `@IgnoreModifications` on a parameter of a bodiless source method is read
+  as `@Modified`.
+- Book 045 `Counters` and 080 `Leaf`/`Bag`/`reset` still disagree until #159 is decided.

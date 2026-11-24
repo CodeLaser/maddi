@@ -207,8 +207,11 @@ concern an example are marked as such in the test.
 === Immutability
 
 * `Counters` in <<accessible-hidden-content>> is computed {immutableContainerHC}, where the text concludes
-{finalFields}: the analyzer treats the values of the map as hidden content, although `Counters` calls a method of
-`Counter`.
+{finalFields}.
+The cause is the interface `Counter`, which has no implementation in the example: an abstract method of a source
+interface is computed from its implementations, and with none it comes out {nm}, where <<abstract-methods>> assumes
+{modified}. `Counter` is then immutable, and nothing dependent is left.
+With a mutable class in the place of the interface, `Counters` is computed {finalFields}, as the text says.
 * `SetBasedContainer4` in <<immutability>> is computed {finalFields}: rule 2 is decided on the declared type of the
 public field, `Set`, and not on the immutable object that `Set.copyOf` puts there.
 * The convention that a parameter of function type is {ignoreModifications} (<<function-types>>) is applied in the
