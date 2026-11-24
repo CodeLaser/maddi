@@ -33,7 +33,7 @@ We start the discussion with the following immutable implementation of this inte
 .Example {counter:example}, immutable implementation of `NonEmptyImmutableList`
 [source,java]
 ----
-@ImmutableContainer
+@ImmutableContainer(hc=true)
 class ImmutableOne<T> implements NonEmptyImmutableList<T> {
     private final T t;
 
@@ -404,7 +404,7 @@ void addToStrings(@NotModified NonEmptyList<StringBuilder> list) {
 Going back to `ImmutableOne`, we see that the constructor links the parameter `t` to the instance's field by
 means of assignment.
 Let us call this binding of parameters of hidden content to the field _content linking_,
-and mark it using {independentHc}, _content dependence_:
+and mark it using {independentHC}, _content dependence_:
 
 .Example {counter:example}, constructor of `ImmutableOne`
 [source,java]
@@ -416,7 +416,7 @@ public ImmutableOne(@Independent(hc=true) T t) {
 }
 ----
 
-Returning a part of the hidden content of the type, or exposing it as argument, both warrant a {independentHc}
+Returning a part of the hidden content of the type, or exposing it as argument, both warrant a {independentHC}
 annotation:
 
 .Example {counter:example}, more methods of `ImmutableOne`
@@ -442,7 +442,7 @@ Another place where the hidden content linking can be seen, is the _for-each_ st
 .Example {counter:example}, for-each loop and hidden content linking
 [source,java]
 ----
-ImmutableList<StringBuilder> list = ...;
+Iterable<StringBuilder> list = ...;
 List<StringBuilder> builders = ...;
 for(StringBuilder sb: list) {
     builders.add(sb);
@@ -470,13 +470,13 @@ Let us look at a possible implementation of `Collection.addAll`:
 @Modified
 boolean addAll(@NotNull(content=true) @Independent(hc=true) Collection<? extends E> collection) {
     boolean modified = false;
-    for (E e : c) if (add(e)) modified = true;
+    for (E e : collection) if (add(e)) modified = true;
     return modified;
 }
 ----
 
 The call to `add` content links `e` to `this`.
-Because `e` is also content linked to `c`, the parameter `collection` holds content linked to the hidden content of
+Because `e` is also content linked to `collection`, that parameter holds content linked to the hidden content of
 the instance.
 
 We are now properly armed to see how a for-each loop can be implemented using an iterator whose hidden content
@@ -504,7 +504,7 @@ interface Iterator<T> {
 Either the `next` method, or the `hasNext` method, must make a change to the iterator, because it has to keep track
 of the next element.
 As such, we make both {modified}.
-Following the discussion in the previous section, `next` is {independentHc}, because it returns part of the hidden
+Following the discussion in the previous section, `next` is {independentHC}, because it returns part of the hidden
 content held by the iterator.
 
 The interface `Iterable` is a supplier of iterators:
@@ -547,7 +547,7 @@ A concrete implementation of an iterator is often a nested type, static or not (
 .Example {counter:example}, implementation of an `Iterator`
 [source,java]
 ----
-@ImmutableContainer
+@ImmutableContainer(hc=true)
 public class ImmutableArray<T> implements Iterable<T> {
 
     @NotNull(content=true)
@@ -620,13 +620,13 @@ to the element array of its enclosing type:
 .Example {counter:example}, implementation of an `Iterator` as a static nested type
 [source,java]
 ----
-@ImmutableContainer
+@ImmutableContainer(hc=true)
 public class ImmutableArray<T> implements Iterable<T> {
     ...
 
     @Container
     @Independent(hc=true)
-    static class IteratorImpl implements Iterator<T> {
+    static class IteratorImpl<T> implements Iterator<T> {
         private int i; // variable
 
         private final T[] elements;
@@ -653,7 +653,7 @@ public class ImmutableArray<T> implements Iterable<T> {
 The type `T` is part of the hidden content, the `T[]` and the counter `i` are part of the accessible content.
 No external modification can impact the array or the counter; indeed, only `T` and a `boolean` are exposed.
 The latter is immutable, so does not allow modifications.
-The former allows modifications on the hidden content, whence the {independentHc} annotation for `IteratorImpl`.
+The former allows modifications on the hidden content, whence the {independentHC} annotation for `IteratorImpl`.
 
 Immutable types are independent as a type, but a type does not even have to be immutable to be independent.
 In fact, any type communicating via immutable types to the outside world is independent:

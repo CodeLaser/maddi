@@ -43,6 +43,7 @@ fresh method, or `null`; and that object must not be linked to the receiver, a p
 [source,java]
 ----
 class Lines {
+    static final List<Object> registry = new ArrayList<>();
     private final List<String> lines = new ArrayList<>();
 
     @Fresh

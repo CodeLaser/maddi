@@ -13,7 +13,7 @@ However, there could be indirect modifications, as in:
 .Example {counter:example}, indirect modifications
 [source,java]
 ----
-@ImmutableContainer
+@ImmutableContainer(hc=true)
 public class CyclicReferences {
 
     // not @FinalFields, not @Container

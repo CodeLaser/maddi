@@ -1,12 +1,12 @@
 [[nullability]]
 = Nullability
 
-Up to now, this document has been about one question: who can modify what?
+Most of this document has been about one question: who can modify what?
 The analyzer answers it by computing where objects flow — between fields, parameters, return values and the
 hidden content of containers — and the chapters on <<linking-dependence>> and <<hidden-content>> describe
 that flow in terms of _links_.
 `null` is a value like any other, and it flows along the same links.
-This chapter asks the second question the link engine can answer: where can `null` turn up?
+This chapter asks another question the link engine can answer: where can `null` turn up?
 
 Nullability is a standard topic for static analyzers, and we approach it from the computational side, as
 we do immutability: the analyzer _infers_ where `null` can be, and the user adds annotations only where

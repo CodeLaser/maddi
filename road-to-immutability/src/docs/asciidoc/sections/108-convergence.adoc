@@ -154,7 +154,8 @@ Mechanically:
 * its _nodes_ are the fields, parameters, return values and locals of the analyzed code, plus a node per
   type argument and per array element of each;
 * its _seeds_ are the null literals, the fields that can hold their default value, the arrays created empty,
-  the library results declared nullable, and the nullable contracts;
+  the library results declared nullable, the nullable contracts, and by default the parameters and fields
+  that the code compares with `null`;
 * its _edges_ are the direct links of each method's variable data, the argument links of each call site, and
   the override chains;
 * its _guards_ are the per-statement facts of a forward walk over every method body — which variables are

@@ -13,7 +13,7 @@ the earlier chapters — modification, independence, accessible and hidden conte
 A _link_ is a triple: `(from, nature, to)`, where `from` and `to` are variables — in a broad sense that
 includes fields of variables, array elements, and several synthetic kinds introduced below — and the
 _nature_ expresses *how* the two relate.
-Where the earlier chapters distinguished only "statically assigned", "dependent" and "independent with
+Where the earlier chapters distinguished only assignment, "dependent" and "independent with
 hidden content", the engine works with a richer alphabet.
 The natures that matter most, with the notation used in the analyzer's own output:
 

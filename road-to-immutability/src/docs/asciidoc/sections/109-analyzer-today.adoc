@@ -237,6 +237,20 @@ on the field `supplier` and on the constructor parameter it travels from, are no
 dependent at both positions, whether or not `supplier` is emptied.
 The two `@NotNull(content=true)` beside them are not in the shipped source either.
 
+=== Contracts along the hierarchy
+
+The rule of <<inheritance>>, from {modified} to {nm} but never back, is enforced against contracts written in source
+code and against those of the annotated APIs alike.
+A {modified} on a method that overrides one marked {nm} is reported as `contract-conflict`; a modifying
+implementation or override of a method contracted {nm} as `contract-violation`.
+Both are errors, and both are reported for the `MyString` example of <<inheritance>>, and for a modifying `equals()`
+or `toString()` in any class.
+
+* A contract of the annotated APIs is checked, but does not decide: an abstract method in source code that overrides
+a library method marked {nm} is still computed from its implementations.
+* An override that modifies where the overridden method is computed, not contracted, {nm} is a warning
+(`override-weakens-computed`): a call through the parent is judged non-modifying.
+
 === Ownership
 
 * A method whose analysis failed (a _degraded_ method, see <<convergence>>) is assumed to keep all its parameters,
@@ -275,7 +289,7 @@ either way (`Util.mayBeAccessibleContent`).
 Before #130, only the owner's own fields were compared (CodeLaser/maddi-mod#117).
 
 The analyzer makes three approximations, accepted on 2026-11-19.
-The numbers refer to the two examples of <<structural-elements>>.
+The method names refer to the two examples of <<structural-elements>>.
 
 (a) A modification made by a call is compared by its object and the application objects that object holds, not by
 the JDK containers it holds.::
@@ -384,12 +398,15 @@ Older tests, in other packages, pin the remaining examples:
 |`TestAccessibleReach`
 |`St`, `Edge` and `Bag` in <<structural-definition>>
 
+|`TestOverrideWeakensContract`
+|the rule of <<inheritance>>, with a variant of `MyString`
+
 |`TestBookIndependenceOfSupportTypes`
 |`SetOnce` and `Lazy` in <<support-classes>>; it runs the listing of `Lazy` beside the shipped code and prints both
 verdicts
 |===
 
-Not pinned: the examples of <<eventual-immutability>>, <<nullability>> and the last chapter, and the fields of
+Not pinned: the examples of <<eventual-immutability>>, <<nullability>> and the chapter on other annotations, and the fields of
 `ApplyLocalFunctions2`.
 
 The design notes are in `maddi-mod`: `docs/roadmap/ownership.md`, `docs/design/eventual-immutability.md` and

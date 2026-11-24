@@ -237,7 +237,7 @@ allow free modifications, until the type is _frozen_ and no modifications can be
 .Example {counter:example}, `io.codelaser.maddi.support.Freezable`
 [source,java]
 ----
-@ImmutableContainer(after="frozen") // <1>
+@ImmutableContainer(hc=true, after="frozen") // <1>
 public abstract class Freezable {
 
     @Final(after="frozen")
@@ -254,17 +254,19 @@ public abstract class Freezable {
         return frozen;
     }
 
+    @Only(before="frozen")
     public void ensureNotFrozen() {
         if (frozen) throw new IllegalStateException("Already frozen!");
     }
 
+    @Only(after="frozen")
     public void ensureFrozen() {
         if (!frozen) throw new IllegalStateException("Not yet frozen!");
     }
 }
 ----
 
-<1> Because the type is abstract, `hc=true` is implied.
+<1> The type is abstract, and therefore has hidden content.
 
 Note that as discussed in <<inheritance>>, it is important for `Freezable`, as an abstract class, to be immutable:
 derived classes can never be immutable when their parents are not immutable.
@@ -370,7 +372,7 @@ public class Lazy<T> {
 <3> `supplier` is read once, into a local. Reading the field twice is a race rather than a nicety: two threads
 find `t` null, the first completes and empties `supplier`, and the second dereferences what it re-reads as null.
 <4> Here `t`, part of the hidden content, links to `supplier`, as explained in <<content-linking>>.
-The statement also causes the {nnContent} annotation, as defined in <<nullable-section>> and <<identity-and-fluent>>.
+The statement also causes the {nnContent} annotation, as defined in <<nullable-section>>.
 It publishes the value _before_ the next line empties the supplier, so a reader that sees `supplier == null` has
 already seen `t`.
 <5> After the transition from mutable to effectively immutable, the field `supplier` moves out of the picture.

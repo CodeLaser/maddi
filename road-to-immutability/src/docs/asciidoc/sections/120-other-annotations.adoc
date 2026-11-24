@@ -45,7 +45,7 @@ class Builder {
     }
 
     @NotModified
-    @ImmutableContainer
+    @ImmutableContainer(hc=true)
     public List<String> build() {
         return List.copyOf(list);
     }

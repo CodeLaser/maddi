@@ -122,7 +122,7 @@ class DeeplyImmutable2 {
 Examples 3 and 4 are functionally equivalent: there is no way of changing the values of the fields once they have been
 set.
 In the real world there may be a reason why someone requires the getters.
-Or, you may be given code as in Example 2, but you are not allowed to change it.
+Or, you may be given code as in Example 1, but you are not allowed to change it.
 Whatever the reason, the analyzer should recognize effective finality.
 
 Note that we will not make a distinction between any of the different non-private access modes in Java.
