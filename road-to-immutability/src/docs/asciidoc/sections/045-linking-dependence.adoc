@@ -227,6 +227,13 @@ The methods of `java.lang.Object` are excluded from this definition.
 Everything else is *hidden*: all of an object held through an unbound type parameter, which declares nothing beyond `java.lang.Object`; and, for any other declared type, whatever a subtype or an implementation adds to it.
 ****
 
+The type arguments that `T` writes in the declaration of a field are part of the declared type through which `T` holds the objects in that position.
+In `Counters`, the field `Map<String, Counter> counters` holds its values through `Counter`.
+To `Map`, the values are of its type parameter `V`: hidden content of the map.
+To `Counters`, which wrote `Counter`, they are objects whose `increment()` it can call: accessible content of `Counters`.
+The same holds for a type argument of a type of one's own (`Box<Counter> box`), and for the component type of an array field.
+What one type sees of an object therefore depends on who holds it: the elements of a container are hidden content of the container, and accessible content of the type that chose their type.
+
 The definition goes by declaration, not by use: whether `T` actually calls one of the accessible methods does not matter.
 A type that holds a `Set` without ever looking inside it still holds a `Set`; we come back to this in <<generics>>.
 
