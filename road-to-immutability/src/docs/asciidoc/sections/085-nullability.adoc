@@ -34,7 +34,10 @@ one of three states.
 *Definition*: a position is *not null*, marked {nn}, when `null` cannot reach it.
 On a method, the return value is never `null`.
 On a field, the field never holds `null` once construction has finished.
-On a parameter, passing `null` is illegal: the method guarantees an exception.
+On a parameter, `null` is never passed.
+As a contract, passing `null` is an error of the caller.
+Computed, it means either that no call in a closed world passes `null`, or that the method throws on `null` whoever
+calls it, a _precondition_; see <<null-who-calls>>.
 ****
 
 The third state is *unspecified*: nobody has said anything, and the analyzer does not claim anything.
