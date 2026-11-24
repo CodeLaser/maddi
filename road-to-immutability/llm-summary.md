@@ -20,13 +20,16 @@ the end.
   - **hidden content** — everything else (book 045, by declared type since 2026-11-24): all of an object held
     through an unbound type parameter or `Object`, and whatever a subtype or implementation adds to a declared
     type. Leaf immutables (String, primitives, boxed) have NO hidden content; containers of immutables DO.
-  - **OPEN, CodeLaser/maddi-mod#159**: are the elements of a container that its HOLDER instantiated with a concrete
-    type (`Map<String, Counter>` in `Counters`) accessible or hidden for that holder? Accessible: book 045
-    (`Counters` is `@FinalFields`), 060, and the independence code (`FieldAnalyzerImpl`: "the transported content
-    decides dependence, not the container"; `add(StringBuilder)` into a list field is `@Dependent`). Hidden: book 080
-    `structural-definition` and `Util.accessibleTypes` (`clearLeaves`, `touchAll(Bag)`, `reset(St)` not structural).
-    The `List.copyOf`/`Map.copyOf` shapes come out `@Immutable(hc=true)` even when mutable elements are handed out.
-    Do not treat either reading as settled.
+  - **The holder's view, CodeLaser/maddi-mod#159 (Bart, 2026-11-24)**: the elements of a container are hidden
+    content of the container, but ACCESSIBLE content of the type that wrote the type argument on its field
+    (`Map<String, Counter>` in `Counters`: the counters are Counters' accessible content; `List<Leaf> children` in
+    `Leaf`). A variable whose own type is the container keeps its elements hidden (`clearList(List<Node>)`), and so
+    does an instantiation written by someone else (`clearBox(Box<Node>)`: to Box the elements are its `T`). Applied
+    to: the structural verdict (`Util.accessibleTypes` walks the type arguments of non-root field types;
+    `clearLeaves`, `touchAll(Bag)`, `reset(St)` are structural), independence (`FieldAnalyzerImpl` counts a copy
+    constructor's content link, graded by the type arguments the holder wrote), and immutability
+    (`DynamicImmutability.ofField`: a `List.copyOf` of mutable elements no longer makes the holder
+    `@Immutable(hc=true)`). Gate `NOHOLDERELEMENTS`.
 - **`@IgnoreModifications` = manual hidden content** (road §050 "Ignoring modifications as manual hidden
   content"): a field of concrete (mutable) type whose modifications the author disclaims. Same lattice effect
   as a type-parameter field (→ at best `@Immutable(hc=true)`, never hc-free); it differs only in *provenance* —
@@ -63,15 +66,16 @@ the end.
     The book's §"Propagating modifications" (080) describes it. A modified element reached through `∈`/`∋`
     (hidden content) counts structurally when it may also be the owner's accessible content (maddi-mod#130, Bart 2026-11-19): the definition is "the written
     object is reachable from p by SOME path of accessible fields", accessible judged by DECLARED types (a field only a
-    subclass declares is hidden; type-parameter/`Object` fields and container elements are hidden).
+    subclass declares is hidden; type-parameter/`Object` fields are hidden; container elements are hidden for the
+    container but accessible for the holder that wrote the type argument, #159).
     `Util.accessibleTypes` = declared types reachable through accessible fields at any depth;
     `Util.mayBeAccessibleContent` = the written type is assignable either way to one of them (gate
     `NOACCESSIBLEREACH`; applied in `ShadowModificationPass.project` and the engine's `mayAliasAccessibleField`;
     widens #117's one-field `Util.hiddenAliasOwner`). Approximations (accepted): (a) a call's modification compares
     the object plus the application objects it holds, not its JDK containers (else `clearList` loses its read-only
-    `List`); (b) the owner's own type counts only through a field back to it (`Node.first` yes; `Leaf.children` no:
-    `clearLeaves` not structural); (c) the fixpoint engine can't tell a direct write from a call, so it is coarser
-    than the reachability pass. Book §080 `structural-definition` (the definition), §109 `structural-approximations` (a-c); tests `TestAccessibleReach`,
+    `List`); (b) the owner's own type counts only through a field back to it (`Node.first`, and since #159
+    `List<Leaf> children`); (c) the fixpoint engine can't tell a direct write from a call, so it is coarser
+    than the reachability pass; for a field of the receiver it asks with the receiver's type (#159). Book §080 `structural-definition` (the definition), §109 `structural-approximations` (a-c); tests `TestAccessibleReach`,
     `TestBook080Elements`). The step back from a modified container to its elements is computed within one method
     (maddi-mod#113: a co-element of a modified element is modified, in the element's mode: structurally when the
     element's own state is written, maddi-mod#130), not through a call
