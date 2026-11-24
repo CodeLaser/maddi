@@ -461,14 +461,13 @@ The analyzer simply treats the parameterized type `T` as if it were the type `E`
 In the case of an unbound parameter type, only the public methods of `java.lang.Object` are accessible.
 By definition, the type belongs to the hidden content, as defined in <<accessible-hidden-content>>.
 
-A type can be used _transparently_, as if it were an unbound parameter type: no methods are called on it, save the ones from `java.lang.Object`; none of its fields are accessed, and it is not used as an argument to parameters where anything more specific than
-`java.lang.Object` is required.
-Such a type could be replaced by a type parameter, and would then belong to the hidden content.
-The analyzer does not make that replacement for you: it judges the type as written, and a transparently used `Set` is still a `Set` that the constructor stores and a getter returns.
+Hidden content is decided by the declared type, not by use.
+A class can hold an object of a concrete type without ever looking inside it: it calls none of its methods, save the ones from `java.lang.Object`, reads none of its fields, and passes it on only where a `java.lang.Object` would do.
+Such a type could have been a type parameter, and would then belong to the hidden content.
+The analyzer does not make that replacement: it judges the type as written, and a `Set` that the constructor stores and a getter returns is a `Set`.
+The replacement is a refactoring, and it is the programmer's:
 
-The following trivial example should clarify:
-
-.Example {counter:example}, a type used transparently in a class
+.Example {counter:example}, concrete types that could have been type parameters
 [source,java]
 ----
 @FinalFields @Container // <1>

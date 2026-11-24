@@ -215,16 +215,15 @@ class Levels {
 We propose to split the object graph of a field into two parts: its accessible part, and its hidden part.
 
 ****
-*Definition:* A type `A`, part of the object graph of the fields of type `T`, is *accessible* inside the type `T` when any of its methods or fields is accessed.
+*Definition:* What a type `T` can see of an object in the object graph of its fields is decided by the _declared_ type through which `T` holds that object.
+The fields and methods of the declared type, and of its supertypes, are *accessible* inside `T`.
 The methods of `java.lang.Object` are excluded from this definition.
 
-A type that is part of the object graph of the fields, but is not accessible, is *hidden* (when it is an unbound type parameter) or *transparent* (when it is not).
+Everything else is *hidden*: all of an object held through an unbound type parameter, which declares nothing beyond `java.lang.Object`; and, for any other declared type, whatever a subtype or an implementation adds to it.
 ****
 
-A type which is transparent can be replaced by an unbound type parameter, which is why we will use the term _hidden_
-from now on.
-Note: if it were not for transparent types, which are clearly accessible but are never accessed, we would not define something "accessible" in terms of "accessed".
-But we can argue that having transparent types in the code is poor programming practice (to the extent that the analyzer can be configured to raise an error when they are present), and "hidden" is the complement of "accessible".
+The definition goes by declaration, not by use: whether `T` actually calls one of the accessible methods does not matter.
+A type that holds a `Set` without ever looking inside it still holds a `Set`; we come back to this in <<generics>>.
 
 When a type `C` extends from a parent type `P`, we see an instance of `C` as being composed of two parts: the methods and fields of `P`, augmented by the methods and fields of `C`.
 Whilst the part of the parent, `P`, can be accessible, the part of the child `C` may remain hidden.
@@ -235,9 +234,9 @@ Inside `Levels`, where we are limited to `Level`, no such extensions are accessi
 Armed with this definition, we split the combined object graph of the fields of a type into the accessible content, and the hidden content:
 
 ****
-*Definition:* The *accessible content* of a type are those objects of the object graph of the fields that are of accessible type.
+*Definition:* The *accessible content* of a type is the part of the object graph of its fields that is accessible inside the type.
 
-The *hidden content* of a type are those objects of the object graph of the fields that are of hidden (or transparent) type.
+The *hidden content* of a type is the part of that object graph that is hidden.
 ****
 
 Note that we must make this distinction, because every interface is meant to be implemented, and every type, unless explicitly marked `final` or `sealed` can be extended in Java.

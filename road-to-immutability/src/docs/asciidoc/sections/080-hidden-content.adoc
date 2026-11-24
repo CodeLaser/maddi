@@ -285,7 +285,7 @@ a child is not accessible content of the leaf.
 ==== The definition, with declared types
 
 The examples show that we need to be precise about which objects are accessible content of a parameter `p`.
-We read the definition of <<accessible-hidden-content>> with declared types:
+The definition of <<accessible-hidden-content>> goes by declared types. Applied to a parameter `p`:
 
 ****
 . A write is a structural modification of `p` when the object written is accessible content of `p`: reached from

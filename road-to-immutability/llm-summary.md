@@ -13,7 +13,7 @@ chapter only when detail is missing here. Last checked against the code and the 
   nullability). Apache-2.0 licensed.
 - **Mutable** means "not immutable at any positive level"; `@Mutable` is the explicit bottom verdict.
 - **Content** of an object = the objects reachable from its fields (the object graph), split into:
-  - **accessible content** — reachable through fields/accessors the analyzer can see and name;
+  - **accessible content** — what the DECLARED type (and its supertypes) gives access to: its fields and methods;
   - **hidden content** — content that exists but cannot be named structurally: type parameters,
     extensible (non-final) types, the elements of shallowly-analyzed containers. Leaf immutables
     (String, primitives, boxed) have NO hidden content; containers of immutables DO.
@@ -394,8 +394,10 @@ immutability verdicts are derived.
   functional-interface parameters is a SHALLOW default (`ShallowMethodAnalyzer.computeParameterIgnoreModifications`,
   `FunctionTypes.isLibraryFunctionType`: the standard interfaces plus any `@FunctionalInterface` extending or shaped
   like one); source lambdas are handled by link lifting (§The link system).
-- **Transparent types are not detected**: book 050's `OddPair` is `@FinalFields @Container` (dependent constructor
-  and getters), not `@ImmutableContainer(hc=true)`; the substitution by a type parameter is the programmer's.
+- **There are no "transparent types"** (the term left the book on 2026-11-24): accessible vs hidden goes by the
+  DECLARED type, never by whether the type's methods are actually called. Book 050's `OddPair` is `@FinalFields
+  @Container` (dependent constructor and getters), not `@ImmutableContainer(hc=true)`; replacing a concrete type by
+  a type parameter is the programmer's refactoring.
 - **When immutability is the focus, analyze as many dependencies as SOURCE as possible, not as jars.**
   A type read shallowly (a compiled jar without an annotated API) gets conservative modification
   verdicts: an unannotated read accessor never establishes `@NotModified`, so a field read *directly*
