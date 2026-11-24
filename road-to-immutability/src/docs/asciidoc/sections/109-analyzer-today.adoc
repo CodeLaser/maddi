@@ -32,7 +32,7 @@ A contract on library methods.
 
 |{ignoreModifications}
 |contract
-|Implicit on parameters of functional interface type in the annotated APIs.
+|Implicit on parameters of function type (<<function-types>>), in the annotated APIs only.
 The separation check of <<confinement-guard>> reports the warning `ignore-modifications-not-confined`; it does not
 lower the immutability verdict.
 
@@ -211,10 +211,16 @@ concern an example are marked as such in the test.
 `Counter`.
 * `SetBasedContainer4` in <<immutability>> is computed {finalFields}: rule 2 is decided on the declared type of the
 public field, `Set`, and not on the immutable object that `Set.copyOf` puts there.
-* The convention that a parameter of functional interface type is {ignoreModifications} is applied in the annotated
-APIs only. In source code, the `consumer` parameter of `visit` and of the generic `forEach` is computed {modified}.
+* The convention that a parameter of function type is {ignoreModifications} (<<function-types>>) is applied in the
+annotated APIs only. In source code, the `consumer` parameter of `visit` and of the generic `forEach` is computed
+{modified}.
 As a consequence `NonEmptyImmutableList`, `One`, `OneWithOne` and `ImmutableOne` are not computed {container},
 and `OneWithOne.visit` and the generic `forEach` are computed {modified}.
+Written out on a method with a body, the annotation is honoured.
+Written out on a method without a body in source code, it is not: the parameter is computed {modified}.
+* A method that hands a function on to the `forEach` of a field, `list.forEach(consumer)`, leaves the field modified
+in its hidden content, and the type stops at {finalFields}: rule 1 is decided on the deep verdict, where
+<<accessible-hidden-content>> holds that a type is not responsible for modifications to its hidden content.
 * A modifying call on an {ignoreModifications} _instance_ field leaves the field and the type unmodified, but the
 method that makes the call is computed {modified}: `Catalogue.price` and `FieldNode.record` in
 <<ignore-modifications-hidden-content>>. For a static field, as in `CountAccess`, the method is computed {nm}.

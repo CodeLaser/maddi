@@ -612,7 +612,7 @@ interface NonEmptyImmutableList<T> extends HasSize {
 Even if the concrete choice for `T` is modifiable, the independence rule must be satisfied.
 <2> The parameter `consumer` would normally be {modified}, which would break the {container} property that we wish for
 `NonEmptyImmutableList`.
-However, as detailed and explained in <<hidden-content>>, the annotated APIs give parameters of functional interface type an
+However, as detailed and explained in <<function-types>>, a parameter of function type has an
 implicit {ignoreModifications} annotation.
 <3> The hidden content of the type is exposed to the outside world via the `accept` method in the consumer, similarly to being exposed via the return value of the `first` method.
 <4> Computed, because it is not an abstract method.

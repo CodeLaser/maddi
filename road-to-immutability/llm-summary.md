@@ -398,8 +398,11 @@ immutability verdicts are derived.
   (`System.setOut`) — never contracted on an instance method like `logger.info`, nor on `java.util.logging`.
 - **No `java.util.function` special case in the source analysis.** The implicit `@IgnoreModifications` on
   functional-interface parameters is a SHALLOW default (`ShallowMethodAnalyzer.computeParameterIgnoreModifications`,
-  `FunctionTypes.isLibraryFunctionType`: the standard interfaces plus any `@FunctionalInterface` extending or shaped
-  like one); source lambdas are handled by link lifting (§The link system).
+  `FunctionTypes.isLibraryFunctionType`: `java.util.function`, `Runnable`, Kotlin's function types, plus an interface
+  with ONE abstract method that is annotated `@FunctionalInterface` or extends a standard one -- NOT any SAM type:
+  `Iterable`, `Comparable`, `Executor` stay out); source lambdas are handled by link lifting (§The link system).
+  The book (080, anchor `function-types`) defines *function type* this way and states the convention for EVERY method,
+  with or without a body (Bart, 2026-11-24); that the analyzer applies it to library methods only is a deviation (109).
 - **There are no "transparent types"** (the term left the book on 2026-11-24): accessible vs hidden goes by the
   DECLARED type, never by whether the type's methods are actually called. Book 050's `OddPair` is `@FinalFields
   @Container` (dependent constructor and getters), not `@ImmutableContainer(hc=true)`; replacing a concrete type by

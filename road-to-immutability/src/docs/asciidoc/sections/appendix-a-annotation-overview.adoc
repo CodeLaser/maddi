@@ -54,8 +54,8 @@ Following its definition, {utilityClass} on a type implies {immutable}.
 A class that is neither `final` nor `sealed` is extensible, and therefore carries hidden content; the analyzer does
 not infer effective finality from the absence of subtypes in the code it sees.
 
-Parameters of functional interface type -- the `java.util.function` family, and any `@FunctionalInterface` that
-extends or resembles one -- have the {ignoreModifications} annotation, unless explicitly overwritten by {modified}.
+Parameters of function type (<<function-types>>) have the {ignoreModifications} annotation, unless explicitly
+overwritten by {modified}.
 
 {fresh} on a bodiless method and {borrowed} on a parameter of one are contracts that every implementation must
 honour (see <<ownership>>); without them, an abstract method is fresh, and a parameter borrowed, only when all

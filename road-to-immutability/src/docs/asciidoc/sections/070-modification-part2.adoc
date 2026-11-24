@@ -138,8 +138,9 @@ It is important not to forget that _any_ interface defining a single abstract me
 While the examples above all employ generics (more specifically, unbound type parameters), generics are not a requirement for functional interfaces.
 The Java language offers syntactic sugar for functional programming, but the types remain normal Java types.
 
-We will not make any distinction between a functional interface and an abstract type.
-If one were forced to make one, the _intention to hold data_ would be the dividing line between a functional interface, which conveys no such intention, and an abstract type, which does.
+We make one distinction between a functional interface and any other abstract type: the _intention to hold data_.
+An interface that declares that it has no such intention, by being part of `java.util.function` or by carrying the annotation `@FunctionalInterface`, is a _function type_ (<<function-types>>).
+Every other interface with a single abstract method is an abstract type like any other.
 
 In this section we want to discuss a limited application of functional interfaces: the one where the SAMs have a local implementation.
 The general case, where objects of abstract types come in via a parameter, will be addressed in <<hidden-content>>.

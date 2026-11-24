@@ -113,11 +113,19 @@ These types are for generic use; one should never use them to represent some spe
 are of concern to the current type.
 Therefore, we make this annotation implicit in exactly this context.
 
-IMPORTANT: In the annotated APIs, a parameter of functional interface type -- the `java.util.function` family, and any
-`@FunctionalInterface` that extends or resembles one -- is marked {ignoreModifications} implicitly, unless annotated
-{modified}.
-Where the source code of a method is available, no such assumption is needed: what a lambda modifies is
-attributed to the objects it reaches, not to the functional-interface parameter it travels in.
+[#function-types]
+****
+*Definition*: a *function type* is an interface of `java.util.function`, `java.lang.Runnable`, or an interface with a
+single abstract method that is annotated `@FunctionalInterface` or extends one of these.
+****
+
+IMPORTANT: A parameter of function type is implicitly {ignoreModifications}, on every method, with or without a body,
+unless it is annotated {modified}.
+
+An interface that merely has a single abstract method, such as `Iterable` or `Comparable`, is not a function type:
+nothing says that it does not hold data.
+What the function does to its _argument_ is not ignored.
+It is deferred to the place where a concrete function is supplied, as the next section shows.
 
 Looking at the more general case of a `forEach` implementation iterating over a list or array, we therefore end up with:
 
