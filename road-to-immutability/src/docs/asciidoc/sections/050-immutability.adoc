@@ -546,7 +546,7 @@ This allows us, e.g., to treat any implementation of `Comparable`, defined as:
 interface Comparable<T> {
 
     @NotModified
-    int compareTo(@NotModified T other);
+    int compareTo(T other); // @NotModified on other, as its type is a type parameter
 }
 ----
 
@@ -555,6 +555,7 @@ as an immutable type when the only method we can access is `compareTo`.
 As far as the modification status of the _parameters_ of abstract methods is concerned, we also start off with {modified}:
 
 IMPORTANT: Unless otherwise explicitly annotated, or their types are immutable, we will assume that the parameters of abstract methods, be they in interfaces or abstract classes, are {modified}.
+An unbound type parameter counts as a type that is immutable here: the abstract type cannot call a modifying method on such a parameter, so it is {nm} unless the contract says otherwise.
 Overriding the method, the contract can change from {modified} to {nm}, but not from {nm} to {modified}.
 
 While it is possible to compute the immutability and container status of interface types, using the rules presented above, it often makes more practical sense to use the annotations as contracts: they may save a lot of annotation work on the abstract methods in the interface.
@@ -623,13 +624,14 @@ The `Consumer` interface is defined and annotated as:
 interface Consumer<T> {
 
     // @Modified implicit
-    void accept(T t); // @Modified on t implicit
+    void accept(@Modified T t);
 }
 ----
 
 Implementations of the `accept` method are allowed to be modifying (even though in `NonEmptyImmutableList.visit`
 we decide to ignore this modification!).
-They are also allowed to modify their parameter, as we will demonstrate shortly.
+They are also allowed to modify their parameter, as we will demonstrate shortly: the {modified} on `t` is a contract, written out because a parameter whose type is a type parameter is {nm} by default.
+A `Consumer` exists to act on its argument, and an implementation that fixes `T` knows what it is given.
 
 Let's downgrade from {immutableContainer} to {finalFields} {container} by adding a modifying method:
 
