@@ -549,7 +549,6 @@ A concrete implementation of an iterator is often a nested type, static or not (
 @ImmutableContainer(hc=true)
 public class ImmutableArray<T> implements Iterable<T> {
 
-    @NotNull(content=true)
     private final T[] elements;
 
     @SuppressWarnings("unchecked")
@@ -574,7 +573,6 @@ public class ImmutableArray<T> implements Iterable<T> {
         }
 
         @Override
-        @NotNull
         public T next() {
             return elements[i++];
         }
@@ -640,7 +638,6 @@ public class ImmutableArray<T> implements Iterable<T> {
         }
 
         @Override
-        @NotNull
         @Modified
         public T next() {
             return elements[i++];
