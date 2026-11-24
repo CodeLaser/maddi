@@ -216,8 +216,9 @@ immutability verdicts are derived.
   zero changes → the published fixpoint is path-independent. The proving ground (timefold, langchain4j,
   fernflower, guava, activemq, jenkins-core, camel-core modules) is kept certified & crash-free.
 - **Cycle breaking**: at the certification point, if immutability-undecided types remain, one more full
-  pass runs with undecided inputs resolved by strategy (undecided supertype floored at FINAL_FIELDS;
-  no-information treated as non-modifying), then re-certifies. Conclusions that rest on broken cycles
+  pass runs with undecided inputs resolved by strategy (the default, `CycleBreakingStrategy.NONE`, is pessimistic: a
+  type with an undecided supertype concludes FINAL_FIELDS; `NO_INFORMATION_IS_NON_MODIFYING`, which reads an undecided
+  supertype as IMMUTABLE_HC, is set by two tests only), then re-certifies. Conclusions that rest on broken cycles
   are capped at hc-level (2), never granted hc-free (3). Since 2026-07-19 the breaking pass also
   resolves the field/abstract-method path: a verdict that will never arrive (a field's unmodified
   status, a NON-PRIVATE field's type immutability, an abstract method's modification — each rooted in

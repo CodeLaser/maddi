@@ -497,9 +497,8 @@ The result is, of course, the type `Pair` as defined <<type-pair,earlier>>.
 
 Making a concrete choice for a type parameter may have an effect on the immutability status, as will be explained in
 <<hidden-content>>.
-Some examples are easy to see: any {finalFields} type whose fields consist only of types of unbound type parameter, will become immutable when the unbound type parameters are substituted for immutable types.
-Any immutable type whose hidden content consists only of types of unbound type parameter, will become deeply immutable (i.e., devoid of hidden content) when the unbound type parameters are substituted for deeply immutable types.
-The `Pair` mentioned before is a case in point, and an example for both rules: `Pair<Integer, Long>` is deeply immutable.
+One example is easy to see: any immutable type whose hidden content consists only of types of unbound type parameter, will become deeply immutable (i.e., devoid of hidden content) when the unbound type parameters are substituted for deeply immutable types.
+The `Pair` mentioned before is a case in point: `Pair<Integer, Long>` is deeply immutable.
 
 [#abstract-methods]
 == Abstract methods
@@ -941,7 +940,7 @@ Take a type that keeps a record of how it is used:
 ----
 @ImmutableContainer(hc=true)
 class Catalogue {
-    private final Map<String, Price> prices;
+    private final Map<String, Price> prices; // Price is immutable
 
     @IgnoreModifications
     private final List<String> lookups = new ArrayList<>(); // <1>
@@ -999,10 +998,10 @@ In `Catalogue`, add a field and a method:
 .Example {counter:example}, an ignored field that is not separated
 [source,java]
 ----
-private final Price base; // accessible content; assume Price has a modifying method 'discount'
+private final Offer base; // accessible content; Offer has a modifying method 'discount'
 
 @IgnoreModifications
-private final List<Price> recent = new ArrayList<>();
+private final List<Offer> recent = new ArrayList<>();
 
 public void touch() {
     recent.add(base);          // <1>

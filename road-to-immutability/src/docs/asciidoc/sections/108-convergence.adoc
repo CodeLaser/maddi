@@ -85,9 +85,9 @@ undecided types.
 At exactly that point — quiescence, with undecided immutability remaining — the engine activates _cycle
 breaking_: one more full pass in which the blocked components are allowed to resolve their undecided
 inputs by strategy rather than waiting.
-The default strategy floors an undecided supertype at final-fields level and treats absent information as
-non-modifying; the breaking pass then lets the normal machinery draw its conclusions, and the loop
-re-certifies including them.
+The default strategy is pessimistic: a type whose supertype is still undecided concludes at final-fields level.
+One conclusion is enough to unblock the cluster; the breaking pass then lets the normal machinery draw its
+conclusions from it, and the loop re-certifies including them.
 Without it, a code base with many such clusters ends with most of its types undecided; with it, the positive
 verdicts (immutable, immutable with hidden content) appear.
 

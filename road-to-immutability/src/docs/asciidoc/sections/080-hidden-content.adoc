@@ -93,7 +93,7 @@ While we will ignore this second source of modification in the `ImmutableOne` ty
 we will _defer_ or _propagate_ it to the place where a concrete implementation of the consumer is presented.
 We can ignore it here, because `t` is part of the hidden content of the type; what happens to
 its content happens outside the zone of control of `ImmutableOne`.
-The fact that it is passed as an argument to a method of `consumer` is reflected by the {independent} annotation.
+The fact that it is passed as an argument to a method of `consumer` is reflected by the {independentHC} annotation.
 It will take care of the propagation of modifications from the concrete implementation into the hidden content.
 
 This results in the following annotations for `visit` in `ImmutableOne`:
@@ -140,7 +140,7 @@ public void forEach(@Independent(hc=true) Consumer<T> consumer) {
 
 Modifications to the parameter, made by the concrete implementation, are propagated into the hidden content of `list`,
 as shown in the next section.
-The {independent} annotation appears because hidden content in `list` is exposed to the `consumer` parameter.
+The {independentHC} annotation appears because hidden content in `list` is exposed to the `consumer` parameter.
 This annotation does not appear for the accessible content of the immutable type.
 
 Recall that parameters of modifiable type can already be shielded from external modification by
@@ -386,7 +386,7 @@ static String useReplace(@NotModified StringBuilder input) {
 <2> This action discards `input` from `list` without modifying it.
 
 ****
-The {independent} annotation takes a modification from the concrete, modifying implementation to the parameter or
+The {independentHC} annotation takes a modification from the concrete, modifying implementation to the parameter or
 field holding the hidden content.
 The distinction between modification of hidden content and modification of accessible content, `@Modified(hc=true)`,
 tells us where to take it from there: back to the objects that make up that hidden content, or not.
