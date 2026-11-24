@@ -371,7 +371,7 @@ public class Lazy<T> {
 <2> The {mark} annotation is conditional; the transition is triggered by nullity of `t`
 <3> `supplier` is read once, into a local. Reading the field twice is a race rather than a nicety: two threads
 find `t` null, the first completes and empties `supplier`, and the second dereferences what it re-reads as null.
-<4> Here `t`, part of the hidden content, links to `supplier`, as explained in <<content-linking>>.
+<4> Here `t`, part of the hidden content, becomes content dependent on `supplier`, as explained in <<content-linking>>.
 The statement also causes the {nnContent} annotation, as defined in <<nullable-section>>.
 It publishes the value _before_ the next line empties the supplier, so a reader that sees `supplier == null` has
 already seen `t`.
@@ -380,13 +380,13 @@ This is what Kotlin's three `Lazy` implementations do as well, each with its own
 
 After calling the marker method `get()`, `t` cannot be assigned anymore, and it becomes {final}.
 The constructor parameter `supplier` is `@Independent(hc=true)`, as its hidden content (the result of `get()`)
-links to that of `Lazy`, namely the field `t`.
+is shared with that of `Lazy`, namely the field `t`.
 
-But why is `supplier` as a field not linked to the constructor parameter?
-Clearly, `supplier` is part of the accessible content of `Lazy`, as its `get()` method gets called.
+But why is `supplier` as a field not dependent on the constructor parameter?
+Clearly, `supplier` is part of the accessible content of `Lazy`: it is held as a `Supplier`, and its `get()` method is called.
 The criterion is: a modification on one may cause a modification on the other.
 Modifications can only be made by calling the `get()` method, as there are no other methods, and no fields.
-Consequently, the constructor should link to the field, and `supplier` cannot be `@Independent`.
+Consequently, the field should depend on the constructor parameter, and `supplier` cannot be `@Independent`.
 
 The answer lies in the eventual nature of `Lazy`: _before_ the first call to `get`, the `supplier` field
 is of relevance to the type, and `t` is not.

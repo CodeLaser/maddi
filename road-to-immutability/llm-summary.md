@@ -76,6 +76,11 @@ chapter only when detail is missing here. Last checked against the code and the 
   hold one, `null`), folded over implementations. Read by nothing in the immutability/independence/container
   analyses; consumer: the Kotlin printer's `List` vs `MutableList` (`ModificationFacts.unmodifiableResult`), the call
   staying Java's (`listOf` would copy).
+- **Link vs dependence** (book wording since 2026-11-24): the tutorial chapters use *dependent* / *independent with
+  hidden content* (*content dependence*) / *independent* for the verdicts, never "linked". A **link** is only the
+  mechanism: the analyzer's record of where an object flows (§The link system), which ownership and nullability
+  follow too. Chapter 045 is titled "Dependence" (anchor `linking-dependence`), 070 "How to compute dependence",
+  080 "Content dependence" (anchor `content-linking`).
 - **Independence** is a separate axis from immutability: it captures whether a method's return
   value/parameters expose (parts of) the receiver's content. `@Independent` (nothing shared),
   `@Independent(hc=true)` (only hidden content shared), dependent (mutable content shared).

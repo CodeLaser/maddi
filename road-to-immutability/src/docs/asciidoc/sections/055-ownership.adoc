@@ -37,7 +37,7 @@ Three annotations express the verdicts: {fresh} on a method, {borrowed} on a par
 ****
 
 In practice, every return path must yield an object created in the method, the result of a call to another
-fresh method, or `null`; and that object must not be linked to the receiver, a parameter, a field or a static.
+fresh method, or `null`; and no link may lead from that object to the receiver, a parameter, a field or a static.
 
 .Example {counter:example}, fresh and non-fresh methods
 [source,java]
@@ -320,10 +320,10 @@ class Names {
 }
 ----
 
-<1> A new stream, linked to the field `names`.
+<1> A new stream, dependent on the field `names`.
 <2> A modifying call on that stream, in the plain reading.
 
-Without the statement above, the modification at the second callout would travel along the link to the field `names`,
+Without the statement above, the modification at the second callout would travel from the stream to the field `names`,
 and from there to the method: every method containing a stream pipeline would be {modified}, and no type with such
 a method could be immutable.
 With it, the pipeline is silent about its receivers, and only genuine evidence, such as what the lambda captures and
@@ -340,7 +340,7 @@ The following need to be true at all times when using types with finalizer metho
 
 . Any field of a type with finalizers must be effectively final (marked with {final}).
 . A finalizer method can only be called on a field inside a method which is marked as a finalizer as well.
-. A finalizer method can never be called on a parameter or any variable linked to it, with linking as defined throughout this document (see <<linking-dependence>>).
+. A finalizer method can never be called on a parameter or any variable dependent on it (see <<linking-dependence>>).
 ****
 
 These restrictions help you control the life-cycle of objects with a {finalizer}, by not letting them out of sight.
@@ -356,7 +356,7 @@ Each of them is an ownership rule:
 |the owner cannot be swapped out
 |2. a finalizer is called on a field only inside a finalizer
 |an owner consumes what it owns only while it is itself consumed (in Rust, moving out of a field needs `self` by value)
-|3. never on a parameter, or anything linked to it
+|3. never on a parameter, or anything dependent on it
 |a borrowed object cannot be consumed
 |===
 

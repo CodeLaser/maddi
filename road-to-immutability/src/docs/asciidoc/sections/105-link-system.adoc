@@ -1,8 +1,8 @@
 [[link-system]]
 = The link system
 
-The chapters up to now have used _linking_ informally: two variables are linked when modifying the content
-of one may modify the content of the other.
+The chapters up to now have spoken of dependence, and have mentioned _links_ only as the analyzer's record of where
+objects flow.
 This chapter describes, at a technical but hopefully still readable level, how links can be computed, and how
 the {maddi} analyzer does so.
 It is the first of two chapters that trade the tutorial style for a look under the hood; the concepts of

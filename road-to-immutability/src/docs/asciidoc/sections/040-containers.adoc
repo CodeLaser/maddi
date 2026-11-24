@@ -194,14 +194,14 @@ class ErrorRegistry {
 <1> Not a single statement of `add` modifies `message`; it only stores it.
 <2> Yet here, an object which arrived via `message` is modified.
 
-The `add` method stores its argument, which links it to the field `messages`.
+The `add` method stores its argument, which makes the field `messages` depend on it.
 The `changeFirst` method modifies the object graph of that field, so an object that entered the type through
 `message` can be modified after `add` has returned.
 The modification therefore travels, exactly as it does in <<linking-dependence>>: from the method `changeFirst`, to
 the field `messages`, and finally to the parameter `message` of `add`, which is marked {modified} as a result.
 `ErrorRegistry` is not a container, and objects passed to it are not safe from modification.
 
-It is _linking_ that allows the analyzer to make this journey, and it is the subject of the next section.
+The analyzer makes this journey by following objects as they flow from parameters into fields; that is the subject of the next section.
 Because modification of parameters is computed this way, the definition above is equivalent to the more practical
 rule that all parameters of all non-private methods and constructors must be {nm} -- which is precisely what the
 analyzer checks.

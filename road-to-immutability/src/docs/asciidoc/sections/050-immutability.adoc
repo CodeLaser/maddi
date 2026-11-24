@@ -443,7 +443,7 @@ You cannot explicitly (contractually) change `List.getFirst()` from {nm} to {mod
 <3> This is allowed: going from {modified} to {nm} is possible.
 
 Following the same principles, we observe that types deriving from a {container} super-type need not be a container themselves.
-So while we may state that `Collection` is a container, it is perfectly possible to implement a collection which has public methods which modify their parameters, as long as the methods inherited from `Collection` do not modify their parameters, and the implementation does not modify the objects linked to the parameters of the
+So while we may state that `Collection` is a container, it is perfectly possible to implement a collection which has public methods which modify their parameters, as long as the methods inherited from `Collection` do not modify their parameters, and the implementation does not modify the objects that depend on the parameters of the
 `Collection` methods.
 
 Note that sealed types reject the 'you can always extend' assumptions of Java types.
@@ -1235,7 +1235,7 @@ The analyzer computes them with the machinery that also propagates eventual immu
 anything from the list it wraps, and that throws when asked to.
 It is not immutable.
 Whoever still holds `list` can change it, and the view shows the change.
-The chapter on <<linking-dependence>> introduced views as the place where linking stops being a matter of
+The chapter on <<linking-dependence>> introduced views as the place where dependence stops being a matter of
 following assignments; here we ask what the definitions of this chapter make of them.
 
 Run the view's type through the rules.

@@ -1,5 +1,5 @@
 [[linking-dependence]]
-= Linking, dependence
+= Dependence
 
 Let us now elaborate on how we will compute modifications, in a path towards immutability.
 Consider the following example:
@@ -21,13 +21,13 @@ class LinkExample1<X> {
 ----
 
 After construction, an instance of `LinkExample1` contains a reference to the set that was passed on as an argument to its constructor.
-We say the field `set` links to the parameter `xs` of the constructor.
+We say the field `set` _depends on_ the parameter `xs` of the constructor: a modification of one is a modification of the other.
 In this example, this is an expensive way of saying that there is an assignment from one to the other.
-However, linking can become more complicated.
+However, dependence can become more complicated.
 
 The {maddi} analyzer will add modification annotations to `LinkExample1` as follows:
 
-.Example {counter:example}, a field linked to a constructor parameter, with annotations
+.Example {counter:example}, a field dependent on a constructor parameter, with annotations
 [source,java]
 ----
 class LinkExample1<X> {
@@ -49,7 +49,7 @@ The parameter `x` of `LinkExample1.add` is {nm} because the first parameter of `
 The `LinkExample1.add` method modifies the field, which causes the annotation first on the method, then on the field, and finally on the parameter of the constructor.
 Because of the latter, `LinkExample1` cannot be marked {container}.
 
-Linking looks at the underlying object, and not at the variable.
+Dependence is about the underlying object, and not about the variable.
 Consider the following alternative `add` method:
 
 .Example {counter:example}, alternative `add` method for `LinkExample1`
@@ -64,10 +64,10 @@ public void add(X x) {
 ----
 
 Nothing has changed, obviously.
-Finally, as an example of how linking can become more complicated than following assignments, consider a typical
+Finally, as an example of how dependence can become more complicated than following assignments, consider a typical
 _view_ on a collection:
 
-.Example {counter:example}, linking using a method call
+.Example {counter:example}, dependence through a method call
 [source,java]
 ----
 List<X> list = createSomeLargeList();
@@ -77,34 +77,39 @@ sub.set(0, x); // <1>
 
 <1> The modifying method call `set` will modify `sub`, and `list` as well!
 
-On the other side of the spectrum, linking does not work on objects that cannot be modified, like primitives or deeply immutable objects such as `java.lang.String`.
+On the other side of the spectrum, there is no dependence between objects that cannot be modified, like primitives or deeply immutable objects such as `java.lang.String`.
 
 Let us summarize by:
 
 ****
-*Definition*: Two objects are independent of each other (or not linked to each other) when no modification to the first can imply a modification to the second, or vice versa.
+*Definition*: Two objects are *independent* of each other when no modification to the first can imply a modification to the second, or vice versa.
 
-Conversely, two objects are dependent (or linked) when a modification to the first may imply a modification to the second, or vice versa.
+Conversely, two objects are *dependent* when a modification to the first may imply a modification to the second, or vice versa.
 ****
 
-Linked objects must share a common sub-object: the object returned by `subList`, for example, is "backed" by the original list, in other words, it maintains a reference to the original list.
+Dependent objects must share a common sub-object: the object returned by `subList`, for example, is "backed" by the original list, in other words, it maintains a reference to the original list.
 
 NOTE: (in)dependence is defined at the level of objects (instances of some class or interface).
 Two objects of the same class can be independent of each other.
 For two objects to be dependent on each other, they must have some common type in their respective type definitions.
 
-We will discuss linking in more detail in <<computing-dependence>>.
-For now, assume that a field links to another field, or to a parameter, if there is a possibility that both variables represent (part of) the same object (their object graphs overlap).
+We will discuss how dependence is computed in <<computing-dependence>>.
+For now, assume that a field depends on another field, or on a parameter, if there is a possibility that both variables represent (part of) the same object (their object graphs overlap).
 
-Linking between fields and parameters, and fields and return values of methods, is important to us:
+NOTE: The analyzer finds this out by recording where objects flow: from parameters into fields, and from fields into return values.
+It calls such a record a _link_.
+We will meet links again in the chapters on <<ownership>> and <<nullability>>, which follow the same flow with a different question, and in <<link-system>>, which describes how they are computed.
+In this part of the document we speak of dependence, which is what the links are computed for.
+
+Dependence between fields and parameters, and between fields and return values of methods, is what matters to us:
 
 ****
 *Definition*:
-A method parameter or constructor parameter is not linked when it is not linked to any of the fields of the type.
-A method is *not linked* when its return value is not linked to any of the fields of the type.
+A method parameter or constructor parameter is *independent* when the object passed as its argument is independent of the fields of the type.
+A method is *independent* when the object it returns is independent of the fields of the type.
 ****
 
-When a constructor parameter is linked, any modification made to the object presented to this parameter as an argument may have an influence on the object graph of the fields of the constructor's type.
+When a constructor parameter is dependent, any modification made to the object presented to this parameter as an argument may have an influence on the object graph of the fields of the constructor's type.
 But do all these modifications matter to the type?
 
 [#accessible-hidden-content]
@@ -176,7 +181,7 @@ assert counters.getValue("rainy days") == rainyDays + 1;
 
 An external modification (`c.increment()`) to an object presented to the constructor as part of the collection has an effect on the object graph of the fields, to the extent that an identical, non-modifying method call returns a different value!
 
-We must conclude that the parameter of the constructor `counterCollection` is linked to the field `counters`, even if modifications at the collection level have no effect.
+We must conclude that the field `counters` depends on the constructor's parameter `counterCollection`, even if modifications at the collection level have no effect.
 
 Now we put the `Counters` example in contrast with the `Levels` example, where the modifying method `increment()`
 has been removed from `Counter` to obtain `Level`:
@@ -254,30 +259,30 @@ A type is not responsible for modifications to its hidden content.
 
 Recall that by definition, any modifications to the hidden content must be external to the type.
 
-We end this section by defining what linking means with respect to the accessible and hidden content of the fields.
-The definition of linking given in the previous section is absolute, in the sense that it covers the whole object graph of the objects being linked.
+We end this section by refining dependence with respect to the accessible and hidden content of the fields.
+The definition given at the start of this chapter is absolute, in the sense that it covers the whole object graph of both objects.
 
-When a parameter is linked to a field, we could try to find out if the modifications affect the accessible content, given that we state that modifications to the hidden content are outside the scope of the type anyway.
-In other words, we could distinguish between different forms of linking:
+When a parameter and a field share an object, we can ask whether that object belongs to the accessible content, given that we state that modifications to the hidden content are outside the scope of the type anyway.
+This gives three cases:
 
 ****
 *Definition:* a parameter or method return value is
 
-* *dependent* on the fields if and only if it is linked to the accessible content of the type.
-* *independent* of the fields if and only if it is at most linked to the hidden content of the type
+* *dependent* on the fields when it shares an object with the accessible content of the type;
+* *independent with hidden content* when it shares objects with the hidden content of the type only;
+* *independent* of the fields when it shares nothing with them.
 ****
 
 In other words, a parameter or method return value is dependent when a modification on the argument or returned value has the possibility to cause a modification in the accessible part of the fields.
 
-Linking between parameters or return value and fields which does not involve the accessible part of the fields, is called independence.
-We will elaborate in <<hidden-content>>.
-In the following sections, we will often use the term 'independent' when we mean 'not-dependent', i.e., when there is no linking or only linking to the hidden part of the object graph of the fields.
+We will elaborate on the middle case in <<hidden-content>>.
+In the following sections, we will often use the term 'independent' when we mean 'not dependent', covering both the second and the third case.
 
 In terms of annotations, dependence will be the default state for objects of types where dependence is possible.
 We will not annotate it most of the time; if we do, we use the annotation `@Independent(absent=true)`.
-The annotation {independent} on parameters and methods will be used for absence of linking.
+The annotation {independent} on parameters and methods is used when nothing is shared.
 When a type is deeply immutable, {independent} is the default state, and therefore it will be omitted.
-We use `@Independent(hc=true)` to stress the linking to the hidden part.
+We use `@Independent(hc=true)` when only hidden content is shared.
 
 Now, all pieces of the puzzle are available to introduce immutability of types.
 

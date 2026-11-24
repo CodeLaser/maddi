@@ -1,7 +1,7 @@
 [#modification-part2]
 = Modification, part 2
 
-This section goes deeper into modification, linking and independence.
+This section goes deeper into modification, dependence and independence.
 We start with cyclic references.
 
 == Cyclic references
@@ -65,57 +65,56 @@ This has the advantage of simplicity, both for the programmer and the analyzer.
 It imposes more annotation work on the programmer, however, because the interface's methods need contracts.
 
 [#computing-dependence]
-== How to compute linking
+== How to compute dependence
 
-To compute linking, the analyzer tries to track actual objects, with the aim of knowing if a field links to another field or a parameter.
-It computes a dependency graph of variables depending on other variables, with the following four basic rules:
-
-****
-Rule 1: in an assignment `v = w`, variable `v` links to variable `w`.
-****
+To compute dependence, the analyzer tracks actual objects, with the aim of knowing whether a field shares an object with another field or with a parameter.
+It computes a graph of variables depending on other variables, with the following four basic rules:
 
 ****
-Rule 2: in an assignment `v = a.method(b)`,`v` potentially links to `a` and `b`.
+Rule 1: in an assignment `v = w`, variable `v` depends on variable `w`.
 ****
 
-Note that saying `v` links to `a` is the same as saying that the return value of `method` links to some field inside `A`, the type of `a`.
+****
+Rule 2: in an assignment `v = a.method(b)`,`v` potentially depends on `a` and `b`.
+****
+
+Note that saying `v` depends on `a` is the same as saying that the return value of `method` depends on some field inside `A`, the type of `a`.
 This is especially clear when `a == this`.
 
 We discern a number of special cases:
 
-. When `v` is of {immutable} type, there cannot be any linking; `v` does not link to `a` nor `b`.
-. If `b` is of {immutable} type, `v` cannot link to `b`.
-. When `method` has the annotation {independent} (allowing for hidden content, or not), `v` cannot link to `a`.
-
-Recall that primitives, `java.lang.Object`, `java.lang.String`, and unbound parameter types, are {immutable}.
-
-****
-Rule 3: in an assignment `v = new A(b)`, `v` potentially links to `b`.
-****
-
-. When `b` is of {immutable} type, `v` cannot link to `b`.
-. If `A` is {immutable}, then `v` cannot link to `b`, because all its constructor parameters are independent.
-. When `b` has been marked {independent}, `v` cannot link to `b`.
+. When `v` is of a type that is immutable without hidden content, such as a primitive or `java.lang.String`, there is nothing to share: `v` is independent of `a` and `b`.
+. If `b` is of such a type, `v` is independent of `b`.
+. When the type of `v` is immutable with hidden content, such as an unbound type parameter or `java.lang.Object`, `v` shares at most hidden content with `a` and `b`: it is independent with hidden content.
+. When `method` has the annotation {independent}, `v` is independent of `a`; with `@Independent(hc=true)`, it shares at most hidden content with `a`.
 
 ****
-Rule 4: in a modifying method call `a.method(b)`, `a` potentially links to `b`
+Rule 3: in an assignment `v = new A(b)`, `v` potentially depends on `b`.
+****
+
+. When `b` is of a type that is immutable without hidden content, `v` is independent of `b`.
+. If `A` is {immutable}, then `v` is not dependent on `b`, because all its constructor parameters are independent, with or without hidden content.
+. When the parameter has been marked {independent}, `v` is independent of `b`; with `@Independent(hc=true)`, it shares at most hidden content with `b`.
+
+****
+Rule 4: in a modifying method call `a.method(b)`, `a` potentially depends on `b`
 ****
 
 This situation is similar to that of the constructor (rule 3), with `a` taking the role of `v`.
 
-Most of the other linking computations are consequences of the basic rules above.
+Most of the other computations are consequences of the basic rules above.
 For example,
 
-. in an assignment `v = condition ? a : b`, `v` links to both `a` and `b`.
-. type casting does not prevent linking: in `v = (Type)w`, `v` links to `w`
-. a pattern variable `p` in an instance-of statement `a instanceof P p` links to `a`
-. Binary operators return primitives or `java.lang.String`, which prevents linking: in `v = a + b`, `v` does not link to `a` nor `b`.
+. in an assignment `v = condition ? a : b`, `v` depends on both `a` and `b`.
+. type casting does not prevent dependence: in `v = (Type)w`, `v` depends on `w`
+. a pattern variable `p` in an instance-of statement `a instanceof P p` depends on `a`
+. Binary operators return primitives or `java.lang.String`: in `v = a + b`, `v` is independent of `a` and `b`.
 
-Note: in a method call `v = a.method(b, c, d)`, links between `b`, `c`, and `d` are possible.
-They are covered by the {modified} annotation:
+Note: in a method call `v = a.method(b, c, d)`, dependence between `b`, `c`, and `d` is possible.
+It is covered by the {modified} annotation:
 when a parameter is {nm}, no modifications at all are possible, not even indirectly.
-Links between parameters can be computed like any other link (<<link-system>>); we nevertheless advocate the use of containers: all parameters should be {nm}.
-On methods without a body, extra parameters to the `{independent}` annotation let the user contract those links.
+Dependence between parameters can be computed like any other (<<link-system>>); we nevertheless advocate the use of containers: all parameters should be {nm}.
+On methods without a body, extra parameters to the `{independent}` annotation let the user contract it.
 
 == Locally implemented abstract methods
 

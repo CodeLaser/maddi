@@ -175,7 +175,7 @@ static void addNewLine(@Modified NonEmptyImmutableList<StringBuilder> list) {
 Note that while `NonEmptyImmutableList` is immutable, its concrete instantiation gives access to a modifying method
 in its hidden content.
 
-We really need the link between `sb` and `list` for the modification on `sb` to propagate to `list`.
+We really need to know that `sb` is part of the hidden content of `list` for the modification on `sb` to propagate to `list`.
 Without this propagation, we would not be able to implement the full definition of modification of parameters,
 as stipulated in <<modification>>, in this relatively straightforward and probably frequently occurring situation.
 
@@ -399,12 +399,11 @@ void addToStrings(@NotModified NonEmptyList<StringBuilder> list) {
 ----
 
 [#content-linking]
-== Content linking
+== Content dependence
 
-Going back to `ImmutableOne`, we see that the constructor links the parameter `t` to the instance's field by
-means of assignment.
-Let us call this binding of parameters of hidden content to the field _content linking_,
-and mark it using {independentHC}, _content dependence_:
+Going back to `ImmutableOne`, we see that the constructor assigns the parameter `t` to the instance's field.
+Let us call this sharing of hidden content between a parameter and a field _content dependence_,
+and mark it using {independentHC}:
 
 .Example {counter:example}, constructor of `ImmutableOne`
 [source,java]
@@ -437,9 +436,9 @@ public void visit(@Independent(hc=true) Consumer<T> consumer) {
 Observe that content dependence implies absence of dependence, as described in <<linking-dependence>>
 and <<computing-dependence>>, exactly because we are dealing with type parameters of an immutable type.
 
-Another place where the hidden content linking can be seen, is the _for-each_ statement:
+Another place where content dependence can be seen, is the _for-each_ statement:
 
-.Example {counter:example}, for-each loop and hidden content linking
+.Example {counter:example}, for-each loop and content dependence
 [source,java]
 ----
 Iterable<StringBuilder> list = ...;
@@ -459,7 +458,7 @@ boolean add(@NotNull @Independent(hc=true) E e);
 ----
 
 indicating that after calling `add`, the argument will become part of the hidden content of the collection,
-we conclude that the local loop variable `sb` gets content linked to the `builders` list.
+we conclude that the `builders` list becomes content dependent on the local loop variable `sb`.
 Similarly, this loop variable contains hidden content from the `list` object.
 
 Let us look at a possible implementation of `Collection.addAll`:
@@ -475,12 +474,12 @@ boolean addAll(@NotNull(content=true) @Independent(hc=true) Collection<? extends
 }
 ----
 
-The call to `add` content links `e` to `this`.
-Because `e` is also content linked to `collection`, that parameter holds content linked to the hidden content of
+The call to `add` makes `this` content dependent on `e`.
+Because `e` is also content dependent on `collection`, that parameter shares its hidden content with
 the instance.
 
 We are now properly armed to see how a for-each loop can be implemented using an iterator whose hidden content
-links to that of a container.
+is shared with that of a container.
 
 == Iterator, Iterable, loops
 
@@ -536,7 +535,7 @@ while(it.hasNext()) {
 }
 ----
 
-The iterator `it` content-links to `list`; via the `next` method, it content-links the hidden content of the `list` to `t`.
+The iterator `it` is content dependent on `list`; via the `next` method, it hands the hidden content of the `list` to `t`.
 
 
 [#independent-type]
@@ -612,7 +611,7 @@ The hidden content of the type is mutable or modifiable.
 ****
 
 This definition is entirely equivalent to the definition of immutability without rules 0 and 1, and rules 2
-and 3 restricted to those fields that are 'exposed' to the outside world via linking or content linking.
+and 3 restricted to those fields that are 'exposed' to the outside world via dependence or content dependence.
 
 Consider the static variant of `IteratorImpl`, which makes it more obvious that `IteratorImpl` maintains a reference
 to the element array of its enclosing type:

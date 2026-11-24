@@ -73,7 +73,7 @@ The first part of this document is meant to be read in order; every chapter need
 |immutability, and finalizers and ownership for the phase before the transition
 
 |<<modification-part2>>, <<hidden-content>>
-|how links are computed; modification of hidden content, and how it travels through functional interfaces
+|how dependence is computed; modification of hidden content, and how it travels through functional interfaces
 |all of the above
 
 |<<nullability>>
