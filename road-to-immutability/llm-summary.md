@@ -122,7 +122,9 @@ Rules (each level requires the previous):
   by `GuardAnalyzerImpl`: `contract-conflict` for an authored `@Modified` over an inherited `@NotModified` (with or
   without a body), `contract-violation` for a modifying implementation or override; since 2026-11-24
   (`guardLibraryContract`, `TestOverrideWeakensContract`) also against the ANNOTATED APIs: a modifying `size()`,
-  `equals()` or `toString()` in any class is an error. A library contract is checked, it does not DECIDE a bodiless
+  `equals()` or `toString()` in any class is reported. Against a library contract the authored conflict is an error but
+  the COMPUTED violation only a warning: the 92 errors on timefold (gate 2026-11-24) were Arrays.deep*/hash defaults
+  (array parameters assumed modified) and stateful iterator()/list accessors. A library contract is checked, it does not DECIDE a bodiless
   source method (`ContractResolution` reads source annotations only). `override-weakens-computed` is the warning for
   an override that modifies where the parent is computed, not contracted, `@NotModified`.
 - **A parameter whose type is a type parameter is `@NotModified` by default** (a type parameter counts as

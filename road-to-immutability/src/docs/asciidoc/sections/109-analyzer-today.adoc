@@ -254,8 +254,15 @@ The rule of <<inheritance>>, from {modified} to {nm} but never back, is enforced
 code and against those of the annotated APIs alike.
 A {modified} on a method that overrides one marked {nm} is reported as `contract-conflict`; a modifying
 implementation or override of a method contracted {nm} as `contract-violation`.
-Both are errors, and both are reported for the `MyString` example of <<inheritance>>, and for a modifying `equals()`
-or `toString()` in any class.
+Both are reported for the `MyString` example of <<inheritance>>, and for a modifying `equals()` or `toString()` in
+any class.
+Both are errors against a contract in source code; against a contract of the annotated APIs, the conflict is an error
+and the violation a warning.
+The violation rests on a computed verdict, and that verdict on the annotated APIs' defaults: a parameter of mutable
+type is assumed modified where nobody wrote otherwise, so that a `hashCode()` returning
+`Arrays.deepHashCode(properties)` comes out modifying.
+The {nm} of `Iterable.iterator()` and of the list accessors is broken, too, by iterators and lazy lists that change
+their own state.
 
 * A contract of the annotated APIs is checked, but does not decide: an abstract method in source code that overrides
 a library method marked {nm} is still computed from its implementations.
