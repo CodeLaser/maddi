@@ -3,15 +3,13 @@
 **Faster, more precise and more incremental.** The modification engine runs fernflower, timefold and langchain4j in
 roughly half the time it took in 0.9.6. After an edit, the IDE daemon and the MCP server can re-analyse only what the
 edit changed (experimental). A new, opt-in ownership pass computes who holds an object: `@Fresh` results, `@Borrowed`
-parameters and `@Owned` fields. The VS Code extension catches up with the IntelliJ and Eclipse plugins. Kotlin
+parameters and `@Owned` fields. The VS Code extension catches up with the IntelliJ and Eclipse plugins, and is
+published for the first time. Kotlin
 sources are handled far better: the Kotlin front end now converts all but 3 of the Exposed declarations it used to
 leave as placeholders (243), and the Gradle plugin analyses Kotlin sources.
 
 Code that compiles against the 0.9.6 annotations compiles against 0.9.7 unchanged; three annotations are new. Some
 verdicts change, most towards what the code does; see [Changes that can affect you](#changes-that-can-affect-you).
-
-<!-- TODO(Bart): the VS Code paragraph below assumes the extension is still not published. Nothing in maddi-dist
-     publishes it (release-cli.sh builds no .vsix; package.json is at 0.1.0). Adjust if it will be published. -->
 
 ## Incremental analysis (experimental)
 
@@ -104,6 +102,8 @@ A new pass, run after the modification analysis converges, says who may hold an 
 
 ## VS Code extension
 
+- **First release on the VS Code Marketplace and Open VSX**, as *maddi* (`CodeLaser.maddi-vscode`), marked as a
+  preview. Its version is that of the daemon it bundles, 0.9.7. The `.vsix` is also on the GitHub release.
 - **The hover says why**, as IntelliJ's gutter and Eclipse's ruler do: the chain of statements behind each verdict,
   with links to them, why a type is not `@Container` when it is close, and a method's parameters.
 - **Stop maddi Analysis**, as a command and as the cancel button of the progress notification. What the run has
@@ -116,7 +116,7 @@ A new pass, run after the modification analysis converges, says who may hold an 
 - **The new settings**: incremental re-analysis and closed world.
 - Fixed: a workspace opened through a symbolic link (on macOS, `/var`) showed no hints.
 - It needs the *Language Support for Java* extension (`redhat.java`) and a JDK 25 or later in `maddi.jdkHome`.
-- **Not published yet**: build it from source with `task vscode:package` in maddi-dist. It analyses Java only.
+- It analyses Java only.
 
 ## Kotlin
 
@@ -163,6 +163,8 @@ A new pass, run after the modification analysis converges, says who may hold an 
 - **`@NotModified(contract = true)`** can now be written on a parameter of a method with a body (maddi-mod#125).
 - Independence: abstract methods that fill a parameter, static state, and a field of an immutable final class
   (maddi-mod#81, #107, #135).
+- **The same result from run to run.** Link summaries no longer depend on the JVM's set ordering, and the stored
+  results write an explicit `this.x` as `x`, so two analyses of the same sources give the same output (maddi-mod#103).
 
 ## Nullability analysis
 
@@ -206,6 +208,11 @@ A new pass, run after the modification analysis converges, says who may hold an 
   anonymous class's creation names the superclass constructor
   ([#194](https://github.com/CodeLaser/maddi/issues/194)); `T[]::new`
   ([#195](https://github.com/CodeLaser/maddi/issues/195)); the source position of an annotated varargs type.
+- **A module's required JDK modules** are added with `--add-modules`. A source set with a `module-info.java` that
+  requires an incubator module, such as trino's `jdk.incubator.vector`, lost every file that uses it
+  ([#225](https://github.com/CodeLaser/maddi/pull/225)).
+- A type-use annotation's arguments count as references, in `typesReferenced` and in the call graph; a labelled
+  `@see` resolves to its reference.
 
 ## MCP server
 
@@ -241,7 +248,7 @@ A new pass, run after the modification analysis converges, says who may hold an 
 |---|---|
 | IntelliJ plugin | *maddi*, on [JetBrains Marketplace](https://plugins.jetbrains.com/) |
 | Eclipse plugin | the update site `https://codelaser.github.io/maddi-dist/eclipse/`, listed on the Eclipse Marketplace |
-| VS Code extension | not published yet: `task vscode:package` in [maddi-dist](https://github.com/CodeLaser/maddi-dist) |
+| VS Code extension | *maddi* (`CodeLaser.maddi-vscode`), on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=CodeLaser.maddi-vscode) and [Open VSX](https://open-vsx.org/extension/CodeLaser/maddi-vscode); `maddi-vscode-0.9.7.vsix` on the [GitHub release](https://github.com/CodeLaser/maddi/releases) |
 | Gradle plugin | `id("io.codelaser.maddi.analyzer") version "0.9.7"`, on the Gradle Plugin Portal |
 | Maven plugin | `io.codelaser:maddi-mvnplugin:0.9.7`, on Maven Central |
 | Annotations | `io.codelaser:maddi-annotation:0.9.7` and `io.codelaser:maddi-support:0.9.7`, on Maven Central |
@@ -259,7 +266,7 @@ Kotlin sources, JDK 26 or later.
   certified.
 - Ownership is off by default on the command line and in the build plugins.
 - elasticsearch is slower than in 0.9.6.
-- The VS Code extension is not published, and with the Eclipse plugin analyses Java only.
+- The VS Code extension and the Eclipse plugin analyse Java only; the VS Code extension is a preview.
 - The explanations are recorded only for the IDE and the MCP server; the command line does not show them yet.
 - Java → C# and Java → Rust are experimental: judged on compilation, and for C# on a few sample programs.
 
