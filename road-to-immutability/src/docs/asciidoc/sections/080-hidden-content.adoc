@@ -462,7 +462,7 @@ Because the `Collection` API contains an `add` method annotated as:
 [source,java]
 ----
 @Modified
-boolean add(@NotNull @Independent(hc=true) E e);
+boolean add(@Independent(hc=true) E e);
 ----
 
 indicating that after calling `add`, the argument will become part of the hidden content of the collection,
@@ -475,7 +475,7 @@ Let us look at a possible implementation of `Collection.addAll`:
 [source,java]
 ----
 @Modified
-boolean addAll(@NotNull(content=true) @Independent(hc=true) Collection<? extends E> collection) {
+boolean addAll(@Independent(hc=true) Collection<? extends E> collection) {
     boolean modified = false;
     for (E e : collection) if (add(e)) modified = true;
     return modified;
