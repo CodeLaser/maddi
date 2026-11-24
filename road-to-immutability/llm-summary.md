@@ -29,7 +29,7 @@ the end.
     `clearLeaves`, `touchAll(Bag)`, `reset(St)` are structural), independence (`FieldAnalyzerImpl` counts a copy
     constructor's content link, graded by the type arguments the holder wrote), and immutability
     (`DynamicImmutability.ofField`: a `List.copyOf` of mutable elements no longer makes the holder
-    `@Immutable(hc=true)`). Gate `NOHOLDERELEMENTS`.
+    `@Immutable(hc=true)`).
 - **`@IgnoreModifications` = manual hidden content** (road §050 "Ignoring modifications as manual hidden
   content"): a field of concrete (mutable) type whose modifications the author disclaims. Same lattice effect
   as a type-parameter field (→ at best `@Immutable(hc=true)`, never hc-free); it differs only in *provenance* —
