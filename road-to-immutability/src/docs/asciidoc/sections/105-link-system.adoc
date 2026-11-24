@@ -35,9 +35,9 @@ A `\*` after a variable means it is (or may be) modified at that point: `box*.t`
 
 The unit of exchange between methods is the _method link summary_: how a method's
 return value, parameters and receiver relate, plus which of them it modifies.
-For example, the summary of a setter `void set(X x)` on a one-field holder reads
-`[0:box*.t←1:x*, 1:x*→0:box*.t] --> -`: parameter `x` is assigned into the receiver's field (the link and its
-reciprocal), both are marked modified, and there are no return-value links.
+For example, the summary of `void set(Box<X> box, X x) { box.set(x); }`, a method that calls the setter of a
+one-field holder, reads `[0:box*.t←1:x*, 1:x*→0:box*.t] --> -`: parameter `x` is assigned into the field of
+parameter `box` (the link and its reciprocal), both are marked modified, and there are no return-value links.
 Summaries are computed once per method and then _applied_ at every call site, translating the callee's
 formal `this` and parameters into the actual receiver and arguments.
 

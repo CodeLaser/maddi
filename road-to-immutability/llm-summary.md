@@ -201,7 +201,7 @@ immutability verdicts are derived.
   ("the mutable aspect, wherever it lives").
 - **Method link summary (mlv)**: per method — return links, per-parameter links, modified set; e.g.
   `void set(Box<X> box, X x) { box.set(x); }`: `[0:box*.t←1:x*, 1:x*→0:box*.t] --> -   MOD[0:box, 1:x]`
-  (linking-manual §5; book 105 prints this summary but describes it as the instance setter `void set(X x)`). Applied at each call site by translating formal
+  (linking-manual §5; book 105). Applied at each call site by translating formal
   this/params to actual receiver/args (`LinkMethodCall` is the central class).
 - **Functional interfaces**: capture site wraps a lambda/method-ref into a synthetic FI variable
   (`$_fi`, `Λ`) carrying its links; application site (`forEach`, `map`, SAM invocation) *lifts* those
@@ -437,9 +437,8 @@ immutability verdicts are derived.
   queries (`isDebugEnabled`, `getName`, `atLevel`…) are `@NotModified`; `setLevel` and configuration stay plain
   modifying. `@StaticSideEffects` is ONLY for a modification of static state the caller does not own
   (`System.setOut`) — never contracted on an instance method like `logger.info`, nor on `java.util.logging`.
-  MISMATCH with the book: 050 §"Escapes that cannot be seen" presents `logger.addAppender(a)` (and the table above it
-  `logger.setLevel`) as escapes recorded by a `@StaticSideEffects` contract; the archive has `setLevel` plain
-  `@Modified` (checked 2026-11-24).
+  The book follows since 2026-11-24: its logger examples of an escape (`setLevel`, `addAppender`) left 050; the
+  examples there are a stream and `System.setOut`.
 - **No `java.util.function` special case in the source analysis.** The implicit `@IgnoreModifications` on
   functional-interface parameters is a SHALLOW default (`ShallowMethodAnalyzer.computeParameterIgnoreModifications`,
   `FunctionTypes.isLibraryFunctionType`: `java.util.function`, `Runnable`, Kotlin's function types, plus an interface

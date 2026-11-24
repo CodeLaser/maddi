@@ -1014,7 +1014,7 @@ public void touch() {
 
 The second is _containment_: every modifying call _on_ the ignored field must keep its effect to the receiver, and
 touch no accessible field, no parameter, and no global state.
-With a logger and a stream as the examples:
+With a stream as the example:
 
 [cols="2,3,1"]
 |===
@@ -1024,17 +1024,12 @@ With a logger and a stream as the examples:
 | writes the object's own buffer / entries
 | confined -- allowed
 
-| `logger.setLevel(WARN)`, `logger.addAppender(a)`
-| reaches external / global configuration
-| escapes -- flagged
-
 | `System.setOut(other)`
 | replaces a global reference
 | escapes -- flagged
 |===
 
-Printing to a stream is using it; changing the mechanics of the stream is an escape, even though both are
-modifications of the same object.
+Printing to a stream is using it; replacing the stream that everybody prints to is an escape.
 
 [#ignored-stratum-boundary]
 === What is not an escape
@@ -1130,7 +1125,6 @@ In source code, a static side effect is visible: an assignment to, or a modifyin
 field, directly or through the methods called.
 But the sharpest escapes are not in source code.
 `System.setOut(other)` replaces the process-wide `System.out`, and nothing in what can be seen of the JDK says so.
-The same holds for `logger.addAppender(a)` reconfiguring a logging framework.
 
 An invisible escape is recorded in the only way it can be: as a _contract_ in the annotated API of the library.
 
