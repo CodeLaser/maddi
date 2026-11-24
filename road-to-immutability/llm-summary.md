@@ -318,7 +318,7 @@ immutability verdicts are derived.
   Rules: arrives fresh (creation, fresh call, `null`, or a *transferred* parameter), never leaves (borrowed callees
   and *lent* results allowed), private or effectively private (closed world), no degraded referrer.
   `SHARED_IMMUTABLE_FIELD` has no annotation.
-- **Transfer**: every call site (known: private/package-private or closed world, no override, no method
+- **Transfer**: every call site (known: private or closed world -- package-private does not count since 2026-11-24, a package is not closed --, no override, no method
   reference) hands over a fresh object or a local not used after. `@Finalizer` is transfer of the receiver; with
   the gate on it is computed for methods moving an owned field out, and contracted finalizers' call sites are
   checked (`finalizer-violation` warnings).

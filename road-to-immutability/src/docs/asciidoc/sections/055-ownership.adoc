@@ -254,9 +254,12 @@ public class Parser {
 <3> The last use of `tokens`.
 
 When are all call sites known?
-Certainly when the method is private or package-private.
-For a public method, it depends on what the code is: in a library, the callers are yet to be written; in an
-application analysed as a whole, a _closed world_, no code outside it calls its public methods.
+Certainly when the method is private.
+For any other method, it depends on what the code is: in a library, the callers are yet to be written; in an
+application analysed as a whole, a _closed world_, no code outside it calls its methods.
+A package-private method is no exception: a package is not closed, as anyone can add a class to it, the tests of the
+library to begin with.
+This is the assumption of <<assumptions>> again: a method is private, or it is not.
 We will meet the same distinction in <<null-who-calls>>.
 The method must also not override anything, nothing may override it, and no method reference may name it: each of
 these is a call site we cannot see.
@@ -412,6 +415,8 @@ when every call site hands over the receiver: a temporary (a construction, a fre
 {fluent} calls on one), or a local that is not used after the call.
 The analyzer computes {finalizer} only when both hold.
 Call-site evidence alone would be vacuous: any method called once, on a temporary, would qualify.
+A builder is there to be called from elsewhere, so its call sites are known only in a closed world
+(<<ownership-transfer>>); in a library, {finalizer} on `build()` is a contract.
 
 For a contracted finalizer, the same test on every call site finds the uses of the receiver after the call, for
 example a stream used again after `map`.
