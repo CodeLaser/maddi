@@ -377,8 +377,9 @@ immutability verdicts are derived.
   FALSE is reverse-upgraded at the cutover. Fields keep that evidence through the statement-level seeds.
   Measured 2026-10-10 (`TestStructuralModification`), not changed: the structural twins make the distinction
   explicit instead.
-- **`@Finalizer`'s modification semantics ARE implemented and load-bearing** (its three life-cycle
-  sequencing rules are not): a call to a finalizer NEVER marks the receiver modified — the guard
+- **`@Finalizer`'s modification semantics ARE implemented and load-bearing** (its two
+  sequencing rules are checked by the ownership pass only, as `finalizer-violation` warnings; the old rule 1, on the
+  finality of fields, left the book on 2026-11-24: an owner may replace what it holds): a call to a finalizer NEVER marks the receiver modified — the guard
   `!methodInfo.isFinalizer()` in `MethodModification.go`, mirrored in `ShallowMethodLinkComputer`
   and in the `ShadowModificationPass` boundary seeds (2026-07-23). The annotated APIs mark the
   stream operations (`filter`/`map`/`collect`/…) `@Finalizer` with NO `@NotModified`; only the

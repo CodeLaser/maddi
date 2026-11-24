@@ -338,10 +338,12 @@ The simplest way is by some severe restrictions:
 ****
 The following need to be true at all times when using types with finalizer methods:
 
-. Any field of a type with finalizers must be effectively final (marked with {final}).
-. A finalizer method can only be called on a field inside a method which is marked as a finalizer as well.
-. A finalizer method can never be called on a parameter or any variable dependent on it (see <<linking-dependence>>).
+. A finalizer method can only be called on a field inside a method which is a finalizer as well: a finalizer of the object that holds the field.
+. A finalizer method cannot be called on a parameter, or on any variable dependent on it (see <<linking-dependence>>), unless the parameter is transferred (<<ownership-transfer>>): then every caller has handed the object over.
 ****
+
+There is no rule that a field holding such an object must be final.
+As for any owned field (<<owned-fields>>), the owner may replace what it holds; the object it drops is never finalized, so nothing can be called on it afterwards.
 
 These restrictions help you control the life-cycle of objects with a {finalizer}, by not letting them out of sight.
 Each of them is an ownership rule:
@@ -352,12 +354,10 @@ Each of them is an ownership rule:
 
 |no method may be called after the finalizer
 |the receiver is not used after the call: a transfer (<<ownership-transfer>>), with the receiver as the argument
-|1. a type with finalizers has effectively final fields
-|the owner cannot be swapped out
-|2. a finalizer is called on a field only inside a finalizer
+|1. a finalizer is called on a field only inside a finalizer
 |an owner consumes what it owns only while it is itself consumed (in Rust, moving out of a field needs `self` by value)
-|3. never on a parameter, or anything dependent on it
-|a borrowed object cannot be consumed
+|2. not on a parameter, or anything dependent on it, unless it is transferred
+|a borrowed object cannot be consumed; one that was handed over can (in Rust, a parameter taken by value)
 |===
 
 The eventually immutable types of the next chapter use finalizers to keep an object in its _before_ state while it

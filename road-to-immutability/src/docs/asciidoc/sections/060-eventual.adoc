@@ -313,7 +313,7 @@ private static void doSthElse(@NotModified ExampleWithFinalizer ex) {
 <1> here we pass on the object
 <2> forbidden to call the finalizer; other methods allowed.
 
-Rules 1 and 2 of <<finalizer-rules>> allow you to store a finalizer type inside a field, but only when finalization is
+The first rule of <<finalizer-rules>> allows you to store a finalizer type inside a field, but only when finalization is
 attached to the destruction of the holding type.
 
 ==== Processors and finishers

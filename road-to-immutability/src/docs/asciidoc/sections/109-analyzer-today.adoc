@@ -55,7 +55,8 @@ with a body is checked: a negative verdict is a contract violation, and carries 
 and much depends on it.
 With the ownership pass on, the call sites of contracted finalizers are checked, and {finalizer} is computed as
 described in <<finalizer-transfer>>.
-The three sequencing rules of <<finalizer-rules>> are not enforced as stated.
+The checks are those of <<finalizer-rules>>: no use of the receiver after the call, and the two sequencing rules.
+A violation is a warning, `finalizer-violation`. Without the ownership pass, none of this is checked.
 
 |{mark}, {only}, {testMark}, `after="..."`
 |computed by propagation
