@@ -232,10 +232,11 @@ again for each implementation.
 * The annotated JDK keeps `Iterable` at {container}, where <<hidden-content>> shows {immutableContainer}: an `Iterator`
 has `remove`, and annotating `Iterable` as {immutableContainerHC} was reverted after a corpus run (2026-09).
 A source type implementing `Iterable` is judged on its own.
-* For `Lazy` in <<support-classes>>, the two `@Independent(hc=true)` annotations that the argument there arrives at,
-on the field `supplier` and on the constructor parameter it travels from, are not computed: the analyzer concludes
-dependent at both positions, whether or not `supplier` is emptied.
-The two `@NotNull(content=true)` beside them are not in the shipped source either.
+* For `Lazy` in <<support-classes>>, the argument that emptying `supplier` at the transition ends the dependence is
+not computed: the analyzer concludes dependent for the field and for the constructor parameter it is assigned from,
+whether or not `supplier` is emptied.
+Independence after the mark is computed only where the exposed object is itself eventually immutable.
+The two `@NotNull(content=true)` of the listing are not in the shipped source either.
 
 === Contracts along the hierarchy
 

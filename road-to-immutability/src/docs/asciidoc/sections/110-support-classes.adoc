@@ -333,9 +333,8 @@ Properly implemented, it is an eventually immutable type:
 public class Lazy<T> {
 
     @NotNull(content=true)
-    @Independent(hc=true, after="t")
     @Final(after="t")
-    private volatile Supplier<T> supplier;
+    private volatile Supplier<T> supplier; // null after the mark
 
     @Final(after="t")
     private volatile T t;
@@ -367,7 +366,9 @@ public class Lazy<T> {
 }
 ----
 
-<1> The annotation has traveled from the field to the parameter; therefore the parameter has `@Independent(hc=true)`.
+<1> Before the mark the parameter is dependent: the field holds the supplier.
+After it only `t` remains, which is hidden content.
+The annotation shows the end state, as the other eventual annotations do (<<eventual-immutability>>).
 <2> The {mark} annotation is conditional; the transition is triggered by nullity of `t`
 <3> `supplier` is read once, into a local. Reading the field twice is a race rather than a nicety: two threads
 find `t` null, the first completes and empties `supplier`, and the second dereferences what it re-reads as null.
@@ -379,7 +380,7 @@ already seen `t`.
 This is what Kotlin's three `Lazy` implementations do as well, each with its own `initializer = null`.
 
 After calling the marker method `get()`, `t` cannot be assigned anymore, and it becomes {final}.
-The constructor parameter `supplier` is `@Independent(hc=true)`, as its hidden content (the result of `get()`)
+The constructor parameter `supplierParam` is `@Independent(hc=true)`, as its hidden content (the result of `get()`)
 is shared with that of `Lazy`, namely the field `t`.
 
 But why is `supplier` as a field not dependent on the constructor parameter?
@@ -387,21 +388,22 @@ Clearly, `supplier` is part of the accessible content of `Lazy`: it is held as a
 The criterion is: a modification on one may cause a modification on the other.
 Modifications can only be made by calling the `get()` method, as there are no other methods, and no fields.
 Consequently, the field should depend on the constructor parameter, and `supplier` cannot be `@Independent`.
+Moreover, `Lazy.get()` calls the supplier's `get()`, a modifying method unless contracted otherwise: the field is modified as well.
 
 The answer lies in the eventual nature of `Lazy`: _before_ the first call to `get`, the `supplier` field
 is of relevance to the type, and `t` is not.
 _After_ the call to `get()`, the converse is true, because `supplier` has been emptied.
-We should extend the rules of effective immutability by slightly augmenting rule 2:
+A field that holds `null` has no content.
+It cannot be modified, so rule 1 holds for it; and it shares nothing with the argument it was once assigned from, so
+rule 3 holds as well.
+Because the field is eventually final, it stays `null` once the transition has taken place.
 
 ****
-*Rule 2*: All fields are either private, of immutable type, or equal to null.
+Emptying a field at the transition ends both its modification and the dependence on the parameter it came from.
+The rules of immutability are unchanged: rules 1 and 3 are met eventually, as rule 0 is.
 ****
 
-A null field cannot be modified, and cannot be but {independent}, so no changes are necessary to rules 1 and 3.
-One can argue that they do not belong to the accessible content, nor to the hidden content, since they cannot be
-accessed, and are content-less: rule 4 should not be affected.
-In combination with effective finality, this allows the eventual "blanking out" of modifiable fields in
-immutable types.
+This is the eventual "blanking out" of modifiable fields in immutable types.
 
 The listing shows the annotations this argument arrives at; <<analyzer-today-gaps>> has what is computed.
 

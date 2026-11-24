@@ -167,7 +167,8 @@ All other types must extend from it.
 * The section on <<abstract-methods>> will detail how immutability is computed for abstract types (interfaces, abstract classes).
 * Rules 0 and 1 can be reached _eventually_ if there is one or more methods that effect a transition from the mutable to the immutable state.
 This typically means that all methods that assign or modify fields become off-limits after calling this marker method.
-Eventuality for rules 2 and 3 seems too far-fetched.
+Rule 3 can be reached eventually as well: when the object that is exposed is itself eventually immutable, so that nothing can travel through it after its own transition; or when the field is emptied at the transition, as `Lazy` does in <<support-lazy>>.
+Eventuality for rule 2 seems too far-fetched.
 We address the topic of eventual immutability fully in the section <<eventual-immutability>>.
 * When the type has fields which allow hidden content, or the type is extendable (a class that is neither `final` nor `sealed`, or an interface; see <<inheritance>>), the extra parameter `hc=true` will be added to the annotation.
 It marks a level of its own, between {finalFields} and immutability without hidden content: the type guarantees the part it controls, while its hidden content can still be modified by others.
