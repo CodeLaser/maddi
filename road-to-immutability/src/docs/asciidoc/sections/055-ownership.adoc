@@ -136,9 +136,11 @@ A link to its hidden content does not count: that is the case of `addAll`.
 Keeping is transitive: calling a method that keeps its argument keeps it too.
 
 The second and third callouts show the two questions side by side.
-In the vocabulary of <<content-linking>>, both `c` and `line` are {independentHC}: what they bring ends up in the
-hidden content of `lines`.
-For ownership, the difference is which object ends up there: the elements of `c`, or `line` itself.
+For independence there is no difference between them: both `c` and `line` are {independent}, as nothing can travel
+through a `String`.
+With a type parameter `T` in the place of `String`, both would be {independentHC} (<<content-linking>>): what they bring
+ends up in the hidden content of `lines`.
+For ownership, the difference is which object ends up in the list: the elements of `c`, or `line` itself.
 
 On a parameter of a method without a body, {borrowed} is a contract, which every implementation must honour.
 
