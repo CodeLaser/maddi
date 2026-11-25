@@ -421,6 +421,10 @@ still carrying `{@link io.codelaser.maddi.support.Memo}`, a type that stayed in 
 which `maddi-annotation` must never depend on. Nothing but running javadoc finds it — the reference
 is correctly *named*, merely unreachable from where the class now lives. In this module, name
 cross-module types as `{@code}` text, never `{@link}`.
+. Release notes: name the annotations version on its own line, `annotations: <annotationsVersion>` with
+  "unchanged" when the release did not republish them (`gate release-maddi` says which when it finishes),
+  and keep the README's install lines at the newest annotations version. Users bump the annotations
+  dependency only when that line changes.
 . Gradle plugin: `./gradlew :maddi-gradleplugin:publishPlugins` (Gradle Plugin Portal key required).
   Expect a wait — a first publication under a new namespace is reviewed by hand before it appears.
 . Maven plugin: publish to Central once the descriptor is generated.

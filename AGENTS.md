@@ -97,6 +97,12 @@ Two traps it now covers, both of which have cost verdicts before:
 
 ## Working style
 
+- **`maddi-annotation` and `maddi-support` are on their own version line on Maven Central**
+  (`annotationsVersion` in `gradle.properties`, #182; `docs/PUBLISHING.md` §Versioning). Their API may
+  grow, never shrink: `TestPublishedApi` fails on a removal, and on an addition until its lines are in
+  `maddi-support/src/test/resources/published-api.txt`. Any change to their `src/main` or build files,
+  API or not, needs `annotationsVersion` bumped once that version is on Central; otherwise the release
+  refuses (and the pre-release warns).
 - Engine/performance changes require a byte-identical `FPDUMP` A/B run on the proving-ground
   corpora before they are accepted; never trade verdict changes for speed silently.
 - If you change analyzer semantics, update `road-to-immutability/llm-summary.md` in the same
