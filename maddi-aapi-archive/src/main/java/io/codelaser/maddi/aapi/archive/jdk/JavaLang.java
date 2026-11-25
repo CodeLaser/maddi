@@ -2846,7 +2846,6 @@ public class JavaLang {
         @Modified void start() { }
         //override from java.lang.Runnable
         void run() { }
-        void stop() { }
         //frequency 3
         @Modified @IgnoreModifications
         void interrupt() { }

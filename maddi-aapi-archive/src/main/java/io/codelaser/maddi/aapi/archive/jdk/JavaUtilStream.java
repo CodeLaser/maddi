@@ -418,8 +418,7 @@ public class JavaUtilStream {
             /*@IgnoreModifications[T]*/ @NotNull DoublePredicate doublePredicate,
             /*@IgnoreModifications[T]*/ @NotNull DoubleUnaryOperator hasNext) { return null; }
         static DoubleStream generate(/*@IgnoreModifications[T]*/ @NotNull DoubleSupplier s) { return null; }
-        // CodeLaser/maddi#217: concat links or consumes both streams (AbstractPipeline.linkedOrConsumed); a second use throws
-        static DoubleStream concat(@NotNull @Modified DoubleStream a, @NotNull @Modified DoubleStream b) { return null; }
+        static DoubleStream concat(@NotNull DoubleStream a, @NotNull DoubleStream b) { return null; }
     }
 
     //public interface IntStream implements BaseStream<Integer,IntStream>
@@ -511,8 +510,7 @@ public class JavaUtilStream {
         static IntStream range(int startInclusive, int endExclusive) { return null; }
         //frequency 1
         static IntStream rangeClosed(int startInclusive, int endInclusive) { return null; }
-        // CodeLaser/maddi#217: concat links or consumes both streams (AbstractPipeline.linkedOrConsumed); a second use throws
-        static IntStream concat(@NotNull @Modified IntStream a, @NotNull @Modified IntStream b) { return null; }
+        static IntStream concat(@NotNull IntStream a, @NotNull IntStream b) { return null; }
     }
 
     //public interface LongStream implements BaseStream<Long,LongStream>
@@ -596,8 +594,7 @@ public class JavaUtilStream {
         static LongStream generate(/*@IgnoreModifications[T]*/ @NotNull LongSupplier s) { return null; }
         static LongStream range(long startInclusive, long l) { return null; }
         static LongStream rangeClosed(long startInclusive, long l) { return null; }
-        // CodeLaser/maddi#217: concat links or consumes both streams (AbstractPipeline.linkedOrConsumed); a second use throws
-        static LongStream concat(@NotNull @Modified LongStream a, @NotNull @Modified LongStream b) { return null; }
+        static LongStream concat(@NotNull LongStream a, @NotNull LongStream b) { return null; }
     }
 
     //public interface Stream implements BaseStream<T,Stream<T>>
@@ -806,8 +803,7 @@ public class JavaUtilStream {
         @NotNull @Independent @NotModified
         static <T> Stream<T> generate(/*@IgnoreModifications[T]*/ @NotNull Supplier<? extends T> s) { return null; }
         @NotNull @Independent @NotModified
-        // CodeLaser/maddi#217: concat links or consumes both streams (AbstractPipeline.linkedOrConsumed); a second use throws
-        static <T> Stream<T> concat(@NotNull @Modified Stream<? extends T> a, @NotNull @Modified Stream<? extends T> b) { return null; }
+        static <T> Stream<T> concat(@NotNull Stream<? extends T> a, @NotNull Stream<? extends T> b) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         <R> java.util.stream.Stream<R> gather(@NotNull java.util.stream.Gatherer<? super T, ?, R> p0) { return null; }

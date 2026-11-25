@@ -228,63 +228,22 @@ public class JavaUtilConcurrentAtomic {
     }
 
     //public java.util.concurrent.atomic.AtomicReferenceFieldUpdater (shadow created for its nullability, generated)
-    // CodeLaser/maddi#217: an updater is stateless; what it writes is the field of the object p0
     class AtomicReferenceFieldUpdater$<T, V> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @NotModified V accumulateAndGet(@Modified T p0, V p1, @NotNull java.util.function.BinaryOperator<V> p2) { return null; }
-        @NotModified V getAndAccumulate(@Modified T p0, V p1, @NotNull java.util.function.BinaryOperator<V> p2) { return null; }
-        @NotModified V getAndUpdate(@Modified T p0, @NotNull java.util.function.UnaryOperator<V> p1) { return null; }
+        @Modified V accumulateAndGet(T p0, V p1, @NotNull java.util.function.BinaryOperator<V> p2) { return null; }
+        @Modified V getAndAccumulate(T p0, V p1, @NotNull java.util.function.BinaryOperator<V> p2) { return null; }
+        @Modified V getAndUpdate(T p0, @NotNull java.util.function.UnaryOperator<V> p1) { return null; }
         static <U, W> java.util.concurrent.atomic.AtomicReferenceFieldUpdater<U, W> newUpdater(@NotNull java.lang.Class<U> p0, @NotNull java.lang.Class<W> p1, @NotNull java.lang.String p2) { return null; }
-        @NotModified V updateAndGet(@Modified T p0, @NotNull java.util.function.UnaryOperator<V> p1) { return null; }
+        @Modified V updateAndGet(T p0, @NotNull java.util.function.UnaryOperator<V> p1) { return null; }
 
-        @NotModified boolean compareAndSet(@Modified T p0, V p1, V p2) { return false; }
-        @NotModified V getAndSet(@Modified T p0, V p1) { return null; }
-        @NotModified void lazySet(@Modified T p0, V p1) { }
-        @NotModified void set(@Modified T p0, V p1) { }
-        @NotModified boolean weakCompareAndSet(@Modified T p0, V p1, V p2) { return false; }
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean compareAndSet(T p0, V p1, V p2) { return false; }
+        @Modified V getAndSet(T p0, V p1) { return null; }
+        @Modified void lazySet(T p0, V p1) { }
+        @Modified void set(T p0, V p1) { }
+        @Modified boolean weakCompareAndSet(T p0, V p1, V p2) { return false; }
 
-        @NotModified V get(@NotModified T p0) { return null; }
-    }
-
-    //public java.util.concurrent.atomic.AtomicIntegerFieldUpdater (CodeLaser/maddi#217: an updater is stateless; it writes the field of p0)
-    class AtomicIntegerFieldUpdater$<T> {
-        static <U> java.util.concurrent.atomic.AtomicIntegerFieldUpdater<U> newUpdater(@NotNull java.lang.Class<U> p0, @NotNull java.lang.String p1) { return null; }
-        @NotModified boolean compareAndSet(@Modified T p0, int p1, int p2) { return false; }
-        @NotModified boolean weakCompareAndSet(@Modified T p0, int p1, int p2) { return false; }
-        @NotModified void set(@Modified T p0, int p1) { }
-        @NotModified void lazySet(@Modified T p0, int p1) { }
-        @NotModified int get(@NotModified T p0) { return 0; }
-        @NotModified int getAndSet(@Modified T p0, int p1) { return 0; }
-        @NotModified int getAndIncrement(@Modified T p0) { return 0; }
-        @NotModified int getAndDecrement(@Modified T p0) { return 0; }
-        @NotModified int getAndAdd(@Modified T p0, int p1) { return 0; }
-        @NotModified int incrementAndGet(@Modified T p0) { return 0; }
-        @NotModified int decrementAndGet(@Modified T p0) { return 0; }
-        @NotModified int addAndGet(@Modified T p0, int p1) { return 0; }
-        @NotModified int getAndUpdate(@Modified T p0, @NotNull java.util.function.IntUnaryOperator p1) { return 0; }
-        @NotModified int updateAndGet(@Modified T p0, @NotNull java.util.function.IntUnaryOperator p1) { return 0; }
-        @NotModified int getAndAccumulate(@Modified T p0, int p1, @NotNull java.util.function.IntBinaryOperator p2) { return 0; }
-        @NotModified int accumulateAndGet(@Modified T p0, int p1, @NotNull java.util.function.IntBinaryOperator p2) { return 0; }
-    }
-
-    //public java.util.concurrent.atomic.AtomicLongFieldUpdater (CodeLaser/maddi#217: an updater is stateless; it writes the field of p0)
-    class AtomicLongFieldUpdater$<T> {
-        static <U> java.util.concurrent.atomic.AtomicLongFieldUpdater<U> newUpdater(@NotNull java.lang.Class<U> p0, @NotNull java.lang.String p1) { return null; }
-        @NotModified boolean compareAndSet(@Modified T p0, long p1, long p2) { return false; }
-        @NotModified boolean weakCompareAndSet(@Modified T p0, long p1, long p2) { return false; }
-        @NotModified void set(@Modified T p0, long p1) { }
-        @NotModified void lazySet(@Modified T p0, long p1) { }
-        @NotModified long get(@NotModified T p0) { return 0; }
-        @NotModified long getAndSet(@Modified T p0, long p1) { return 0; }
-        @NotModified long getAndIncrement(@Modified T p0) { return 0; }
-        @NotModified long getAndDecrement(@Modified T p0) { return 0; }
-        @NotModified long getAndAdd(@Modified T p0, long p1) { return 0; }
-        @NotModified long incrementAndGet(@Modified T p0) { return 0; }
-        @NotModified long decrementAndGet(@Modified T p0) { return 0; }
-        @NotModified long addAndGet(@Modified T p0, long p1) { return 0; }
-        @NotModified long getAndUpdate(@Modified T p0, @NotNull java.util.function.LongUnaryOperator p1) { return 0; }
-        @NotModified long updateAndGet(@Modified T p0, @NotNull java.util.function.LongUnaryOperator p1) { return 0; }
-        @NotModified long getAndAccumulate(@Modified T p0, long p1, @NotNull java.util.function.LongBinaryOperator p2) { return 0; }
-        @NotModified long accumulateAndGet(@Modified T p0, long p1, @NotNull java.util.function.LongBinaryOperator p2) { return 0; }
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified V get(T p0) { return null; }
     }
 }
