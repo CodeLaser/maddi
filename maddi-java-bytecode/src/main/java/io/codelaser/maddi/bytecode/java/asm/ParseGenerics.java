@@ -132,8 +132,11 @@ class ParseGenerics<T extends Info> {
                     nearestSourceSet,
                     typeParameterContext, localTypeMap, loadMode, signature.substring(end + 1), createStub);
             if (result == null) return true; // unable to load type
+            // a leftmost Object is kept for now: followed by interface bounds it is an explicit
+            // 'Object & I1 & ...', which decides the erasure (maddi#226); alone it is dropped below
             if (result.parameterizedType.typeInfo() == null
-                || !result.parameterizedType.typeInfo().isJavaLangObject()) {
+                || !result.parameterizedType.typeInfo().isJavaLangObject()
+                || typeBounds.isEmpty()) {
                 typeBounds.add(result.parameterizedType);
             }
 
@@ -143,6 +146,10 @@ class ParseGenerics<T extends Info> {
             typeNotFoundError = typeNotFoundError || result.typeNotFoundError;
         }
 
+        if (typeBounds.size() == 1 && typeBounds.getFirst().typeInfo() != null
+            && typeBounds.getFirst().typeInfo().isJavaLangObject()) {
+            typeBounds.clear(); // plain <T>: 'T:Ljava/lang/Object;'
+        }
         typeParameter.builder().setTypeBounds(List.copyOf(typeBounds));
 
         if (GT_END_TYPE_PARAMS == atEnd) {

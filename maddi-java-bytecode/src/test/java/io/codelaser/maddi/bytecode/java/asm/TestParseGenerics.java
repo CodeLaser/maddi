@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.net.URI;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.SortedSet;
 import java.util.Spliterator;
@@ -227,5 +228,26 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         assertNotNull(r);
         assertEquals(2, r.parameterTypes().size());
         assertEquals("Type String", r.returnType().toString());
+    }
+
+    /*
+     maddi#226: an explicit leftmost Object bound decides the erasure. Collections.max is declared
+     <T extends Object & Comparable<? super T>> T max(Collection<? extends T>): T erases to Object, not Comparable.
+     A plain <T> (emptyList) still has no bounds.
+     */
+    @Test
+    public void testLeftmostObjectBound() {
+        TypeInfo collections = compiledTypesManager.type(Collections.class);
+        MethodInfo max = collections.methods().stream()
+                .filter(m -> m.name().equals("max") && m.parameters().size() == 1).findFirst().orElseThrow();
+        TypeParameter t = max.typeParameters().getFirst();
+        assertEquals(2, t.typeBounds().size(), t.typeBounds().toString());
+        assertTrue(t.typeBounds().getFirst().typeInfo().isJavaLangObject());
+        assertTrue(max.returnType().erasedForFQN().typeInfo().isJavaLangObject(),
+                max.returnType().erasedForFQN().toString());
+
+        MethodInfo emptyList = collections.methods().stream()
+                .filter(m -> m.name().equals("emptyList")).findFirst().orElseThrow();
+        assertTrue(emptyList.typeParameters().getFirst().typeBounds().isEmpty());
     }
 }
