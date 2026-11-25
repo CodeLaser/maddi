@@ -544,6 +544,11 @@ public class RunRewireTests {
             coldDigest = 31 * coldDigest + c.hashCode();
             warmDigest = 31 * warmDigest + w.hashCode();
             if (c.equals(w)) continue;
+            if (!STRICT_LINKS && differsOnlyInLinkSummaries(c, w)) {
+                LOGGER.warn("REWIRE ORACLE TOLERATED (link summaries only, CodeLaser/maddi-mod#158) analysis of {}:{}",
+                        coldType.fullyQualifiedName(), lineDifferences(c, w));
+                continue;
+            }
             StringBuilder sb = new StringBuilder("analysis of " + coldType.fullyQualifiedName() + ":");
             c.stream().filter(l -> !w.contains(l)).forEach(l -> sb.append("\n  - ").append(l));
             w.stream().filter(l -> !c.contains(l)).forEach(l -> sb.append("\n  + ").append(l));
@@ -556,6 +561,109 @@ public class RunRewireTests {
             write(Path.of(DUMP_TO, "warm-" + oracleChecks + ".txt"), warmDump.toString());
         }
         return differences;
+    }
+
+    /*
+     ⛔ CodeLaser/maddi-mod#158, FOR 0.9.7: the link summaries of a recursive group (fernflower's GenericType.parse,
+     GenericMain's signature parsers, VarExprent.inferredType; guava's TypeResolver) depend on thread timing in the
+     parallel passes after the first, so two COLD analyses can differ in them, and the oracle failed on noise
+     (slowTest gate 45463198735). A type whose two dumps differ only in "methodLinks" and "links" values, with every
+     element present on both sides and every other property equal, is tolerated and logged (REWIRE ORACLE TOLERATED).
+     Any verdict difference still fails, as does a missing or extra element. A pure function of the two dumps: no
+     second run, so the outcome on #158 noise does not depend on chance. What it gives up: a warm defect that changes
+     link summaries and no verdict passes, logged. -Dmaddi.rewire.oracleStrictLinks=true compares as before: use it to
+     check the #158 fix, and remove the tolerance with it.
+     */
+    private static final boolean STRICT_LINKS = Boolean.getBoolean("maddi.rewire.oracleStrictLinks");
+    private static final List<String> LINK_SUMMARY_KEYS = List.of("\"methodLinks\":", "\"links\":");
+
+    /* same elements, same lines once the link summaries are taken out */
+    static boolean differsOnlyInLinkSummaries(List<String> cold, List<String> warm) {
+        if (cold.size() != warm.size()) return false;
+        for (int i = 0; i < cold.size(); i++) {
+            String c = cold.get(i);
+            String w = warm.get(i);
+            if (!c.equals(w) && !withoutLinkSummaries(c).equals(withoutLinkSummaries(w))) return false;
+        }
+        return true;
+    }
+
+    private static String lineDifferences(List<String> c, List<String> w) {
+        StringBuilder sb = new StringBuilder();
+        c.stream().filter(l -> !w.contains(l)).forEach(l -> sb.append("\n  - ").append(l));
+        w.stream().filter(l -> !c.contains(l)).forEach(l -> sb.append("\n  + ").append(l));
+        return sb.toString();
+    }
+
+    /*
+     The line with every "methodLinks":<value> and "links":<value> member taken out, with one adjacent comma. Quote-aware:
+     a key is only recognised outside a string. A line it cannot read is returned as is, so that it compares strictly.
+     */
+    static String withoutLinkSummaries(String line) {
+        StringBuilder sb = new StringBuilder();
+        boolean inString = false;
+        int i = 0;
+        while (i < line.length()) {
+            char ch = line.charAt(i);
+            if (inString) {
+                sb.append(ch);
+                if (ch == '\\' && i + 1 < line.length()) sb.append(line.charAt(++i));
+                else if (ch == '"') inString = false;
+                i++;
+                continue;
+            }
+            if (ch == '"') {
+                String key = null;
+                for (String k : LINK_SUMMARY_KEYS) if (line.startsWith(k, i)) key = k;
+                if (key != null) {
+                    int end = valueEnd(line, i + key.length());
+                    if (end < 0) return line;
+                    if (!sb.isEmpty() && sb.charAt(sb.length() - 1) == ',') sb.setLength(sb.length() - 1);
+                    else if (end < line.length() && line.charAt(end) == ',') end++;
+                    i = end;
+                    continue;
+                }
+                inString = true;
+            }
+            sb.append(ch);
+            i++;
+        }
+        return sb.toString();
+    }
+
+    /* the index just after the JSON value that starts at 'start'; -1 when there is none */
+    private static int valueEnd(String line, int start) {
+        if (start >= line.length()) return -1;
+        char first = line.charAt(start);
+        if (first == '[' || first == '{') {
+            int depth = 0;
+            boolean inString = false;
+            for (int i = start; i < line.length(); i++) {
+                char ch = line.charAt(i);
+                if (inString) {
+                    if (ch == '\\') i++;
+                    else if (ch == '"') inString = false;
+                } else if (ch == '"') {
+                    inString = true;
+                } else if (ch == '[' || ch == '{') {
+                    depth++;
+                } else if (ch == ']' || ch == '}') {
+                    if (--depth == 0) return i + 1;
+                }
+            }
+            return -1;
+        }
+        if (first == '"') {
+            for (int i = start + 1; i < line.length(); i++) {
+                char ch = line.charAt(i);
+                if (ch == '\\') i++;
+                else if (ch == '"') return i + 1;
+            }
+            return -1;
+        }
+        int i = start;
+        while (i < line.length() && ",}]".indexOf(line.charAt(i)) < 0) i++;
+        return i;
     }
 
     private static final String LINKS = "\"links\":[";
