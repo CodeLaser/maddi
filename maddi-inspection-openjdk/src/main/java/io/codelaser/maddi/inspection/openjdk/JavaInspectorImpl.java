@@ -2091,7 +2091,10 @@ public class JavaInspectorImpl implements JavaInspector {
         if (dir == null) {
             reportClassOutputProblem(summary, sourceSet, dependency, dependency.uri(),
                     parsed.size() + " type(s) were parsed from it, but its URI (" + dependency.uri()
-                    + ") is not a usable class-path entry, so javac has no class files for any of them",
+                    + ") is not a usable class-path entry, so javac has no class files for any of them"
+                    // CodeLaser/maddi#201: a relative --source directory gives an opaque 'file:src' URI
+                    + (dependency.uri().isOpaque() && "file".equals(dependency.uri().getScheme())
+                            ? "; a relative source directory gives such a URI: pass it as an absolute path" : ""),
                     Summary.ClassOutputProblem.Kind.UNUSABLE_URI, parsed.size(), fullyQualifiedNames(primary),
                     List.of(), null, null);
             return;

@@ -231,7 +231,11 @@ public record InputConfigurationImpl(Path workingDirectory,
                         .setUri(uri)
                         .setSourceEncoding(sourceCharset)
                         .setTest(true)
-                        .setRestrictToPackages(restrictSourceToPackages)
+                        // CodeLaser/maddi#201: the test sources had the main restriction, and
+                        // --test-source-packages was read and never used. Without a test list, the main one still
+                        // applies, as before.
+                        .setRestrictToPackages(restrictTestSourceToPackages.isEmpty()
+                                ? restrictSourceToPackages : restrictTestSourceToPackages)
                         .setDependencies(allDependencies)
                         .build());
             }
