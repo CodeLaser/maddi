@@ -1,0 +1,307 @@
+# The published API of maddi-annotation and maddi-support (CodeLaser/maddi#182), checked by TestPublishedApi.
+# Lines may be added, never removed or changed: every maddi release must understand every published version of
+# these two jars. After adding API, append the new lines (the test prints them, and writes the whole current list
+# to build/published-api.txt), and bump annotationsVersion in gradle.properties if that version is on Central.
+io.codelaser.maddi.annotatedapi.AnnotatedAPI class
+io.codelaser.maddi.annotatedapi.AnnotatedAPI public io.codelaser.maddi.annotatedapi.AnnotatedAPI()
+io.codelaser.maddi.annotatedapi.AnnotatedAPI public static boolean io.codelaser.maddi.annotatedapi.AnnotatedAPI.isFact(boolean)
+io.codelaser.maddi.annotatedapi.AnnotatedAPI public static boolean io.codelaser.maddi.annotatedapi.AnnotatedAPI.isKnown(boolean)
+io.codelaser.maddi.annotation.Borrowed @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({PARAMETER})
+io.codelaser.maddi.annotation.Borrowed public abstract boolean io.codelaser.maddi.annotation.Borrowed.absent() default false
+io.codelaser.maddi.annotation.Borrowed public abstract boolean io.codelaser.maddi.annotation.Borrowed.contract() default false
+io.codelaser.maddi.annotation.Borrowed public abstract java.lang.String io.codelaser.maddi.annotation.Borrowed.comment() default ""
+io.codelaser.maddi.annotation.Commutable @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD, PARAMETER})
+io.codelaser.maddi.annotation.Commutable public abstract boolean io.codelaser.maddi.annotation.Commutable.contract() default false
+io.codelaser.maddi.annotation.Commutable public abstract boolean io.codelaser.maddi.annotation.Commutable.implied() default false
+io.codelaser.maddi.annotation.Commutable public abstract java.lang.String io.codelaser.maddi.annotation.Commutable.comment() default ""
+io.codelaser.maddi.annotation.Commutable public abstract java.lang.String io.codelaser.maddi.annotation.Commutable.multi() default ""
+io.codelaser.maddi.annotation.Commutable public abstract java.lang.String io.codelaser.maddi.annotation.Commutable.seq() default ""
+io.codelaser.maddi.annotation.Container @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({TYPE, FIELD, PARAMETER, METHOD})
+io.codelaser.maddi.annotation.Container public abstract boolean io.codelaser.maddi.annotation.Container.absent() default false
+io.codelaser.maddi.annotation.Container public abstract boolean io.codelaser.maddi.annotation.Container.contract() default false
+io.codelaser.maddi.annotation.Container public abstract boolean io.codelaser.maddi.annotation.Container.implied() default false
+io.codelaser.maddi.annotation.Container public abstract boolean io.codelaser.maddi.annotation.Container.inconclusive() default false
+io.codelaser.maddi.annotation.Container public abstract java.lang.Class<?> io.codelaser.maddi.annotation.Container.builds() default java.lang.Object.class
+io.codelaser.maddi.annotation.Container public abstract java.lang.String io.codelaser.maddi.annotation.Container.comment() default ""
+io.codelaser.maddi.annotation.Docstring @interface @java.lang.annotation.Retention(RUNTIME) @java.lang.annotation.Target({PACKAGE})
+io.codelaser.maddi.annotation.Docstring public abstract java.lang.Class<?> io.codelaser.maddi.annotation.Docstring.type()
+io.codelaser.maddi.annotation.Docstring public abstract java.lang.String io.codelaser.maddi.annotation.Docstring.summary()
+io.codelaser.maddi.annotation.Docstring public abstract java.lang.String[] io.codelaser.maddi.annotation.Docstring.tags() default []
+io.codelaser.maddi.annotation.Docstrings @interface @java.lang.annotation.Retention(RUNTIME) @java.lang.annotation.Target({PACKAGE})
+io.codelaser.maddi.annotation.Docstrings public abstract io.codelaser.maddi.annotation.Docstring[] io.codelaser.maddi.annotation.Docstrings.value() default []
+io.codelaser.maddi.annotation.Final @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({FIELD})
+io.codelaser.maddi.annotation.Final public abstract boolean io.codelaser.maddi.annotation.Final.absent() default false
+io.codelaser.maddi.annotation.Final public abstract boolean io.codelaser.maddi.annotation.Final.contract() default false
+io.codelaser.maddi.annotation.Final public abstract boolean io.codelaser.maddi.annotation.Final.implied() default false
+io.codelaser.maddi.annotation.Final public abstract java.lang.String io.codelaser.maddi.annotation.Final.after() default ""
+io.codelaser.maddi.annotation.Final public abstract java.lang.String io.codelaser.maddi.annotation.Final.comment() default ""
+io.codelaser.maddi.annotation.FinalFields @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({TYPE, FIELD, METHOD})
+io.codelaser.maddi.annotation.FinalFields public abstract boolean io.codelaser.maddi.annotation.FinalFields.absent() default false
+io.codelaser.maddi.annotation.FinalFields public abstract boolean io.codelaser.maddi.annotation.FinalFields.contract() default false
+io.codelaser.maddi.annotation.FinalFields public abstract boolean io.codelaser.maddi.annotation.FinalFields.implied() default false
+io.codelaser.maddi.annotation.FinalFields public abstract boolean io.codelaser.maddi.annotation.FinalFields.inconclusive() default false
+io.codelaser.maddi.annotation.FinalFields public abstract java.lang.String io.codelaser.maddi.annotation.FinalFields.after() default ""
+io.codelaser.maddi.annotation.FinalFields public abstract java.lang.String io.codelaser.maddi.annotation.FinalFields.comment() default ""
+io.codelaser.maddi.annotation.Fluent @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD})
+io.codelaser.maddi.annotation.Fluent public abstract boolean io.codelaser.maddi.annotation.Fluent.absent() default false
+io.codelaser.maddi.annotation.Fluent public abstract boolean io.codelaser.maddi.annotation.Fluent.contract() default false
+io.codelaser.maddi.annotation.Fluent public abstract java.lang.String io.codelaser.maddi.annotation.Fluent.comment() default ""
+io.codelaser.maddi.annotation.Fresh @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD})
+io.codelaser.maddi.annotation.Fresh public abstract boolean io.codelaser.maddi.annotation.Fresh.absent() default false
+io.codelaser.maddi.annotation.Fresh public abstract boolean io.codelaser.maddi.annotation.Fresh.contract() default false
+io.codelaser.maddi.annotation.Fresh public abstract java.lang.String io.codelaser.maddi.annotation.Fresh.comment() default ""
+io.codelaser.maddi.annotation.Identity @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD})
+io.codelaser.maddi.annotation.Identity public abstract boolean io.codelaser.maddi.annotation.Identity.absent() default false
+io.codelaser.maddi.annotation.Identity public abstract boolean io.codelaser.maddi.annotation.Identity.contract() default false
+io.codelaser.maddi.annotation.Identity public abstract java.lang.String io.codelaser.maddi.annotation.Identity.comment() default ""
+io.codelaser.maddi.annotation.Immutable @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({TYPE, FIELD, METHOD, PARAMETER})
+io.codelaser.maddi.annotation.Immutable public abstract boolean io.codelaser.maddi.annotation.Immutable.absent() default false
+io.codelaser.maddi.annotation.Immutable public abstract boolean io.codelaser.maddi.annotation.Immutable.contract() default false
+io.codelaser.maddi.annotation.Immutable public abstract boolean io.codelaser.maddi.annotation.Immutable.hc() default false
+io.codelaser.maddi.annotation.Immutable public abstract boolean io.codelaser.maddi.annotation.Immutable.implied() default false
+io.codelaser.maddi.annotation.Immutable public abstract boolean io.codelaser.maddi.annotation.Immutable.inconclusive() default false
+io.codelaser.maddi.annotation.Immutable public abstract java.lang.String io.codelaser.maddi.annotation.Immutable.after() default ""
+io.codelaser.maddi.annotation.Immutable public abstract java.lang.String io.codelaser.maddi.annotation.Immutable.comment() default ""
+io.codelaser.maddi.annotation.ImmutableContainer @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({FIELD, PARAMETER, METHOD, TYPE})
+io.codelaser.maddi.annotation.ImmutableContainer public abstract boolean io.codelaser.maddi.annotation.ImmutableContainer.absent() default false
+io.codelaser.maddi.annotation.ImmutableContainer public abstract boolean io.codelaser.maddi.annotation.ImmutableContainer.contract() default false
+io.codelaser.maddi.annotation.ImmutableContainer public abstract boolean io.codelaser.maddi.annotation.ImmutableContainer.hc() default false
+io.codelaser.maddi.annotation.ImmutableContainer public abstract boolean io.codelaser.maddi.annotation.ImmutableContainer.implied() default false
+io.codelaser.maddi.annotation.ImmutableContainer public abstract boolean io.codelaser.maddi.annotation.ImmutableContainer.inconclusive() default false
+io.codelaser.maddi.annotation.ImmutableContainer public abstract java.lang.String io.codelaser.maddi.annotation.ImmutableContainer.after() default ""
+io.codelaser.maddi.annotation.ImmutableContainer public abstract java.lang.String io.codelaser.maddi.annotation.ImmutableContainer.comment() default ""
+io.codelaser.maddi.annotation.ImmutableContainer public abstract java.lang.String io.codelaser.maddi.annotation.ImmutableContainer.value() default ""
+io.codelaser.maddi.annotation.Independent @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({TYPE, CONSTRUCTOR, METHOD, PARAMETER, FIELD, TYPE_PARAMETER})
+io.codelaser.maddi.annotation.Independent public abstract boolean io.codelaser.maddi.annotation.Independent.absent() default false
+io.codelaser.maddi.annotation.Independent public abstract boolean io.codelaser.maddi.annotation.Independent.contract() default false
+io.codelaser.maddi.annotation.Independent public abstract boolean io.codelaser.maddi.annotation.Independent.dependentReturnValue() default false
+io.codelaser.maddi.annotation.Independent public abstract boolean io.codelaser.maddi.annotation.Independent.hc() default false
+io.codelaser.maddi.annotation.Independent public abstract boolean io.codelaser.maddi.annotation.Independent.hcReturnValue() default false
+io.codelaser.maddi.annotation.Independent public abstract boolean io.codelaser.maddi.annotation.Independent.implied() default false
+io.codelaser.maddi.annotation.Independent public abstract boolean io.codelaser.maddi.annotation.Independent.inconclusive() default false
+io.codelaser.maddi.annotation.Independent public abstract int[] io.codelaser.maddi.annotation.Independent.dependentParameters() default []
+io.codelaser.maddi.annotation.Independent public abstract int[] io.codelaser.maddi.annotation.Independent.hcParameters() default []
+io.codelaser.maddi.annotation.Independent public abstract java.lang.String io.codelaser.maddi.annotation.Independent.comment() default ""
+io.codelaser.maddi.annotation.Independent public abstract java.lang.String[] io.codelaser.maddi.annotation.Independent.except() default []
+io.codelaser.maddi.annotation.Modified @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD, FIELD, PARAMETER, TYPE})
+io.codelaser.maddi.annotation.Modified public abstract boolean io.codelaser.maddi.annotation.Modified.absent() default false
+io.codelaser.maddi.annotation.Modified public abstract boolean io.codelaser.maddi.annotation.Modified.construction() default false
+io.codelaser.maddi.annotation.Modified public abstract boolean io.codelaser.maddi.annotation.Modified.contract() default false
+io.codelaser.maddi.annotation.Modified public abstract boolean io.codelaser.maddi.annotation.Modified.downcast() default false
+io.codelaser.maddi.annotation.Modified public abstract boolean io.codelaser.maddi.annotation.Modified.hc() default false
+io.codelaser.maddi.annotation.Modified public abstract int[] io.codelaser.maddi.annotation.Modified.alsoHcs() default []
+io.codelaser.maddi.annotation.Modified public abstract int[] io.codelaser.maddi.annotation.Modified.onlyHcs() default []
+io.codelaser.maddi.annotation.Modified public abstract java.lang.String io.codelaser.maddi.annotation.Modified.comment() default ""
+io.codelaser.maddi.annotation.Modified public abstract java.lang.String[] io.codelaser.maddi.annotation.Modified.downcastTo() default []
+io.codelaser.maddi.annotation.Modified public abstract java.lang.String[] io.codelaser.maddi.annotation.Modified.value() default []
+io.codelaser.maddi.annotation.NotModified @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD, FIELD, PARAMETER})
+io.codelaser.maddi.annotation.NotModified public abstract boolean io.codelaser.maddi.annotation.NotModified.absent() default false
+io.codelaser.maddi.annotation.NotModified public abstract boolean io.codelaser.maddi.annotation.NotModified.contract() default false
+io.codelaser.maddi.annotation.NotModified public abstract boolean io.codelaser.maddi.annotation.NotModified.implied() default false
+io.codelaser.maddi.annotation.NotModified public abstract java.lang.String io.codelaser.maddi.annotation.NotModified.after() default ""
+io.codelaser.maddi.annotation.NotModified public abstract java.lang.String io.codelaser.maddi.annotation.NotModified.comment() default ""
+io.codelaser.maddi.annotation.NotNull @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD, FIELD, PARAMETER})
+io.codelaser.maddi.annotation.NotNull public abstract boolean io.codelaser.maddi.annotation.NotNull.absent() default false
+io.codelaser.maddi.annotation.NotNull public abstract boolean io.codelaser.maddi.annotation.NotNull.content() default false
+io.codelaser.maddi.annotation.NotNull public abstract boolean io.codelaser.maddi.annotation.NotNull.contract() default false
+io.codelaser.maddi.annotation.NotNull public abstract boolean io.codelaser.maddi.annotation.NotNull.implied() default false
+io.codelaser.maddi.annotation.NotNull public abstract int[] io.codelaser.maddi.annotation.NotNull.nullableArguments() default []
+io.codelaser.maddi.annotation.NotNull public abstract java.lang.String io.codelaser.maddi.annotation.NotNull.comment() default ""
+io.codelaser.maddi.annotation.Nullable @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD, FIELD, PARAMETER})
+io.codelaser.maddi.annotation.Nullable public abstract boolean io.codelaser.maddi.annotation.Nullable.absent() default false
+io.codelaser.maddi.annotation.Nullable public abstract boolean io.codelaser.maddi.annotation.Nullable.contract() default false
+io.codelaser.maddi.annotation.Nullable public abstract boolean io.codelaser.maddi.annotation.Nullable.implied() default true
+io.codelaser.maddi.annotation.Nullable public abstract int[] io.codelaser.maddi.annotation.Nullable.nullableArguments() default []
+io.codelaser.maddi.annotation.Nullable public abstract java.lang.String io.codelaser.maddi.annotation.Nullable.comment() default ""
+io.codelaser.maddi.annotation.Owned @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({FIELD})
+io.codelaser.maddi.annotation.Owned public abstract boolean io.codelaser.maddi.annotation.Owned.absent() default false
+io.codelaser.maddi.annotation.Owned public abstract boolean io.codelaser.maddi.annotation.Owned.contract() default false
+io.codelaser.maddi.annotation.Owned public abstract boolean io.codelaser.maddi.annotation.Owned.elements() default false
+io.codelaser.maddi.annotation.Owned public abstract java.lang.String io.codelaser.maddi.annotation.Owned.comment() default ""
+io.codelaser.maddi.annotation.UnmodifiableView @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD})
+io.codelaser.maddi.annotation.UnmodifiableView public abstract boolean io.codelaser.maddi.annotation.UnmodifiableView.absent() default false
+io.codelaser.maddi.annotation.UnmodifiableView public abstract boolean io.codelaser.maddi.annotation.UnmodifiableView.contract() default false
+io.codelaser.maddi.annotation.UnmodifiableView public abstract java.lang.String io.codelaser.maddi.annotation.UnmodifiableView.comment() default ""
+io.codelaser.maddi.annotation.eventual.BeforeMark @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({FIELD, METHOD, PARAMETER})
+io.codelaser.maddi.annotation.eventual.BeforeMark public abstract boolean io.codelaser.maddi.annotation.eventual.BeforeMark.absent() default false
+io.codelaser.maddi.annotation.eventual.BeforeMark public abstract boolean io.codelaser.maddi.annotation.eventual.BeforeMark.contract() default false
+io.codelaser.maddi.annotation.eventual.BeforeMark public abstract java.lang.String io.codelaser.maddi.annotation.eventual.BeforeMark.comment() default ""
+io.codelaser.maddi.annotation.eventual.Mark @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD, PARAMETER})
+io.codelaser.maddi.annotation.eventual.Mark public abstract boolean io.codelaser.maddi.annotation.eventual.Mark.absent() default false
+io.codelaser.maddi.annotation.eventual.Mark public abstract boolean io.codelaser.maddi.annotation.eventual.Mark.contract() default false
+io.codelaser.maddi.annotation.eventual.Mark public abstract java.lang.String io.codelaser.maddi.annotation.eventual.Mark.comment() default ""
+io.codelaser.maddi.annotation.eventual.Mark public abstract java.lang.String io.codelaser.maddi.annotation.eventual.Mark.value()
+io.codelaser.maddi.annotation.eventual.Only @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD})
+io.codelaser.maddi.annotation.eventual.Only public abstract boolean io.codelaser.maddi.annotation.eventual.Only.absent() default false
+io.codelaser.maddi.annotation.eventual.Only public abstract boolean io.codelaser.maddi.annotation.eventual.Only.contract() default false
+io.codelaser.maddi.annotation.eventual.Only public abstract java.lang.String io.codelaser.maddi.annotation.eventual.Only.after() default ""
+io.codelaser.maddi.annotation.eventual.Only public abstract java.lang.String io.codelaser.maddi.annotation.eventual.Only.before() default ""
+io.codelaser.maddi.annotation.eventual.Only public abstract java.lang.String io.codelaser.maddi.annotation.eventual.Only.comment() default ""
+io.codelaser.maddi.annotation.eventual.TestMark @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD})
+io.codelaser.maddi.annotation.eventual.TestMark public abstract boolean io.codelaser.maddi.annotation.eventual.TestMark.absent() default false
+io.codelaser.maddi.annotation.eventual.TestMark public abstract boolean io.codelaser.maddi.annotation.eventual.TestMark.before() default false
+io.codelaser.maddi.annotation.eventual.TestMark public abstract boolean io.codelaser.maddi.annotation.eventual.TestMark.contract() default false
+io.codelaser.maddi.annotation.eventual.TestMark public abstract java.lang.String io.codelaser.maddi.annotation.eventual.TestMark.comment() default ""
+io.codelaser.maddi.annotation.eventual.TestMark public abstract java.lang.String io.codelaser.maddi.annotation.eventual.TestMark.value()
+io.codelaser.maddi.annotation.method.GetSet @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD, CONSTRUCTOR})
+io.codelaser.maddi.annotation.method.GetSet public abstract boolean io.codelaser.maddi.annotation.method.GetSet.absent() default false
+io.codelaser.maddi.annotation.method.GetSet public abstract boolean io.codelaser.maddi.annotation.method.GetSet.contract() default false
+io.codelaser.maddi.annotation.method.GetSet public abstract boolean io.codelaser.maddi.annotation.method.GetSet.equivalent() default false
+io.codelaser.maddi.annotation.method.GetSet public abstract io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore io.codelaser.maddi.annotation.method.GetSet.naturalDefaultValue() default IGNORE
+io.codelaser.maddi.annotation.method.GetSet public abstract java.lang.String io.codelaser.maddi.annotation.method.GetSet.comment() default ""
+io.codelaser.maddi.annotation.method.GetSet public abstract java.lang.String io.codelaser.maddi.annotation.method.GetSet.defaultValue() default ""
+io.codelaser.maddi.annotation.method.GetSet public abstract java.lang.String io.codelaser.maddi.annotation.method.GetSet.value() default ""
+io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore enum
+io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore extends java.lang.Enum<io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore>
+io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore public static final io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore.FALSE
+io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore public static final io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore.IGNORE
+io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore public static final io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore io.codelaser.maddi.annotation.method.GetSet$TrueFalseIgnore.TRUE
+io.codelaser.maddi.annotation.rare.AllowsInterrupt @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD, CONSTRUCTOR})
+io.codelaser.maddi.annotation.rare.AllowsInterrupt public abstract boolean io.codelaser.maddi.annotation.rare.AllowsInterrupt.value() default true
+io.codelaser.maddi.annotation.rare.AllowsInterrupt public abstract java.lang.String io.codelaser.maddi.annotation.rare.AllowsInterrupt.comment() default ""
+io.codelaser.maddi.annotation.rare.Finalizer @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD})
+io.codelaser.maddi.annotation.rare.Finalizer public abstract java.lang.String io.codelaser.maddi.annotation.rare.Finalizer.comment() default ""
+io.codelaser.maddi.annotation.rare.IgnoreModifications @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({TYPE, FIELD, PARAMETER, METHOD})
+io.codelaser.maddi.annotation.rare.IgnoreModifications public abstract java.lang.String io.codelaser.maddi.annotation.rare.IgnoreModifications.comment() default ""
+io.codelaser.maddi.annotation.rare.StaticSideEffects @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({METHOD, CONSTRUCTOR})
+io.codelaser.maddi.annotation.rare.StaticSideEffects public abstract java.lang.String io.codelaser.maddi.annotation.rare.StaticSideEffects.comment() default ""
+io.codelaser.maddi.annotation.type.ExtensionClass @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({TYPE})
+io.codelaser.maddi.annotation.type.ExtensionClass public abstract boolean io.codelaser.maddi.annotation.type.ExtensionClass.absent() default false
+io.codelaser.maddi.annotation.type.ExtensionClass public abstract boolean io.codelaser.maddi.annotation.type.ExtensionClass.contract() default false
+io.codelaser.maddi.annotation.type.ExtensionClass public abstract java.lang.Class<?> io.codelaser.maddi.annotation.type.ExtensionClass.of()
+io.codelaser.maddi.annotation.type.ExtensionClass public abstract java.lang.String io.codelaser.maddi.annotation.type.ExtensionClass.comment() default ""
+io.codelaser.maddi.annotation.type.Singleton @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({TYPE})
+io.codelaser.maddi.annotation.type.Singleton public abstract boolean io.codelaser.maddi.annotation.type.Singleton.absent() default false
+io.codelaser.maddi.annotation.type.Singleton public abstract boolean io.codelaser.maddi.annotation.type.Singleton.contract() default false
+io.codelaser.maddi.annotation.type.Singleton public abstract java.lang.String io.codelaser.maddi.annotation.type.Singleton.comment() default ""
+io.codelaser.maddi.annotation.type.UtilityClass @interface @java.lang.annotation.Retention(CLASS) @java.lang.annotation.Target({TYPE})
+io.codelaser.maddi.annotation.type.UtilityClass public abstract boolean io.codelaser.maddi.annotation.type.UtilityClass.absent() default false
+io.codelaser.maddi.annotation.type.UtilityClass public abstract boolean io.codelaser.maddi.annotation.type.UtilityClass.contract() default false
+io.codelaser.maddi.annotation.type.UtilityClass public abstract java.lang.String io.codelaser.maddi.annotation.type.UtilityClass.comment() default ""
+io.codelaser.maddi.support.AddOnceSet class
+io.codelaser.maddi.support.AddOnceSet extends io.codelaser.maddi.support.Freezable
+io.codelaser.maddi.support.AddOnceSet implements java.util.Set<V>
+io.codelaser.maddi.support.AddOnceSet public <T> T[] io.codelaser.maddi.support.AddOnceSet.toArray(T[])
+io.codelaser.maddi.support.AddOnceSet public V io.codelaser.maddi.support.AddOnceSet.get(V)
+io.codelaser.maddi.support.AddOnceSet public boolean io.codelaser.maddi.support.AddOnceSet.add(V)
+io.codelaser.maddi.support.AddOnceSet public boolean io.codelaser.maddi.support.AddOnceSet.addAll(java.util.Collection<? extends V>)
+io.codelaser.maddi.support.AddOnceSet public boolean io.codelaser.maddi.support.AddOnceSet.contains(java.lang.Object)
+io.codelaser.maddi.support.AddOnceSet public boolean io.codelaser.maddi.support.AddOnceSet.containsAll(java.util.Collection<?>)
+io.codelaser.maddi.support.AddOnceSet public boolean io.codelaser.maddi.support.AddOnceSet.isEmpty()
+io.codelaser.maddi.support.AddOnceSet public boolean io.codelaser.maddi.support.AddOnceSet.remove(java.lang.Object)
+io.codelaser.maddi.support.AddOnceSet public boolean io.codelaser.maddi.support.AddOnceSet.removeAll(java.util.Collection<?>)
+io.codelaser.maddi.support.AddOnceSet public boolean io.codelaser.maddi.support.AddOnceSet.retainAll(java.util.Collection<?>)
+io.codelaser.maddi.support.AddOnceSet public int io.codelaser.maddi.support.AddOnceSet.size()
+io.codelaser.maddi.support.AddOnceSet public io.codelaser.maddi.support.AddOnceSet()
+io.codelaser.maddi.support.AddOnceSet public java.lang.Object[] io.codelaser.maddi.support.AddOnceSet.toArray()
+io.codelaser.maddi.support.AddOnceSet public java.util.Iterator<V> io.codelaser.maddi.support.AddOnceSet.iterator()
+io.codelaser.maddi.support.AddOnceSet public java.util.Set<V> io.codelaser.maddi.support.AddOnceSet.toImmutableSet()
+io.codelaser.maddi.support.AddOnceSet public java.util.stream.Stream<V> io.codelaser.maddi.support.AddOnceSet.stream()
+io.codelaser.maddi.support.AddOnceSet public void io.codelaser.maddi.support.AddOnceSet.clear()
+io.codelaser.maddi.support.AddOnceSet public void io.codelaser.maddi.support.AddOnceSet.forEach(java.util.function.Consumer<? super V>)
+io.codelaser.maddi.support.Either class
+io.codelaser.maddi.support.Either public A io.codelaser.maddi.support.Either.getLeft()
+io.codelaser.maddi.support.Either public A io.codelaser.maddi.support.Either.getLeftOrElse(A)
+io.codelaser.maddi.support.Either public B io.codelaser.maddi.support.Either.getRight()
+io.codelaser.maddi.support.Either public B io.codelaser.maddi.support.Either.getRightOrElse(B)
+io.codelaser.maddi.support.Either public boolean io.codelaser.maddi.support.Either.equals(java.lang.Object)
+io.codelaser.maddi.support.Either public boolean io.codelaser.maddi.support.Either.isLeft()
+io.codelaser.maddi.support.Either public boolean io.codelaser.maddi.support.Either.isRight()
+io.codelaser.maddi.support.Either public int io.codelaser.maddi.support.Either.hashCode()
+io.codelaser.maddi.support.Either public java.lang.String io.codelaser.maddi.support.Either.toString()
+io.codelaser.maddi.support.Either public static <L,R> io.codelaser.maddi.support.Either<L, R> io.codelaser.maddi.support.Either.left(L)
+io.codelaser.maddi.support.Either public static <L,R> io.codelaser.maddi.support.Either<L, R> io.codelaser.maddi.support.Either.right(R)
+io.codelaser.maddi.support.EventuallyFinal class
+io.codelaser.maddi.support.EventuallyFinal public T io.codelaser.maddi.support.EventuallyFinal.get()
+io.codelaser.maddi.support.EventuallyFinal public boolean io.codelaser.maddi.support.EventuallyFinal.isFinal()
+io.codelaser.maddi.support.EventuallyFinal public boolean io.codelaser.maddi.support.EventuallyFinal.isVariable()
+io.codelaser.maddi.support.EventuallyFinal public io.codelaser.maddi.support.EventuallyFinal()
+io.codelaser.maddi.support.EventuallyFinal public void io.codelaser.maddi.support.EventuallyFinal.setFinal(T)
+io.codelaser.maddi.support.EventuallyFinal public void io.codelaser.maddi.support.EventuallyFinal.setVariable(T)
+io.codelaser.maddi.support.EventuallyFinalOnDemand class
+io.codelaser.maddi.support.EventuallyFinalOnDemand public T io.codelaser.maddi.support.EventuallyFinalOnDemand.get()
+io.codelaser.maddi.support.EventuallyFinalOnDemand public boolean io.codelaser.maddi.support.EventuallyFinalOnDemand.haveOnDemand()
+io.codelaser.maddi.support.EventuallyFinalOnDemand public boolean io.codelaser.maddi.support.EventuallyFinalOnDemand.isFinal()
+io.codelaser.maddi.support.EventuallyFinalOnDemand public boolean io.codelaser.maddi.support.EventuallyFinalOnDemand.isVariable()
+io.codelaser.maddi.support.EventuallyFinalOnDemand public io.codelaser.maddi.support.EventuallyFinalOnDemand()
+io.codelaser.maddi.support.EventuallyFinalOnDemand public synchronized void io.codelaser.maddi.support.EventuallyFinalOnDemand.setFinal(T)
+io.codelaser.maddi.support.EventuallyFinalOnDemand public synchronized void io.codelaser.maddi.support.EventuallyFinalOnDemand.setOnDemand(java.lang.Runnable)
+io.codelaser.maddi.support.EventuallyFinalOnDemand public synchronized void io.codelaser.maddi.support.EventuallyFinalOnDemand.setVariable(T)
+io.codelaser.maddi.support.FirstThen class
+io.codelaser.maddi.support.FirstThen public S io.codelaser.maddi.support.FirstThen.getFirst()
+io.codelaser.maddi.support.FirstThen public T io.codelaser.maddi.support.FirstThen.get()
+io.codelaser.maddi.support.FirstThen public boolean io.codelaser.maddi.support.FirstThen.equals(java.lang.Object)
+io.codelaser.maddi.support.FirstThen public boolean io.codelaser.maddi.support.FirstThen.isFirst()
+io.codelaser.maddi.support.FirstThen public boolean io.codelaser.maddi.support.FirstThen.isSet()
+io.codelaser.maddi.support.FirstThen public int io.codelaser.maddi.support.FirstThen.hashCode()
+io.codelaser.maddi.support.FirstThen public io.codelaser.maddi.support.FirstThen(S)
+io.codelaser.maddi.support.FirstThen public static <S,T> io.codelaser.maddi.support.FirstThen<S, T> io.codelaser.maddi.support.FirstThen.then(T)
+io.codelaser.maddi.support.FirstThen public void io.codelaser.maddi.support.FirstThen.set(T)
+io.codelaser.maddi.support.FlipSwitch final class
+io.codelaser.maddi.support.FlipSwitch public boolean io.codelaser.maddi.support.FlipSwitch.isSet()
+io.codelaser.maddi.support.FlipSwitch public io.codelaser.maddi.support.FlipSwitch()
+io.codelaser.maddi.support.FlipSwitch public java.lang.String io.codelaser.maddi.support.FlipSwitch.toString()
+io.codelaser.maddi.support.FlipSwitch public void io.codelaser.maddi.support.FlipSwitch.copy(io.codelaser.maddi.support.FlipSwitch)
+io.codelaser.maddi.support.FlipSwitch public void io.codelaser.maddi.support.FlipSwitch.set()
+io.codelaser.maddi.support.Freezable abstract class
+io.codelaser.maddi.support.Freezable public boolean io.codelaser.maddi.support.Freezable.isFrozen()
+io.codelaser.maddi.support.Freezable public io.codelaser.maddi.support.Freezable()
+io.codelaser.maddi.support.Freezable public void io.codelaser.maddi.support.Freezable.ensureFrozen()
+io.codelaser.maddi.support.Freezable public void io.codelaser.maddi.support.Freezable.ensureNotFrozen()
+io.codelaser.maddi.support.Freezable public void io.codelaser.maddi.support.Freezable.freeze()
+io.codelaser.maddi.support.IntMemo final class
+io.codelaser.maddi.support.IntMemo public boolean io.codelaser.maddi.support.IntMemo.isSet()
+io.codelaser.maddi.support.IntMemo public int io.codelaser.maddi.support.IntMemo.get(java.util.function.IntSupplier)
+io.codelaser.maddi.support.IntMemo public io.codelaser.maddi.support.IntMemo()
+io.codelaser.maddi.support.IntMemo public java.lang.String io.codelaser.maddi.support.IntMemo.toString()
+io.codelaser.maddi.support.Lazy class
+io.codelaser.maddi.support.Lazy public T io.codelaser.maddi.support.Lazy.get()
+io.codelaser.maddi.support.Lazy public boolean io.codelaser.maddi.support.Lazy.hasBeenEvaluated()
+io.codelaser.maddi.support.Lazy public io.codelaser.maddi.support.Lazy(java.util.function.Supplier<T>)
+io.codelaser.maddi.support.Memo final class
+io.codelaser.maddi.support.Memo public T io.codelaser.maddi.support.Memo.get(java.util.function.Supplier<? extends T>)
+io.codelaser.maddi.support.Memo public T io.codelaser.maddi.support.Memo.getOrNull()
+io.codelaser.maddi.support.Memo public boolean io.codelaser.maddi.support.Memo.isSet()
+io.codelaser.maddi.support.Memo public io.codelaser.maddi.support.Memo()
+io.codelaser.maddi.support.Memo public java.lang.String io.codelaser.maddi.support.Memo.toString()
+io.codelaser.maddi.support.SetOnce class
+io.codelaser.maddi.support.SetOnce public T io.codelaser.maddi.support.SetOnce.get()
+io.codelaser.maddi.support.SetOnce public T io.codelaser.maddi.support.SetOnce.get(java.lang.String)
+io.codelaser.maddi.support.SetOnce public T io.codelaser.maddi.support.SetOnce.getOrDefault(T)
+io.codelaser.maddi.support.SetOnce public T io.codelaser.maddi.support.SetOnce.getOrDefaultNull()
+io.codelaser.maddi.support.SetOnce public boolean io.codelaser.maddi.support.SetOnce.equals(java.lang.Object)
+io.codelaser.maddi.support.SetOnce public boolean io.codelaser.maddi.support.SetOnce.isSet()
+io.codelaser.maddi.support.SetOnce public int io.codelaser.maddi.support.SetOnce.hashCode()
+io.codelaser.maddi.support.SetOnce public io.codelaser.maddi.support.SetOnce()
+io.codelaser.maddi.support.SetOnce public java.lang.String io.codelaser.maddi.support.SetOnce.toString()
+io.codelaser.maddi.support.SetOnce public void io.codelaser.maddi.support.SetOnce.copy(io.codelaser.maddi.support.SetOnce<T>)
+io.codelaser.maddi.support.SetOnce public void io.codelaser.maddi.support.SetOnce.set(T)
+io.codelaser.maddi.support.SetOnceMap class
+io.codelaser.maddi.support.SetOnceMap extends io.codelaser.maddi.support.Freezable
+io.codelaser.maddi.support.SetOnceMap public V io.codelaser.maddi.support.SetOnceMap.get(K)
+io.codelaser.maddi.support.SetOnceMap public V io.codelaser.maddi.support.SetOnceMap.getOrCreate(K,java.util.function.Function<K, V>)
+io.codelaser.maddi.support.SetOnceMap public V io.codelaser.maddi.support.SetOnceMap.getOrDefault(K,V)
+io.codelaser.maddi.support.SetOnceMap public V io.codelaser.maddi.support.SetOnceMap.getOrDefaultNull(K)
+io.codelaser.maddi.support.SetOnceMap public boolean io.codelaser.maddi.support.SetOnceMap.isEmpty()
+io.codelaser.maddi.support.SetOnceMap public boolean io.codelaser.maddi.support.SetOnceMap.isSet(K)
+io.codelaser.maddi.support.SetOnceMap public int io.codelaser.maddi.support.SetOnceMap.size()
+io.codelaser.maddi.support.SetOnceMap public io.codelaser.maddi.support.SetOnceMap()
+io.codelaser.maddi.support.SetOnceMap public java.util.Map<K, V> io.codelaser.maddi.support.SetOnceMap.toImmutableMap()
+io.codelaser.maddi.support.SetOnceMap public java.util.stream.Stream<K> io.codelaser.maddi.support.SetOnceMap.keyStream()
+io.codelaser.maddi.support.SetOnceMap public java.util.stream.Stream<V> io.codelaser.maddi.support.SetOnceMap.valueStream()
+io.codelaser.maddi.support.SetOnceMap public java.util.stream.Stream<java.util.Map$Entry<K, V>> io.codelaser.maddi.support.SetOnceMap.stream()
+io.codelaser.maddi.support.SetOnceMap public void io.codelaser.maddi.support.SetOnceMap.put(K,V)
+io.codelaser.maddi.support.SetOnceMap public void io.codelaser.maddi.support.SetOnceMap.putAll(io.codelaser.maddi.support.SetOnceMap<K, V>)
+io.codelaser.maddi.support.VariableFirstThen class
+io.codelaser.maddi.support.VariableFirstThen public S io.codelaser.maddi.support.VariableFirstThen.getFirst()
+io.codelaser.maddi.support.VariableFirstThen public S io.codelaser.maddi.support.VariableFirstThen.getFirstOrDefault(S)
+io.codelaser.maddi.support.VariableFirstThen public T io.codelaser.maddi.support.VariableFirstThen.get()
+io.codelaser.maddi.support.VariableFirstThen public T io.codelaser.maddi.support.VariableFirstThen.getOrDefault(T)
+io.codelaser.maddi.support.VariableFirstThen public boolean io.codelaser.maddi.support.VariableFirstThen.equals(java.lang.Object)
+io.codelaser.maddi.support.VariableFirstThen public boolean io.codelaser.maddi.support.VariableFirstThen.isFirst()
+io.codelaser.maddi.support.VariableFirstThen public boolean io.codelaser.maddi.support.VariableFirstThen.isSet()
+io.codelaser.maddi.support.VariableFirstThen public int io.codelaser.maddi.support.VariableFirstThen.hashCode()
+io.codelaser.maddi.support.VariableFirstThen public io.codelaser.maddi.support.VariableFirstThen(S)
+io.codelaser.maddi.support.VariableFirstThen public java.lang.String io.codelaser.maddi.support.VariableFirstThen.toString()
+io.codelaser.maddi.support.VariableFirstThen public void io.codelaser.maddi.support.VariableFirstThen.set(T)
+io.codelaser.maddi.support.VariableFirstThen public void io.codelaser.maddi.support.VariableFirstThen.setFirst(S)

@@ -224,14 +224,14 @@ What changed since 0.9.6: [release notes](docs/project/release-notes-0.9.7.md).
 To add contract annotations to your code, link the annotations library. It is on Maven Central, targets Java 17, and is **Apache-2.0** licensed, so you can depend on it:
 
 ```kotlin
-implementation("io.codelaser:maddi-annotation:0.9.6")   // Gradle
+implementation("io.codelaser:maddi-annotation:1.0.0")   // Gradle
 ```
 
 ```xml
 <dependency>  <!-- Maven -->
   <groupId>io.codelaser</groupId>
   <artifactId>maddi-annotation</artifactId>
-  <version>0.9.6</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 
@@ -243,8 +243,12 @@ If you also want the "eventually final" support classes (`SetOnce`, `Freezable`,
 re-exports it:
 
 ```kotlin
-implementation("io.codelaser:maddi-support:0.9.6")      // annotations arrive with it
+implementation("io.codelaser:maddi-support:1.0.0")      // annotations arrive with it
 ```
+
+The annotations have their own version, independent of maddi's (since maddi 0.9.8): a maddi release republishes
+them only when they change, and every maddi release understands every annotations version, because their API only
+grows. Each release's notes say which annotations version goes with it.
 
 ## Documentation
 

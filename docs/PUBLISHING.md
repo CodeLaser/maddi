@@ -366,9 +366,24 @@ Versioning
 ----------
 
 One release train, one version for the whole project, centralized in `gradle.properties`
-(`group=io.codelaser`, currently `version=0.9.1`) — **DONE**: the root `gradle.properties` is inherited
+(`group=io.codelaser`, `version=…`) — **DONE**: the root `gradle.properties` is inherited
 by every subproject. Bump it there before a release; Maven Central rejects re-publishing an existing
 version, and so does JetBrains Marketplace.
+
+**One exception, on Central only (#182): the annotations.** `maddi-annotation` and `maddi-support` are published
+under `annotationsVersion` (also in `gradle.properties`, one version for both, starting at 1.0.0), and only when
+they changed. Inside the build, and in `~/.m2` where maddi-mod, maddi-dist and the jfocus tier resolve them, they
+keep `version` like every other module, so nothing that pins `maddiVersion` has to know about the second line.
+- The analyzer recognises the annotations by fully qualified name, never by the jar's version, so any maddi
+  reads code compiled against any annotations version, as long as their API only grows: types, members,
+  attributes and defaults may be added, never removed or renamed. `maddi-support`'s `TestPublishedApi` holds
+  that, against the committed `src/test/resources/published-api.txt`.
+- Both build files refuse to put an artifact into the staging repository (from which `jreleaserDeploy` uploads)
+  at any version but `annotationsVersion`, so the Central leg runs with `-Pversion=<annotationsVersion>`.
+- `gate release-maddi release maddi` decides: `annotationsVersion` already on `repo1.maven.org` and the two
+  modules' `src/main` and build files unchanged since the tag `annotations-v<annotationsVersion>`: no Central
+  legs, the record says "unchanged". Changed under a published version: refused, bump `annotationsVersion`
+  first. Not on Central yet: both legs, then the tag `annotations-v<annotationsVersion>`.
 
 "Every subproject" was aspirational until 2026-08-26: `maddi-support` and `maddi-mvnplugin` had stopped
 hard-coding a version, but `maddi-intellij` (`0.1.0`) and `maddi-ide-client` (`0.8.2`) still did, which
@@ -381,13 +396,14 @@ Release checklist
 -----------------
 
 . Bump the version in `gradle.properties` (once centralized).
-. Annotations — **two artifacts since 0.9.1, and the ORDER matters.** `maddi-support`'s POM carries
+. Annotations — **only when they changed, at `annotationsVersion`** (Versioning, above; `gate release-maddi`
+  decides and runs these). **Two artifacts since 0.9.1, and the ORDER matters.** `maddi-support`'s POM carries
   a dependency on `maddi-annotation`, so publishing support first puts an artifact on Central whose
   dependency does not exist yet. Central will not stop you; consumers find out instead.
 +
 --
-./gradlew :maddi-annotation:clean :maddi-annotation:publishMavenJavaPublicationToStagingRepository :maddi-annotation:jreleaserDeploy
-./gradlew :maddi-support:clean    :maddi-support:publishMavenJavaPublicationToStagingRepository    :maddi-support:jreleaserDeploy
+./gradlew -Pversion=<annotationsVersion> :maddi-annotation:clean :maddi-annotation:publishMavenJavaPublicationToStagingRepository :maddi-annotation:jreleaserDeploy
+./gradlew -Pversion=<annotationsVersion> :maddi-support:clean    :maddi-support:publishMavenJavaPublicationToStagingRepository    :maddi-support:jreleaserDeploy
 --
 +
 Let the first reach `repo1.maven.org` before starting the second — see the note at the top of this
@@ -395,7 +411,8 @@ document about the polling loop and the Portal→repo1 delay. Credentials/GPG se
 +
 Check both against the resolvability rule above before deploying. Verified for 0.9.1 on 2026-08-17:
 `maddi-annotation`'s POM has no `<dependencies>` and all four module-metadata variants are empty;
-`maddi-support` has exactly one, `io.codelaser:maddi-annotation:<version>` at `compile`, with
+`maddi-support` has exactly one, `io.codelaser:maddi-annotation:<version>` at `compile` (since #182, the
+`annotationsVersion` the leg ran with), with
 `apiElements`/`runtimeElements` matching it and javadoc/sources empty.
 +
 ⛔ `withJavadocJar()` makes **javadoc a release blocker, not a warning** — a failed javadoc task

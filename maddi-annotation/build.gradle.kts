@@ -43,7 +43,23 @@ java {
     withSourcesJar()
 }
 
-// group and version come from the root gradle.properties (single release train -- see PUBLISHING.md)
+// group and version come from the root gradle.properties; on Maven Central, annotationsVersion (below)
+
+// CodeLaser/maddi#182: on Maven Central this artifact carries annotationsVersion (gradle.properties), not maddi's
+// version; in the build and in ~/.m2 it keeps `version` like every other module. The Central leg runs with
+// -Pversion=<annotationsVersion> (gate release-maddi, PUBLISHING.md); anything else must not reach the staging
+// repository, from which jreleaserDeploy uploads.
+val annotationsVersion = providers.gradleProperty("annotationsVersion").get()
+tasks.withType<PublishToMavenRepository>().configureEach {
+    val published = project.version.toString()
+    val expected = annotationsVersion
+    doFirst {
+        check(published == expected) {
+            "${project.name} goes to Maven Central at annotationsVersion=$expected, not at $published: run the Central " +
+            "leg with -Pversion=$expected (PUBLISHING.md, release checklist)"
+        }
+    }
+}
 
 publishing {
     publications {
