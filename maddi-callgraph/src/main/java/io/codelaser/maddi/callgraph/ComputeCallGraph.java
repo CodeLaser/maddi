@@ -764,6 +764,16 @@ public class ComputeCallGraph {
                     for (MethodInfo mi : anonymousType.constructorsAndMethods()) {
                         handleMethodCall(info, mi);
                     }
+                    // maddi#214: 'new X(a) { }' CALLS X(a), exactly as 'new X(a)' does: a written call site with
+                    // written arguments, which a lever deleting or changing X(int) must rewrite. Before, the
+                    // anonymous creation reached the graph only through its own members and the type reference,
+                    // so fieldsMethodsThatCall(X(int)) missed it. Object's constructor (an anonymous implementation
+                    // of an interface, or 'new Object() { }') is no call site worth an edge.
+                    MethodInfo superConstructor = cc.constructor();
+                    if (superConstructor != null && !superConstructor.typeInfo().isJavaLangObject()) {
+                        handleMethodCall(info, superConstructor);
+                        doByNameSinks(info, superConstructor, cc.parameterExpressions());
+                    }
                     // the arguments to 'new X(...) { }' (and its scope) are NOT part of the anonymous body:
                     // visit them explicitly, otherwise a type referenced only there -- e.g. 'new Y()' passed as
                     // an argument, or 'Y::new' in an enum constant that has a body -- is dropped when we stop

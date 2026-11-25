@@ -350,7 +350,8 @@ public class RunMixedPrepAnalyzer {
             if (seen.put(m, true) != null || m.methodBody() == null) return;
             m.methodBody().visit(e -> {
                 MethodInfo callee = e instanceof MethodCall mc ? mc.methodInfo()
-                        : e instanceof ConstructorCall cc && cc.callsConstructorOfCreatedType() ? cc.constructor() : null;
+                        // an anonymous creation calls its superclass constructor (maddi#214)
+                        : e instanceof ConstructorCall cc ? cc.constructor() : null;
                 // the PRIMARY type's package: a nested or local type has none of its own
                 String pkg = callee == null ? null : callee.typeInfo().primaryType().packageName();
                 if (pkg != null && pkg.startsWith("kotlin") && callee.typeInfo().compilationUnit().externalLibrary()) {

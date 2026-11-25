@@ -80,7 +80,8 @@ final class RustUnsafety {
             } else {
                 MethodInfo callee = switch (e) {
                     case MethodCall mc -> mc.methodInfo();
-                    case ConstructorCall cc -> cc.callsConstructorOfCreatedType() ? cc.constructor() : null;
+                    // 'new X(a) { }' runs the superclass constructor X(a) (maddi#214)
+                    case ConstructorCall cc -> cc.constructor();
                     case ExplicitConstructorInvocation eci -> eci.methodInfo();
                     case MethodReference mr -> mr.methodInfo();
                     default -> null;

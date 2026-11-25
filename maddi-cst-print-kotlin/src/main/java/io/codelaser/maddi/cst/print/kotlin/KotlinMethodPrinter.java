@@ -569,8 +569,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             if (e instanceof MethodCall call) {
                 spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.methodInfo()));
             } else if (e instanceof ConstructorCall call) {
-                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(),
-                        call.callsConstructorOfCreatedType() ? call.constructor() : null));
+                // 'new X(a) { }' hands its arguments to the superclass constructor (maddi#214)
+                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.constructor()));
             }
             switch (e) {
                 case Assignment a -> {
@@ -607,8 +607,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     }
                 }
                 case ConstructorCall cc -> {
-                    if (!cc.callsConstructorOfCreatedType() && cc.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
-                        || cc.callsConstructorOfCreatedType() && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {
+                    // an anonymous creation's arguments go to the superclass constructor (maddi#214); only an array
+                    // initializer, or an anonymous creation whose superclass constructor is unknown, has none
+                    if (cc.constructor() == null && cc.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
+                        || cc.constructor() != null && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {
                         escapes[0] = true;
                     }
                     // guava's fromHashers(hashers): new Hasher() { … makeHash(hashers) … }
