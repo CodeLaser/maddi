@@ -92,7 +92,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
         b.add(KotlinAnnotations.print(methodInfo.annotations(), qualification));
         if (KotlinContext.translatingJava()) {
-            b.add(KotlinAnnotations.throwsAnnotation(methodInfo.exceptionTypes(), qualification));
+            b.add(KotlinAnnotations.throwsAnnotation(methodInfo.exceptionTypes(), qualification, true));
         }
         Optional<Keyword> visibility =
                 KotlinModifiers.visibility(methodInfo, typeInfo);

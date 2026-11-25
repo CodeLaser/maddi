@@ -170,8 +170,8 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "Mconcat(6,java.util.stream.DoubleStream,java.util.stream.DoubleStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "Mcount(7)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Mdistinct(8)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "MdropWhile(9,java.util.function.DoublePredicate)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
@@ -261,8 +261,8 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "Mconcat(8,java.util.stream.IntStream,java.util.stream.IntStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "Mcount(9)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Mdistinct(10)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MdropWhile(11,java.util.function.IntPredicate)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -357,8 +357,8 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "Mconcat(7,java.util.stream.LongStream,java.util.stream.LongStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "Mcount(8)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Mdistinct(9)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MdropWhile(10,java.util.function.LongPredicate)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -448,8 +448,8 @@
  {"name": "Mcollect(4,java.util.stream.Collector)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mconcat(5,java.util.stream.Stream,java.util.stream.Stream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "Mcount(6)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Mdistinct(7)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "MdropWhile(8,java.util.function.Predicate)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":

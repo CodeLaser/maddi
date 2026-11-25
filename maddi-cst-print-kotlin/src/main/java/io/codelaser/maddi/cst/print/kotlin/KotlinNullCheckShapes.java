@@ -96,8 +96,11 @@ final class KotlinNullCheckShapes {
         return new SafeCall(mc.object(), mc);
     }
 
-    /** {@code variable?.let { body }}: {@code body} with the variable as {@code it}, the conditional's non-null branch */
-    record Let(VariableExpression variable, Expression body, boolean bodyWhenTrue) {
+    /**
+     * {@code variable?.let { body }}: {@code body} with the variable as {@code it}, the conditional's non-null branch;
+     * {@code otherwise} the null branch when it is not {@code null} ({@code ?: otherwise}), else null.
+     */
+    record Let(VariableExpression variable, Expression body, boolean bodyWhenTrue, Expression otherwise) {
     }
 
     /**
@@ -109,10 +112,14 @@ final class KotlinNullCheckShapes {
      */
     static Let let(InlineConditional ic) {
         Tested tested = tested(ic);
-        if (tested == null || !(unwrap(tested.whenNull()) instanceof NullConstant)) return null;
+        if (tested == null) return null;
         Variable variable = tested.variable().variable();
         if (!(variable instanceof LocalVariable) && !(variable instanceof ParameterInfo)) return null;
         Expression body = tested.whenNonNull();
+        // x != null ? f(x) : d is x?.let { f(it) } ?: d only when f(x) is never null: a null from it would fall
+        // through to d, where Java gives null (#164)
+        Expression otherwise = unwrap(tested.whenNull()) instanceof NullConstant ? null : tested.whenNull();
+        if (otherwise != null && !neverNull(body)) return null;
         if (unwrap(body) instanceof VariableExpression ve && ve.variable().equals(variable)) return null;
         if (safeCall(ic) != null) return null;
         boolean[] mentions = {false};
@@ -126,7 +133,20 @@ final class KotlinNullCheckShapes {
             return !blocked[0];
         });
         if (!mentions[0] || blocked[0]) return null;
-        return new Let(tested.variable(), body, unwrap(ic.ifTrue()) == unwrap(body));
+        return new Let(tested.variable(), body, unwrap(ic.ifTrue()) == unwrap(body), otherwise);
+    }
+
+    /*
+     A value Kotlin can never see as null: an object creation, a primitive, or a call of a translated method whose
+     result the translation declares non-null (Kotlin then checks it). Not a library call: its platform-typed result
+     may be null at run time.
+     */
+    private static boolean neverNull(Expression e) {
+        Expression x = unwrap(e);
+        if (x instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall) return true;
+        if (x.parameterizedType() != null && x.parameterizedType().isPrimitiveExcludingVoid()) return true;
+        return x instanceof MethodCall mc && mc.methodInfo() != null && !mc.methodInfo().isConstructor()
+               && KotlinNullability.translated(mc.methodInfo().typeInfo()) && !KotlinNullability.nullableInKotlin(mc);
     }
 
     private record Tested(VariableExpression variable, Expression whenNull, Expression whenNonNull) {

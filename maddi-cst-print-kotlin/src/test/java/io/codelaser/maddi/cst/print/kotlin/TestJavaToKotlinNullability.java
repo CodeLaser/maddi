@@ -3371,6 +3371,34 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * #164: {@code x != null ? f(x) : d} is {@code x?.let { f(it) } ?: d} when f(x) is never null: an object creation,
+     * a primitive, a translated method's non-null result. A library call's platform-typed result may be null, which
+     * would fall through to d where Java gives null: that stays an if/else.
+     */
+    @Test
+    public void nullGuardedArgumentIsLetElse() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.Map;
+                class C {
+                    static final C NONE = new C("-");
+                    private final String name;
+                    C(String name) { this.name = name; }
+                    static String fmt(String s) { return "[" + s + "]"; }
+                    static C wrap(String x) { return x != null ? new C(x) : NONE; }
+                    static int size(String x) { return x != null ? x.length() + 1 : 0; }
+                    static String shown(String x) { return x != null ? fmt(x) : "none"; }
+                    static String looked(String x, Map<String, String> m) { return x != null ? m.get(x) : "d"; }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("x", "looked()")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "x?.let { C(it) } ?: NONE");
+        contains(kotlin, "x?.let { it.length + 1 } ?: 0");
+        contains(kotlin, "x?.let { fmt(it) } ?: \"none\"");
+        assertFalse(kotlin.contains("let { m"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * #164: a nullable value tested and used in one condition, read once with {@code ?.}. fernflower's
      * {@code first.getExprents() != null && !first.getExprents().isEmpty()}. A getter only where the analysis has it
      * non-modifying: Java calls it twice, Kotlin once. A field of {@code this} reads the same twice, as nothing runs
