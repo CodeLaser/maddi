@@ -205,6 +205,21 @@ final class KotlinAnnotations {
         return value(e, q);
     }
 
+    /**
+     * CodeLaser/maddi#223: a Java {@code throws} clause as {@code @Throws(X::class, …)}. Kotlin has no checked
+     * exceptions, so without it the function declares none on the JVM, and Java code overriding it with
+     * {@code throws X}, or calling it inside {@code try … catch (X)}, stops compiling. As IntelliJ's J2K, for every
+     * method with a clause. A thrown type variable ({@code throws E}) has no class literal and is left out. Empty when
+     * there is nothing to declare.
+     */
+    static OutputBuilder throwsAnnotation(List<ParameterizedType> exceptionTypes, Qualification q) {
+        List<String> literals = exceptionTypes.stream().filter(t -> t.typeInfo() != null)
+                .map(t -> classLiteral(t, q)).toList();
+        OutputBuilder b = new OutputBuilderImpl();
+        if (literals.isEmpty()) return b;
+        return b.add(new TextImpl("@Throws(" + String.join(", ", literals) + ")")).add(SpaceEnum.ONE);
+    }
+
     /** In an annotation, a class is a KClass: {@code X::class}, not {@code X::class.java}. */
     private static String classLiteral(ParameterizedType type, Qualification q) {
         if (type.arrays() > 0 || type.typeInfo() == null) return KotlinTypeName.of(type, q) + "::class";
