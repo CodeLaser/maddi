@@ -210,14 +210,16 @@ final class KotlinAnnotations {
      * exceptions, so without it the function declares none on the JVM, and Java code overriding it with
      * {@code throws X}, or calling it inside {@code try … catch (X)}, stops compiling. As IntelliJ's J2K, for every
      * method with a clause. A thrown type variable ({@code throws E}) has no class literal and is left out. Empty when
-     * there is nothing to declare.
+     * there is nothing to declare. On a function it stands on its own line ({@code ownLine}), so that the declaration
+     * keeps its width and wraps as it did without the annotation; on a primary constructor it must stay inline.
      */
-    static OutputBuilder throwsAnnotation(List<ParameterizedType> exceptionTypes, Qualification q) {
+    static OutputBuilder throwsAnnotation(List<ParameterizedType> exceptionTypes, Qualification q, boolean ownLine) {
         List<String> literals = exceptionTypes.stream().filter(t -> t.typeInfo() != null)
                 .map(t -> classLiteral(t, q)).toList();
         OutputBuilder b = new OutputBuilderImpl();
         if (literals.isEmpty()) return b;
-        return b.add(new TextImpl("@Throws(" + String.join(", ", literals) + ")")).add(SpaceEnum.ONE);
+        return b.add(new TextImpl("@Throws(" + String.join(", ", literals) + ")"))
+                .add(ownLine ? SpaceEnum.NEWLINE : SpaceEnum.ONE);
     }
 
     /** In an annotation, a class is a KClass: {@code X::class}, not {@code X::class.java}. */

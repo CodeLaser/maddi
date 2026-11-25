@@ -43,9 +43,12 @@ public class TestJavaToKotlinThrows extends CommonJavaToKotlin {
                     public int plain() { return 1; }
                 }
                 """);
-        assertTrue(kotlin.contains("@Throws(IOException::class) fun bytes("), kotlin);
+        // on a function, the annotation has its own line: the declaration wraps as it would without it
+        String oneLine = kotlin.replaceAll("\\s+", " ");
+        assertTrue(kotlin.contains("@Throws(IOException::class)\n"), kotlin);
+        assertTrue(oneLine.contains("@Throws(IOException::class) fun bytes("), kotlin);
         assertTrue(kotlin.contains("class Provider @Throws(IOException::class) constructor("), kotlin);
-        assertTrue(kotlin.contains("@Throws(IOException::class, InterruptedException::class)"), kotlin);
+        assertTrue(oneLine.contains("@Throws(IOException::class, InterruptedException::class) open fun read("), kotlin);
         assertFalse(kotlin.contains("E::class"), kotlin);
         assertFalse(kotlin.contains("@Throws(Exception::class) fun plain"), kotlin);
         assertTrue(kotlin.lines().filter(l -> l.contains("@Throws")).count() == 3, kotlin);

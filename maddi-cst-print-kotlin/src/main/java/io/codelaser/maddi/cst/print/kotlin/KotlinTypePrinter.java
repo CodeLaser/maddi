@@ -236,7 +236,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 OutputBuilder constructorComments = KotlinComments.print(primary.comments(), insideType);
                 // #223: class C @Throws(X::class) constructor(…)
                 OutputBuilder constructorThrows = KotlinContext.translatingJava()
-                        ? KotlinAnnotations.throwsAnnotation(primary.exceptionTypes(), insideType) : new OutputBuilderImpl();
+                        ? KotlinAnnotations.throwsAnnotation(primary.exceptionTypes(), insideType, false) : new OutputBuilderImpl();
                 if (constructorVisibility.isPresent() || !constructorComments.isEmpty() || !constructorThrows.isEmpty()) {
                     out.add(SpaceEnum.ONE).add(constructorComments).add(constructorThrows);
                     constructorVisibility.ifPresent(v -> out.add(v).add(SpaceEnum.ONE));
@@ -521,7 +521,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         // constructor needs its keyword
         OutputBuilder annotations = KotlinAnnotations.print(c.annotations(), q);
         // #223: class C @Throws(X::class) constructor(…)
-        if (KotlinContext.translatingJava()) annotations.add(KotlinAnnotations.throwsAnnotation(c.exceptionTypes(), q));
+        if (KotlinContext.translatingJava()) annotations.add(KotlinAnnotations.throwsAnnotation(c.exceptionTypes(), q, false));
         Optional<Keyword> visibility = typeInfo.typeNature().isEnum()
                 ? Optional.empty() : KotlinModifiers.visibility(c.access(), typeInfo, c);
         // and documented: its comments go before the keyword
