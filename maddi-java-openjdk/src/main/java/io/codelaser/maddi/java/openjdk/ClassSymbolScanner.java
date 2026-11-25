@@ -757,9 +757,18 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                                 newTp.typeInfo().typeParameters().stream().map(NamedType::asParameterizedType).toList()));
                     } else if (upperBound instanceof Type.ClassType ct) {
                         if (ct instanceof Type.IntersectionClassType ict) {
+                            // An explicit leftmost Object stays (maddi#226): it decides the erasure. Guava 10's
+                            // <I extends Object & Iterable<V> & Iterator<V>> uniqueIndex(I, Function) erases to
+                            // uniqueIndex(Object, Function); without it, I erased to Iterable and collided with the
+                            // uniqueIndex(Iterable, Function) overload in MethodMapImpl. The source parser keeps
+                            // the bounds as written, Object included. javac lists no implicit Object here: when every
+                            // bound is an interface, getExplicitComponents() holds the interfaces only.
+                            boolean first = true;
                             for (Type type : ict.getExplicitComponents()) {
                                 ParameterizedType pt = convert(type);
-                                if (!pt.isJavaLangObject()) {
+                                boolean leftmost = first;
+                                first = false;
+                                if (leftmost || !pt.isJavaLangObject()) {
                                     bounds.add(pt.withWildcard(runtime.wildcardExtends()));
                                 }
                             }

@@ -408,6 +408,14 @@ public class Main {
         options.addOption(Option.builder().longOpt(TEST_SOURCE_PACKAGES).hasArg().argName("PACKAGES")
                 .desc("LEGACY, avoid: as --" + SOURCE_PACKAGES + ", for test sources.").get());
 
+        // CodeLaser/maddi#201: read from a key-value configuration, but not accepted on the command line
+        options.addOption(Option.builder().longOpt(TEST_CLASSPATH).hasArg().argName("CLASSPATH")
+                .desc("Add classpath components for the test sources only, separated by the Java path separator '"
+                      + File.pathSeparator + "'.").get());
+        options.addOption(Option.builder().longOpt(TESTS_RUNTIME_CLASSPATH).hasArg().argName("CLASSPATH")
+                .desc("Add runtime-only classpath components for the test sources, separated by the Java path"
+                      + " separator '" + File.pathSeparator + "'.").get());
+
         options.addOption(Option.builder().longOpt(EXCLUDE_FROM_CLASSPATH).hasArg().argName("PATH")
                 .desc("Jar names to be excluded from the classpath, to give priority to others").get());
     }
@@ -443,7 +451,7 @@ public class Main {
      * than silently ignored. {@code --jre} itself is NOT in this list: it is applied on all three routes.
      */
     private static final List<String> EXPLICIT_ROUTE_ONLY = List.of(SOURCE, TEST_SOURCE, CLASSPATH, JMOD,
-            SOURCE_PACKAGES, TEST_SOURCE_PACKAGES, SOURCE_ENCODING);
+            SOURCE_PACKAGES, TEST_SOURCE_PACKAGES, SOURCE_ENCODING, TEST_CLASSPATH, TESTS_RUNTIME_CLASSPATH);
 
     private static void warnAboutIgnoredOptions(CommandLine cmd, String route) {
         List<String> ignored = EXPLICIT_ROUTE_ONLY.stream().filter(cmd::hasOption).map(o -> "--" + o).toList();
@@ -453,7 +461,8 @@ public class Main {
         }
     }
 
-    private static InputConfiguration parseInputConfiguration(CommandLine cmd, CompileLogParser compileLogParser)
+    // package-private for TestTestSourceOptions
+    static InputConfiguration parseInputConfiguration(CommandLine cmd, CompileLogParser compileLogParser)
             throws IOException {
         String inputConfigurationFile = cmd.getOptionValue(INPUT_CONFIGURATION);
         if (inputConfigurationFile != null) {
@@ -490,6 +499,9 @@ public class Main {
 
         String[] jmods = cmd.getOptionValues(JMOD);
         splitAndAdd(jmods, File.pathSeparator, builder::addJmodToClassPath);
+
+        splitAndAdd(cmd.getOptionValues(TEST_CLASSPATH), File.pathSeparator, builder::addTestClassPath);
+        splitAndAdd(cmd.getOptionValues(TESTS_RUNTIME_CLASSPATH), File.pathSeparator, builder::addTestRuntimeClassPath);
 
         String[] restrictSourceToPackages = cmd.getOptionValues(SOURCE_PACKAGES);
         splitAndAdd(restrictSourceToPackages, COMMA, builder::addRestrictSourceToPackages);

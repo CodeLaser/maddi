@@ -234,8 +234,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                         : KotlinModifiers.visibility(primary.access(), typeInfo, primary);
                 // the constructor's documentation goes where Kotlin documents a primary constructor: before its keyword
                 OutputBuilder constructorComments = KotlinComments.print(primary.comments(), insideType);
-                if (constructorVisibility.isPresent() || !constructorComments.isEmpty()) {
-                    out.add(SpaceEnum.ONE).add(constructorComments);
+                // #223: class C @Throws(X::class) constructor(…)
+                OutputBuilder constructorThrows = KotlinContext.translatingJava()
+                        ? KotlinAnnotations.throwsAnnotation(primary.exceptionTypes(), insideType) : new OutputBuilderImpl();
+                if (constructorVisibility.isPresent() || !constructorComments.isEmpty() || !constructorThrows.isEmpty()) {
+                    out.add(SpaceEnum.ONE).add(constructorComments).add(constructorThrows);
                     constructorVisibility.ifPresent(v -> out.add(v).add(SpaceEnum.ONE));
                     out.add(KotlinKeyword.CONSTRUCTOR);
                 }
@@ -517,6 +520,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         // class TextContentMixin @JsonCreator constructor(@JsonProperty("text") text: String): annotated, the primary
         // constructor needs its keyword
         OutputBuilder annotations = KotlinAnnotations.print(c.annotations(), q);
+        // #223: class C @Throws(X::class) constructor(…)
+        if (KotlinContext.translatingJava()) annotations.add(KotlinAnnotations.throwsAnnotation(c.exceptionTypes(), q));
         Optional<Keyword> visibility = typeInfo.typeNature().isEnum()
                 ? Optional.empty() : KotlinModifiers.visibility(c.access(), typeInfo, c);
         // and documented: its comments go before the keyword

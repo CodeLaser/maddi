@@ -91,6 +91,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(KotlinStatementPrinter.block(methodInfo.methodBody(), qualification));
         }
         b.add(KotlinAnnotations.print(methodInfo.annotations(), qualification));
+        if (KotlinContext.translatingJava()) {
+            b.add(KotlinAnnotations.throwsAnnotation(methodInfo.exceptionTypes(), qualification));
+        }
         Optional<Keyword> visibility =
                 KotlinModifiers.visibility(methodInfo, typeInfo);
         if (KotlinContext.translatingJava() && methodInfo.isStatic()
