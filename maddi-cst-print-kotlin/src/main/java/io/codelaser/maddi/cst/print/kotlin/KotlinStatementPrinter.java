@@ -343,12 +343,60 @@ public class KotlinStatementPrinter {
                 if (apply.returns()) KotlinSmartCasts.beforeStatement(apply.statements().getLast());
                 result.addAll(KotlinApply.print(apply, q));
                 i += apply.statements().size();
+            } else if (i + 1 < own.size() && declaredThenAssigned(own.get(i), own.get(i + 1))) {
+                result.addAll(declaredWithValue((LocalVariableCreation) own.get(i),
+                        (ExpressionAsStatement) own.get(i + 1), q));
+                i += 2;
             } else {
                 result.addAll(lines(own.get(i), q));
                 i++;
             }
         }
         return result;
+    }
+
+    /**
+     * #229: {@code int[] arr; arr = new int[3];}, a local declared without a value and assigned by the next statement,
+     * is one declaration, {@code val arr: IntArray = IntArray(3)}, not two lines. Not with comments, nor when the value
+     * reads the local, nor for a local a lambda assigns ({@code lateinit}).
+     */
+    private static boolean declaredThenAssigned(Statement first, Statement second) {
+        if (!(first instanceof LocalVariableCreation lvc) || !(second instanceof ExpressionAsStatement eas)
+            || !first.comments().isEmpty() || !second.comments().isEmpty()
+            || lvc.localVariableStream().count() != 1) {
+            return false;
+        }
+        LocalVariable lv = lvc.localVariable();
+        Expression init = lv.assignmentExpression();
+        if (init != null && !init.isEmpty() || KotlinContext.assignedAsValue(lv)) return false;
+        if (!(eas.expression() instanceof Assignment a) || a.assignmentOperator() != null
+            || a.prefixPrimitiveOperator() != null || !lv.equals(a.variableTarget())) {
+            return false;
+        }
+        boolean[] reads = {false};
+        a.value().visit((Element e) -> {
+            if (e instanceof VariableExpression ve && lv.equals(ve.variable())) reads[0] = true;
+            return !reads[0];
+        });
+        return !reads[0];
+    }
+
+    private static List<OutputBuilder> declaredWithValue(LocalVariableCreation lvc, ExpressionAsStatement eas,
+                                                         Qualification q) {
+        List<OutputBuilder> lines = new ArrayList<>(lines(lvc, q));
+        KotlinContext.pushStatement(eas);
+        KotlinSmartCasts.beforeStatement(eas);
+        try {
+            List<OutputBuilder> copies = KotlinValCopies.before(eas, q);
+            OutputBuilder value = KotlinExpressionPrinter.assignedValue((Assignment) eas.expression(), q);
+            OutputBuilder declaration = lines.removeLast();
+            lines.addAll(copies); // a val copy the value needs comes before the declaration it now completes
+            lines.add(new OutputBuilderImpl().add(declaration).add(KotlinSymbols.assignment("=")).add(value));
+            return lines;
+        } finally {
+            KotlinSmartCasts.endStatement(eas);
+            KotlinContext.popStatement();
+        }
     }
 
     /**
@@ -408,7 +456,8 @@ public class KotlinStatementPrinter {
     static OutputBuilder braces(List<OutputBuilder> printed) {
         List<OutputBuilder> nonEmpty = printed.stream().filter(b -> !b.isEmpty()).toList();
         if (nonEmpty.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
-        return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE)
+        // the space after {, as a lambda writes it: a block that fits on one line read {x } (#229)
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE)
                 .add(nonEmpty.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock())))
                 .add(SymbolEnum.RIGHT_BRACE);
     }

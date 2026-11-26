@@ -100,6 +100,33 @@ public final class KotlinWorld {
                 .anyMatch(m -> m != method && m.overrides().contains(method));
     }
 
+    // the classes a type of the world extends and the methods one overrides, anonymous and local types included
+    private volatile Set<Object> extendedOrOverridden;
+
+    /**
+     * #228: in a world (not {@link #FILE}), whether a type of the world, anonymous and local ones included, extends the
+     * class or overrides the method. The world is closed: what nothing in it extends is final in Kotlin, as a Kotlin
+     * author writes it. {@link #FILE} cannot tell, and answers true.
+     */
+    public boolean extendedOrOverridden(Object classOrMethod) {
+        if (isFile()) return true;
+        if (extendedOrOverridden == null) {
+            synchronized (this) {
+                if (extendedOrOverridden == null) extendedOrOverridden = computeExtendedOrOverridden();
+            }
+        }
+        return extendedOrOverridden.contains(classOrMethod);
+    }
+
+    private Set<Object> computeExtendedOrOverridden() {
+        Set<Object> set = Collections.newSetFromMap(new IdentityHashMap<>());
+        types.stream().flatMap(TypeInfo::recursiveSubTypeStreamIncludingLocal).forEach(t -> {
+            if (t.parentClass() != null && t.parentClass().typeInfo() != null) set.add(t.parentClass().typeInfo());
+            t.constructorAndMethodStream().forEach(m -> set.addAll(m.overrides()));
+        });
+        return Collections.unmodifiableSet(set);
+    }
+
     // per interface, whether an enum of the world implements it, computed when first asked
     private final Map<TypeInfo, Boolean> implementedByEnum = new ConcurrentHashMap<>();
 

@@ -39,8 +39,9 @@ import io.codelaser.maddi.cst.print.translate.CstQueries;
 /**
  * Prints a {@link FieldInfo} as a Kotlin property: `[visibility] val|var name: Type [= initializer]`. A final
  * field becomes `val`, otherwise `var`. When printed as a primary-constructor parameter, the initializer is
- * omitted. Static fields print as plain properties for now (a Kotlin `companion object`/top-level `const` is a
- * refinement). The method body / initializer expression reuses the shared expression printing.
+ * omitted. The type printer puts a Java class's static fields in its `companion object`, a constant as `const val`.
+ * A field without a value gets Java's default (`= 0`, `= null` when nullable) or is `lateinit`; `@JvmField` and
+ * `@get:JvmName` keep the names Java code uses. The initializer reuses the shared expression printing.
  */
 public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implements FieldPrinter {
 

@@ -80,9 +80,13 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   `new int[n]`→`IntArray(n)`, `new T[n]`→`arrayOfNulls<T>(n)`, `{1, 2}`→`intArrayOf(1, 2)`; `X.class`→
   `X::class.java`; an assignment used as a value→`v.also { x = it }`; an anonymous class→`object : T(…) { }`;
   `super.m()` and `Outer.this` keep their qualifier (`super.m()`, `this@Outer`); `$` in literals is escaped.
+- **String templates** — a concatenation with a string or char literal in it is a template: `"id='" + id + "', n="
+  + m.size()` → `"id='$id', n=${m.size}"` (`$x` for a name, `${…}` otherwise); one without a literal stays `a + b`.
 - **Names** — a Java identifier that is a Kotlin hard keyword (`fun`, `in`, `object`, …) is written in
-  backticks; a field without initializer gets Java's default (`= 0`, `= false`) or `lateinit`; a non-final,
-  non-private method of an open class is `open`.
+  backticks; a field without initializer gets Java's default (`= 0`, `= false`) or `lateinit`, a test's fixture
+  assigned in `@BeforeEach`/`@Before` a non-null `lateinit`; a non-final, non-private method of an open class is
+  `open`. With a `KotlinWorld` (the code translated together) the world is closed: a class is `open` only when a
+  class of the world extends it, a method only when one overrides it.
 - **Line breaks** — the formatter may break *after* a binary operator and never before one: Kotlin ends a
   statement at a newline in front of `+` or `or` (`SpaceEnum.ONE_NO_SPLIT_BEFORE`, `KotlinSymbols`).
 - **Lambdas** — `{ p1, p2 -> body }` (single-expression body inlined); a block body's last `return x` is the value
@@ -102,7 +106,7 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   - a parameter the body assigns gets `var p = p`; `equals(Object)` overrides with `Any?`.
 - **Types and members Kotlin maps** — `java.util.List`/`Map`/`Set`/`Collection`/`Iterator` print as
   `MutableList`/… and are not imported; `s.length()`→`s.length`, `c.size()`→`c.size`, `m.entrySet()`→
-  `m.entries`, `e.getKey()`→`e.key`, `n.intValue()`→`n.toInt()`, `s.charAt(i)`→`s[i]`, `list.remove(int)`→
+  `m.entries`, `e.getKey()`→`e.key`, `n.intValue()`→`n.toInt()`, `s.charAt(i)`→`s[i]`, `list.get(i)`→`list[i]`, `list.remove(int)`→
   `removeAt`, `s.replaceAll(r, x)`→`s.replace(r.toRegex(), x)`, `equalsIgnoreCase`, `getFirst`… (`KotlinMappedMembers`).
 - **Functional interfaces** — a Java functional interface is a `fun interface`; a lambda that is not an argument
   names its interface (`Runnable { … }`).
@@ -167,11 +171,13 @@ is a `MutableMap`.)
 
 - **Requires prepwork** for the accessor collapse (agreed restriction). Without it, a Kotlin-parsed type prints
   both the property and its `getX()` (a Kotlin clash).
-- **Syntax coverage is complete for fernflower** (maddi-run-openjdk's `TestJavaToKotlinFernflower` compiles the
-  translation with kotlinc and ratchets the result: 0 syntax errors in 199 files, 73 of which compiled against
-  fernflower's own classes; 84 with the nullability seam and no verdicts). Most of what keeps the rest from
-  compiling is `null` into a declaration no verdict made nullable. Also not done: wildcard-typed overrides (`addAll(Collection<? extends E>)`), Java's
-  `String.split` semantics.
+- **How far it gets is measured, not stated here.** Six J2K ratchets compile the translation with kotlinc 2.4.0
+  and run the corpus's own tests against it: fernflower, langchain4j-core and guava, without verdicts
+  (maddi-run-openjdk, `src/test/resources/j2k/*.ratchet`) and with the NullabilityPass's (maddi-mod's
+  maddi-run-analysis, `*-nullability.ratchet`). Each ratchet file carries its dated history. With verdicts, all
+  of fernflower (199 files) and langchain4j-core (346) compile, and guava 610 of 610 (609 in some runs,
+  maddi-mod#158); without, 99, 306 and 474. What the output reads like, beyond compiling, is in
+  `idiom-scoreboard.md`.
 - **Language-specific hints live in `DetailedSources`.** The Kotlin parser records source-form markers there
   (e.g. `NULL_COALESCING` for elvis `?:`); a printer reaches them via `element.source().detailedSources()` and
   can reconstruct the idiomatic Kotlin form. This is the channel for things the (JVM-shaped) CST does not
@@ -186,3 +192,23 @@ is a `MutableMap`.)
 // prepwork run, printed back as Kotlin:
 class Foo(val id: Int) { fun greet(name: String): String { return "hi " + name; } }
 ```
+
+## Log
+
+Newest last. Before 2026-11-26 the history is in the J2K ratchet files (above) and in the issues: the #140 review
+(idioms) and the issues it split off, #227–#231.
+
+### 2026-11-26 — the #140 follow-ups #227–#230
+
+- **String templates** (#227): a concatenation with a string or char literal in it is a template, `"id='$id', n=${m.size}"`;
+  one without, `a + b`, stays. `KotlinExpressionPrinter.template`, for the openjdk front-end's `+` on a String and the
+  Kotlin front-end's `StringConcat` alike.
+- **`open` in a closed world** (#228): with a `KotlinWorld` (the J2K ratchets translate main and test sources as one),
+  a Java class is `open` only when a class of the world extends it, anonymous and local classes included, and a
+  method only when one overrides it. Alone (`KotlinWorld.FILE`) every non-final class and method stays open.
+- **Cleanups** (#229): `list.get(i)` is `list[i]`; a test's fixture assigned in `@BeforeEach` (JUnit 5) or `@Before`
+  (JUnit 4), and never assigned `null`, is a non-null `lateinit var` rather than a nullable one used as `x!!`. Checked
+  and already done: `List.of`/`Map.of`/`Set.of` as `listOf`/`emptyMap`/… where the value is read-only (#141), and a
+  static initializer, which prints as the companion object's `init`.
+- **Scoreboard** (#230): `JavaToKotlinRatchet` reports idiom counts in each `report.txt`; `idiom-scoreboard.md` keeps
+  them per commit.

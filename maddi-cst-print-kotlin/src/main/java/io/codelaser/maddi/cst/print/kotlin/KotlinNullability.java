@@ -90,9 +90,61 @@ final class KotlinNullability {
     static ParameterizedType fieldType(FieldInfo fieldInfo) {
         ParameterizedType verdict = verdicts().field(fieldInfo);
         ParameterizedType type = verdict != null ? verdict : fieldInfo.type();
+        if (verdict != null && isNullable(verdict) && testFixture(fieldInfo)) {
+            type = verdict.withNullable(NullableState.NONNULL);
+        }
         // guava's Ordering.ARBITRARY_ORDERING: an Ordering<@Nullable Object>, which arbitrary() returns as one
         return KotlinContext.translatingJava()
                 ? withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(fieldInfo.type())) : type;
+    }
+
+    private static final Set<String> BEFORE_EACH = Set.of("org.junit.jupiter.api.BeforeEach", "org.junit.Before");
+
+    private static final Map<FieldInfo, Boolean> TEST_FIXTURES = java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
+    /**
+     * #229: a test's fixture, {@code private Memory memory;} which a {@code @BeforeEach} method assigns. Null until that
+     * method runs, so the analysis calls it nullable, and every use was {@code memory!!}; JUnit runs it before each
+     * test, which is Kotlin's {@code lateinit var memory: Memory}. An instance field of a reference type Kotlin allows
+     * {@code lateinit} for, without a value, that nothing assigns {@code null}.
+     */
+    static boolean testFixture(FieldInfo fieldInfo) {
+        if (!KotlinContext.translatingJava() || fieldInfo.isStatic() || fieldInfo.isFinal()
+            || fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) {
+            return false;
+        }
+        ParameterizedType type = fieldInfo.type();
+        if (type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || isBoxed(type) || type.isTypeParameter())) {
+            return false;
+        }
+        return TEST_FIXTURES.computeIfAbsent(fieldInfo, KotlinNullability::computeTestFixture);
+    }
+
+    private static boolean computeTestFixture(FieldInfo fieldInfo) {
+        TypeInfo owner = fieldInfo.owner();
+        boolean assignedBeforeEach = owner.methods().stream()
+                .filter(m -> m.annotations().stream()
+                        .anyMatch(a -> BEFORE_EACH.contains(a.typeInfo().fullyQualifiedName())))
+                .anyMatch(m -> assigns(m.methodBody(), fieldInfo, false));
+        return assignedBeforeEach && owner.primaryType().recursiveSubTypeStreamIncludingLocal()
+                .flatMap(TypeInfo::constructorAndMethodStream)
+                .noneMatch(m -> assigns(m.methodBody(), fieldInfo, true));
+    }
+
+    /** The body assigns the field: any value, or {@code null}. */
+    private static boolean assigns(Block body, FieldInfo fieldInfo, boolean onlyNull) {
+        if (body == null) return false;
+        boolean[] found = {false};
+        body.visit((Element e) -> {
+            if (found[0]) return false;
+            if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr
+                && fr.fieldInfo() == fieldInfo
+                && (!onlyNull || KotlinExpressionPrinter.unwrap(a.value()) instanceof NullConstant)) {
+                found[0] = true;
+            }
+            return !found[0];
+        });
+        return found[0];
     }
 
     static ParameterizedType parameterType(ParameterInfo parameterInfo) {

@@ -66,8 +66,9 @@ import io.codelaser.maddi.cst.print.translate.PrintMessage;
 /**
  * Prints a {@link MethodInfo} as a Kotlin function (or secondary constructor): `[vis] [override|abstract] fun
  * [<T>] name(p: T, …)[: ReturnType] body`. The return type is omitted for `Unit`/void and for constructors.
- * `override` is emitted when the method overrides a supertype method. The body reuses the shared block/expression
- * printing (Kotlin accepts the Java-style `{ … }` block; idiomatic expression bodies `= expr` are a refinement).
+ * `override` is emitted when the method overrides a supertype method, `open` when it can be overridden (in a
+ * {@link KotlinWorld}: when it is). A body of a single `return` is an expression body, `= expr`; other bodies are
+ * blocks, printed by {@link KotlinStatementPrinter}.
  */
 public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, boolean formatter2) implements MethodPrinter {
 
@@ -86,7 +87,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private OutputBuilder printMethod(Qualification qualification) {
         OutputBuilder b = new OutputBuilderImpl();
         if (methodInfo.isStaticInitializer() || methodInfo.isInstanceInitializer()) {
-            // a static initializer belongs in the companion object (step 3); until then it reads as an `init`
+            // an instance initializer is the class's `init`; a static one is printed among the companion object's
+            // members (KotlinTypePrinter), where it is that object's `init` (#229: not a gap)
             return b.add(new TextImpl("init")).add(SpaceEnum.ONE)
                     .add(KotlinStatementPrinter.block(methodInfo.methodBody(), qualification));
         }
@@ -324,11 +326,15 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
     }
 
-    /** A Java method that can be overridden must say so in Kotlin, where {@code final} is the default. */
+    /**
+     * A Java method that can be overridden must say so in Kotlin, where {@code final} is the default. #228: in a world
+     * ({@link KotlinWorld}), only when a method of the world overrides it.
+     */
     private boolean isOpen() {
         return !methodInfo.isFinal() && !methodInfo.isStatic() && !methodInfo.isConstructor()
                && !methodInfo.access().isPrivate() && !typeInfo.isInterface()
-               && (KotlinTypePrinter.isOpen(typeInfo) || overriddenByEnumConstant(typeInfo, methodInfo));
+               && (KotlinTypePrinter.isOpen(typeInfo) && KotlinTypePrinter.openInWorld(typeInfo, methodInfo)
+                   || overriddenByEnumConstant(typeInfo, methodInfo));
     }
 
     /**

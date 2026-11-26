@@ -1107,6 +1107,34 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("constructor(a: Int, b: Int) : this"), kotlin);
     }
 
+    /**
+     * #229: a test's fixture assigned in {@code @BeforeEach} is null before it runs, so the analysis calls it nullable;
+     * JUnit runs it first, which is Kotlin's {@code lateinit}: no {@code ?}, no {@code !!}. Not a field that is also
+     * assigned null ({@code @AfterEach}), nor one no {@code @BeforeEach} assigns.
+     */
+    @Test
+    public void testFixtureIsLateinit() throws IOException {
+        String kotlin = kotlinWithLibrary("""
+                package fixture229;
+                import java.util.*;
+                import org.junit.jupiter.api.*;
+                class MemoryTest {
+                    private List<String> memory;
+                    private List<String> cleared;
+                    private List<String> notFixture;
+                    @BeforeEach void setUp() { memory = new ArrayList<>(); cleared = new ArrayList<>(); }
+                    @AfterEach void tearDown() { cleared = null; }
+                    @Test void adds() { memory.add("a"); cleared.add("b"); notFixture = memory; }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("memory", "cleared", "notFixture")),
+                KotlinPrintOptions.NullCheck.ASSERT), "org/junit/jupiter/api");
+        contains(kotlin, "lateinit var memory: MutableList<String>");
+        contains(kotlin, "memory.add(\"a\")");
+        contains(kotlin, "var cleared: MutableList<String>? = null");
+        contains(kotlin, "cleared!!.add(\"b\")");
+        contains(kotlin, "var notFixture: MutableList<String>? = null");
+    }
+
     @Language("java")
     private static final String BOXED_SIGNATURES = """
             package a;
@@ -1130,7 +1158,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun from(total: Long?): W");
         contains(kotlin, "open fun total(): Long? = total");
         contains(kotlin, "private fun twice(): Long");
-        contains(kotlin, "\"count=\" + count + \", total=\" + total");
+        contains(kotlin, "\"count=$count, total=$total\"");
     }
 
     @Language("java")
@@ -1352,11 +1380,11 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // ...at any depth: ArrayList<MutableList<String>> is no MutableList<MutableList<String?>> (fernflower: 25)
         contains(kotlin, "private val rows: MutableList<MutableList<String?>> = ArrayList<MutableList<String?>>()");
         // Objects.requireNonNull(x): T is inferred nullable from a nullable x, so the call is x!!
-        contains(kotlin, "val checked = maybe.get(0)!!.length + names.get(0).length");
+        contains(kotlin, "val checked = maybe[0]!!.length + names[0].length");
         contains(kotlin, "names.add(map.get(k)!!)");
         contains(kotlin, "maybe.add(map.get(k))");
         contains(kotlin, "slots[0] = map.get(k)!!");
-        contains(kotlin, "maybe.get(0)!!.length + names.get(0).length");
+        contains(kotlin, "maybe[0]!!.length + names[0].length");
         // a member's own '?' survives its receiver's non-null type argument: find(k): T? on a Keyed<String>
         contains(kotlin, "keyed.find(k)!!.length");
         // an inherited member is seen through the supertype that declares it: Sub<String?> calling Bag.put(T)
@@ -2240,7 +2268,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // a primary-constructor property has its field's type, and its argument is checked against it
         contains(kotlin, "class Node(@JvmField val value: String?)");
         // through a nested type argument: map.entries is a Set<Entry<String, String?>>
-        contains(kotlin, "for (entry in values.entries) {use(entry.value!!) }");
+        contains(kotlin, "for (entry in values.entries) { use(entry.value!!) }");
         contains(kotlin, "val node = Node(label)");
         // a lambda's parameters are typed by the call: a Stream<String?> filters String?s
         contains(kotlin, ".filter( { s -> s!!.length > 3 })");
@@ -2452,7 +2480,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     public void conditionalBranchesJoinNullability() {
         String kotlin = kotlin(BRANCHES, new KotlinPrintOptions(new ByName(Set.of("succs<>", "seconds[]")),
                 KotlinPrintOptions.NullCheck.ASSERT));
-        contains(kotlin, "for (a in if (p) preds else succs) {n += a!!.size() }");
+        contains(kotlin, "for (a in if (p) preds else succs) { n += a!!.size() }");
         contains(kotlin, "n += f!!.size()");
     }
 
@@ -2754,7 +2782,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // Int == Long does not compile; Double == Double is IEEE on non-null doubles
         contains(kotlin, "Objects.equals(i, l) || i!!.equals(l)");
         contains(kotlin, "Objects.equals(x, y)");
-        contains(kotlin, "s ?: a + \"!\"");
+        contains(kotlin, "s ?: \"$a!\"");
         contains(kotlin, "s ?: (if (c) \"x\" else \"y\")");
     }
 
