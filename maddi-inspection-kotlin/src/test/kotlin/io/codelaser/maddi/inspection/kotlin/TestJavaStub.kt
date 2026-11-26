@@ -143,6 +143,39 @@ class TestJavaStub {
     }
 
     /**
+     * A GENERIC override of a Java or library method, whose parameters the stub erases: it must erase the whole method,
+     * type parameters and return type included. `public <T> List<T> getRegisteredExtensions(KaModule,
+     * ExtensionPointDescriptor)` (maddi-kotlin-k2's CompilerPlugins, against the Kotlin analysis API) neither overrides
+     * the inherited `<T> ... (KaModule, ExtensionPointDescriptor<T>)` nor may sit beside it: javac reports "does not
+     * override abstract method" and "name clash ... have the same erasure", and the mixed parse's stubs fail. The fully
+     * erased method has the inherited one's erasure, so it overrides it (JLS 8.4.2; an unchecked return, 8.4.8.3).
+     */
+    @Test
+    fun aGenericOverrideOfALibraryMethodIsErasedWhole() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("k").setUri(URI.create("file:/")).build()
+        val elem = KotlinScan(runtime, sourceSet).parse(
+            "Elem.kt",
+            "package a.b\n" +
+                "class Elem : java.lang.reflect.AnnotatedElement {\n" +
+                "    override fun <T : Annotation> getAnnotation(annotationClass: Class<T>): T? = null\n" +
+                "    override fun getAnnotations(): Array<Annotation> = arrayOf()\n" +
+                "    override fun getDeclaredAnnotations(): Array<Annotation> = arrayOf()\n" +
+                "}\n"
+        ).first { it.simpleName() == "Elem" }
+        val stub = JavaStubGenerator.stub(elem)
+        assertTrue(stub.contains("getAnnotation(java.lang.Class p0)"), stub)
+        val use = """
+            package a.b;
+            public class UseElem {
+                public Object use(Elem e) { java.lang.reflect.AnnotatedElement a = e; return e.getAnnotation(Deprecated.class); }
+            }
+        """.trimIndent()
+        val errors = attribute(mapOf("a.b.Elem" to stub, "a.b.UseElem" to use))
+        assertTrue(errors.isEmpty(), "--- stub ---\n$stub\n--- errors ---\n" + errors.joinToString("\n"))
+    }
+
+    /**
      * An override of a Java collection method has the Java method's signature, as kotlinc compiles it:
      * `remove(element: E)` in an `ArrayList<E>` is `remove(Object)`, `addAll(c: Collection<E>)` is
      * `addAll(Collection<? extends E>)`. Stubbed with the Kotlin types, javac saw a second method of the same erasure
