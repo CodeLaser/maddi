@@ -415,7 +415,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
 
         String report = report(measured, crashes, all, clean)
                         + bytecodeReport(bytecode, "compile 3 (the compiling files to class files)") + testReport
-                        + messageCounts(messages);
+                        + messageCounts(messages) + idiomCounts(files);
         Files.writeString(out.resolve("report.txt"), report);
         Files.write(out.resolve("messages.txt"), messages.stream().map(PrintMessage::toString).toList());
         LOGGER.info("\n{}", report);
@@ -1074,6 +1074,48 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                 m -> String.format("%-16s %s", m.severity(), m.code()), TreeMap::new, Collectors.counting()));
         StringBuilder sb = new StringBuilder("\nprinter messages, by severity and code (messages.txt has each):\n");
         byCode.forEach((k, v) -> sb.append(String.format("  %6d  %s%n", v, k)));
+        return sb.toString();
+    }
+
+    /*
+     The idioms a Kotlin author writes and Java-shaped Kotlin does not, counted in the translated main sources
+     (CodeLaser/maddi#230; maddi-cst-print-kotlin/idiom-scoreboard.md keeps them per commit). Counted in the text, comments
+     and string literals included: a measure to compare one run with another, not an exact one. Reported, not ratcheted.
+     */
+    private static final Map<String, Pattern> IDIOMS = idioms(
+            "?. (safe calls)", "\\?\\.",
+            "?: (elvis)", "\\?:",
+            "!! (assertions)", "!!",
+            ".equals(", "\\.equals\\(",
+            "string templates ($x, ${...})", "(?<!\\\\)\\$(?:\\{|[A-Za-z_])",
+            "+ next to a string literal", "\"\\s*\\+|\\+\\s*\"",
+            "val", "\\bval\\b",
+            "var", "\\bvar\\b",
+            "lateinit", "\\blateinit\\b",
+            "open (declarations)", "\\bopen\\s+(?:class|fun|val|var)\\b",
+            "data class", "\\bdata\\s+class\\b",
+            ".stream()", "\\.stream\\(\\)",
+            "Optional", "\\bOptional\\b",
+            ".get(", "\\.get\\(");
+
+    private static Map<String, Pattern> idioms(String... namesAndPatterns) {
+        Map<String, Pattern> map = new LinkedHashMap<>();
+        for (int i = 0; i < namesAndPatterns.length; i += 2) {
+            map.put(namesAndPatterns[i], Pattern.compile(namesAndPatterns[i + 1]));
+        }
+        return Collections.unmodifiableMap(map);
+    }
+
+    static String idiomCounts(List<Path> files) throws IOException {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        IDIOMS.keySet().forEach(k -> counts.put(k, 0L));
+        for (Path file : files) {
+            String text = Files.readString(file);
+            IDIOMS.forEach((k, p) -> counts.merge(k, p.matcher(text).results().count(), Long::sum));
+        }
+        StringBuilder sb = new StringBuilder("\nidioms in the translated main sources (" + files.size()
+                                             + " files; counted in the text, reported, not ratcheted):\n");
+        counts.forEach((k, v) -> sb.append(String.format("  %6d  %s%n", v, k)));
         return sb.toString();
     }
 

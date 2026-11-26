@@ -53,7 +53,72 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     /** #103: {@code super.m()} lost its {@code super.} and became a call to the overriding method itself. */
     @Test
     public void superCall() {
-        contains(kotlin(SUPER_CALL), "override fun toString(): String = super.toString() + \"c\"");
+        contains(kotlin(SUPER_CALL), "override fun toString(): String = \"${super.toString()}c\"");
+    }
+
+    @Language("java")
+    private static final String TEMPLATES = """
+            package a;
+            import java.util.List;
+            class C {
+                String id; List<String> list;
+                @Override public String toString() { return "C{id='" + id + '\\'' + ", n=" + list.size() + "}"; }
+                String dollar(String x) { return "$" + x + "_" + x + "x"; }
+                String left(int i) { return i + "a" + 1 + 2L; }
+                String sum(int i) { return 1 + i + ":"; }
+                String noLiteral(String a, String b) { return a + b; }
+                String quote(String a) { return "\\"" + a + "\\"\\n"; }
+            }
+            """;
+
+    /** #227: a concatenation with a literal in it is a string template; one without stays {@code a + b}. */
+    @Test
+    public void stringTemplates() {
+        String kotlin = kotlin(TEMPLATES);
+        contains(kotlin, "\"C{id='$id', n=${list.size}}\"");
+        // $ escaped; $x_ would name x_
+        contains(kotlin, "\"\\$${x}_${x}x\"");
+        contains(kotlin, "\"${i}a12\"");
+        contains(kotlin, "\"${1 + i}:\"");
+        contains(kotlin, "= a + b");
+        contains(kotlin, "\"\\\"$a\\\"\\n\"");
+    }
+
+    @Language("java")
+    private static final String CLEANUPS = """
+            package cleanup229;
+            import java.util.*;
+            class C {
+                { System.out.println("x"); }
+                int[] split(boolean c, String t, List<String> list, int i) {
+                    int[] arr;
+                    arr = new int[3];
+                    String s;
+                    if (c) s = "a"; else s = "b";
+                    String u;
+                    u = t;
+                    u = u + list.get(i);
+                    if (c) { list.add(s); }
+                    return arr;
+                }
+            }
+            """;
+
+    /**
+     * #229: a one-line block reads {@code { x }}; a local declared and then assigned by the next statement is one
+     * declaration (and stays a {@code var} when assigned again); a conditional assignment keeps the split;
+     * {@code list.get(i)} is {@code list[i]}.
+     */
+    @Test
+    public void smallCleanups() {
+        String kotlin = kotlin(CLEANUPS);
+        contains(kotlin, "init { System.out.println(\"x\") }");
+        contains(kotlin, "if (c) { list.add(s) }");
+        contains(kotlin, "val arr: IntArray = IntArray(3)");
+        contains(kotlin, "val s: String\nif (c) { s = \"a\" } else { s = \"b\" }");
+        contains(kotlin, "var u: String = t");
+        contains(kotlin, "u = u + list[i]");
+        assertFalse(kotlin.lines().anyMatch(l -> l.endsWith(" ")), () -> "trailing space in\n" + kotlin);
     }
 
     @Language("java")
@@ -881,7 +946,7 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     public void testFixtureShapes() {
         String kotlin = kotlin(TEST_FIXTURE_SHAPES);
         contains(kotlin, "JAVAC(\"javac\") {");
-        contains(kotlin, "override fun run(s: String): String = s + \"c\"");
+        contains(kotlin, "override fun run(s: String): String = \"${s}c\"");
         contains(kotlin, "Base.collect(s).size");
         contains(kotlin, "as java.lang.String).stripTrailing()");
     }

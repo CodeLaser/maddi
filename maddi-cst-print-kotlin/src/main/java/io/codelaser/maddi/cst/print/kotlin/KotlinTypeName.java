@@ -37,8 +37,8 @@ import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 /**
  * Renders a {@link ParameterizedType} as a Kotlin type reference: JVM primitives and common JDK types are
  * mapped to their Kotlin names (`int`→`Int`, `java.lang.String`→`String`, `java.lang.Object`→`Any`, …), arrays
- * become `Array<…>` (best-effort; a dedicated `IntArray` etc. is a refinement), and generics recurse. Nullability
- * is not tracked in the CST, so no `?` is emitted.
+ * of primitives become `IntArray` and the like, others `Array<…>`, and generics recurse. A type whose state is
+ * {@link NullableState#NULLABLE} (the Kotlin front-end's, or a nullability verdict's) gets its `?`.
  */
 public class KotlinTypeName {
 

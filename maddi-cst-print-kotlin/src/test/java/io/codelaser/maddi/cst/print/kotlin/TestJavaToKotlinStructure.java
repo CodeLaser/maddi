@@ -304,9 +304,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """);
         contains(kotlin, "is Point if o.x == o.y ->");
-        contains(kotlin, "is Point -> \"point \" + o.x");
-        contains(kotlin, "is Box if o.content is String -> \"box of \" + (o.content as String).length");
-        contains(kotlin, "is Box if o.content is Point -> \"box of point \" + (o.content as Point).x");
+        contains(kotlin, "is Point -> \"point ${o.x}\"");
+        contains(kotlin, "is Box if o.content is String -> \"box of ${(o.content as String).length}\"");
+        contains(kotlin, "is Box if o.content is Point -> \"box of point ${(o.content as Point).x}\"");
         assertEquals(1, kotlin.split("else ->", -1).length - 1, "one else arm, the default's:\n" + kotlin);
         compiles(kotlin);
     }
@@ -1823,6 +1823,59 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String alone = kotlin(READ_ONLY_IN_WORLD.replace("Box", "Alone").replace("Reader", "AloneReader"), KotlinPrintOptions.DEFAULT, TestJavaToKotlinStructure::unmodifiedFields);
         contains(alone, "val names: MutableList<String>");
         contains(alone, "fun names(): MutableList<String> = names");
+    }
+
+    @Language("java")
+    private static final String OPEN_IN_WORLD = """
+            package open228;
+            class Base {
+                void kept() { }
+                void overridden() { }
+            }
+            class Sub extends Base {
+                @Override void overridden() { }
+            }
+            class Leaf {
+                void m() { }
+            }
+            abstract class Shape {
+                abstract double area();
+                String name() { return "s"; }
+            }
+            class Square extends Shape {
+                double area() { return 1; }
+            }
+            class Anon {
+                void run() { }
+                static Anon make() { return new Anon() { @Override void run() { } }; }
+            }
+            """;
+
+    /**
+     * #228: in a world, {@code open} only on a class the world extends, anonymous classes included, and on a method it
+     * overrides; alone, the printer cannot tell, and every non-final class and method is open.
+     */
+    @Test
+    public void openOnlyWhereExtendedInWorld() {
+        String world = kotlinInWorld(OPEN_IN_WORLD, KotlinPrintOptions.DEFAULT, t -> {
+        });
+        contains(world, "open class Base");
+        contains(world, "open fun overridden()");
+        assertFalse(world.contains("open fun kept()"), world);
+        assertFalse(world.contains("open class Sub"), world);
+        assertFalse(world.contains("open class Leaf"), world);
+        assertFalse(world.contains("open fun m()"), world);
+        contains(world, "abstract class Shape");
+        assertFalse(world.contains("open fun name()"), world);
+        contains(world, "open class Anon");
+        contains(world, "open fun run()");
+        compiles(world);
+
+        // a second parse of the same types fails: another package
+        String alone = kotlin(OPEN_IN_WORLD.replace("package open228;", "package open228alone;"));
+        contains(alone, "open class Leaf");
+        contains(alone, "open fun kept()");
+        contains(alone, "open fun name()");
     }
 
     @Language("java")

@@ -4065,6 +4065,14 @@ public class KotlinExpressionPrinter {
 
     // ---------------------------------------------------------------- assignments
 
+    /** The value of a plain {@code x = v}, as {@link #assignmentAsStatement} writes it after the {@code =}. */
+    static OutputBuilder assignedValue(Assignment a, Qualification q) {
+        ParameterizedType targetType = declaredType(a.variableTarget());
+        boolean translated = !(a.variableTarget() instanceof FieldReference fr) || KotlinNullability.translated(fr.fieldInfo().owner());
+        return KotlinNullability.toTarget(a.value(), targetType, translated,
+                assigned(a.value(), targetType != null ? targetType : a.variableTarget().parameterizedType(), q), q);
+    }
+
     private static OutputBuilder assignmentAsStatement(Assignment a, Qualification q) {
         OutputBuilder target = writtenVarargs(a.variableTarget(), q);
         if (target == null) target = variable(a.variableTarget(), q);
@@ -4092,11 +4100,7 @@ public class KotlinExpressionPrinter {
                     .add(compoundInfix(a, INFIX.get(binary), q));
         }
         if (!"=".equals(op)) return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op)).add(print(a.value(), q));
-        ParameterizedType targetType = declaredType(a.variableTarget());
-        boolean translated = !(a.variableTarget() instanceof FieldReference fr) || KotlinNullability.translated(fr.fieldInfo().owner());
-        return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op))
-                .add(KotlinNullability.toTarget(a.value(), targetType, translated,
-                        assigned(a.value(), targetType != null ? targetType : a.variableTarget().parameterizedType(), q), q));
+        return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op)).add(assignedValue(a, q));
     }
 
     /**
@@ -4267,6 +4271,10 @@ public class KotlinExpressionPrinter {
                 return new OutputBuilderImpl().add(left).add(KotlinSymbols.binary(op)).add(right);
             }
         }
+        if (isStringPlus(bo)) {
+            String template = template(bo, q);
+            if (template != null) return text(template);
+        }
         ParameterizedType lhsType = bo.lhs().parameterizedType();
         if ("+".equals(op) && bo.parameterizedType() != null && bo.parameterizedType().isJavaLangString()
             && lhsType != null && !lhsType.isJavaLangString()) {
@@ -4394,8 +4402,13 @@ public class KotlinExpressionPrinter {
         return operand;
     }
 
-    /** Java's {@code 1 + "a"}: Kotlin's {@code +} takes its type from the left, so a non-String left side converts. */
+    /**
+     * Java's {@code 1 + "a"}: Kotlin's {@code +} takes its type from the left, so a non-String left side converts. A
+     * concatenation with a literal in it is a string template instead (#227).
+     */
     private static OutputBuilder stringConcat(StringConcat sc, Qualification q) {
+        String template = template(sc, q);
+        if (template != null) return text(template);
         ParameterizedType lhsType = sc.lhs().parameterizedType();
         OutputBuilder lhs = lhsType != null && !lhsType.isJavaLangString()
                 ? new OutputBuilderImpl().add(receiver(sc.lhs(), q)).add(SymbolEnum.DOT).add(new TextImpl("toString"))
@@ -4403,6 +4416,71 @@ public class KotlinExpressionPrinter {
                 : operand(sc.precedence(), sc.lhs(), q);
         return new OutputBuilderImpl().add(lhs).add(KotlinSymbols.binary("+"))
                 .add(operand(sc.precedence(), sc.rhs(), q));
+    }
+
+    private static final Pattern TEMPLATE_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
+
+    /**
+     * #227: {@code "id='" + id + '\'' + ", n=" + m.size()} as {@code "id='$id', n=${m.size}"}. The concatenation is
+     * flattened (string concatenation is associative), its string and char literals are the template's text, every
+     * other operand a {@code $name} or {@code ${expression}}: a template converts its operands as Java's {@code +}
+     * does, {@code null} included. Null, and the {@code +} form, when there is no literal (Kotlin writes {@code a + b})
+     * or an operand prints on more than one line.
+     */
+    static String template(Expression concatenation, Qualification q) {
+        List<Expression> parts = new ArrayList<>();
+        concatParts(concatenation, parts);
+        if (parts.stream().noneMatch(p -> p instanceof StringConstant || p instanceof CharConstant)) return null;
+        List<String> pieces = new ArrayList<>(); // escaped text, or an operand starting with $
+        for (Expression part : parts) {
+            switch (part) {
+                case StringConstant s -> pieces.add(unquote(stringLiteral(s.constant())));
+                case CharConstant c -> pieces.add(unquote(stringLiteral(String.valueOf(c.constant()))));
+                // Java and Kotlin write integers alike
+                case IntConstant c -> pieces.add(Integer.toString(c.constant()));
+                case LongConstant c -> pieces.add(Long.toString(c.constant()));
+                default -> {
+                    String printed = print(part, q).toString();
+                    if (printed.isEmpty() || printed.contains("\n")) return null;
+                    pieces.add(TEMPLATE_NAME.matcher(printed).matches() ? "$" + printed : "${" + printed + "}");
+                }
+            }
+        }
+        StringBuilder sb = new StringBuilder("\"");
+        for (int i = 0; i < pieces.size(); i++) {
+            String piece = pieces.get(i);
+            String next = i + 1 < pieces.size() ? pieces.get(i + 1) : "";
+            // $name followed by a letter, digit or _ would read them as part of the name
+            if (piece.startsWith("$") && !piece.startsWith("${") && !next.isEmpty()
+                && (Character.isLetterOrDigit(next.charAt(0)) || next.charAt(0) == '_')) {
+                piece = "${" + piece.substring(1) + "}";
+            }
+            sb.append(piece);
+        }
+        return sb.append('"').toString();
+    }
+
+    private static void concatParts(Expression e, List<Expression> parts) {
+        Expression u = unwrap(e);
+        if (u instanceof StringConcat sc) {
+            concatParts(sc.lhs(), parts);
+            concatParts(sc.rhs(), parts);
+        } else if (u instanceof BinaryOperator bo && isStringPlus(bo)) {
+            concatParts(bo.lhs(), parts);
+            concatParts(bo.rhs(), parts);
+        } else {
+            parts.add(u);
+        }
+    }
+
+    /** Java's {@code +} on a String, as the openjdk front-end writes it (the Kotlin one writes a StringConcat). */
+    private static boolean isStringPlus(BinaryOperator bo) {
+        return bo.operator() != null && "+".equals(bo.operator().name()) && bo.parameterizedType() != null
+               && bo.parameterizedType().isJavaLangString();
+    }
+
+    private static String unquote(String literal) {
+        return literal.substring(1, literal.length() - 1);
     }
 
     private static OutputBuilder negation(Negation neg, Qualification q) {

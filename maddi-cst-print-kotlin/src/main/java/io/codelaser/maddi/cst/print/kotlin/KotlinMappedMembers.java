@@ -109,7 +109,8 @@ final class KotlinMappedMembers {
 
     private static final Map<Key, Boolean> INDEX_GET = Map.of(
             new Key("java.lang.CharSequence", "charAt", 1), true,
-            new Key("java.lang.String", "charAt", 1), true);
+            new Key("java.lang.String", "charAt", 1), true,
+            new Key("java.util.List", "get", 1), true); // #229: list[i]
 
     private KotlinMappedMembers() {
     }

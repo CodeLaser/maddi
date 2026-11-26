@@ -185,7 +185,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (typeInfo.typeNature().isClass()) {
                 if (mods.contains(TypeModifierEnum.ABSTRACT)) out.add(KeywordImpl.ABSTRACT).add(SpaceEnum.ONE);
                 else if (mods.contains(TypeModifierEnum.SEALED)) out.add(KeywordImpl.SEALED).add(SpaceEnum.ONE);
-                else if (!mods.contains(TypeModifierEnum.FINAL)) out.add(KotlinKeyword.OPEN).add(SpaceEnum.ONE);
+                else if (!mods.contains(TypeModifierEnum.FINAL) && openInWorld(typeInfo, typeInfo)) {
+                    out.add(KotlinKeyword.OPEN).add(SpaceEnum.ONE);
+                }
             }
             if (companion && inner(typeInfo) && !typeInfo.isAnonymous()
                 && (!isLocal(typeInfo) || memberOfAnonymous(typeInfo))) {
@@ -1046,8 +1048,19 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return !"java.lang.Enum".equals(fqn) && !"java.lang.Record".equals(fqn);
     }
 
-    /** A class that can be extended: printed {@code open} (or abstract/sealed), so its methods may be open too. */
+    /**
+     * A class that can be extended: printed {@code open} (or abstract/sealed), so its methods may be open too. #228: in
+     * a world ({@link KotlinWorld}), a Java class only when a class of the world extends it; what nothing extends is
+     * final, as a Kotlin author writes it. A type parsed from Kotlin keeps its own modifiers.
+     */
     static boolean isOpen(TypeInfo typeInfo) {
-        return CstQueries.isExtensible(typeInfo);
+        return CstQueries.isExtensible(typeInfo) && openInWorld(typeInfo, typeInfo);
+    }
+
+    /** True unless the world is closed over the Java type and nothing in it extends or overrides the class or method. */
+    static boolean openInWorld(TypeInfo typeInfo, Object classOrMethod) {
+        KotlinWorld world = KotlinContext.options().world();
+        return world.isFile() || fromKotlinSource(typeInfo) || !world.contains(typeInfo.primaryType())
+               || world.extendedOrOverridden(classOrMethod);
     }
 }
