@@ -217,7 +217,7 @@ class TestKotlinPrinterRoundTrip {
         assertTrue(kotlin.contains("for (x in xs)"), kotlin)
         assertTrue(kotlin.contains("fun either(a: Boolean, b: Boolean): Boolean = a || !b"), kotlin) // ||, unary !
         assertTrue(kotlin.contains("fun mod(a: Int, b: Int): Int = a % b"), kotlin) // %
-        assertTrue(kotlin.contains("""fun join(a: String, b: String): String = a + "-" + b"""), kotlin) // string concat
+        assertTrue(kotlin.contains("fun join(a: String, b: String): String = \"\$a-\$b\""), kotlin) // a + "-" + b: a template (maddi#227)
         assertTrue(javaIsms(kotlin).isEmpty(), "unexpected un-translated Java-isms ${javaIsms(kotlin)} in:\n$kotlin")
     }
 }

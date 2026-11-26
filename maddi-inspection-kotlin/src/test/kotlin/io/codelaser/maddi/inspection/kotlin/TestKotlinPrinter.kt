@@ -60,7 +60,8 @@ class TestKotlinPrinter {
         val kotlin = printKotlin(runtime, foo)
         // primary constructor reconstructed, getId() collapsed into the `val` property, expression body
         assertTrue(kotlin.contains("class Foo(val id: Int)"), kotlin)
-        assertTrue(kotlin.contains("fun greet(name: String): String = \"hi \" + name"), kotlin)
+        // "hi " + name is a string template (maddi#227)
+        assertTrue(kotlin.contains("fun greet(name: String): String = \"hi \$name\""), kotlin)
         assertTrue(!kotlin.contains("getId"), "getter must be collapsed into the property:\n$kotlin")
     }
 
