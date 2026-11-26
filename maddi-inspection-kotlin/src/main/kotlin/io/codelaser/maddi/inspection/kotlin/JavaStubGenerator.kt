@@ -147,6 +147,21 @@ object JavaStubGenerator {
     }
 
     /**
+     * True when [m]'s parameters are printed erased ([javaOverridden]) and [m] declares type parameters of its own: then
+     * the whole method is erased, no `<T>` and an erased return type. ⛔ A generic method with erased parameters
+     * neither overrides the generic one it stands for nor may sit beside it: maddi-kotlin-k2's `override fun <T : Any>
+     * getRegisteredExtensions(module: KaModule, extensionType: ExtensionPointDescriptor<T>): List<T>` became `public <T>
+     * List<T> getRegisteredExtensions(KaModule, ExtensionPointDescriptor)`, and javac reported "does not override
+     * abstract method" and "name clash ... same erasure". Fully erased it has the inherited method's erasure, so it
+     * overrides it (JLS 8.4.2), with an unchecked return type (8.4.8.3).
+     */
+    private fun erasedWhole(m: MethodInfo): Boolean =
+        !m.isConstructor && m.typeParameters().isNotEmpty() && javaOverridden(m) != null
+
+    private fun returnType(m: MethodInfo, erased: Boolean): String =
+        if (erased) erasure(m.returnType()) else javaType(m.returnType())
+
+    /**
      * [m]'s override in a Java supertype, found by erasure. `overrides()` substitutes type variables and misses what
      * Kotlin maps as `E` and a bytecode-loaded JDK declares `Object`: `remove(element: E)` against `ArrayList`'s
      * `remove(Object)` (also `contains`, `indexOf`, `Map.get`). Equal erasures are exactly javac's name clash.
@@ -321,8 +336,9 @@ object JavaStubGenerator {
         typeInfo.methods().filterNot { it.isSynthetic }.filter { isJavaName(it.name()) }.forEach { m ->
             sb.append(inner).append("public ")
             if (m.isStatic) sb.append("static ")
-            sb.append(typeParameters(m.typeParameters()))
-            sb.append(hints.returnType(m) ?: javaType(m.returnType())).append(" ").append(m.name())
+            val erased = erasedWhole(m)
+            if (!erased) sb.append(typeParameters(m.typeParameters()))
+            sb.append(hints.returnType(m) ?: returnType(m, erased)).append(" ").append(m.name())
             sb.append("(").append(parameterList(m)).append(")")
             sb.append(" { throw new RuntimeException(\"stub\"); }\n")
         }
@@ -364,8 +380,9 @@ object JavaStubGenerator {
             if (isStatic) sb.append("static ")
             if (m.isAbstract && !ownerIsInterface) sb.append("abstract ")
             if (interfaceDefault) sb.append("default ")
-            sb.append(typeParameters(m.typeParameters()))
-            if (!m.isConstructor) sb.append(hints.returnType(m) ?: javaType(m.returnType())).append(" ")
+            val erased = erasedWhole(m)
+            if (!erased) sb.append(typeParameters(m.typeParameters()))
+            if (!m.isConstructor) sb.append(hints.returnType(m) ?: returnType(m, erased)).append(" ")
             sb.append(if (m.isConstructor) owner.simpleName() else m.name())
             sb.append("(").append(parameterList(m)).append(")")
             val emitBody = m.isConstructor || isStatic || interfaceDefault || (!ownerIsInterface && !m.isAbstract)
