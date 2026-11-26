@@ -44,6 +44,10 @@ public class KotlinxCoroutines {
     interface Job$ {
         @NotModified
         boolean isActive();
+
+        /* maddi#216 census: the deprecated 'job + job' returns the other job; a CoroutineContext's plus is a query */
+        @NotModified
+        kotlinx.coroutines.Job plus(kotlinx.coroutines.Job other);
     }
 
     interface Deferred$<T> {
@@ -62,6 +66,24 @@ public class KotlinxCoroutines {
     }
 
     class CoroutineDispatcher$ {
+        /* maddi#216 census: the CoroutineContext queries it overrides, which its supertype states @NotModified; without a
+           hint here they took the default, @Modified */
+        @NotModified
+        <E extends kotlin.coroutines.CoroutineContext.Element> E get(kotlin.coroutines.CoroutineContext.Key<E> key) {
+            return null;
+        }
+
+        @NotModified
+        kotlin.coroutines.CoroutineContext minusKey(kotlin.coroutines.CoroutineContext.Key<?> key) {
+            return null;
+        }
+
+        /* deprecated: 'dispatcher + dispatcher' returns the other one */
+        @NotModified
+        kotlinx.coroutines.CoroutineDispatcher plus(kotlinx.coroutines.CoroutineDispatcher other) {
+            return null;
+        }
+
         /* a view sharing this dispatcher's threads, with its own limit: this one is not changed */
         @NotModified
         kotlinx.coroutines.CoroutineDispatcher limitedParallelism(int parallelism, String name) {

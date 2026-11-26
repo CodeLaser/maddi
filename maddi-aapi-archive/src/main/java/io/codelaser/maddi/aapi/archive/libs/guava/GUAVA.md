@@ -270,13 +270,18 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.TreeMultiset` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.TreeRangeMap` | @FinalFields @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.TreeRangeSet` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.ArrayTable#cellSet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#clear` | @NotModified | @Modified | M1: a mutator |
 | `com.google.common.collect.ArrayTable#columnKeySet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ArrayTable#columnMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#remove` | @NotModified | @Modified | M1: a mutator |
 | `com.google.common.collect.ArrayTable#rowKeySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#rowMap` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ArrayTable#values` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.BiMap#inverse` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.EnumMultiset#forEachEntry` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.FluentIterable#stream` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingListIterator#hasPrevious` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingListMultimap#get` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#asMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#containsEntry` | @Modified | @NotModified | M2: a pure query |
@@ -312,6 +317,7 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.ForwardingTable#rowMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#size` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#values` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.HashBiMap#forEach` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.HashBiMap#inverse` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.LinkedHashMultimap#entries` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.LinkedHashMultimap#keySet` | @Modified | @NotModified | M2: a pure query |
@@ -364,9 +370,12 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.Table#rowMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#size` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#values` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.TreeMultimap#asMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeMultimap#get` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeMultimap#keySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeMultiset#count` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.TreeMultiset#forEachEntry` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeMultiset#size` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeRangeSet#asDescendingSetOfRanges` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeRangeSet#asRanges` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.TreeRangeSet#complement` | @Modified | @NotModified | M2: a pure query |

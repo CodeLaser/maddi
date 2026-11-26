@@ -369,7 +369,7 @@ public class OrgEclipseCollectionsApiSetSorted {
             @Independent(hc = true) @NotModified Function<? super T, ? extends Iterable<V>> arg0) { return null; }
 
         //override from java.util.SortedSet
-        @Independent(hc = true) @Modified
+        @Independent(hc = true) @NotModified
         MutableSortedSet<T> headSet(@Independent @NotModified T arg0) { return null; }
 
         //override from org.eclipse.collections.api.set.SetIterable, org.eclipse.collections.api.set.sorted.SortedSetIterable
@@ -426,7 +426,7 @@ public class OrgEclipseCollectionsApiSetSorted {
             @Independent @NotModified P arg1) { return null; }
 
         //override from java.util.SortedSet
-        @Independent(hc = true) @Modified
+        @Independent(hc = true) @NotModified
         MutableSortedSet<T> subSet(@Independent @NotModified T arg0, @Independent @NotModified T arg1) { return null; }
 
         //override from org.eclipse.collections.api.set.SetIterable, org.eclipse.collections.api.set.sorted.SortedSetIterable
@@ -437,7 +437,7 @@ public class OrgEclipseCollectionsApiSetSorted {
         }
 
         //override from java.util.SortedSet
-        @Independent(hc = true) @Modified
+        @Independent(hc = true) @NotModified
         MutableSortedSet<T> tailSet(@Independent @NotModified T arg0) { return null; }
 
         //override from org.eclipse.collections.api.ordered.ReversibleIterable, org.eclipse.collections.api.set.sorted.SortedSetIterable

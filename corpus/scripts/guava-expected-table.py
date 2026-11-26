@@ -39,7 +39,11 @@ QUERIES = {'size', 'isEmpty', 'contains', 'containsAll', 'containsKey', 'contain
            'iterator', 'listIterator', 'spliterator', 'reverse', 'subList', 'headSet', 'tailSet', 'subSet',
            'headMap', 'tailMap', 'subMap', 'descendingMap', 'descendingSet', 'descendingIterator',
            'firstKey', 'lastKey', 'comparator', 'lowerBound', 'upperBound', 'hasLowerBound', 'hasUpperBound',
-           'lowerBoundType', 'upperBoundType', 'lowerEndpoint', 'upperEndpoint', 'isConnected', 'gap', 'canonical'}
+           'lowerBoundType', 'upperBoundType', 'lowerEndpoint', 'upperEndpoint', 'isConnected', 'gap', 'canonical',
+           # maddi#216 census: an iteration, and the JDK's queries
+           'forEach', 'forEachEntry', 'getOrDefault'}
+# an iterator's own queries: Iterator types are otherwise left out of the M2 rows (their next() consumes)
+ITERATOR_QUERIES = {'hasNext', 'hasPrevious', 'nextIndex', 'previousIndex'}
 
 PKG = 'com.google.common.collect'
 IMM = {0: 'mutable', 1: '@FinalFields', 2: '@Immutable(hc = true)', 3: '@Immutable'}
@@ -198,7 +202,7 @@ def main():
             nonmod = m.get('data', {}).get('nonModifyingMethod') == 1
             if name in MUTATORS and nonmod and (s in MUTABLE or s in INTERFACES or t.endswith('.Builder')):
                 member_rows.append((t, name, '@NotModified', '@Modified', 'M1: a mutator'))
-            elif name in QUERIES and not nonmod and 'Iterator' not in s:
+            elif not nonmod and (name in QUERIES and 'Iterator' not in s or name in ITERATOR_QUERIES):
                 member_rows.append((t, name, '@Modified', '@NotModified', 'M2: a pure query'))
     seen = set()
     for t, name, comp, exp, gap in sorted(member_rows):

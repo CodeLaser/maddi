@@ -564,7 +564,7 @@ public class OrgEclipseCollectionsApiList {
         MultiReaderList<T> sortThisByShort(@Independent @NotModified ShortFunction<? super T> arg0) { return null; }
 
         //override from java.util.List, org.eclipse.collections.api.list.ListIterable, org.eclipse.collections.api.list.MutableList
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
         MultiReaderList<T> subList(int arg0, int arg1) { return null; }
 
         //override from org.eclipse.collections.api.RichIterable, org.eclipse.collections.api.collection.MutableCollection, org.eclipse.collections.api.list.ListIterable, org.eclipse.collections.api.list.MutableList, org.eclipse.collections.api.ordered.OrderedIterable, org.eclipse.collections.api.ordered.ReversibleIterable
@@ -810,7 +810,7 @@ public class OrgEclipseCollectionsApiList {
         MutableList<T> sortThisByShort(@Independent @NotModified ShortFunction<? super T> arg0) { return null; }
 
         //override from java.util.List, org.eclipse.collections.api.list.ListIterable
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
         MutableList<T> subList(int arg0, int arg1) { return null; }
 
         //override from org.eclipse.collections.api.list.ListIterable, org.eclipse.collections.api.ordered.ReversibleIterable

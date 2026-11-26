@@ -30,8 +30,8 @@
  {"name": "MdispatchYield(2,kotlin.coroutines.CoroutineContext,java.lang.Runnable)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pcontext(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "Pblock(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Mget(3,kotlin.coroutines.CoroutineContext.Key)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pkey(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "Mget(3,kotlin.coroutines.CoroutineContext.Key)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Pkey(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MinterceptContinuation(4,kotlin.coroutines.Continuation)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pcontinuation(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
  {"name": "MisDispatchNeeded(5,kotlin.coroutines.CoroutineContext)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
@@ -39,10 +39,10 @@
  {"name": "MlimitedParallelism(6,int,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Pparallelism(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Pname(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MminusKey(7,kotlin.coroutines.CoroutineContext.Key)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pkey(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
- {"name": "Mplus(8,kotlinx.coroutines.CoroutineDispatcher)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pother(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "MminusKey(7,kotlin.coroutines.CoroutineContext.Key)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Pkey(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}}},
+ {"name": "Mplus(8,kotlinx.coroutines.CoroutineDispatcher)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MreleaseInterceptedContinuation(9,kotlin.coroutines.Continuation)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":-1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pcontinuation(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
  {"name": "MtoString(10)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}}]},
@@ -100,8 +100,8 @@
  {"name": "MisCompleted(11)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Mjoin(12,kotlin.coroutines.Continuation)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
- {"name": "Mplus(13,kotlinx.coroutines.Job)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pother(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "Mplus(13,kotlinx.coroutines.Job)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mstart(14)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}}]},
 
 {"name": "Tkotlinx.coroutines.JobKt__JobKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[

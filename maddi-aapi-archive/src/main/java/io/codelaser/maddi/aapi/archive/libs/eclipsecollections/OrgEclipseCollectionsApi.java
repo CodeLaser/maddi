@@ -944,9 +944,9 @@ public class OrgEclipseCollectionsApi {
     @Independent(hc = true)
     class InternalIterable$<T> {
         //override from java.lang.Iterable
-        @Modified
+        @NotModified
         void forEach(@Independent @Modified Consumer<? super T> consumer) { }
-        @Modified void forEach(@Independent @Modified Procedure<? super T> arg0) { }
+        @NotModified void forEach(@Independent @Modified Procedure<? super T> arg0) { }
         @Modified
         <P> void forEachWith(
             @Independent @Modified Procedure2<? super T, ? super P> arg0,
@@ -2121,7 +2121,7 @@ public class OrgEclipseCollectionsApi {
             @Independent @Modified R target) { return null; }
 
         //override from org.eclipse.collections.api.InternalIterable
-        @Modified
+        @NotModified
         void forEach(@Independent @Modified Procedure<? super T> procedure) { }
         @Independent @NotModified T getAny() { return null; }
         @Independent(hc = true) @NotModified T getFirst() { return null; }

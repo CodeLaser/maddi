@@ -167,7 +167,7 @@ public class IoVavrConcurrent {
         boolean isSingleValued() { return false; }
         @NotModified boolean isSuccess() { return false; }
         //override from io.vavr.Value, java.lang.Iterable
-        @Independent @Modified
+        @Independent @NotModified
         Iterator<T> iterator() { return null; }
 
         //override from io.vavr.Value

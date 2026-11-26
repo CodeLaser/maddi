@@ -117,7 +117,7 @@ public class ComGoogleCommonCollect {
     class ArrayTable$<R, C, V> {
         @Independent @NotModified V at(int rowIndex, int columnIndex) { return null; }
         //override from com.google.common.collect.AbstractTable, com.google.common.collect.Table
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
         Set<Table.Cell<R, C, V>> cellSet() { return null; }
 
         //override from com.google.common.collect.AbstractTable, com.google.common.collect.Table
@@ -136,7 +136,7 @@ public class ComGoogleCommonCollect {
         ImmutableSet<C> columnKeySet() { return null; }
 
         //override from com.google.common.collect.Table
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
         Map<C, Map<R, V>> columnMap() { return null; }
 
         //override from com.google.common.collect.AbstractTable, com.google.common.collect.Table
@@ -215,7 +215,7 @@ public class ComGoogleCommonCollect {
         int size() { return 0; }
         @Independent @NotModified V [][] toArray(Class<V> valueClass) { return null; }
         //override from com.google.common.collect.AbstractTable, com.google.common.collect.Table
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
         Collection<V> values() { return null; }
     }
 
@@ -600,7 +600,7 @@ public class ComGoogleCommonCollect {
         }
 
         //override from com.google.common.collect.Multiset
-        @Modified
+        @NotModified
         void forEachEntry(@Independent @NotModified ObjIntConsumer<? super E> action) { }
 
         //override from com.google.common.collect.Multiset, java.lang.Iterable, java.util.AbstractCollection, java.util.Collection
@@ -1054,7 +1054,7 @@ public class ComGoogleCommonCollect {
         void add(@Independent @NotModified E element) { }
 
         //override from java.util.ListIterator
-        @Modified
+        @NotModified
         boolean hasPrevious() { return false; }
 
         //override from java.util.ListIterator
@@ -1804,7 +1804,7 @@ public class ComGoogleCommonCollect {
         static <K, V> HashBiMap<K, V> create(@Independent @NotModified Map<? extends K, ? extends V> map) { return null; }
 
         //override from java.util.Map
-        @Modified
+        @NotModified
         void forEach(@Independent @NotModified BiConsumer<? super K, ? super V> action) { }
 
         //override from com.google.common.collect.BiMap
@@ -7375,7 +7375,7 @@ public class ComGoogleCommonCollect {
     @Independent(absent = true)
     class TreeMultimap$<K, V> {
         //override from com.google.common.collect.AbstractMultimap, com.google.common.collect.AbstractSetMultimap, com.google.common.collect.AbstractSortedKeySortedSetMultimap, com.google.common.collect.AbstractSortedSetMultimap, com.google.common.collect.Multimap, com.google.common.collect.SetMultimap, com.google.common.collect.SortedSetMultimap
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
         NavigableMap<K, Collection<V>> asMap() { return null; }
 
         @Independent @NotModified
@@ -7432,7 +7432,7 @@ public class ComGoogleCommonCollect {
         static <E> TreeMultiset<E> create(@Independent @NotModified Comparator<? super E> comparator) { return null; }
 
         //override from com.google.common.collect.Multiset
-        @Modified
+        @NotModified
         void forEachEntry(@Independent @NotModified ObjIntConsumer<? super E> action) { }
 
         //override from com.google.common.collect.SortedMultiset
@@ -7562,7 +7562,7 @@ public class ComGoogleCommonCollect {
         Set<Range<C>> asRanges() { return null; }
 
         //override from com.google.common.collect.RangeSet
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
         RangeSet<C> complement() { return null; }
         @Independent @NotModified static <C extends Comparable<?>> TreeRangeSet<C> create() { return null; }
         @Independent @NotModified

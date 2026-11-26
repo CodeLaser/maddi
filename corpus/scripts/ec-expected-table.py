@@ -35,7 +35,9 @@ QUERIES = {'size', 'isEmpty', 'notEmpty', 'contains', 'containsAll', 'containsAl
            'toList', 'toSet', 'toBag', 'toArray', 'toSortedList', 'toSortedSet', 'toMap', 'toSortedMap', 'max', 'min',
            'maxBy', 'minBy', 'sum', 'sumOfInt', 'sumOfLong', 'sumOfFloat', 'sumOfDouble', 'average', 'median',
            'injectInto', 'indexOf', 'lastIndexOf', 'occurrencesOf', 'sizeDistinct', 'getIfAbsent', 'getIfAbsentValue',
-           'keysView', 'valuesView', 'isFull', 'peek', 'first', 'last', 'getAny'}
+           'keysView', 'valuesView', 'isFull', 'peek', 'first', 'last', 'getAny',
+           # maddi#216 census: an iteration and the JDK's queries and views, @NotModified on java.lang.Iterable / java.util
+           'forEach', 'getOrDefault', 'spliterator', 'subList', 'headSet', 'subSet', 'tailSet', 'entrySet'}
 
 API = 'org.eclipse.collections.api'
 IMM = {0: 'mutable', 1: '@FinalFields', 2: '@Immutable(hc = true)', 3: '@Immutable'}

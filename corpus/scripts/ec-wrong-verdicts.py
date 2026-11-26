@@ -45,7 +45,9 @@ QUERIES = {'size', 'isEmpty', 'notEmpty', 'contains', 'containsAll', 'containsAl
            'toList', 'toSet', 'toBag', 'toArray', 'toSortedList', 'toSortedSet', 'toMap', 'toSortedMap', 'max', 'min',
            'maxBy', 'minBy', 'sum', 'sumOfInt', 'sumOfLong', 'sumOfFloat', 'sumOfDouble', 'average', 'median',
            'injectInto', 'indexOf', 'lastIndexOf', 'occurrencesOf', 'sizeDistinct', 'getIfAbsent', 'getIfAbsentValue',
-           'keysView', 'valuesView', 'isFull', 'peek', 'first', 'last', 'getAny'}
+           'keysView', 'valuesView', 'isFull', 'peek', 'first', 'last', 'getAny',
+           # maddi#216 census: an iteration and the JDK's queries and views, @NotModified on java.lang.Iterable / java.util
+           'forEach', 'getOrDefault', 'spliterator', 'subList', 'headSet', 'subSet', 'tailSet', 'entrySet'}
 COPIES = {'toList', 'toSet', 'toBag', 'toArray', 'toSortedList', 'toSortedSet', 'toSortedArray', 'toMap',
           'toSortedMap', 'newWith', 'newWithout', 'newWithAll', 'newWithoutAll', 'toImmutable', 'toImmutableList',
           'toImmutableSet', 'toImmutableBag', 'toImmutableSortedList', 'toImmutableSortedSet', 'toImmutableMap'}

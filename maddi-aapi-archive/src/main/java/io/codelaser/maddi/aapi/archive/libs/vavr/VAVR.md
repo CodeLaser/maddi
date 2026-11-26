@@ -311,3 +311,4 @@ of the type's shadow (the first matching row wins, so the exceptions come first)
 | `io.vavr.collection.Iterator#stringPrefix` | @NotModified | @NotModified | a constant of the type |
 | `io.vavr.collection.Iterator#iterator` | @NotModified | @NotModified | returns `this` |
 | `io.vavr.collection.Iterator#*` | mostly @NotModified | @Modified | G6: consumes the iterator (the lazy operations, `map`, `filter`, ..., consume it through their result: stated conservatively) |
+| `io.vavr.concurrent.Future#iterator` | @Modified | @NotModified | waits for the value; a Future can be read again (its forEach registers a callback: @Modified) |

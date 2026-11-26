@@ -399,7 +399,7 @@ public class OrgEclipseCollectionsApiMapSorted {
         MutableSortedMap<K, V> dropWhile(@Independent @NotModified Predicate<? super V> arg0) { return null; }
 
         //override from java.util.Map, java.util.SortedMap
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
         MutableSet<Map.Entry<K, V>> entrySet() { return null; }
 
         //override from org.eclipse.collections.api.RichIterable, org.eclipse.collections.api.map.sorted.SortedMapIterable, org.eclipse.collections.api.ordered.OrderedIterable, org.eclipse.collections.api.ordered.ReversibleIterable

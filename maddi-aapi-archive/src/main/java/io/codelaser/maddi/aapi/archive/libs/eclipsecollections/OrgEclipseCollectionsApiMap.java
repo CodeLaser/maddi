@@ -67,7 +67,7 @@ public class OrgEclipseCollectionsApiMap {
         void forEach(@Independent @Modified BiConsumer<? super K, ? super V> action) { }
 
         //override from java.util.Map, java.util.concurrent.ConcurrentMap, org.eclipse.collections.api.map.MapIterable, org.eclipse.collections.api.map.MutableMapIterable
-        @Independent @Modified
+        @Independent @NotModified
         V getOrDefault(@Independent @Modified Object key, @Independent @NotModified V defaultValue) { return null; }
 
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
@@ -921,7 +921,7 @@ public class OrgEclipseCollectionsApiMap {
         public boolean equals(@Independent @NotModified Object arg0) { return false; }
         @Independent @Modified Multimap<V, K> flip() { return null; }
         @Independent(absent = true) @Modified MapIterable<V, K> flipUniqueValues() { return null; }
-        @Modified void forEach(@Independent @Modified BiConsumer<? super K, ? super V> action) { }
+        @NotModified void forEach(@Independent @Modified BiConsumer<? super K, ? super V> action) { }
         @NotModified void forEachKey(@Independent @Modified Procedure<? super K> arg0) { }
         @Modified void forEachKeyValue(@Independent @Modified Procedure2<? super K, ? super V> arg0) { }
         @Modified void forEachValue(@Independent @Modified Procedure<? super V> arg0) { }
@@ -968,7 +968,7 @@ public class OrgEclipseCollectionsApiMap {
         MapIterable<K, V> select(@Independent @Modified Predicate2<? super K, ? super V> arg0) { return null; }
 
         //override from java.lang.Iterable
-        @Independent @Modified
+        @Independent @NotModified
         Spliterator<V> spliterator() { return null; }
         @Independent @Modified Stream<V> stream() { return null; }
         //override from org.eclipse.collections.api.RichIterable
@@ -1357,7 +1357,7 @@ public class OrgEclipseCollectionsApiMap {
             @Independent(hc = true) @NotModified Function<? super K, ? extends V> arg1) { return null; }
 
         //override from java.util.Map, org.eclipse.collections.api.map.MapIterable
-        @Independent @Modified
+        @Independent @NotModified
         V getOrDefault(@Independent @NotModified Object key, @Independent @NotModified V defaultValue) { return null; }
 
         //override from org.eclipse.collections.api.RichIterable

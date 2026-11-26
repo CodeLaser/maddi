@@ -350,6 +350,7 @@ keep their computed annotations.
 | `org.eclipse.collections.api.IntIterable#toList` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.IntIterable#toSet` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.IntIterable#toSortedList` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.InternalIterable#forEach` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.LazyIterable#getFirst` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.LazyIterable#toArray` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.LongIterable#allSatisfy` | @Modified | @NotModified | M2: a pure query |
@@ -419,6 +420,7 @@ keep their computed annotations.
 | `org.eclipse.collections.api.RichIterable#detect` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.RichIterable#detectIfNone` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.RichIterable#detectWith` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.RichIterable#forEach` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.RichIterable#getAny` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.RichIterable#getFirst` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.RichIterable#getLast` | @Modified | @NotModified | M2: a pure query |
@@ -475,17 +477,24 @@ keep their computed annotations.
 | `org.eclipse.collections.api.list.ListIterable#getLast` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.list.ListIterable#hashCode` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.list.ListIterable#lastIndexOf` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.list.MultiReaderList#subList` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.list.MutableList#getFirst` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.list.MutableList#getLast` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.list.MutableList#subList` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.map.ConcurrentMutableMap#getOrDefault` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.MapIterable#containsKey` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.MapIterable#containsValue` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.MapIterable#detect` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.MapIterable#equals` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.map.MapIterable#forEach` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.MapIterable#get` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.MapIterable#getIfAbsent` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.MapIterable#getIfAbsentValue` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.MapIterable#hashCode` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.map.MapIterable#spliterator` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.MapIterable#toString` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.map.MutableMapIterable#getOrDefault` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.map.sorted.MutableSortedMap#entrySet` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.map.sorted.MutableSortedMap#getIfAbsentPutWith` | @NotModified | @Modified | M1: a mutator |
 | `org.eclipse.collections.api.multimap.Multimap#containsKey` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.multimap.Multimap#containsValue` | @Modified | @NotModified | M2: a pure query |
@@ -515,6 +524,9 @@ keep their computed annotations.
 | `org.eclipse.collections.api.set.Pool#get` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.set.SetIterable#equals` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.set.SetIterable#hashCode` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.set.sorted.MutableSortedSet#headSet` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.set.sorted.MutableSortedSet#subSet` | @Modified | @NotModified | M2: a pure query |
+| `org.eclipse.collections.api.set.sorted.MutableSortedSet#tailSet` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.stack.StackIterable#equals` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.stack.StackIterable#getFirst` | @Modified | @NotModified | M2: a pure query |
 | `org.eclipse.collections.api.stack.StackIterable#getLast` | @Modified | @NotModified | M2: a pure query |
