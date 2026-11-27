@@ -36,6 +36,17 @@ final class KotlinSymbols {
         return new SymbolEnum(operator, SpaceEnum.ONE_NO_SPLIT_BEFORE, SpaceEnum.ONE_REQUIRED_EASY_SPLIT, null);
     }
 
+    /**
+     * The brace of a trailing lambda, {@code map { … }}: one space before it and never a line break, which would end
+     * the call and make the lambda an expression of its own (#231).
+     */
+    static final Symbol TRAILING_LAMBDA_BRACE = new SymbolEnum("{", SpaceEnum.ONE_NO_SPLIT_BEFORE,
+            SpaceEnum.ONE_IS_NICE_SPLIT_BEGIN_END, "LEFT_BRACE");
+
+    /** A lambda's closing brace: no space after it, {@code { it!! }.count()}, as after a closing parenthesis. */
+    static final Symbol LAMBDA_CLOSE = new SymbolEnum("}", SpaceEnum.ONE_IS_NICE_SPLIT_BEGIN_END,
+            SpaceEnum.RELAXED_NO_SPACE_SPLIT_ALLOWED, "RIGHT_BRACE");
+
     /** {@code =}, {@code +=}, … */
     static Symbol assignment(String operator) {
         return binary(operator);

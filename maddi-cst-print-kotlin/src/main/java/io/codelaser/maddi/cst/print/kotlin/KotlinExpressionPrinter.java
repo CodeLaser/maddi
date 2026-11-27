@@ -1232,6 +1232,7 @@ public class KotlinExpressionPrinter {
         boolean translated = method != null && (mappedType ? !"equals".equals(method.name())
                 : KotlinNullability.translated(method.typeInfo()));
         List<OutputBuilder> printed = new ArrayList<>();
+        OutputBuilder trailingLambda = null;
         ParameterizedType constructed = call == null && method != null && method.isConstructor() ? CONSTRUCTED.get() : null;
         for (int i = 0; i < args.size(); i++) {
             if (asArray && i == method.parameters().size() - 1) break;
@@ -1377,7 +1378,12 @@ public class KotlinExpressionPrinter {
                 boolean typedParameters = call != null && hasParameter && staticLambdaInput(method, call, i, l);
                 if (typedParameters) TYPED_LAMBDAS.get().add(l);
                 try {
-                    printed.add(lambda(l, hasParameter && besideOtherInterface(method, i), q));
+                    boolean sam = hasParameter && besideOtherInterface(method, i);
+                    if (trailingLambda(args, method, call, i, asArray) && !sam) {
+                        trailingLambda = lambda(l, null, true, q);
+                    } else {
+                        printed.add(lambda(l, sam ? samConstructor(l, q) : null, q));
+                    }
                 } finally {
                     if (typed) params.forEach(p -> KotlinContext.lambdaParameterType(p, null));
                     if (typedParameters) TYPED_LAMBDAS.get().remove(l);
@@ -1649,8 +1655,25 @@ public class KotlinExpressionPrinter {
             }
         }
         if (asArray && args.size() >= method.parameters().size() - 1) printed.add(varargsArray(args, method, q));
+        if (trailingLambda != null) {
+            // list.forEach { … }, map.computeIfAbsent(key) { … }: the last argument after the parentheses (#231)
+            if (printed.isEmpty()) return trailingLambda;
+            return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                    SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())).add(trailingLambda);
+        }
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+    }
+
+    /**
+     * Argument {@code i}, a lambda, goes after the parentheses: it is the last argument of a method call, into a
+     * parameter of its own (not a varargs element).
+     */
+    private static boolean trailingLambda(List<Expression> args, MethodInfo method, MethodCall call, int i,
+                                          boolean asArray) {
+        return KotlinContext.translatingJava() && call != null && method != null && !asArray
+               && i == args.size() - 1 && i == method.parameters().size() - 1
+               && !method.parameters().get(i).isVarArgs();
     }
 
     /**
@@ -1664,8 +1687,8 @@ public class KotlinExpressionPrinter {
             || !nonNullPredicate(unwrap(mc.parameterExpressions().getFirst()))) {
             return printed;
         }
-        return printed.add(SymbolEnum.DOT).add(new TextImpl("map")).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE)
-                .add(SpaceEnum.ONE).add(new TextImpl("it!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+        return printed.add(SymbolEnum.DOT).add(new TextImpl("map")).add(KotlinSymbols.TRAILING_LAMBDA_BRACE)
+                .add(SpaceEnum.ONE).add(new TextImpl("it!!")).add(SpaceEnum.ONE).add(KotlinSymbols.LAMBDA_CLOSE);
     }
 
     /**
@@ -1778,7 +1801,7 @@ public class KotlinExpressionPrinter {
         else b.add(receiver(mr.scope(), q));
         b.add(SymbolEnum.DOT);
         return b.add(new TextImpl(KotlinNames.name(m.name()) + "(" + String.join(", ", arguments) + ")"))
-                .add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+                .add(SpaceEnum.ONE).add(KotlinSymbols.LAMBDA_CLOSE);
     }
 
     /** {@code ServerLoaderMetrics::getAddress}: a getter of the element, which the reference takes as its receiver. */
@@ -1797,12 +1820,12 @@ public class KotlinExpressionPrinter {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE)
                     .add(new TextImpl("e: " + type)).add(SymbolEnum.LAMBDA)
                     .add(new TextImpl("e." + KotlinNames.name(mr.methodInfo().name()) + "()!!"))
-                    .add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+                    .add(SpaceEnum.ONE).add(KotlinSymbols.LAMBDA_CLOSE);
         }
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
                 .add(SymbolEnum.DOT).add(new TextImpl(KotlinNames.name(mr.methodInfo().name())))
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl("it")).add(SymbolEnum.RIGHT_PARENTHESIS)
-                .add(new TextImpl("!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+                .add(new TextImpl("!!")).add(SpaceEnum.ONE).add(KotlinSymbols.LAMBDA_CLOSE);
     }
 
     /**
@@ -1978,7 +2001,7 @@ public class KotlinExpressionPrinter {
         } else if (!m.isStatic() && m.parameters().size() == 1) {
             KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
-                    .add(SymbolEnum.DOT).add(new TextImpl(name + "(it)!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+                    .add(SymbolEnum.DOT).add(new TextImpl(name + "(it)!!")).add(SpaceEnum.ONE).add(KotlinSymbols.LAMBDA_CLOSE);
         } else {
             return null;
         }
@@ -2017,7 +2040,7 @@ public class KotlinExpressionPrinter {
             }
             KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
-                    .add(SymbolEnum.DOT).add(new TextImpl(name + "(it!!)")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+                    .add(SymbolEnum.DOT).add(new TextImpl(name + "(it!!)")).add(SpaceEnum.ONE).add(KotlinSymbols.LAMBDA_CLOSE);
         }
         // a library's parameter is a platform type, which takes the null: Objects::isNull stays a reference
         if (m.isStatic() && m.parameters().size() == 1 && KotlinNullability.translated(m.typeInfo())
@@ -3710,7 +3733,7 @@ public class KotlinExpressionPrinter {
             return new OutputBuilderImpl().add(new TextImpl("Array")).add(SymbolEnum.LEFT_PARENTHESIS).add(size)
                     .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE)
                     .add(SpaceEnum.ONE).add(arrayCreation(element, dimensions, level + 1, q))
-                    .add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+                    .add(SpaceEnum.ONE).add(KotlinSymbols.LAMBDA_CLOSE);
         }
         return new OutputBuilderImpl().add(new TextImpl("arrayOfNulls<" + KotlinTypeName.of(element, q) + ">"))
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(size).add(SymbolEnum.RIGHT_PARENTHESIS);
@@ -3918,7 +3941,7 @@ public class KotlinExpressionPrinter {
             ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
 
     private static OutputBuilder lambda(Lambda lambda, boolean samConstructor, Qualification q) {
-        return lambda(lambda, samConstructor ? samConstructor(lambda, q) : null, q);
+        return lambda(lambda, samConstructor ? samConstructor(lambda, q) : null, false, q);
     }
 
     // the result each enclosing block lambda's returns go into, where the verdicts decide it non-null
@@ -3936,8 +3959,16 @@ public class KotlinExpressionPrinter {
         return KotlinNullability.toTarget(value, decided.get(), true, printed, q);
     }
 
-    /** As {@link #lambda(Lambda, boolean, Qualification)}, with {@code sam} as its SAM constructor, or none. */
     private static OutputBuilder lambda(Lambda lambda, String sam, Qualification q) {
+        return lambda(lambda, sam, false, q);
+    }
+
+    /**
+     * As {@link #lambda(Lambda, boolean, Qualification)}, with {@code sam} as its SAM constructor, or none.
+     * {@code trailing}: written after the call's parentheses, {@code map { … }}; no line break in front of its brace,
+     * which would make it a lambda of its own (#231).
+     */
+    private static OutputBuilder lambda(Lambda lambda, String sam, boolean trailing, Qualification q) {
         ParameterizedType functional = lambda.concreteFunctionalType();
         if (KotlinContext.translatingJava() && functional != null && functional.typeInfo() != null
             && "java.lang.Iterable".equals(functional.typeInfo().fullyQualifiedName())
@@ -3951,7 +3982,7 @@ public class KotlinExpressionPrinter {
                     return new OutputBuilderImpl().add(KotlinKeyword.OBJECT).add(SpaceEnum.ONE).add(SymbolEnum.COLON)
                             .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(iterable, q) + " { override fun iterator(): "
                                     + KotlinTypeName.of(lambda.methodInfo().returnType(), q) + " = run "))
-                            .add(lambda(lambda, (String) null, q)).add(new TextImpl(" }"));
+                            .add(lambda(lambda, (String) null, false, q)).add(new TextImpl(" }"));
                 }
             } finally {
                 ITERABLE_LAMBDAS.get().remove(lambda);
@@ -3964,6 +3995,7 @@ public class KotlinExpressionPrinter {
 
         OutputBuilder inner;
         boolean labelled = false;
+        boolean implicitIt = false;
         KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LAMBDA, KotlinContext.LAMBDA_LABEL));
         KotlinContext.pushScope(body);
         try {
@@ -3973,6 +4005,8 @@ public class KotlinExpressionPrinter {
             Expression value = reassigned.isEmpty() && (statements.size() != 1
                                                         || !KotlinStatementPrinter.commentedBefore(statements.getFirst()))
                     ? CstQueries.returnedValue(statements) : null;
+            implicitIt = value != null && implicitIt(lambda, statements);
+            if (implicitIt) KotlinContext.patternVariable(params.getFirst(), () -> text("it"));
             if (value != null) {
                 ParameterizedType returnType = lambda.methodInfo().returnType();
                 if (unwrap(value) instanceof ConstructorCall cc && inferred(cc)) {
@@ -4013,21 +4047,49 @@ public class KotlinExpressionPrinter {
                         .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
             }
         } finally {
+            if (implicitIt) KotlinContext.declared(params.getFirst().name());
             KotlinContext.popScope();
             KotlinContext.pop();
         }
         OutputBuilder b = new OutputBuilderImpl();
         if (sam != null) b.add(new TextImpl(sam)).add(SpaceEnum.ONE);
-        if (labelled) b.add(new TextImpl(KotlinContext.LAMBDA_LABEL + "@"));
-        b.add(SymbolEnum.LEFT_BRACE);
-        if (!params.isEmpty()) {
+        if (labelled) {
+            if (trailing) b.add(SpaceEnum.ONE_NO_SPLIT_BEFORE);
+            b.add(new TextImpl(KotlinContext.LAMBDA_LABEL + "@"));
+        }
+        b.add(trailing && !labelled ? KotlinSymbols.TRAILING_LAMBDA_BRACE : SymbolEnum.LEFT_BRACE);
+        if (!params.isEmpty() && !implicitIt) {
             boolean typedParameters = TYPED_LAMBDAS.get().contains(lambda);
             b.add(SpaceEnum.ONE).add(params.stream()
                     .map(p -> new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(p.name()) + (typedParameters
                             ? ": " + KotlinTypeName.of(p.parameterizedType(), q) : ""))))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA))).add(SpaceEnum.ONE).add(SymbolEnum.LAMBDA);
         }
-        return b.add(SpaceEnum.ONE).add(inner).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+        return b.add(SpaceEnum.ONE).add(inner).add(SpaceEnum.ONE).add(KotlinSymbols.LAMBDA_CLOSE);
+    }
+
+    /**
+     * A lambda of one parameter whose body is one expression names it {@code it} (#231): not with a typed parameter,
+     * nor around another lambda or a class (whose own {@code it}, or a variable of the parameter's name, the body
+     * would then mean), nor where the body already has an {@code it} of its own.
+     */
+    private static boolean implicitIt(Lambda lambda, List<Statement> statements) {
+        if (!KotlinContext.translatingJava() || lambda.parameters().size() != 1 || statements.size() != 1
+            || TYPED_LAMBDAS.get().contains(lambda)) {
+            return false;
+        }
+        ParameterInfo parameter = lambda.parameters().getFirst();
+        if ("it".equals(parameter.name())) return false;
+        boolean[] blocked = {false};
+        statements.getFirst().visit((Element e) -> {
+            if (e instanceof Lambda || e instanceof MethodReference || e instanceof ConstructorCall cc && cc.anonymousClass() != null
+                || e instanceof SwitchExpression
+                || e instanceof VariableExpression ve && "it".equals(ve.variable().simpleName())) {
+                blocked[0] = true;
+            }
+            return !blocked[0];
+        });
+        return !blocked[0];
     }
 
     /**
@@ -4156,7 +4218,7 @@ public class KotlinExpressionPrinter {
             && a.variableTarget() instanceof LocalVariable) {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(assignmentAsStatement(a, q))
                     .add(SymbolEnum.SEMICOLON).add(SpaceEnum.ONE).add(variable(a.variableTarget(), q)).add(SpaceEnum.ONE)
-                    .add(SymbolEnum.RIGHT_BRACE);
+                    .add(KotlinSymbols.LAMBDA_CLOSE);
         }
         return otherwise.get();
     }

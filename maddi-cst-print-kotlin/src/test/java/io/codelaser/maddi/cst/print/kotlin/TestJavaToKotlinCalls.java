@@ -744,7 +744,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     }
                 }
                 """);
-        contains(kotlin, "runWithLock<Throwable>(");
+        contains(kotlin, "runWithLock<Throwable> { count++ }");
         contains(kotlin, "callWithLock<String, Throwable>(");
         // a typed argument fixes T: jenkins's channel.call(new GetEnvVars())
         contains(kotlin, "callWithLock(Named())");

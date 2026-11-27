@@ -673,7 +673,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     public void typedByTheTarget() {
         String kotlin = kotlin(TARGET_TYPED);
         contains(kotlin, "var elements: MutableList<String> = Collections.emptyList()");
-        contains(kotlin, "s.length.toLong()");
+        contains(kotlin, "it.length.toLong()");
     }
 
     @Language("java")
@@ -762,14 +762,55 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             }
             """;
 
+    /**
+     * #231: a call's last argument, a lambda, goes after the parentheses, and a one-parameter lambda whose body is one
+     * expression calls its parameter {@code it}. Not a lambda that is not the last argument, nor one into a varargs;
+     * a lambda around another keeps its parameter's name, as does one with a block body.
+     */
+    @Test
+    public void trailingLambdasAndIt() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                class T {
+                    int sum(List<String> words, Map<String, List<Integer>> index) {
+                        words.forEach(w -> System.out.println(w));
+                        index.computeIfAbsent("k", k -> new ArrayList<>()).add(1);
+                        long n = words.stream().filter(w -> w.length() > 2).map(w -> w.trim()).count();
+                        words.forEach(w -> index.getOrDefault(w, List.of()).forEach(i -> System.out.println(w + i)));
+                        words.forEach(w -> {
+                            String t = w.trim();
+                            System.out.println(t);
+                        });
+                        apply(s -> s.length(), "x");
+                        all(() -> "a", () -> "b");
+                        return (int) n;
+                    }
+                    static int apply(Function<String, Integer> f, String s) { return f.apply(s); }
+                    @SafeVarargs static void all(Supplier<String>... suppliers) { }
+                }
+                """);
+        contains(kotlin, "words.forEach { System.out.println(it) }");
+        contains(kotlin, "computeIfAbsent(\"k\") { ArrayList() }");
+        contains(kotlin, ".filter { it.length > 2 }.map { it.trim() }.count()");
+        // the outer lambda, around another, keeps its w; the inner one has an it of its own
+        contains(kotlin, "words.forEach { w -> index.getOrDefault(w, java.util.List.of<Int>()).forEach { "
+                         + "System.out.println(w + it) } }");
+        contains(kotlin, "words.forEach { w ->");
+        contains(kotlin, "apply({ it.length }, \"x\")");
+        contains(kotlin, "all({ \"a\" }, { \"b\" })");
+        compiles(kotlin);
+    }
+
     /** After Java's filter(Objects::nonNull) the elements are non-null; Kotlin's stream needs a map { it!! } to know. */
     @Test
     public void nonNullFilter() {
         String kotlin = kotlin(NON_NULL_FILTER);
         contains(kotlin, "filter(Objects ::nonNull).map { it!! }");
-        contains(kotlin, "filter( { l -> l != null }).map { it!! }");
+        contains(kotlin, "filter { it != null }.map { it!! }");
         // jenkins's LogRotator: the test in a conjunction
-        contains(kotlin, "l.size > 1 }).map { it!! }");
+        contains(kotlin, "it != null && it.size > 1 }.map { it!! }");
         compiles(kotlin);
     }
 
@@ -1411,7 +1452,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     public void conversions() {
         String kotlin = kotlin(FUNCTIONAL);
         contains(kotlin, "fun interface Visitor {");
-        contains(kotlin, "val v: Visitor = Visitor { s -> s.length + p0() }");
+        contains(kotlin, "val v: Visitor = Visitor { it.length + p0() }");
         contains(kotlin, """
                 open fun m(p: Int): Int {
                     var p = p
