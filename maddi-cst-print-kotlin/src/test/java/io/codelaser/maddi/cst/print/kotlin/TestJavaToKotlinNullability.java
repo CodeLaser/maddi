@@ -982,7 +982,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     @Test
     public void streamsOfNullableElements() {
         String kotlin = kotlin(STREAMS, new KotlinPrintOptions(new ByName(Set.of("items<>", "text")), KotlinPrintOptions.NullCheck.ASSERT));
-        contains(kotlin, "mapToInt({ S.size(it!!) })");
+        contains(kotlin, "mapToInt { S.size(it!!) }");
         contains(kotlin, "findAny() as Optional<String>)");
         contains(kotlin, "as Optional<String>)");
         // names' elements are non-null: no cast
@@ -990,8 +990,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // a library's parameter takes the null
         contains(kotlin, "filter(Objects ::isNull)");
         // a bound reference; a Collection<?>'s elements are Any? in Kotlin
-        contains(kotlin, "{ this.upper(it!!) }).toList()");
-        contains(kotlin, "map({ S.str(it!!) })");
+        contains(kotlin, ".map { this.upper(it!!) }.toList()");
+        contains(kotlin, "map { S.str(it!!) }");
         // a cast null picks the overload; `null as String` would throw
         contains(kotlin, "pick(null as String?)");
         // a varargs array is spread, which Kotlin cannot do with a nullable one

@@ -4084,7 +4084,7 @@ public class KotlinExpressionPrinter {
             if (trailing) b.add(SpaceEnum.ONE_NO_SPLIT_BEFORE);
             b.add(new TextImpl(KotlinContext.LAMBDA_LABEL + "@"));
         }
-        b.add(trailing && !labelled ? KotlinSymbols.TRAILING_LAMBDA_BRACE : SymbolEnum.LEFT_BRACE);
+        b.add(trailing ? KotlinSymbols.TRAILING_LAMBDA_BRACE : SymbolEnum.LEFT_BRACE);
         if (!params.isEmpty() && !implicitIt) {
             boolean typedParameters = TYPED_LAMBDAS.get().contains(lambda);
             b.add(SpaceEnum.ONE).add(params.stream()

@@ -872,7 +872,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     public void nullOverridesAndComparingKeys() {
         String kotlin = kotlin(NULL_OVERRIDES);
         contains(kotlin, "override fun setValue(value: String): String = throw UnsupportedOperationException()");
-        contains(kotlin, "Comparator.comparing( { order.get(it)!! })");
+        contains(kotlin, "Comparator.comparing { order.get(it)!! }");
     }
 
     @Language("java")
