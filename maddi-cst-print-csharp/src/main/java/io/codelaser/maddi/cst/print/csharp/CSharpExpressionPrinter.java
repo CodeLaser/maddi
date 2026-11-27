@@ -2496,7 +2496,7 @@ public final class CSharpExpressionPrinter {
     }
 
     /** The property C# has for a method, as {@link #member} prints a call of it: a record's component, a getter's. */
-    private static String propertyOf(MethodInfo method) {
+    static String propertyOf(MethodInfo method) {
         String computed = CSharpContext.program().computedProperty(method);
         if (computed != null) return computed;
         CSharpProperties.Property property = CSharpContext.program().accessorOf(method);

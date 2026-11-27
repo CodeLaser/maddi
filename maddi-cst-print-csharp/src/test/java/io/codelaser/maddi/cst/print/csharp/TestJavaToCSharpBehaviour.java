@@ -1005,6 +1005,36 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     /**
+     * #190: a template's {@code $2()} calls the supplier argument. A lambda, or a bound method reference that prints
+     * as one (a JDK member's translation, a property), cannot be called where it is written: the call is written in
+     * its place, {@code given ?? s.Trim()}.
+     */
+    @Test
+    public void supplierLambdaCalledInTemplate() {
+        String cs = behaves("SupplierCallee", """
+                package a;
+                import java.util.Objects;
+                import java.util.Optional;
+                class SupplierCallee {
+                    record Named(String name) { }
+                    public static void main(String[] args) {
+                        String given = args.length > 0 ? args[0] : null;
+                        String s = "  padded  ";
+                        String a = Objects.requireNonNullElseGet(given, s::trim);
+                        String b = Objects.requireNonNullElseGet(given, () -> "lambda");
+                        String c = Optional.ofNullable(given).orElseGet(() -> "other");
+                        String d = Objects.requireNonNull(s, () -> "message");
+                        Named named = new Named("named");
+                        String e = Objects.requireNonNullElseGet(given, named::name);
+                        System.out.println(a + " " + b + " " + c + " " + d.length() + " " + e);
+                    }
+                }
+                """);
+        contains(cs, "given ?? s.Trim()");
+        contains(cs, "given ?? named.Name");
+    }
+
+    /**
      * A functional interface nested in an interface is implicitly public in Java: the hoisted delegate is public, as
      * the interface's public static method that takes it needs (CS0051).
      */

@@ -27,6 +27,7 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.StringConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -239,7 +240,37 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
             return new CSharpTemplate(() -> new OutputBuilderImpl().add(new TextImpl(owner)), List.of(), List.of(), null,
                     mr.concreteReturnType(), null, q).render(rule.template(false));
         }
+        if (arg instanceof MethodReference mr && !mr.methodInfo().isStatic() && !mr.methodInfo().isConstructor()
+            && mr.concreteParameterTypes().isEmpty() && !(mr.scope() instanceof TypeExpression)) {
+            return boundSupplied(mr);
+        }
         return null;
+    }
+
+    /**
+     * A bound method reference without parameters, called: {@code s::trim} is {@code s.Trim()}, where the reference
+     * itself is the lambda {@code () => s.Trim()} (#190); a member C# has as a property, {@code location.ClassName}.
+     * Null for any other member, whose method group {@code $1()} calls.
+     */
+    private OutputBuilder boundSupplied(MethodReference mr) {
+        var method = mr.methodInfo();
+        LibraryMapping.Rule rule = CSharpNames.translated(method.typeInfo()) ? null
+                : CSharpContext.libraries().call(method, null);
+        if (rule != null) {
+            rule.namespaces().forEach(CSharpContext::using);
+            OutputBuilder called = new CSharpTemplate(() -> CSharpExpressionPrinter.receiver(mr.scope(), q), List.of(),
+                    List.of(), null, mr.concreteReturnType(), mr.scope().parameterizedType(), q)
+                    .render(rule.template(false));
+            if (!rule.nullableResult() || !CSharpContext.program().facts().nullabilityAnalysed()) return called;
+            OutputBuilder b = rule.template(false).contains(" ")
+                    ? new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(called).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    : called;
+            return b.add(CSharpNullability.NULL_FORGIVING);
+        }
+        String property = CSharpExpressionPrinter.propertyOf(method);
+        if (property == null) return null;
+        return new OutputBuilderImpl().add(CSharpExpressionPrinter.receiver(mr.scope(), q)).add(SymbolEnum.DOT)
+                .add(new TextImpl(property));
     }
 
     /** {@code $1.2}: argument 2 of argument 1, a call. */
