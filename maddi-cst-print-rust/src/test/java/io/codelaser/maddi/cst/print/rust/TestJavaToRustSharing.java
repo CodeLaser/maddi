@@ -659,4 +659,48 @@ public class TestJavaToRustSharing extends CommonJavaToRust {
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         return types;
     }
+
+    /**
+     * #198: fernflower's BasicBlock.clone(int) and InstructionSequence.clone() on a Shared receiver printed as
+     * {@code x.clone(..)}: Rust's Clone::clone of the handle, the same object, where Java makes a copy. A source
+     * clone has a name of its own.
+     */
+    @Test
+    public void sourceCloneIsNotTheHandlesClone() throws Exception {
+        List<TypeInfo> types = parse("""
+                package a.c;
+                import java.util.ArrayList;
+                import java.util.List;
+                public class Block {
+                    private int id;
+                    private final List<Block> succs = new ArrayList<>();
+                    private final List<Block> preds = new ArrayList<>();
+                    public Block(int id) { this.id = id; }
+                    public void link(Block next) {
+                        succs.add(next);
+                        next.preds.add(this);
+                    }
+                    public Block clone(int newId) {
+                        Block copy = new Block(newId);
+                        copy.succs.addAll(succs);
+                        return copy;
+                    }
+                    public Block clone() { return clone(id); }
+                    public int id() { return id; }
+                    public static int copied(Block b) {
+                        Block c = b.clone(7);
+                        b.link(c);
+                        return c.id() + b.clone().id();
+                    }
+                }
+                """);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.c");
+        contains(rust, "pub fn java_clone(&mut self, new_id: i32) -> Block {");
+        contains(rust, "pub fn java_clone_2(&mut self) -> Block {");
+        contains(rust, "let mut c = b.java_clone(7);");
+        contains(rust, "b.java_clone_2().id()");
+        assertFalse(rust.contains(".clone(7)"), rust);
+    }
 }

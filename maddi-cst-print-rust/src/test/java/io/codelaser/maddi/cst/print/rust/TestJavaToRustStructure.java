@@ -1321,4 +1321,57 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "Self::count(\"a\".to_string(), vec![\"bc\".to_string(), \"d\".to_string()])");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    /**
+     * #197: an instance initializer block runs in every constructor that does not delegate to this(...), after the
+     * fields have their initial values; in the implicit constructor too. It was dropped, and every object had id 0.
+     */
+    @Test
+    public void instanceInitializersInConstructors() throws Exception {
+        List<TypeInfo> types = parse("""
+                package a.init;
+                import java.util.ArrayList;
+                import java.util.List;
+                public class Counted {
+                    private int id;
+                    private final List<String> names = new ArrayList<>();
+                    private String label;
+                    {
+                        id = 7;
+                        names.add("first");
+                    }
+                    public Counted(String label) { this.label = label; }
+                    public Counted() { this("none"); }
+                    public int id() { return id; }
+                    public int size() { return names.size(); }
+                }
+                class Plain {
+                    private int n;
+                    { n = 3; }
+                    public int n() { return n; }
+                }
+                """);
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.init");
+        contains(rust, """
+                        this.id = 7;
+                        this.names.push("first".to_string());
+                        this.label = label;
+                """);
+        // the delegating constructor runs them through the other one
+        contains(rust, """
+                    pub fn new_2() -> Self {
+                        Self::new("none".to_string())
+                    }
+                """);
+        contains(rust, """
+                        let mut this = Self {
+                            n: 0,
+                        };
+                        this.n = 3;
+                        this
+                """);
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

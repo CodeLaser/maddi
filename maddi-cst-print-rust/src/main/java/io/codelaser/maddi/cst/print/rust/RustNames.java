@@ -90,7 +90,10 @@ public final class RustNames {
         if (method.isConstructor()) return "new" + suffix(method, method.typeInfo().constructors());
         List<MethodInfo> sameName = method.typeInfo().methods().stream()
                 .filter(m -> m.name().equals(method.name())).toList();
-        return snake(method.name()) + suffix(method, sameName);
+        // #198: a source clone() named clone would be Clone::clone on a Shared receiver, the handle's: the same
+        // object, where Java makes a copy. Under a name of its own a call reaches the type's method, or fails to compile
+        String name = "clone".equals(method.name()) ? "java_clone" : snake(method.name());
+        return name + suffix(method, sameName);
     }
 
     private static String suffix(MethodInfo method, List<MethodInfo> overloads) {

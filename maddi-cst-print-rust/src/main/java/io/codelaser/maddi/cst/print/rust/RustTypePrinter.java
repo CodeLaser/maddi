@@ -477,9 +477,9 @@ final class RustTypePrinter {
         boolean hashCode = false;
         for (MethodInfo m : typeInfo.methods()) {
             if (m.isSynthetic()) continue;
-            if (m.isStaticInitializer() || m.isInstanceInitializer()) {
-                context.message(RustPrintCode.STATIC_STATE, m, m.isStaticInitializer() ? "static initializer"
-                        : "instance initializer");
+            if (m.isInstanceInitializer()) continue; // in the constructors (#197)
+            if (m.isStaticInitializer()) {
+                context.message(RustPrintCode.STATIC_STATE, m, "static initializer");
                 continue;
             }
             if (isEquals(m)) {
@@ -696,9 +696,9 @@ final class RustTypePrinter {
                 inherent.append(hierarchyConstructors(h, m));
                 for (MethodInfo method : m.methods()) {
                     if (method.isSynthetic()) continue;
-                    if (method.isStaticInitializer() || method.isInstanceInitializer()) {
-                        context.message(RustPrintCode.STATIC_STATE, method, method.isStaticInitializer()
-                                ? "static initializer" : "instance initializer");
+                    if (method.isInstanceInitializer()) continue; // in the constructors (#197)
+                    if (method.isStaticInitializer()) {
+                        context.message(RustPrintCode.STATIC_STATE, method, "static initializer");
                         continue;
                     }
                     if (isEquals(method)) {
@@ -809,6 +809,9 @@ final class RustTypePrinter {
             return sb.toString();
         }
         if (constructors.isEmpty()) {
+            // not spliced into this implicit constructor (#197): said, not dropped silently
+            instanceInitializers(m).forEach(i -> context.message(RustPrintCode.STATIC_STATE, i,
+                    "instance initializer of a member without a constructor"));
             boolean cyclic = RustShared.current().isCyclic(m);
             sb.append(INDENT).append("pub fn ").append(RustHierarchies.defaultConstructorName(m))
                     .append(cyclic ? "(__this: &crate::jrt::WeakShared<Self>)" : "()").append(" -> Self {\n")
@@ -894,7 +897,8 @@ final class RustTypePrinter {
             StringBuilder sb = new StringBuilder(INDENT + visibility(c.access().isPrivate()) + "fn "
                                                  + RustNames.method(c) + "(" + parameters(c) + ") -> Self {\n");
             String pad = INDENT.repeat(2);
-            List<Statement> statements = c.methodBody() == null ? List.of() : c.methodBody().statements();
+            List<Statement> statements = withInitializers(c, c.methodBody() == null ? List.of()
+                    : c.methodBody().statements());
             RustBodyPrinter printer = new RustBodyPrinter(context);
             ExplicitConstructorInvocation eci = statements.stream()
                     .filter(s -> s instanceof ExplicitConstructorInvocation).map(s -> (ExplicitConstructorInvocation) s)
@@ -1449,6 +1453,8 @@ final class RustTypePrinter {
     }
 
     private String defaultConstructor(String name, List<FieldInfo> fields, List<String> phantom) {
+        List<MethodInfo> initializers = context.type == null ? List.of() : instanceInitializers(context.type);
+        if (!initializers.isEmpty()) return defaultConstructorWithInitializers(name, fields, phantom, initializers);
         StringBuilder sb = new StringBuilder(INDENT + "pub fn " + name + "() -> Self {\n");
         sb.append(INDENT).append(INDENT).append("Self {\n");
         if (kindInit != null) sb.append(INDENT.repeat(3)).append("kind: ").append(kindInit).append(",\n");
@@ -1458,6 +1464,59 @@ final class RustTypePrinter {
         }
         phantom.forEach(tp -> sb.append(INDENT.repeat(3)).append("_").append(tp.toLowerCase()).append(": PhantomData,\n"));
         return sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n").toString();
+    }
+
+    /**
+     * #197: Java's implicit constructor runs the instance initializers: 'this' at the initial values, then their
+     * statements on it.
+     */
+    private String defaultConstructorWithInitializers(String name, List<FieldInfo> fields, List<String> phantom,
+                                                      List<MethodInfo> initializers) {
+        StringBuilder sb = new StringBuilder(INDENT + "pub fn " + name + "() -> Self {\n");
+        String pad = INDENT.repeat(2);
+        sb.append(pad).append("let mut this = Self {\n");
+        if (kindInit != null) sb.append(pad).append(INDENT).append("kind: ").append(kindInit).append(",\n");
+        if (base != null) sb.append(pad).append(INDENT).append("base: ").append(baseValue(null, null)).append(",\n");
+        for (FieldInfo f : fields) {
+            sb.append(pad).append(INDENT).append(RustNames.snake(f.name())).append(": ").append(initial(f)).append(",\n");
+        }
+        phantom.forEach(tp -> sb.append(pad).append(INDENT).append("_").append(tp.toLowerCase()).append(": PhantomData,\n"));
+        sb.append(pad).append("};\n");
+        MethodInfo outerMethod = context.method;
+        String outerReceiver = context.receiver;
+        context.receiver = "this";
+        try {
+            RustBodyPrinter printer = new RustBodyPrinter(context);
+            for (MethodInfo initializer : initializers) {
+                context.method = initializer;
+                for (Statement s : initializer.methodBody().statements()) sb.append(printer.statement(s, 2));
+            }
+        } finally {
+            context.method = outerMethod;
+            context.receiver = outerReceiver;
+        }
+        return sb.append(pad).append("this\n").append(INDENT).append("}\n").toString();
+    }
+
+    /** The instance initializer blocks of the type, in source order. */
+    private static List<MethodInfo> instanceInitializers(TypeInfo type) {
+        return type.methods().stream().filter(m -> m.isInstanceInitializer() && m.methodBody() != null).toList();
+    }
+
+    /**
+     * #197: Java runs the instance initializer blocks at the start of every constructor that does not delegate to
+     * this(...), after super(...): their statements go in front of the body's, after an explicit super(...) call.
+     */
+    private static List<Statement> withInitializers(MethodInfo c, List<Statement> statements) {
+        List<MethodInfo> initializers = instanceInitializers(c.typeInfo());
+        if (initializers.isEmpty()) return statements;
+        boolean explicit = !statements.isEmpty() && statements.getFirst() instanceof ExplicitConstructorInvocation;
+        if (explicit && !((ExplicitConstructorInvocation) statements.getFirst()).isSuper()) return statements;
+        List<Statement> result = new ArrayList<>();
+        if (explicit) result.add(statements.getFirst());
+        initializers.forEach(m -> result.addAll(m.methodBody().statements()));
+        result.addAll(explicit ? statements.subList(1, statements.size()) : statements);
+        return result;
     }
 
     /**
@@ -1540,7 +1599,7 @@ final class RustTypePrinter {
             StringBuilder sb = new StringBuilder(INDENT + visibility(c.access().isPrivate()) + "fn " + RustNames.method(c)
                                                  + cyclicGenerics(c) + "(" + parameters(c) + ") -> Self {\n");
             Block body = c.methodBody();
-            List<Statement> statements = body == null ? List.of() : body.statements();
+            List<Statement> statements = withInitializers(c, body == null ? List.of() : body.statements());
             String pad = INDENT.repeat(2);
             if (statements.size() == 1 && statements.getFirst() instanceof ExplicitConstructorInvocation eci
                 && !eci.isSuper()) {
