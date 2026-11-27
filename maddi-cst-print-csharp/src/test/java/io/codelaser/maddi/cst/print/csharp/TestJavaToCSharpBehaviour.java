@@ -977,6 +977,29 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
     }
 
     /**
+     * #190: a template's argument beside {@code ??} keeps its grouping. {@code args.length == 0 ? "here" : null}
+     * before {@code ?? throw}, and a conditional after {@code ??}, are parenthesized: C#'s {@code ??} binds tighter
+     * than {@code ?:}.
+     */
+    @Test
+    public void conditionalBesideCoalescing() {
+        String cs = behaves("CoalesceConditional", """
+                package a;
+                import java.util.Objects;
+                class CoalesceConditional {
+                    public static void main(String[] args) {
+                        String present = Objects.requireNonNull(args.length == 0 ? "here" : null);
+                        String given = args.length > 0 ? args[0] : null;
+                        String chosen = Objects.requireNonNullElse(given, present.isEmpty() ? "empty" : "full");
+                        System.out.println(present + " " + chosen);
+                    }
+                }
+                """);
+        contains(cs, "(args.Length == 0 ? \"here\" : default) ?? throw new NullReferenceException()");
+        contains(cs, "given ?? ((present.Length == 0) ? \"empty\" : \"full\")");
+    }
+
+    /**
      * A functional interface nested in an interface is implicitly public in Java: the hoisted delegate is public, as
      * the interface's public static method that takes it needs (CS0051).
      */
@@ -1313,7 +1336,8 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
 
     /**
      * Where Java's empty value is null: an Optional's value stays a class (C#'s {@code T?} of a struct is
-     * {@code Nullable<T>}, CSharpStructs); a map's value and an array's element may be a struct.
+     * {@code Nullable<T>}, CSharpStructs); a map's value and an array's element may be a struct. An optional mapped
+     * to an int is an {@code int?} (#204).
      */
     @Test
     public void structsWhereJavaHasNull() {
@@ -1341,11 +1365,14 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                         spots.put("s", s);
                         Spot[] row = { s, new Spot(8) };
                         System.out.println(spots.get("s").at() + " " + row[1].at());
+                        // #204: an Optional<Integer> is an int?, which ?? takes
+                        System.out.println(none().map(Cell::col).orElse(-1) + " " + c.map(Cell::col).orElse(-1));
                     }
                     record Spot(int at) { }
                 }
                 """);
         contains(cs, "internal sealed record Cell(");
         contains(cs, "readonly record struct Spot(");
+        contains(cs, ".MapValue(");
     }
 }

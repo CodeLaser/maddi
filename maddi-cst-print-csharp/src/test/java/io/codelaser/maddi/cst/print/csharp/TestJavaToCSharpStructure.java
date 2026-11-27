@@ -3654,4 +3654,32 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 """);
         contains(cs, "Checked(((IEntity) this).Variable<V>(name, typeof(V)))");
     }
+
+    /**
+     * #186: C# does not inherit an interface's member types. A class implementing the interface, as any other type,
+     * names them through it, IFactory.ITemplate; the interface itself, and a type nested in it, by their simple name.
+     */
+    @Test
+    public void interfaceMemberTypesQualifiedOutside() {
+        String cs = translate("Factories", """
+                package a;
+                class Factories {
+                    interface Factory {
+                        interface Input { }
+                        interface Template { }
+                        Template create(Input in);
+                        default Template twice(Input in) { create(in); return create(in); }
+                    }
+                    static class Plain implements Factory {
+                        public Template create(Input in) { return null; }
+                    }
+                    static class Use {
+                        static Factory make(Factory.Template t) { return in -> t; }
+                    }
+                }
+                """);
+        contains(cs, "ITemplate Create(IFactory.IInput @in)");
+        contains(cs, "IFactory.ITemplate Create(IFactory.IInput @in) => null;");
+        contains(cs, "static IFactory Make(IFactory.ITemplate t)");
+    }
 }

@@ -110,6 +110,16 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                             continue;
                         }
                     }
+                    if (c == '$' && index > 0 && call != null && index <= call.parameterExpressions().size()
+                        && besideOperator(template, i, j)
+                        && !CSharpExpressionPrinter.templateReceiverAtom(call.parameterExpressions().get(index - 1))) {
+                        // #190: $1 ?? throw … of a conditional, (c ? "here" : default) ?? throw …; unlike @1, which
+                        // also unboxes a nullable value type
+                        b.add(SymbolEnum.LEFT_PARENTHESIS).add(arguments.get(index - 1).get())
+                                .add(SymbolEnum.RIGHT_PARENTHESIS);
+                        i = j;
+                        continue;
+                    }
                     b.add(index == 0 ? receiver.get() : (c == '@' ? operands : arguments).get(index - 1).get());
                     i = j;
                     continue;
@@ -365,6 +375,34 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                 i++;
             }
         }
+    }
+
+    /** The binary operators an argument beside them binds looser than, or may: {@code ??}, {@code ||}, … */
+    private static final List<String> BINARY = List.of("??", "||", "&&", "==", "!=", "<=", ">=", "?.", "+", "-", "*",
+            "/", "%", "<", ">", "&", "|", "^", "?", "is ", "or ", "as ");
+
+    /**
+     * #190: the placeholder at {@code [start, end)} of the template has a binary operator next to it, before or after:
+     * a conditional or an assignment argument there needs its parentheses. Not {@code =} or {@code =>}, after which
+     * any expression stands as it is.
+     */
+    static boolean besideOperator(String template, int start, int end) {
+        int a = end;
+        while (a < template.length() && template.charAt(a) == ' ') a++;
+        String after = template.substring(a);
+        if (!after.startsWith("=>") && !after.startsWith("= ") && BINARY.stream().anyMatch(after::startsWith)) {
+            return true;
+        }
+        int b = start;
+        while (b > 0 && template.charAt(b - 1) == ' ') b--;
+        String before = template.substring(0, b);
+        if (before.endsWith("=>") || before.endsWith("=") && !before.endsWith("==") && !before.endsWith("!=")
+                                     && !before.endsWith("<=") && !before.endsWith(">=")) {
+            return false;
+        }
+        return BINARY.stream().map(String::strip).anyMatch(op -> before.endsWith(op)
+                && (!Character.isLetter(op.charAt(0)) || before.length() == op.length()
+                    || !Character.isLetterOrDigit(before.charAt(before.length() - op.length() - 1))));
     }
 
     /**

@@ -431,6 +431,9 @@ public static class JavaCollections
 
     public static R? Map<T, R>(this T? value, Func<T, R> f) => value == null ? default : f(value);
 
+    /// <summary>Optional.map to a value type: Java's Optional&lt;Integer&gt; is int?, which Map's R? is not.</summary>
+    public static R? MapValue<T, R>(this T? value, Func<T, R> f) where R : struct => value == null ? null : f(value);
+
     public static T? Filter<T>(this T? value, Func<T, bool> p) => value != null && p(value) ? value : default;
 
     /// <summary>Optional.stream: the value, or nothing.</summary>

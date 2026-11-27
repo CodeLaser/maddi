@@ -120,6 +120,22 @@ public final class CSharpTypeName {
         }
     }
 
+    /**
+     * #186: a member type of an interface, named in code outside that interface. Java's implementing class inherits
+     * the interface's member types and names them simply; C#'s sees them only through the interface, IFactory.IInput,
+     * as does any other type.
+     */
+    private static boolean interfaceMemberOutside(TypeInfo typeInfo) {
+        TypeInfo owner = CstQueries.enclosing(typeInfo);
+        if (owner == null || !owner.isInterface() || !CSharpNames.translated(typeInfo)) return false;
+        TypeInfo current = CSharpContext.currentType();
+        if (current == null) return false;
+        for (TypeInfo t = current; t != null; t = CstQueries.enclosing(t)) {
+            if (t.equals(owner)) return false;
+        }
+        return true;
+    }
+
     private static boolean nestedInHeader(TypeInfo typeInfo) {
         TypeInfo header = HEADER.get();
         if (header == null || !CSharpNames.translated(typeInfo)) return false;
@@ -537,6 +553,11 @@ public final class CSharpTypeName {
             // a positional record's parameter list does not see the record's own nested types: R(R.Kind? Kind)
             if (typeInfo.primaryType() != null) CSharpContext.referenced(CSharpNames.topLevel(typeInfo));
             return fromPrimaryType(typeInfo);
+        }
+        if (interfaceMemberOutside(typeInfo)) {
+            // #186: Plain implements Factory and names Template; C# does not inherit an interface's member types:
+            // the interface as it is named here, then the member type
+            return name(CstQueries.enclosing(typeInfo), q) + "." + CSharpNames.type(typeInfo);
         }
         if (q == null) {
             CSharpContext.referenced(typeInfo);

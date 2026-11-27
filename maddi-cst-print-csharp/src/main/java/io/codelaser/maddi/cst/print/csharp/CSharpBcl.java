@@ -270,6 +270,10 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.Map.putIfAbsent/2", (method, call) -> new Rule(valueType(call, 1)
                 ? "$0.PutIfAbsentValue($1, $2)" : "$0.PutIfAbsent($1, $2)", "$0.TryAdd($1, $2)", List.of(COMPAT))
                 .withNullableResult());
+        // #204: optional.map(Cell::col), an Optional<Integer>, is C#'s int?: Map's R? is R itself for a value type, and
+        // `?? -1` on an int does not compile (CS0019); MapValue returns the Nullable
+        chooser("java.util.Optional.map/1", (method, call) -> nullable(resultValueType(call)
+                ? "$0.MapValue($1)" : "$0.Map($1)", COMPAT));
         // a collection of ? is non-generic in C#: LINQ needs its elements as objects
         chooser("java.util.Collection.stream/0", (method, call) -> unboundTyped(call) ? rule("$0.Cast<object>()", LINQ)
                 : rule("$0"));
@@ -486,6 +490,13 @@ final class CSharpBcl implements LibraryMapping {
         if (receiver == null || receiver.parameters().size() <= index) return false;
         ParameterizedType v = receiver.parameters().get(index);
         return CSharpTypeName.valueReference(v);
+    }
+
+    /** The call's result, an {@code Optional<X>}, holds an X that C# has as a value type ({@code Integer}: int). */
+    private static boolean resultValueType(MethodCall call) {
+        if (call == null || call.parameterizedType() == null) return false;
+        List<ParameterizedType> args = call.parameterizedType().parameters();
+        return args.size() == 1 && args.getFirst() != null && CSharpTypeName.valueReference(args.getFirst());
     }
 
     /** The receiver is a collection of {@code ?}, which C# has as a non-generic interface. */

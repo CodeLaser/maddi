@@ -831,7 +831,7 @@ member java.util.Optional.of/1 -> $1
 member java.util.Optional.ofNullable/1 -> $1
 member java.util.Optional.empty/0 -> null
 member java.util.Optional.ifPresent/1 -> $0.IfPresent($1) using Maddi.JavaCompat
-member java.util.Optional.map/1 ->? $0.Map($1) using Maddi.JavaCompat
+# java.util.Optional.map/1: CSharpBcl's chooser, Map or, to a value type, MapValue (#204)
 member java.util.Optional.filter/1 ->? $0.Filter($1) using Maddi.JavaCompat
 member java.util.function.Function.apply -> $0($*)
 member java.util.function.BiFunction.apply -> $0($*)
