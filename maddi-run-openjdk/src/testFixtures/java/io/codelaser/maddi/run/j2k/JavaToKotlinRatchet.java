@@ -1096,7 +1096,12 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
             "data class", "\\bdata\\s+class\\b",
             ".stream()", "\\.stream\\(\\)",
             "Optional", "\\bOptional\\b",
-            ".get(", "\\.get\\(");
+            ".get(", "\\.get\\(",
+            // #231: a lambda as an argument inside the parentheses, f({ … }) or f(a, { … }), where it is last
+            // mostly a trailing one; and a named one-parameter lambda, { x -> … }, against it
+            "lambda inside ( or after ,", "[(,]\\s*\\{\\s",
+            "{ x -> (one named parameter)", "\\{\\s*[a-z][A-Za-z0-9_]*\\s*->",
+            "it", "\\bit\\b(?=\\.|!!|\\)|\\[|\\s[-+*/=<>!]|\\s\\})");
 
     private static Map<String, Pattern> idioms(String... namesAndPatterns) {
         Map<String, Pattern> map = new LinkedHashMap<>();

@@ -784,8 +784,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                             System.out.println(t);
                         });
                         apply(s -> s.length(), "x");
+                        long v = index.entrySet().stream().map(Map.Entry::getValue).filter(List::isEmpty).count();
                         all(() -> "a", () -> "b");
-                        return (int) n;
+                        return (int) (n + v);
                     }
                     static int apply(Function<String, Integer> f, String s) { return f.apply(s); }
                     @SafeVarargs static void all(Supplier<String>... suppliers) { }
@@ -800,6 +801,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "words.forEach { w ->");
         contains(kotlin, "apply({ it.length }, \"x\")");
         contains(kotlin, "all({ \"a\" }, { \"b\" })");
+        // a method reference Kotlin has as a lambda trails as one
+        contains(kotlin, ".map { it.value }");
         compiles(kotlin);
     }
 

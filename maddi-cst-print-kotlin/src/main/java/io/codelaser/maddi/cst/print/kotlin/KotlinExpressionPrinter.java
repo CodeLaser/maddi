@@ -48,6 +48,7 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.OutputElement;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.output.element.Symbol;
 import io.codelaser.maddi.cst.api.statement.Block;
@@ -1655,6 +1656,13 @@ public class KotlinExpressionPrinter {
             }
         }
         if (asArray && args.size() >= method.parameters().size() - 1) printed.add(varargsArray(args, method, q));
+        if (trailingLambda == null && !printed.isEmpty() && printed.size() == args.size()
+            && unwrap(args.getLast()) instanceof MethodReference
+            && trailingLambda(args, method, call, args.size() - 1, asArray)) {
+            // a method reference Kotlin has as a lambda, Map.Entry::getValue as { it.value }: trailing as well
+            trailingLambda = asTrailing(printed.getLast());
+            if (trailingLambda != null) printed.removeLast();
+        }
         if (trailingLambda != null) {
             // list.forEach { … }, map.computeIfAbsent(key) { … }: the last argument after the parentheses (#231)
             if (printed.isEmpty()) return trailingLambda;
@@ -1663,6 +1671,25 @@ public class KotlinExpressionPrinter {
         }
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+    }
+
+    /** A printed lambda, {@code { … }}, with the brace of a trailing one; null for anything else. */
+    private static OutputBuilder asTrailing(OutputBuilder printed) {
+        List<OutputElement> elements = printed.list();
+        if (elements.size() == 1 && elements.getFirst() instanceof TextImpl t && t.text().startsWith("{ ")
+            && t.text().endsWith(" }") && t.text().length() > 4) {
+            // a method reference's lambda written as one text, { it.value }
+            return new OutputBuilderImpl().add(KotlinSymbols.TRAILING_LAMBDA_BRACE).add(SpaceEnum.ONE)
+                    .add(text(t.text().substring(2, t.text().length() - 2))).add(SpaceEnum.ONE)
+                    .add(KotlinSymbols.LAMBDA_CLOSE);
+        }
+        if (elements.size() < 2 || elements.getFirst() != SymbolEnum.LEFT_BRACE
+            || elements.getLast() != KotlinSymbols.LAMBDA_CLOSE) {
+            return null;
+        }
+        OutputBuilder b = new OutputBuilderImpl().add(KotlinSymbols.TRAILING_LAMBDA_BRACE);
+        elements.subList(1, elements.size()).forEach(b::add);
+        return b;
     }
 
     /**
