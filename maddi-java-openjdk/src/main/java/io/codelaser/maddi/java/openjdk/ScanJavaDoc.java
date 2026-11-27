@@ -85,8 +85,8 @@ public record ScanJavaDoc(Runtime runtime,
         int close = text.indexOf("*/", start + 3);
         if (close < 0) return null;
         int lastChar = close + 1; // inclusive: the '/' of '*/'
-        return runtime.newParserSource("-", (int) lineMap.getLineNumber(start), (int) lineMap.getColumnNumber(start),
-                (int) lineMap.getLineNumber(lastChar), (int) lineMap.getColumnNumber(lastChar));
+        return runtime.newParserSource("-", (int) lineMap.getLineNumber(start), exactColumn(start),
+                (int) lineMap.getLineNumber(lastChar), exactColumn(lastChar));
     }
 
     /**
@@ -102,10 +102,24 @@ public record ScanJavaDoc(Runtime runtime,
         if (start == Diagnostic.NOPOS) return runtime.noSource();
         int end = start + 3; // the '/**' token: a comment with a body positions itself, this one has none
         long startLine = lineMap.getLineNumber(start);
-        long startCol = lineMap.getColumnNumber(start);
+        long startCol = exactColumn(start);
         long endLine = lineMap.getLineNumber(end - 1);
-        long endCol = lineMap.getColumnNumber(end - 1); // inclusive
+        long endCol = exactColumn(end - 1); // inclusive
         return runtime.newParserSource("-", (int) startLine, (int) startCol, (int) endLine, (int) endCol);
+    }
+
+    /**
+     * The 1-based CHARACTER column of {@code offset}: the offset minus the start of its line, plus one.
+     * <p>
+     * ⛔ Not {@code lineMap.getColumnNumber(offset)}: javac expands a TAB to the next multiple of 8 there, so in a
+     * tab-indented file every javadoc position pointed up to 7 characters per tab too far right, while the code's
+     * positions (ScanCompilationUnit#getExactColumn) count characters. An editor applying a javadoc edit at such a
+     * position wrote into the wrong characters: a {@code {@link X}} downgraded to {@code {@code X}} in a line
+     * starting with one tab replaced {@code eTyp} of {@code SomeTypeName} with {@code code} ({@code SomcodeeName}).
+     */
+    private int exactColumn(long offset) {
+        long line = lineMap.getLineNumber(offset);
+        return (int) (offset - lineMap.getStartPosition(line)) + 1;
     }
 
     class MyScanner extends DocTreeScanner<Void, Void> {
@@ -284,9 +298,9 @@ public record ScanJavaDoc(Runtime runtime,
             long endPos = docSourcePositions.getEndPosition(compilationUnitTree, docCommentTree, docNode);
             if (startPos == Diagnostic.NOPOS) return runtime.noSource(); // no position available
             long startLine = lineMap.getLineNumber(startPos);
-            long startCol = lineMap.getColumnNumber(startPos);
+            long startCol = exactColumn(startPos);
             long endLine = lineMap.getLineNumber(endPos);
-            long endCol = lineMap.getColumnNumber(endPos) - 1; // inclusive
+            long endCol = exactColumn(endPos) - 1; // inclusive
             return runtime().newParserSource("-", (int) startLine, (int) startCol, (int) endLine, (int) endCol);
         }
     }
