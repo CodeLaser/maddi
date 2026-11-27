@@ -128,9 +128,9 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         String kotlin = kotlin(LIBRARY);
         contains(kotlin, "list.sortWith(Comparator.naturalOrder())");
         contains(kotlin, "(lock as java.lang.Object).notifyAll()");
-        contains(kotlin, ".map({ it.value })");
-        contains(kotlin, ".filter({ it })");
-        contains(kotlin, ".flatMap({ it.stream() })");
+        contains(kotlin, ".map { it.value }");
+        contains(kotlin, ".filter { it }");
+        contains(kotlin, ".flatMap { it.stream() }");
         contains(kotlin, "`val` == -1L || `val` != 2L");
         contains(kotlin, "s.plus(\"x\")");
         contains(kotlin, "\"%s and %s\".format(joined, count)");
@@ -265,13 +265,13 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     public void smallGaps() {
         String kotlin = kotlin(SMALL_GAPS);
         contains(kotlin, ".toTypedArray<CompletableFuture<*>>())");
-        contains(kotlin, "{ java.util.List.of() })");
-        contains(kotlin, "{ java.util.List.of(*it) })");
+        contains(kotlin, "java.util.List.of() }!!");
+        contains(kotlin, ".map { java.util.List.of(*it)");
         contains(kotlin, "getOrDefault(d, java.util.function.Supplier<D>(::D))");
         // into a non-null parameter the cast null stays as it was
         contains(kotlin, "pick(null as String)");
-        contains(kotlin, "Comparator.comparingDouble<Any>( { scores.get(it)!! }).reversed()");
-        contains(kotlin, "anyMatch({ it.retry() })");
+        contains(kotlin, "Comparator.comparingDouble<Any> { scores.get(it)!! }.reversed()");
+        contains(kotlin, "anyMatch { it.retry() }");
         contains(kotlin, "(actual as Comparable<Any?>).compareTo(expected)");
     }
 
@@ -744,8 +744,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     }
                 }
                 """);
-        contains(kotlin, "runWithLock<Throwable>(");
-        contains(kotlin, "callWithLock<String, Throwable>(");
+        contains(kotlin, "runWithLock<Throwable> { count++ }");
+        contains(kotlin, "callWithLock<String, Throwable> { \"q$count\" }");
         // a typed argument fixes T: jenkins's channel.call(new GetEnvVars())
         contains(kotlin, "callWithLock(Named())");
         compiles(kotlin);

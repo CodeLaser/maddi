@@ -982,7 +982,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     @Test
     public void streamsOfNullableElements() {
         String kotlin = kotlin(STREAMS, new KotlinPrintOptions(new ByName(Set.of("items<>", "text")), KotlinPrintOptions.NullCheck.ASSERT));
-        contains(kotlin, "mapToInt({ S.size(it!!) })");
+        contains(kotlin, "mapToInt { S.size(it!!) }");
         contains(kotlin, "findAny() as Optional<String>)");
         contains(kotlin, "as Optional<String>)");
         // names' elements are non-null: no cast
@@ -990,8 +990,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // a library's parameter takes the null
         contains(kotlin, "filter(Objects ::isNull)");
         // a bound reference; a Collection<?>'s elements are Any? in Kotlin
-        contains(kotlin, "{ this.upper(it!!) }).toList()");
-        contains(kotlin, "map({ S.str(it!!) })");
+        contains(kotlin, ".map { this.upper(it!!) }.toList()");
+        contains(kotlin, "map { S.str(it!!) }");
         // a cast null picks the overload; `null as String` would throw
         contains(kotlin, "pick(null as String?)");
         // a varargs array is spread, which Kotlin cannot do with a nullable one
@@ -1020,8 +1020,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     public void inferredNullableLambdaParameters() {
         String kotlin = kotlin(LAMBDAS, new KotlinPrintOptions(new ByName(Set.of("sorted<>", "ex()")),
                 KotlinPrintOptions.NullCheck.ASSERT));
-        contains(kotlin, "o -> o!!.id");
-        contains(kotlin, "exprs!!.size");
+        contains(kotlin, "comparingInt { it!!.id }");
+        contains(kotlin, "if (it!!.size == 1)");
     }
 
     @Language("java")
@@ -1418,7 +1418,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "pairs = if (src != null) ArrayList<String?>(src) else null");
         contains(kotlin, "ArrayList<String?>().also { lst = it }");
         // the diamond as the lambda's result: Kotlin infers HashMap's arguments, the map's states included
-        contains(kotlin, "{ x -> HashMap() }");
+        contains(kotlin, "computeIfAbsent(k) { HashMap() }");
     }
 
     @Language("java")
@@ -2271,8 +2271,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "for (entry in values.entries) { use(entry.value!!) }");
         contains(kotlin, "val node = Node(label)");
         // a lambda's parameters are typed by the call: a Stream<String?> filters String?s
-        contains(kotlin, ".filter( { s -> s!!.length > 3 })");
-        contains(kotlin, "maybe.forEach( { s -> use(s!!) })");
+        contains(kotlin, ".filter { it!!.length > 3 }");
+        contains(kotlin, "maybe.forEach { use(it!!) }");
         // array elements into a non-null element type are asserted
         contains(kotlin, "arrayOf<String>(label!!, \"x\")");
         contains(kotlin, "override fun toString(): String = label!!");
@@ -2514,7 +2514,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "fromJson((s as String?), MutableMap::class.java)");
         contains(kotlin, "as MutableMap<String, Any>)");
-        contains(kotlin, "val DEFAULT: Function<String, Int?> = Function<String, Int?> { q -> 3 }");
+        contains(kotlin, "val DEFAULT: Function<String, Int?> = Function<String, Int?> { 3 }");
         contains(kotlin, "fun subtype(sub: Sub): Class<*> = sub.value.java");
         contains(kotlin, "Optional.ofNullable(d).orElse(describe(c))");
         assertFalse(kotlin.contains("describe(c)!!"), kotlin);
@@ -2680,10 +2680,10 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         String kotlin = kotlin(LAMBDA_RESULT, new KotlinPrintOptions(new ByName(Set.of(), Set.of("=apply()")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "minScore: Double?");
-        contains(kotlin, "{ query -> minScore!! }");
+        contains(kotlin, "this({ minScore!! }, 0)");
         String undecided = kotlin(LAMBDA_RESULT.replace("Retriever", "Retriever2"),
                 new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
-        contains(undecided, "{ query -> minScore }");
+        contains(undecided, "this({ minScore }, 0)");
     }
 
     private static final String TYPE_TOKEN = """
