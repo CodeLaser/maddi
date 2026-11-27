@@ -1021,7 +1021,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         String kotlin = kotlin(LAMBDAS, new KotlinPrintOptions(new ByName(Set.of("sorted<>", "ex()")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "comparingInt { it!!.id }");
-        contains(kotlin, "exprs!!.size");
+        contains(kotlin, "if (it!!.size == 1)");
     }
 
     @Language("java")
@@ -2272,7 +2272,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "val node = Node(label)");
         // a lambda's parameters are typed by the call: a Stream<String?> filters String?s
         contains(kotlin, ".filter { it!!.length > 3 }");
-        contains(kotlin, "maybe.forEach( { s -> use(s!!) })");
+        contains(kotlin, "maybe.forEach { use(it!!) }");
         // array elements into a non-null element type are asserted
         contains(kotlin, "arrayOf<String>(label!!, \"x\")");
         contains(kotlin, "override fun toString(): String = label!!");
@@ -2683,7 +2683,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "this({ minScore!! }, 0)");
         String undecided = kotlin(LAMBDA_RESULT.replace("Retriever", "Retriever2"),
                 new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
-        contains(undecided, "{ query -> minScore }");
+        contains(undecided, "this({ minScore }, 0)");
     }
 
     private static final String TYPE_TOKEN = """

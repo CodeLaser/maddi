@@ -164,7 +164,7 @@ class TestKotlinPrinterRoundTrip {
         assertTrue(kotlin.contains("catch (e: RuntimeException)"), kotlin) // try/catch
         assertTrue(kotlin.contains("throw RuntimeException(\"x\")"), kotlin) // throw + new
         // lambda; outside argument position it names its interface (a SAM constructor)
-        assertTrue(kotlin.contains("= java.util.function.Function<Int, Int> { x -> x + k }"), kotlin)
+        assertTrue(kotlin.contains("= java.util.function.Function<Int, Int> { it + k }"), kotlin)
         assertTrue(!kotlin.contains("instanceof") && !kotlin.contains(" new "), kotlin)
 
     }
