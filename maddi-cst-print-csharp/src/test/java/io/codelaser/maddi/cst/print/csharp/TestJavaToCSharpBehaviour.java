@@ -987,11 +987,16 @@ public class TestJavaToCSharpBehaviour extends CommonJavaToCSharp {
                 package a;
                 import java.util.Objects;
                 class CoalesceConditional {
+                    static final class Fallback { String value() { return "fallback"; } }
                     public static void main(String[] args) {
                         String present = Objects.requireNonNull(args.length == 0 ? "here" : null);
                         String given = args.length > 0 ? args[0] : null;
                         String chosen = Objects.requireNonNullElse(given, present.isEmpty() ? "empty" : "full");
-                        System.out.println(present + " " + chosen);
+                        // a supplier beside ??, a callee: not parenthesized as an operand (timefold's
+                        // orElseGet(range::getStartSplitPoint))
+                        Fallback fallback = new Fallback();
+                        String supplied = Objects.requireNonNullElseGet(given, fallback::value);
+                        System.out.println(present + " " + chosen + " " + supplied);
                     }
                 }
                 """);

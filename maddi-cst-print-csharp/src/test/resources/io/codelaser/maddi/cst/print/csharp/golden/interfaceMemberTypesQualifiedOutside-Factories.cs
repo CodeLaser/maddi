@@ -11,6 +11,10 @@ internal sealed class Factories {
         interface ITemplate { }
     }
     internal sealed class FactoryLambda(Func<Factories.IFactory.IInput, Factories.IFactory.ITemplate> f) : IFactory { public Factories.IFactory.ITemplate Create(Factories.IFactory.IInput @in) => f(@in); }
+    internal sealed class Passed : IResult<string> { public Kind? kind() => Kind.Pass; }
     internal sealed class Plain : IFactory { public IFactory.ITemplate Create(IFactory.IInput @in) => null; }
+    internal interface IResult<T> { Kind? kind(); }
+    internal sealed class ResultLambda<T>(Func<Kind> f) : IResult<T> { public Kind? kind() => f(); }
     internal sealed class Use { internal static IFactory Make(IFactory.ITemplate t) => new FactoryLambda(@in => t); }
 }
+public enum Kind { Pass, Fail }

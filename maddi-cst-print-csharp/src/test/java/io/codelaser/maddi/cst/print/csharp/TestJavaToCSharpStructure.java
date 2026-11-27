@@ -3678,10 +3678,19 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     static class Use {
                         static Factory make(Factory.Template t) { return in -> t; }
                     }
+                    interface Result<T> {
+                        enum Kind { PASS, FAIL }
+                        Kind kind();
+                    }
+                    static class Passed implements Result<String> {
+                        public Kind kind() { return Kind.PASS; }
+                    }
                 }
                 """);
         contains(cs, "ITemplate Create(IFactory.IInput @in)");
         contains(cs, "IFactory.ITemplate Create(IFactory.IInput @in) => null;");
         contains(cs, "static IFactory Make(IFactory.ITemplate t)");
+        // a member type of a generic interface is hoisted beside it: its simple name, not IResult.Kind (CS0426)
+        contains(cs, "public Kind? kind() => Kind.Pass;");
     }
 }

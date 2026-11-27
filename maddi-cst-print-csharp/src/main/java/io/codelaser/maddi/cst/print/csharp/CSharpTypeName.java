@@ -127,7 +127,11 @@ public final class CSharpTypeName {
      */
     private static boolean interfaceMemberOutside(TypeInfo typeInfo) {
         TypeInfo owner = CstQueries.enclosing(typeInfo);
-        if (owner == null || !owner.isInterface() || !CSharpNames.translated(typeInfo)) return false;
+        // a member type of a generic interface is hoisted beside it, out of the interface: its simple name is in scope
+        if (owner == null || !owner.isInterface() || !CSharpNames.translated(typeInfo)
+            || CSharpNames.hoisted(typeInfo)) {
+            return false;
+        }
         TypeInfo current = CSharpContext.currentType();
         if (current == null) return false;
         for (TypeInfo t = current; t != null; t = CstQueries.enclosing(t)) {

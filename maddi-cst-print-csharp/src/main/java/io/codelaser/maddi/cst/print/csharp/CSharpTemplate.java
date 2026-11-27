@@ -387,6 +387,8 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
      * any expression stands as it is.
      */
     static boolean besideOperator(String template, int start, int end) {
+        // $1() a callee, $1.M a receiver, $1[i]: not an operand ((range.GetStart)() is no method call, CS0149)
+        if (end < template.length() && "(.[".indexOf(template.charAt(end)) >= 0) return false;
         int a = end;
         while (a < template.length() && template.charAt(a) == ' ') a++;
         String after = template.substring(a);
