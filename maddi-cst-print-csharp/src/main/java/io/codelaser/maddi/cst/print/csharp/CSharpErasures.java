@@ -152,8 +152,16 @@ final class CSharpErasures {
         for (MethodInfo m : t.methods()) {
             if (instance(m)) body.add(forwarding(m, erased, q));
         }
+        // #187: one per call of Erased_, so its identity is no Java object's; equal to the value it wraps, and to
+        // another adapter of it: a map keyed by the erased type finds a key put through another adapter
+        CSharpContext.using(CSharpCompat.NAMESPACE);
+        body.add("public object Adapted => " + FIELD + ";");
+        body.add("public override bool Equals(object? other) => other is IErasureAdapter a ? " + FIELD
+                 + ".Equals(a.Adapted) : " + FIELD + ".Equals(other);");
+        body.add("public override int GetHashCode() => " + FIELD + ".GetHashCode();");
         StringBuilder header = new StringBuilder(access == null ? "" : access + " ").append("sealed class ")
-                .append(className(t)).append(CSharpNames.typeParameters(t.typeParameters())).append(" : ").append(adapter);
+                .append(className(t)).append(CSharpNames.typeParameters(t.typeParameters())).append(" : ").append(adapter)
+                .append(", IErasureAdapter");
         for (String constraint : CSharpTypeName.constraints(t.typeParameters(), q)) header.append(' ').append(constraint);
         return new OutputBuilderImpl().add(text(header.toString())).add(SpaceEnum.ONE)
                 .add(CSharpStatementPrinter.braces(body.stream().map(CSharpErasures::text).toList()));

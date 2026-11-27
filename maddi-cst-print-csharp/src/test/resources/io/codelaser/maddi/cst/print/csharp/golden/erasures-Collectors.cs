@@ -20,11 +20,14 @@ internal sealed class Collectors {
         ITriFunction<ResultContainer_, A, B, Action> Accumulator();
         static IBiCollector<A, B, object, Result_> Erased_(IBiCollector<A, B, ResultContainer_, Result_> erased) => erased as IBiCollector<A, B, object, Result_> ?? new BiCollectorErasure_<A, B, ResultContainer_, Result_>(erased);
     }
-    internal sealed class BiCollectorErasure_<A, B, ResultContainer_, Result_> : IBiCollector<A, B, object, Result_> {
+    internal sealed class BiCollectorErasure_<A, B, ResultContainer_, Result_> : IBiCollector<A, B, object, Result_>, IErasureAdapter {
         private readonly IBiCollector<A, B, ResultContainer_, Result_> erased;
         internal BiCollectorErasure_(IBiCollector<A, B, ResultContainer_, Result_> erased) { this.erased = erased; }
         public Func<object> Supplier() { var f = erased.Supplier(); return () => f(); }
         public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new TriFunctionLambda<object, A, B, Action>((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }
+        public object Adapted => erased;
+        public override bool Equals(object? other) => other is IErasureAdapter a ? erased.Equals(a.Adapted) : erased.Equals(other);
+        public override int GetHashCode() => erased.GetHashCode();
     }
 
     internal interface ICollector<in A, ResultContainer_, out Result_> {
@@ -33,12 +36,15 @@ internal sealed class Collectors {
         Func<ResultContainer_, Result_> Finisher();
         static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new CollectorErasure_<A, ResultContainer_, Result_>(erased);
     }
-    internal sealed class CollectorErasure_<A, ResultContainer_, Result_> : ICollector<A, object, Result_> {
+    internal sealed class CollectorErasure_<A, ResultContainer_, Result_> : ICollector<A, object, Result_>, IErasureAdapter {
         private readonly ICollector<A, ResultContainer_, Result_> erased;
         internal CollectorErasure_(ICollector<A, ResultContainer_, Result_> erased) { this.erased = erased; }
         public Func<object> Supplier() { var f = erased.Supplier(); return () => f(); }
         public Func<object, A, Action> Accumulator() { var f = erased.Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }
         public Func<object, Result_> Finisher() { var f = erased.Finisher(); return x0_ => f((ResultContainer_) x0_); }
+        public object Adapted => erased;
+        public override bool Equals(object? other) => other is IErasureAdapter a ? erased.Equals(a.Adapted) : erased.Equals(other);
+        public override int GetHashCode() => erased.GetHashCode();
     }
 
     internal sealed class Concat : ITriFunction<string, string, string, string> {

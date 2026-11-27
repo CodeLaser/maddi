@@ -28,6 +28,15 @@ using System.Threading.Tasks;
 
 namespace Maddi.JavaCompat;
 
+/// <summary>
+/// The translation's erasure adapters (Erased_): the value one wraps, so that two adapters of one value, or an
+/// adapter and the value, are equal, as Java's one object is (CodeLaser/maddi#187).
+/// </summary>
+public interface IErasureAdapter
+{
+    object Adapted { get; }
+}
+
 /// <summary>Java's collection methods whose results the BCL's do not have.</summary>
 public static class JavaCollections
 {

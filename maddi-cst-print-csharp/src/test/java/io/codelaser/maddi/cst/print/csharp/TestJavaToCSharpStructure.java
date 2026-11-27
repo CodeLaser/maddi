@@ -501,7 +501,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         String cs = translate("Collectors", ERASURES);
         contains(cs, "static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new CollectorErasure_<A, ResultContainer_, Result_>(erased);");
         // the adapter class beside the interface, which its variance keeps it out of (CS8427)
-        contains(cs, "internal sealed class CollectorErasure_<A, ResultContainer_, Result_> : ICollector<A, object, Result_> {");
+        contains(cs, "internal sealed class CollectorErasure_<A, ResultContainer_, Result_> : ICollector<A, object, Result_>, IErasureAdapter {");
+        // equal to the value it wraps, and to another adapter of it (#187)
+        contains(cs, "public override bool Equals(object? other) => other is IErasureAdapter a ? erased.Equals(a.Adapted) : erased.Equals(other);");
         contains(cs, "public Func<object, A, Action> Accumulator() { var f = erased.Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
         contains(cs, "=> ICollector<A, List<A>, List<A>>.Erased_(new ToList<A>());");
         contains(cs, "=> Logged(toList<A>());");
