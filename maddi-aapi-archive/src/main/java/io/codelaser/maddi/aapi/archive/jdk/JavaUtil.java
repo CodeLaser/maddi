@@ -1905,19 +1905,19 @@ public class JavaUtil {
 
         //frequency 83
         //@Independent[O] @NotModified[T]
-        static <T> Set<T> singleton(/*@Independent[M] @NotModified[T]*/ T o) { return null; }
+        static <T> Set<T> singleton(/*@Independent[M] @NotModified[T]*/ @Independent(hc = true) T o) { return null; }
 
         //frequency 27
         //@Independent[O] @NotModified[T]
-        static <T> List<T> singletonList(/*@Independent[M] @NotModified[T]*/ T o) { return null; }
+        static <T> List<T> singletonList(/*@Independent[M] @NotModified[T]*/ @Independent(hc = true) T o) { return null; }
 
         //@Independent[O] @NotModified[T]
         static <K, V> Map<K, V> singletonMap(
-            /*@Independent[M] @NotModified[T]*/ K key,
-            /*@Independent[M] @NotModified[T]*/ V value) { return null; }
+            /*@Independent[M] @NotModified[T]*/ @Independent(hc = true) K key,
+            /*@Independent[M] @NotModified[T]*/ @Independent(hc = true) V value) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> List<T> nCopies(int n, /*@Independent[M] @NotModified[T]*/ T o) { return null; }
+        static <T> List<T> nCopies(int n, /*@Independent[M] @NotModified[T]*/ @Independent(hc = true) T o) { return null; }
 
         //@Immutable(hc=true)[T] @Independent[O] @NotModified[T]
         static <T> Comparator<T> reverseOrder() { return null; }
