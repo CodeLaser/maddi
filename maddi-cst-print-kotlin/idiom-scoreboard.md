@@ -13,43 +13,49 @@ Add a column when a change moves them, with the commits it was measured at. Newe
 
 346 main source files.
 
-| idiom                          | 2026-10-15 (#140) | 2026-11-26 before | 2026-11-26 after |
-|--------------------------------|------------------:|------------------:|-----------------:|
-| `?.` (safe calls)              |                   |                 9 |                9 |
-| `?:` (elvis)                   |                 6 |                10 |               10 |
-| `!!` (assertions)              |               218 |               203 |              203 |
-| `.equals(`                     |                 9 |                 9 |                9 |
-| string templates (`$x`, `${…}`)|                 8 |                 6 |              276 |
-| `+` next to a string literal   |                   |               478 |                0 |
-| `val`                          |                   |              1022 |             1022 |
-| `var`                          |                   |               287 |              287 |
-| `lateinit`                     |                   |                 1 |                1 |
-| `open` (declarations)          |                   |               998 |               10 |
-| `data class`                   |                   |                 4 |                4 |
-| `.stream()`                    |                61 |                40 |               40 |
-| `Optional`                     |               101 |                86 |               86 |
-| `.get(`                        |                   |                93 |               75 |
+| idiom                          | 2026-10-15 (#140) | 2026-11-26 before | 2026-11-26 after | 2026-11-27 (#231) |
+|--------------------------------|------------------:|------------------:|-----------------:|-----------------:|
+| `?.` (safe calls)              |                   |                 9 |                9 |                9 |
+| `?:` (elvis)                   |                 6 |                10 |               10 |               10 |
+| `!!` (assertions)              |               218 |               203 |              203 |              203 |
+| `.equals(`                     |                 9 |                 9 |                9 |                9 |
+| string templates (`$x`, `${…}`)|                 8 |                 6 |              276 |              276 |
+| `+` next to a string literal   |                   |               478 |                0 |                 0 |
+| `val`                          |                   |              1022 |             1022 |             1022 |
+| `var`                          |                   |               287 |              287 |              287 |
+| `lateinit`                     |                   |                 1 |                1 |                1 |
+| `open` (declarations)          |                   |               998 |               10 |               10 |
+| `data class`                   |                   |                 4 |                4 |                4 |
+| `.stream()`                    |                61 |                40 |               40 |               40 |
+| `Optional`                     |               101 |                86 |               86 |               86 |
+| `.get(`                        |                   |                93 |               75 |               75 |
+| lambda inside `(` or after `,` |                   |                   |              112 |               24 |
+| `{ x -> }` (one named parameter) |                   |                   |               80 |               32 |
+| `it`                           |                   |                   |               41 |               71 |
 
 ## fernflower, with nullability verdicts (maddi-mod `TestJavaToKotlinFernflowerNullability`)
 
 199 main source files.
 
-| idiom                          | 2026-10-15 (#140) | 2026-11-26 before | 2026-11-26 after |
-|--------------------------------|------------------:|------------------:|-----------------:|
-| `?.` (safe calls)              |                11 |                39 |               39 |
-| `?:` (elvis)                   |                16 |                21 |               21 |
-| `!!` (assertions)              |              2880 |              2825 |             2825 |
-| `.equals(`                     |               152 |               156 |              156 |
-| string templates (`$x`, `${…}`)|                   |                 0 |              310 |
-| `+` next to a string literal   |                   |               391 |               22 |
-| `val`                          |                   |              4857 |             4857 |
-| `var`                          |                   |              1573 |             1573 |
-| `lateinit`                     |                   |                15 |               15 |
-| `open` (declarations)          |                   |               863 |               43 |
-| `data class`                   |                   |                13 |               13 |
-| `.stream()`                    |                   |                77 |               77 |
-| `Optional`                     |                   |                 9 |                9 |
-| `.get(`                        |                   |              1349 |              328 |
+| idiom                          | 2026-10-15 (#140) | 2026-11-26 before | 2026-11-26 after | 2026-11-27 (#231) |
+|--------------------------------|------------------:|------------------:|-----------------:|-----------------:|
+| `?.` (safe calls)              |                11 |                39 |               39 |               39 |
+| `?:` (elvis)                   |                16 |                21 |               21 |               21 |
+| `!!` (assertions)              |              2880 |              2825 |             2825 |             2828 |
+| `.equals(`                     |               152 |               156 |              156 |              156 |
+| string templates (`$x`, `${…}`)|                   |                 0 |              310 |              310 |
+| `+` next to a string literal   |                   |               391 |               22 |                22 |
+| `val`                          |                   |              4857 |             4857 |             4857 |
+| `var`                          |                   |              1573 |             1573 |             1573 |
+| `lateinit`                     |                   |                15 |               15 |               15 |
+| `open` (declarations)          |                   |               863 |               43 |               43 |
+| `data class`                   |                   |                13 |               13 |               13 |
+| `.stream()`                    |                   |                77 |               77 |               77 |
+| `Optional`                     |                   |                 9 |                9 |                9 |
+| `.get(`                        |                   |              1349 |              328 |              328 |
+| lambda inside `(` or after `,` |                   |                   |              161 |               14 |
+| `{ x -> }` (one named parameter) |                   |                   |              357 |              234 |
+| `it`                           |                   |                   |               54 |              171 |
 
 ## guava, with nullability verdicts (maddi-mod `TestJavaToKotlinGuavaNullability`)
 
@@ -65,6 +71,9 @@ Add a column when a change moves them, with the commits it was measured at. Newe
 | `+` next to a literal | 38 | `Optional` | 253 |
 | `val` | 6481 | `.get(` | 593 |
 
+Lambdas, 2026-11-26 after → 2026-11-27 (#231): inside `(` or after `,` 245 → 130, `{ x -> }` 309 → 221, `it`
+451 → 535; the other rows unchanged.
+
 ## Where the columns were measured
 
 - **2026-10-15 (#140)**: the #140 review's numbers, from its issue comments and the langchain4j-nullability
@@ -78,3 +87,9 @@ Add a column when a change moves them, with the commits it was measured at. Newe
   (`// System.out.println("…" + x)`) and literals that hold a `+` (`"\\s+"`, `" + "`). `lateinit` fixtures live in the test sources, which these counts do not cover. Without verdicts
   (maddi-run-openjdk's `TestJavaToKotlin{Fernflower,Langchain4j,Guava}`) the same run counts 310, 276 and 502
   templates, and 43, 10 and 361 `open`.
+- **2026-11-27 (#231)**: maddi f54d359e9 (trailing lambdas, `it`), maddi-mod as before, on laser3. The three lambda
+  rows were counted afterwards on that run's output and on the 2026-11-26 "after" output, with the patterns
+  maddi 1959198c9 added to the report. Not measured: 1959198c9, which also puts a method reference Kotlin prints
+  as a lambda (`.map { it.value }`) after the parentheses. What is left inside them is mostly lambdas that are not
+  the last argument, SAM constructors (`Supplier<…>({ … })`), and method references then. fernflower's three more
+  `!!` are not traced yet.
